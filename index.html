@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Two Millennia — A Timeline of the Catholic Church</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap"></noscript>
+<style>
+  :root{
+    --navy:#0B1630; --navy-deep:#070F22; --navy-band:#101D3D;
+    --gold:#C9A542; --gold-bright:#E8CD7E; --parchment:#EFE6CE; --muted:#9AA5BF;
+    --saint:#E0B84C; --council:#EDE4C8; --persec:#D45B45; --event:#7E9CC9;
+    --marian:#8FC7E8; --euch:#B98FE0;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--navy-deep); color:var(--parchment);
+    font-family:'EB Garamond', Georgia, serif;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  header{
+    padding:12px 14px 8px;
+    background:linear-gradient(180deg, #0A1430 0%, var(--navy-deep) 100%);
+    border-bottom:1px solid rgba(201,165,66,.35);
+    flex:0 0 auto; position:relative;
+  }
+  h1{
+    font-family:'Cinzel', serif; font-weight:600;
+    font-size:clamp(16px, 2.6vw, 25px); letter-spacing:.14em;
+    color:var(--gold-bright); text-transform:uppercase; text-align:center;
+  }
+  .subtitle{text-align:center; font-style:italic; color:var(--muted); font-size:clamp(11px,1.6vw,14px); margin-top:2px;}
+  .rule{width:min(420px,70%); height:1px; margin:7px auto 0; background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+  .managebtn{
+    position:absolute; top:12px; right:12px;
+    font-family:'Cinzel',serif; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    background:var(--navy-band); color:var(--gold-bright);
+    border:1px solid rgba(201,165,66,.5); border-radius:14px;
+    padding:5px 12px; cursor:pointer;
+  }
+  .managebtn:hover{background:var(--gold); color:var(--navy-deep);}
+  .controls{
+    flex:0 0 auto; padding:8px 12px;
+    display:flex; flex-direction:column; gap:6px;
+    background:var(--navy-deep); border-bottom:1px solid rgba(201,165,66,.2);
+  }
+  .row{display:flex; align-items:center; gap:6px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:thin; padding-bottom:2px;}
+  .row::-webkit-scrollbar{height:4px;}
+  .row::-webkit-scrollbar-thumb{background:rgba(201,165,66,.3); border-radius:2px;}
+  .tbtn, .chip, .zbtn{
+    font-family:'EB Garamond', serif;
+    background:var(--navy-band); color:var(--parchment);
+    border:1px solid rgba(201,165,66,.35); border-radius:16px;
+    padding:4px 11px; font-size:13.5px; cursor:pointer; white-space:nowrap;
+    display:inline-flex; align-items:center; gap:6px;
+    transition:background .15s, border-color .15s, opacity .15s; flex:0 0 auto;
+  }
+  .tbtn svg{width:14px; height:14px;}
+  .tbtn.off{opacity:.35; border-color:rgba(154,165,191,.3);}
+  .chip.active{background:var(--gold); color:var(--navy-deep); border-color:var(--gold); font-weight:600;}
+  .zbtn{border-radius:8px; padding:4px 10px; font-size:15px; font-weight:600;}
+  .zbtn:hover,.tbtn:hover,.chip:hover{border-color:var(--gold-bright);}
+  .count{margin-left:auto; font-size:12.5px; color:var(--muted); font-style:italic; white-space:nowrap; flex:0 0 auto; padding-left:6px;}
+  .lbl{font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-family:'Cinzel',serif; flex:0 0 auto; padding-right:2px;}
+  .viewport{
+    flex:1 1 auto; overflow:auto; position:relative; cursor:grab;
+    background:radial-gradient(ellipse 900px 400px at 30% -10%, rgba(201,165,66,.06), transparent), var(--navy);
+  }
+  .canvas{position:relative; min-height:100%;}
+  .viewport.dragging{cursor:grabbing; user-select:none;}
+  .viewport.dragging .ev{pointer-events:none;}
+  .era{
+    position:absolute; top:0; height:30px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Cinzel',serif; font-size:10.5px; letter-spacing:.18em;
+    text-transform:uppercase; color:rgba(232,205,126,.85);
+    border-right:1px solid rgba(201,165,66,.25); overflow:hidden; white-space:nowrap;
+  }
+  .era:nth-child(odd){background:rgba(201,165,66,.07);}
+  .era:nth-child(even){background:rgba(201,165,66,.03);}
+  .era span{position:sticky; left:8px; right:8px; padding:0 8px;}
+  .axis{position:absolute; top:30px; height:28px; left:0; right:0; border-bottom:1px solid var(--gold); box-shadow:0 1px 0 rgba(232,205,126,.25);}
+  .tick{position:absolute; bottom:0; height:8px; width:1px; background:var(--gold);}
+  .tick.minor{height:5px; background:rgba(201,165,66,.5);}
+  .ticklbl{position:absolute; bottom:9px; transform:translateX(-50%); font-family:'Cinzel',serif; font-size:10.5px; color:var(--gold-bright); letter-spacing:.05em; white-space:nowrap;}
+  .grid{position:absolute; top:58px; bottom:0; width:1px; background:rgba(201,165,66,.08);}
+  /* Sticky header (eras + year axis) */
+  .timehead{
+    position:sticky; top:0; z-index:20; height:58px;
+    background:linear-gradient(180deg, #0D1936 0%, rgba(11,22,48,.97) 100%);
+    box-shadow:0 2px 8px rgba(0,0,0,.45);
+  }
+  /* Category bands */
+  .band{position:absolute; left:0; z-index:1; border-bottom:1px solid rgba(201,165,66,.14);}
+  .band-s{background:rgba(224,184,76,.055);}
+  .band-c{background:rgba(237,228,200,.045);}
+  .band-p{background:rgba(212,91,69,.055);}
+  .band-m{background:rgba(143,199,232,.055);}
+  .band-u{background:rgba(185,143,224,.055);}
+  .band-e{background:rgba(126,156,201,.05);}
+  .bandlbl{
+    position:sticky; left:8px; display:inline-block;
+    font-family:'Cinzel',serif; font-size:9.5px; letter-spacing:.2em; text-transform:uppercase;
+    opacity:.65; margin:4px 0 0 8px; pointer-events:none;
+  }
+  .ev{position:absolute; display:flex; flex-direction:column; align-items:center; cursor:pointer; transform:translateX(-50%); z-index:2;}
+  .ev .ic{
+    width:22px; height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--navy-deep); border:1.5px solid currentColor;
+    box-shadow:0 0 6px rgba(0,0,0,.5); transition:transform .12s, box-shadow .12s;
+  }
+  .ev:hover .ic{transform:scale(1.25); box-shadow:0 0 10px currentColor;}
+  .ev svg{width:12px; height:12px;}
+  .ev .nm{
+    margin-top:2px; font-size:10.5px; line-height:1.12; text-align:center; max-width:88px;
+    color:var(--parchment); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden; text-shadow:0 1px 3px rgba(0,0,0,.9);
+  }
+  .ev .yr{font-size:9px; color:var(--muted); font-style:italic;}
+  .t-s{color:var(--saint);} .t-c{color:var(--council);} .t-p{color:var(--persec);}
+  .t-e{color:var(--event);} .t-m{color:var(--marian);} .t-u{color:var(--euch);}
+  .detail{
+    position:fixed; left:50%; transform:translateX(-50%) translateY(120%);
+    bottom:12px; width:min(560px, calc(100% - 20px));
+    background:linear-gradient(180deg, #14224A, #0C1735);
+    border:1px solid var(--gold); border-radius:10px;
+    padding:14px 16px; box-shadow:0 8px 30px rgba(0,0,0,.6);
+    transition:transform .25s ease; z-index:50; max-height:60vh; overflow-y:auto;
+  }
+  .detail.open{transform:translateX(-50%) translateY(0);}
+  .detail .close{position:absolute; top:8px; right:10px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1;}
+  .detail .close:hover{color:var(--gold-bright);}
+  .dhead{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; padding-right:24px;}
+  .dyear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:18px; font-weight:600;}
+  .dname{font-size:19px; font-weight:600;}
+  .dbadges{display:flex; gap:6px; margin-top:5px; flex-wrap:wrap;}
+  .badge{font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:2px 9px; border-radius:10px; border:1px solid currentColor; font-family:'Cinzel',serif;}
+  .ddesc{margin-top:8px; font-size:15px; line-height:1.45;}
+  .artopen{
+    margin-top:12px; width:100%;
+    font-family:'Cinzel',serif; font-size:12.5px; letter-spacing:.12em; text-transform:uppercase;
+    background:var(--gold); color:var(--navy-deep); border:none; border-radius:6px;
+    padding:9px 12px; cursor:pointer; font-weight:600;
+  }
+  .artopen:hover{background:var(--gold-bright);}
+  /* Overlays: article & manage */
+  .overlay{
+    position:fixed; inset:0; z-index:100;
+    background:linear-gradient(180deg,#0A1430 0%, #070F22 40%);
+    overflow-y:auto; transform:translateY(100%); transition:transform .3s ease;
+  }
+  .overlay.open{transform:translateY(0);}
+  .artwrap{max-width:720px; margin:0 auto; padding:18px 20px 70px;}
+  .artback{
+    position:sticky; top:12px; z-index:5;
+    font-family:'Cinzel',serif; font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+    background:var(--navy-band); color:var(--gold-bright);
+    border:1px solid var(--gold); border-radius:16px; padding:6px 14px; cursor:pointer;
+  }
+  .artback:hover{background:var(--gold); color:var(--navy-deep);}
+  .arttitle{font-family:'Cinzel',serif; font-weight:700; color:var(--gold-bright); font-size:clamp(24px,5vw,34px); line-height:1.15; margin-top:20px; text-align:center;}
+  .artsub{text-align:center; font-style:italic; color:var(--muted); font-size:16px; margin-top:6px;}
+  .artbadges{display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
+  .artrule{width:min(360px,60%); height:1px; margin:18px auto; background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+  .arth{font-family:'Cinzel',serif; font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:26px 0 8px; border-bottom:1px solid rgba(201,165,66,.35); padding-bottom:5px;}
+  .artp{font-size:17.5px; line-height:1.68; margin:0 0 14px;}
+  .artquote{border-left:3px solid var(--gold); background:rgba(201,165,66,.06); padding:10px 16px; margin:14px 0; font-style:italic; font-size:17px; line-height:1.6;}
+  .artquote .qsrc{display:block; font-style:normal; font-size:13.5px; color:var(--muted); margin-top:5px;}
+  .artsrc a{color:var(--gold-bright); font-size:15.5px;}
+  .artsrc li{margin-bottom:6px; margin-left:20px;}
+  .artimg{width:100%; border-radius:8px; border:1px solid rgba(201,165,66,.5); margin-top:18px; display:block;}
+  .artcap{text-align:center; font-style:italic; color:var(--muted); font-size:13.5px; margin-top:6px;}
+  /* Quick Facts panel */
+  .factbox{border:1px solid rgba(201,165,66,.4); border-radius:10px; background:rgba(201,165,66,.05); padding:14px 18px; margin:22px 0;}
+  .factbox .facth{font-family:'Cinzel',serif; font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin-bottom:10px; text-align:center;}
+  .factrow{display:flex; gap:14px; padding:6px 0; border-bottom:1px solid rgba(201,165,66,.14); font-size:15.5px; line-height:1.5;}
+  .factrow:last-child{border-bottom:none;}
+  .factlabel{flex:0 0 38%; max-width:38%; font-family:'Cinzel',serif; font-size:12px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); padding-top:2px;}
+  .factval{flex:1;}
+  .factval a{color:var(--gold-bright);}
+  /* Audio player */
+  .player{
+    display:flex; align-items:center; gap:10px;
+    background:var(--navy-band); border:1px solid var(--gold);
+    border-radius:10px; padding:10px 14px; margin-top:18px;
+  }
+  .pbtn{
+    width:38px; height:38px; border-radius:50%; flex:0 0 auto;
+    background:var(--gold); color:var(--navy-deep); border:none;
+    font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .pbtn:hover{background:var(--gold-bright);}
+  .pbtn.sec{background:var(--navy-deep); color:var(--gold-bright); border:1px solid var(--gold);}
+  .player input[type=range]{flex:1 1 auto; accent-color:var(--gold);}
+  .ptime{font-size:13px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums;}
+  /* Manage view */
+  .mtool{display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; align-items:center;}
+  .mbtn{
+    font-family:'Cinzel',serif; font-size:11.5px; letter-spacing:.08em; text-transform:uppercase;
+    background:var(--navy-band); color:var(--gold-bright);
+    border:1px solid rgba(201,165,66,.5); border-radius:8px;
+    padding:7px 12px; cursor:pointer;
+  }
+  .mbtn:hover{background:var(--gold); color:var(--navy-deep);}
+  .mbtn.danger{color:#E08876; border-color:rgba(212,91,69,.6);}
+  .mbtn.danger:hover{background:var(--persec); color:#fff;}
+  .mstatus{font-size:13px; font-style:italic; color:var(--muted);}
+  .mbox{background:rgba(201,165,66,.05); border:1px solid rgba(201,165,66,.35); border-radius:10px; padding:14px; margin-top:16px;}
+  .mbox h3{font-family:'Cinzel',serif; font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-bright); margin-bottom:8px;}
+  .mfield{margin-bottom:10px;}
+  .mfield label{display:block; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-family:'Cinzel',serif; margin-bottom:3px;}
+  .mfield input[type=text], .mfield input[type=number], .mfield select, .mfield textarea{
+    width:100%; background:var(--navy-deep); color:var(--parchment);
+    border:1px solid rgba(201,165,66,.4); border-radius:6px;
+    padding:7px 9px; font-family:'EB Garamond',serif; font-size:15px;
+  }
+  .mfield textarea{min-height:70px; resize:vertical; line-height:1.4;}
+  .mfield textarea.tall{min-height:180px;}
+  .mgrid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .mlist{max-height:240px; overflow-y:auto; border:1px solid rgba(201,165,66,.3); border-radius:8px; margin-top:8px;}
+  .mitem{
+    display:flex; gap:8px; align-items:baseline; width:100%; text-align:left;
+    background:none; border:none; border-bottom:1px solid rgba(201,165,66,.15);
+    color:var(--parchment); padding:7px 10px; cursor:pointer; font-family:'EB Garamond',serif; font-size:14.5px;
+  }
+  .mitem:hover{background:rgba(201,165,66,.1);}
+  .mitem .my{color:var(--gold-bright); font-family:'Cinzel',serif; font-size:12px; flex:0 0 46px;}
+  .mitem .mt{margin-left:auto; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+  .mlog{font-size:14px; line-height:1.5; margin-top:8px; white-space:pre-wrap; color:var(--parchment); max-height:160px; overflow-y:auto;}
+  .hint{font-size:13px; font-style:italic; color:var(--muted); margin-top:4px; line-height:1.4;}
+  /* Rich-text article bodies */
+  .artrich{font-size:17.5px; line-height:1.68; margin:0 0 14px;}
+  .artrich p{margin:0 0 14px;}
+  .artrich ul, .artrich ol{margin:0 0 14px 26px;}
+  .artrich li{margin-bottom:6px;}
+  .artrich b, .artrich strong{font-weight:700; color:#F5ECD6;}
+  .artrich u{text-decoration-color:var(--gold); text-underline-offset:3px;}
+  .artrich a{color:var(--gold-bright);}
+  .artrich blockquote{border-left:3px solid var(--gold); background:rgba(201,165,66,.06); padding:10px 16px; margin:14px 0; font-style:italic;}
+  .artrich h3, .artrich h4{font-family:'Cinzel',serif; font-size:14px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold-bright); margin:18px 0 6px;}
+  /* JSON viewer */
+  #jsonText{
+    width:100%; min-height:55vh; margin-top:12px;
+    font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12.5px; line-height:1.4;
+    background:var(--navy-deep); color:var(--parchment);
+    border:1px solid rgba(201,165,66,.4); border-radius:8px; padding:10px;
+    white-space:pre; overflow:auto; resize:vertical;
+  }
+  @media (max-width:640px){
+    .ev .nm{max-width:74px; font-size:10px;}
+    h1{letter-spacing:.08em; padding-right:70px; text-align:left;}
+    .subtitle{text-align:left;}
+    .mgrid2{grid-template-columns:1fr;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .overlay,.detail{transition:none;} .ev .ic{transition:none;}
+  }
+  button:focus-visible{outline:2px solid var(--gold-bright); outline-offset:2px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Two Millennia</h1>
+  <div class="subtitle">A Timeline of the Catholic Church</div>
+  <button class="managebtn" id="manageBtn">⚙ Manage</button>
+  <div class="rule"></div>
+</header>
+
+<div class="controls">
+  <div class="row" id="typeRow">
+    <span class="lbl">Show</span>
+    <button class="tbtn t-s" data-type="s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>Saints</button>
+    <button class="tbtn t-c" data-type="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M4.5 18h15M12 3l8 5.5H4L12 3zM6.5 8.5v9.5M12 8.5v9.5M17.5 8.5v9.5"/></svg>Councils</button>
+    <button class="tbtn t-p" data-type="p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2c1 4-4 5-4 10a4 4 0 0 0 8 0c0-2-1-3-1-3s3 1 3 5a7 7 0 0 1-14 0c0-6 6-7 8-12z"/></svg>Persecutions</button>
+    <button class="tbtn t-m" data-type="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.4 5.4 5.9.5-4.5 3.9 1.4 5.7L12 15.6 6.8 18.5l1.4-5.7L3.7 8.9l5.9-.5z"/></svg>Marian</button>
+    <button class="tbtn t-u" data-type="u"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6.5" r="3.2"/><path d="M6.5 12h11M8 12c0 3 1.8 4.5 4 4.5s4-1.5 4-4.5M12 16.5V20M9.5 20h5"/></svg>Eucharistic</button>
+    <button class="tbtn t-e" data-type="e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 3v18M6.5 8.5h11"/></svg>Events</button>
+    <span style="width:10px; flex:0 0 auto;"></span>
+    <span class="lbl">Zoom</span>
+    <button class="zbtn" id="zoomOut" aria-label="Zoom out">−</button>
+    <button class="zbtn" id="zoomIn" aria-label="Zoom in">+</button>
+    <button class="zbtn" id="zoomFit" style="font-size:12.5px;">Fit</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="row" id="regionRow">
+    <span class="lbl">Region</span>
+    <button class="chip active" data-region="all">All</button>
+    <button class="chip" data-region="rome">Rome &amp; Italy</button>
+    <button class="chip" data-region="west">Western Europe</button>
+    <button class="chip" data-region="brit">Britain &amp; Ireland</button>
+    <button class="chip" data-region="east">Byzantium &amp; E. Europe</button>
+    <button class="chip" data-region="holy">Holy Land &amp; Mid-East</button>
+    <button class="chip" data-region="africa">Africa</button>
+    <button class="chip" data-region="americas">Americas</button>
+    <button class="chip" data-region="asia">Asia &amp; Oceania</button>
+  </div>
+</div>
+
+<div class="viewport" id="viewport">
+  <div class="canvas" id="canvas"><div style="padding:40px 20px; font-style:italic; color:var(--muted);">Loading timeline&hellip;</div></div>
+</div>
+
+<div class="detail" id="detail">
+  <button class="close" id="detailClose" aria-label="Close">×</button>
+  <div class="dhead"><span class="dyear" id="dYear"></span><span class="dname" id="dName"></span></div>
+  <div class="dbadges" id="dBadges"></div>
+  <div class="ddesc" id="dDesc"></div>
+  <button class="artopen" id="dArtBtn">Open Full Article</button>
+</div>
+
+<div class="overlay" id="article">
+  <div class="artwrap">
+    <button class="artback" id="artBack">← Back to Timeline</button>
+    <div id="artBody"></div>
+  </div>
+</div>
+
+<div class="overlay" id="jsonView" style="z-index:120;">
+  <div class="artwrap">
+    <button class="artback" id="jsonBack">&larr; Back to Manager</button>
+    <div class="arttitle" style="font-size:22px;" id="jsonTitle">Database JSON</div>
+    <div class="artsub" id="jsonSub"></div>
+    <div class="mtool">
+      <button class="mbtn" id="jsonCopy">Copy All</button>
+      <button class="mbtn" id="jsonSelect">Select All</button>
+      <button class="mbtn" id="jsonDownload">Try Download</button>
+      <span class="mstatus" id="jsonStatus"></span>
+    </div>
+    <textarea id="jsonText" readonly spellcheck="false"></textarea>
+    <div class="hint">If Try Download does nothing on your device, use Copy All (or Select All, then copy) and paste into any text editor to save the file yourself.</div>
+  </div>
+</div>
+
+<div class="overlay" id="manage">
+  <div class="artwrap">
+    <button class="artback" id="manageBack">← Back to Timeline</button>
+    <div class="arttitle" style="font-size:24px;">Content Manager</div>
+    <div class="mtool">
+      <button class="mbtn" id="mNew">+ New Entry</button>
+      <button class="mbtn" id="mJsonAll">JSON &mdash; All Entries</button>
+      <button class="mbtn" id="mJsonFiltered">JSON &mdash; Filtered</button>
+      <button class="mbtn" id="mImportBtn">Import File (Add/Update)</button>
+      <input type="file" id="mImportFile" accept=".json,.txt" style="display:none;">
+      <button class="mbtn danger" id="mRestoreBtn">Restore Backup (Replace All)</button>
+      <input type="file" id="mRestoreFile" accept=".json,.txt" style="display:none;">
+      <button class="mbtn danger" id="mReset">Reset to Seed</button>
+      <span class="mstatus" id="mStatus"></span>
+    </div>
+    <div class="hint">&ldquo;JSON &mdash; Filtered&rdquo; exports only the entries matching the category and region filters currently set on the timeline. Both JSON views open a copyable window &mdash; save the text yourself if downloads don't work on your device.</div>
+
+    <div class="mbox">
+      <h3>Paste JSON (Add / Update Only)</h3>
+      <div class="mfield">
+        <textarea id="pasteJson" placeholder='Paste entries JSON here: a single entry {...}, an array [...], or {"entries":[...]}. Matching ids are updated, new ones are added; nothing else in the database is touched.'></textarea>
+      </div>
+      <button class="mbtn" id="pasteApply">Apply (Add/Update)</button>
+      <div class="hint">This is the safe way to bring in entries drafted by Claude in a chat: copy Claude's JSON, paste it here, Apply. It never replaces the whole database.</div>
+    </div>
+
+    <div class="mbox">
+      <h3>Instruct Claude</h3>
+      <div class="mfield">
+        <textarea id="aiCmd" placeholder="e.g. Add an entry for the apparition at Guadalupe of 1531... or: Write a full article for St. Augustine and save it... or: Move Fatima's description to mention the three children by name."></textarea>
+      </div>
+      <button class="mbtn" id="aiRun">Run Instruction</button>
+      <div class="mlog" id="aiLog"></div>
+      <div class="hint">Claude can search the web, then add, update, or delete entries — including writing full articles into the database. Changes save automatically; keep backups with Export.</div>
+    </div>
+
+    <div class="mbox">
+      <h3>Entries</h3>
+      <div class="mfield"><input type="text" id="mSearch" placeholder="Search entries…"></div>
+      <div class="mlist" id="mList"></div>
+    </div>
+
+    <div class="mbox" id="mEditor" style="display:none;">
+      <h3 id="mEditorTitle">Edit Entry</h3>
+      <div class="mgrid2">
+        <div class="mfield"><label>Name</label><input type="text" id="fName"></div>
+        <div class="mfield"><label>Year (AD)</label><input type="number" id="fYear"></div>
+        <div class="mfield"><label>Type</label>
+          <select id="fType">
+            <option value="s">Saint</option><option value="c">Council</option>
+            <option value="p">Persecution</option><option value="m">Marian Apparition</option>
+            <option value="u">Eucharistic Miracle</option><option value="e">Event</option>
+          </select>
+        </div>
+        <div class="mfield"><label>Region</label>
+          <select id="fRegion">
+            <option value="rome">Rome &amp; Italy</option><option value="west">Western Europe</option>
+            <option value="brit">Britain &amp; Ireland</option><option value="east">Byzantium &amp; E. Europe</option>
+            <option value="holy">Holy Land &amp; Mid-East</option><option value="africa">Africa</option>
+            <option value="americas">Americas</option><option value="asia">Asia &amp; Oceania</option>
+          </select>
+        </div>
+      </div>
+      <div class="mfield"><label>Short Description (detail card)</label><textarea id="fDesc"></textarea></div>
+      <div class="mfield"><label>Article — "## Heading" starts a section; blank lines between paragraphs; simple HTML allowed (&lt;b&gt; &lt;i&gt; &lt;u&gt; &lt;ul&gt; &lt;ol&gt; &lt;li&gt; &lt;br&gt; &lt;blockquote&gt; &lt;a href&gt;)</label><textarea class="tall" id="fArt"></textarea></div>
+      <div class="mfield"><label>Quotes — one per line: quote text :: source</label><textarea id="fQuotes"></textarea></div>
+      <div class="mfield"><label>Source Links — one per line: label :: url</label><textarea id="fLinks"></textarea></div>
+      <div class="mfield"><label>Quick Facts — one per line: label :: value &nbsp;(optional source: label :: value :: url)</label><textarea id="fFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
+      <div class="mgrid2">
+        <div class="mfield"><label>Image URL</label><input type="text" id="fImg" placeholder="https://…"></div>
+        <div class="mfield"><label>Image Caption</label><input type="text" id="fImgCap"></div>
+      </div>
+      <div class="mfield"><label>Audio URL (your recorded narration)</label><input type="text" id="fAudio" placeholder="https://…/augustine.mp3"></div>
+      <div class="mtool">
+        <button class="mbtn" id="fSave">Save Entry</button>
+        <button class="mbtn" id="fDraft">Draft Article with Claude</button>
+        <button class="mbtn danger" id="fDelete">Delete</button>
+      </div>
+      <div class="hint">Images and audio live at URLs you host (e.g. a cloud drive with direct links, or a simple web host); the database stores the link.</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ================= SEED DATA =================
+// [year, name, type, region, shortDesc]
+// s=Saint c=Council p=Persecution e=Event m=Marian u=Eucharistic
+const SEED = [
+[33,"Pentecost","e","holy","Descent of the Holy Spirit upon the Apostles in Jerusalem — the birthday of the Church (Acts 2)."],
+[49,"Council of Jerusalem","e","holy","The Apostles rule that Gentile converts are not bound by the Mosaic law (Acts 15) — the pattern for all later councils."],
+[70,"Destruction of the Temple","e","holy","Jerusalem falls to the Romans under Titus; the Temple is destroyed, scattering Jewish Christianity."],
+[313,"Edict of Milan","e","rome","Constantine and Licinius grant freedom of worship, ending three centuries of intermittent persecution."],
+[380,"Edict of Thessalonica","e","east","Theodosius makes Nicene Christianity the official religion of the Roman Empire."],
+[405,"Vulgate Completed","e","holy","St. Jerome finishes his Latin translation of the Scriptures at Bethlehem — the Bible of the West for a millennium."],
+[476,"Fall of the Western Empire","e","rome","Rome's last western emperor is deposed; the Church becomes the great preserver of classical learning."],
+[496,"Baptism of Clovis","e","west","The king of the Franks is baptized at Reims; France becomes the 'eldest daughter of the Church.'"],
+[638,"Jerusalem Falls to Islam","e","holy","The Muslim conquest sweeps through the ancient Christian heartlands of the Levant and, soon, North Africa."],
+[732,"Battle of Tours","e","west","Charles Martel halts the Muslim advance into Western Europe."],
+[800,"Coronation of Charlemagne","e","west","Pope Leo III crowns Charlemagne emperor on Christmas Day — the birth of medieval Christendom."],
+[910,"Cluny Founded","e","west","The abbey of Cluny launches the great monastic reform movement of the Middle Ages."],
+[988,"Baptism of the Rus","e","east","Prince Vladimir of Kyiv is baptized, and the Christianization of the Rus begins."],
+[1054,"The Great Schism","e","east","Mutual excommunications in Constantinople mark the tragic break between the Catholic West and Orthodox East."],
+[1095,"First Crusade Preached","e","west","Urban II calls the First Crusade at Clermont; Jerusalem is taken in 1099."],
+[1150,"Rise of the Universities","e","west","Cathedral schools grow into the universities of Bologna, Paris, and Oxford — cradle of scholastic theology."],
+[1309,"Avignon Papacy Begins","e","west","The popes reside in Avignon, France for nearly seventy years — the 'Babylonian Captivity' of the papacy."],
+[1378,"Western Schism","e","rome","Two, and later three, rival claimants to the papacy divide Europe until the Council of Constance."],
+[1453,"Fall of Constantinople","e","east","The Byzantine Empire ends as the Ottomans take Constantinople; Greek scholars flee west."],
+[1455,"Gutenberg Bible","e","west","The first major printed book is the Latin Vulgate — a media revolution for Scripture and doctrine alike."],
+[1492,"Missions to the New World","e","americas","Catholic evangelization of the Americas begins in the wake of Columbus's voyages."],
+[1517,"Luther's Ninety-Five Theses","e","west","Martin Luther's protest at Wittenberg ignites the Protestant Reformation."],
+[1534,"Act of Supremacy","e","brit","Henry VIII breaks with Rome and declares himself head of the Church in England."],
+[1571,"Battle of Lepanto","e","east","The Holy League's naval victory, credited by St. Pius V to the Rosary, gives us the feast of Our Lady of the Rosary."],
+[1582,"Gregorian Calendar","e","rome","Gregory XIII reforms the calendar still used by most of the world today."],
+[1622,"Propaganda Fide Founded","e","rome","Rome establishes its great missionary congregation to coordinate evangelization worldwide."],
+[1773,"Suppression of the Jesuits","e","rome","Clement XIV suppresses the Society of Jesus under political pressure; it is restored in 1814."],
+[1854,"Immaculate Conception Defined","e","rome","Bl. Pius IX solemnly defines that Mary was conceived without original sin (Ineffabilis Deus)."],
+[1870,"Fall of the Papal States","e","rome","Italian forces take Rome; the pope becomes the 'prisoner of the Vatican' until 1929."],
+[1891,"Rerum Novarum","e","rome","Leo XIII's encyclical on capital and labor launches modern Catholic social teaching."],
+[1928,"Opus Dei Founded","e","west","St. Josemaría Escrivá founds Opus Dei in Madrid, preaching sanctification through ordinary work and daily life."],
+[1929,"Lateran Treaty","e","rome","The Vatican City State is established, resolving the 'Roman Question.'"],
+[1950,"Assumption Defined","e","rome","Pius XII solemnly defines the Assumption of Mary, body and soul, into heaven (Munificentissimus Deus)."],
+[1978,"Election of John Paul II","e","rome","The first Polish pope begins a 27-year pontificate that helps bring down communism."],
+[1992,"Catechism Promulgated","e","rome","St. John Paul II promulgates the Catechism of the Catholic Church, the first universal catechism since Trent."],
+[2013,"Resignation & Election","e","rome","Benedict XVI becomes the first pope to resign in six centuries; Francis is the first pope from the Americas."],
+[2025,"Election of Leo XIV","e","rome","After the death of Pope Francis, Leo XIV is elected — the first American-born pope."],
+// Marian apparitions
+[40,"Our Lady of the Pillar","m","west","By ancient tradition, Mary appeared to St. James the Greater at Zaragoza while still living in Jerusalem — the first Marian apparition."],
+[1061,"Our Lady of Walsingham","m","brit","Mary asks Richeldis de Faverches to build a replica of the Holy House of Nazareth — England's great medieval shrine."],
+[1531,"Our Lady of Guadalupe","m","americas","Mary appears to St. Juan Diego at Tepeyac; millions of Aztecs enter the Church within a decade."],
+[1830,"Miraculous Medal (Rue du Bac)","m","west","Mary appears to St. Catherine Labouré in Paris and asks for the medal to be struck: 'O Mary, conceived without sin…'"],
+[1846,"Our Lady of La Salette","m","west","Mary appears weeping to two shepherd children in the French Alps, calling for conversion and penance."],
+[1858,"Our Lady of Lourdes","m","west","Mary appears to St. Bernadette: 'I am the Immaculate Conception.' Lourdes becomes a place of healing."],
+[1859,"Our Lady of Good Help","m","americas","Mary appears to Adele Brise near Champion, Wisconsin — the first approved Marian apparition in the United States."],
+[1871,"Our Lady of Pontmain","m","west","During the Franco-Prussian War Mary appears: 'But pray, my children. God will hear you in a little while.'"],
+[1879,"Our Lady of Knock","m","brit","Mary, St. Joseph, and St. John the Evangelist appear silently at the parish gable in County Mayo, Ireland."],
+[1917,"Our Lady of Fatima","m","west","Mary appears to three shepherd children in Portugal; the Miracle of the Sun is witnessed by tens of thousands."],
+[1932,"Beauraing & Banneux","m","west","Mary appears in Belgium as the 'Virgin of the Golden Heart' (1932) and the 'Virgin of the Poor' (1933)."],
+[1973,"Our Lady of Akita","m","asia","Weeping statue and messages to Sr. Agnes Sasagawa in Japan; approved by the local bishop in 1984."],
+// Eucharistic miracles
+[750,"Miracle of Lanciano","u","rome","A doubting monk's host becomes flesh and the wine blood; the flesh, later identified as cardiac tissue, is still preserved."],
+[1247,"Miracle of Santarém","u","west","A stolen host bleeds; enshrined in Portugal and venerated for nearly eight centuries."],
+[1263,"Miracle of Bolsena","u","rome","A host bleeds onto the corporal at Mass; Urban IV institutes the feast of Corpus Christi the following year."],
+[1345,"Miracle of Amsterdam","u","west","A host survives fire unscathed — origin of the yearly 'Stille Omgang' silent procession."],
+[1996,"Miracle of Buenos Aires","u","americas","A discarded host becomes bleeding tissue; studies were commissioned under Archbishop Bergoglio, the future Pope Francis."],
+[2008,"Miracle of Sokółka","u","east","A dropped host develops tissue identified as heart muscle; approved for veneration in Poland."],
+// Councils
+[325,"Nicaea I","c","east","First ecumenical council: condemns Arianism and confesses the Son as consubstantial (homoousios) with the Father."],
+[381,"Constantinople I","c","east","Affirms the divinity of the Holy Spirit; gives the Church the Nicene-Constantinopolitan Creed."],
+[431,"Ephesus","c","east","Declares Mary truly Theotokos — Mother of God — and condemns Nestorius."],
+[451,"Chalcedon","c","east","Defines Christ as one Person in two natures, divine and human, guided by the Tome of St. Leo."],
+[553,"Constantinople II","c","east","Condemns the 'Three Chapters' and reaffirms Chalcedonian Christology."],
+[681,"Constantinople III","c","east","Affirms two wills in Christ, divine and human, against Monothelitism."],
+[787,"Nicaea II","c","east","Vindicates the veneration of holy icons against the iconoclasts."],
+[870,"Constantinople IV","c","east","Resolves the Photian controversy — the last council held in the East."],
+[1123,"Lateran I","c","rome","First ecumenical council in the West, confirming the settlement of the investiture controversy."],
+[1139,"Lateran II","c","rome","Reform council strengthening the discipline of clerical celibacy."],
+[1179,"Lateran III","c","rome","Establishes the two-thirds majority for papal elections still in force today."],
+[1215,"Lateran IV","c","rome","The great medieval council: 'transubstantiation' enters conciliar language; annual confession and Communion required."],
+[1245,"Lyon I","c","west","Deposes Emperor Frederick II amid the struggle of papacy and empire."],
+[1274,"Lyon II","c","west","Achieves a brief reunion with the Greek Church; St. Thomas Aquinas dies en route."],
+[1311,"Vienne","c","west","Suppresses the Knights Templar and addresses reform."],
+[1414,"Constance","c","west","Ends the Western Schism by electing Martin V as sole pope."],
+[1431,"Basel–Ferrara–Florence","c","rome","Decrees of union with the Greek and other Eastern churches (1439), though short-lived."],
+[1512,"Lateran V","c","rome","Reform decrees on the very eve of the Reformation."],
+[1545,"Trent","c","rome","The great answer to the Reformation: justification, Scripture and Tradition, the sacraments, and the Mass, over 18 years."],
+[1869,"Vatican I","c","rome","Defines papal infallibility and the primacy of the Roman Pontiff (Pastor Aeternus)."],
+[1962,"Vatican II","c","rome","Renewal of liturgy, ecclesiology, revelation, and the Church in the modern world: Lumen Gentium, Dei Verbum, and more."],
+// Persecutions
+[64,"Persecution under Nero","p","rome","After the Great Fire of Rome, Nero blames the Christians — the first imperial persecution; Peter and Paul are martyred."],
+[95,"Persecution under Domitian","p","rome","Sporadic persecution; tradition places St. John's exile to Patmos in these years."],
+[112,"Trajan's Rescript","p","east","Pliny's letter and Trajan's reply set the pattern: Christians punished if denounced and unrepentant."],
+[177,"Martyrs of Lyons","p","west","Under Marcus Aurelius, a pogrom in Gaul claims Blandina, Pothinus, and companions."],
+[250,"Decian Persecution","p","rome","The first empire-wide edict requires sacrifice to the gods; the crisis of the lapsi follows."],
+[257,"Persecution under Valerian","p","rome","Clergy are targeted; Sts. Cyprian, Sixtus II, and Lawrence are among the martyrs."],
+[303,"The Great Persecution","p","east","Diocletian unleashes the fiercest and final empire-wide persecution — churches razed, Scriptures burned."],
+[340,"Persian Persecution","p","holy","Under Shapur II, tens of thousands of Christians in the Persian Empire are martyred over four decades."],
+[1535,"English Reformation Martyrs","p","brit","From Sts. More and Fisher to the Forty Martyrs of England and Wales, Catholics die under the Tudor and Stuart penal laws."],
+[1614,"Persecution in Japan","p","asia","Christianity is banned; thousands are martyred and the 'hidden Christians' endure for 250 years."],
+[1793,"French Revolution","p","west","Dechristianization: priests and religious are guillotined or drowned; the Carmelites of Compiègne die singing (1794)."],
+[1833,"Vietnamese Persecutions","p","asia","Up to 130,000 Christians are killed across several waves; 117 martyrs are canonized in 1988."],
+[1839,"Korean Persecutions","p","asia","Thousands of Korean Catholics are martyred (1839, 1846, 1866), including St. Andrew Kim Taegon."],
+[1915,"Ottoman Genocides","p","holy","Armenian, Assyrian, and Greek Christians perish en masse; Bl. Ignatius Maloyan is among the martyrs."],
+[1926,"Cristero Persecution","p","americas","Mexico's Calles Laws suppress the Church; Bl. Miguel Pro dies crying '¡Viva Cristo Rey!' (1927)."],
+[1936,"Spanish Civil War","p","west","Thousands of priests, religious, and laity are killed in the anticlerical terror; many are now beatified."],
+[1948,"Communist Persecutions","p","east","The Church is suppressed across the Eastern bloc and China; Cardinal Mindszenty's show trial becomes a symbol."],
+// Saints
+[67,"St. Peter","s","rome","Prince of the Apostles and first pope, martyred in Rome under Nero — by tradition crucified upside down."],
+[67,"St. Paul","s","rome","Apostle to the Gentiles, author of the epistles, beheaded in Rome under Nero."],
+[100,"St. John the Apostle","s","east","The beloved disciple and evangelist; the only apostle not martyred, dying at Ephesus."],
+[107,"St. Ignatius of Antioch","s","holy","Bishop of Antioch, fed to beasts in Rome; his seven letters witness to the episcopacy and the Eucharist."],
+[155,"St. Polycarp","s","east","Disciple of John and bishop of Smyrna, burned at the stake at age 86: 'Eighty-six years I have served Him.'"],
+[165,"St. Justin Martyr","s","rome","Philosopher-apologist beheaded in Rome; his First Apology describes the early Mass."],
+[202,"St. Irenaeus","s","west","Bishop of Lyons; his Against Heresies defends apostolic tradition and succession."],
+[203,"Sts. Perpetua & Felicity","s","africa","Young mother and expectant slave martyred together in the Carthage arena; Perpetua's prison diary survives."],
+[230,"St. Cecilia","s","rome","Roman virgin martyr, patroness of music and musicians."],
+[258,"St. Lawrence","s","rome","Deacon of Rome, roasted on a gridiron after presenting the poor as 'the treasures of the Church.'"],
+[258,"St. Cyprian","s","africa","Bishop of Carthage and martyr under Valerian; wrote On the Unity of the Catholic Church."],
+[304,"St. Agnes","s","rome","Virgin martyr of about twelve years under Diocletian; her name is in the Roman Canon."],
+[356,"St. Anthony of Egypt","s","africa","Father of monasticism; his life by Athanasius set the desert ablaze with monks."],
+[373,"St. Athanasius","s","africa","Bishop of Alexandria, exiled five times for defending the Nicene faith against Arianism."],
+[379,"St. Basil the Great","s","east","Cappadocian Father, monastic legislator, and builder of the first great complex for the sick and poor."],
+[386,"St. Cyril of Jerusalem","s","holy","Bishop whose Catechetical Lectures remain a treasury of sacramental teaching."],
+[387,"St. Monica","s","africa","Mother of Augustine, whose years of tears and prayer won her son's conversion."],
+[390,"St. Gregory Nazianzen","s","east","'The Theologian' — defender of the Trinity and the divinity of the Holy Spirit."],
+[397,"St. Ambrose","s","rome","Bishop of Milan who baptized Augustine and faced down emperors at the church door."],
+[407,"St. John Chrysostom","s","east","The 'golden-mouthed' preacher of Constantinople, who died in exile for rebuking the powerful."],
+[420,"St. Jerome","s","holy","Irascible genius of Bethlehem who gave the West its Latin Bible: 'Ignorance of Scripture is ignorance of Christ.'"],
+[430,"St. Augustine","s","africa","Bishop of Hippo, author of the Confessions and City of God — the greatest of the Latin Fathers."],
+[444,"St. Cyril of Alexandria","s","africa","Champion of the title Theotokos at the Council of Ephesus."],
+[461,"St. Patrick","s","brit","Former slave who returned as apostle of Ireland; his Confession still speaks."],
+[461,"St. Leo the Great","s","rome","Pope whose Tome shaped Chalcedon and who turned Attila the Hun back from Rome."],
+[525,"St. Brigid of Kildare","s","brit","Abbess and co-patroness of Ireland, famed for boundless charity."],
+[547,"St. Benedict of Nursia","s","rome","Father of Western monasticism; his Rule ('ora et labora') built Europe from Monte Cassino outward."],
+[597,"St. Columba","s","brit","Irish monk of Iona, apostle to the Picts of Scotland."],
+[604,"St. Gregory the Great","s","rome","Pope and Doctor who sent missionaries to England and gave his name to the Church's chant."],
+[604,"St. Augustine of Canterbury","s","brit","Sent by Gregory, he became the first archbishop of Canterbury and apostle of the English."],
+[636,"St. Isidore of Seville","s","west","Encyclopedist of the ancient world's learning — often called the last Father of the West."],
+[662,"St. Maximus the Confessor","s","east","Theologian who lost tongue and hand rather than deny the two wills of Christ."],
+[735,"St. Bede the Venerable","s","brit","Monk of Jarrow, Doctor of the Church, and father of English history."],
+[749,"St. John Damascene","s","holy","Monk of Mar Saba who defended the holy icons — the last of the Greek Fathers."],
+[754,"St. Boniface","s","west","Apostle of Germany who felled Donar's sacred oak; martyred in Frisia with the Gospel book in his hands."],
+[869,"Sts. Cyril & Methodius","s","east","Apostles of the Slavs, who created an alphabet and liturgy in the Slavonic tongue."],
+[935,"St. Wenceslaus","s","east","Duke of Bohemia, murdered by his brother at the church door — the 'Good King' of the carol."],
+[1038,"St. Stephen of Hungary","s","east","First king of Hungary, who led the Magyars into the Church."],
+[1066,"St. Edward the Confessor","s","brit","King of England and builder of Westminster Abbey."],
+[1109,"St. Anselm","s","brit","Archbishop of Canterbury: 'faith seeking understanding' and the ontological argument."],
+[1153,"St. Bernard of Clairvaux","s","west","Cistercian reformer and 'last of the Fathers'; the Mellifluous Doctor of Marian devotion."],
+[1170,"St. Thomas Becket","s","brit","Archbishop murdered in Canterbury Cathedral by Henry II's knights, defending the Church's liberty."],
+[1179,"St. Hildegard of Bingen","s","west","Benedictine abbess, visionary, composer, and Doctor of the Church."],
+[1221,"St. Dominic","s","rome","Spanish founder of the Order of Preachers, dedicated to truth and the salvation of souls; died at Bologna."],
+[1226,"St. Francis of Assisi","s","rome","The Poverello, bearing the stigmata; rebuilder of the Church and lover of Lady Poverty."],
+[1231,"St. Anthony of Padua","s","rome","Portuguese Franciscan wonder-worker and Evangelical Doctor."],
+[1231,"St. Elizabeth of Hungary","s","east","Princess who gave everything to the poor and died at twenty-four."],
+[1253,"St. Clare of Assisi","s","rome","First follower of Francis and foundress of the Poor Clares."],
+[1270,"St. Louis IX","s","west","Crusader king of France, the medieval model of a Christian ruler."],
+[1274,"St. Thomas Aquinas","s","rome","The Angelic Doctor, whose Summa Theologiae remains the Church's greatest theological synthesis."],
+[1274,"St. Bonaventure","s","rome","The Seraphic Doctor, master of Franciscan theology and mystical wisdom."],
+[1280,"St. Albert the Great","s","west","The Universal Doctor — natural scientist, philosopher, and teacher of Aquinas."],
+[1373,"St. Bridget of Sweden","s","west","Mystic, foundress, and co-patroness of Europe."],
+[1380,"St. Catherine of Siena","s","rome","Dominican mystic who persuaded the pope to return from Avignon; Doctor of the Church."],
+[1431,"St. Joan of Arc","s","west","The Maid of Orléans, burned at the stake at nineteen and canonized in 1920."],
+[1535,"St. Thomas More","s","brit","Chancellor of England, martyred for refusing the royal supremacy: 'the King's good servant, but God's first.'"],
+[1535,"St. John Fisher","s","brit","The only English bishop to resist Henry VIII; created cardinal in prison, then beheaded."],
+[1540,"St. Angela Merici","s","rome","Foundress of the Ursulines, the Church's first teaching order of women."],
+[1548,"St. Juan Diego","s","americas","The humble visionary to whom Our Lady of Guadalupe appeared."],
+[1552,"St. Francis Xavier","s","asia","Jesuit missionary to India and Japan, who died within sight of China; patron of missions."],
+[1556,"St. Ignatius of Loyola","s","west","Soldier turned founder of the Jesuits; his Spiritual Exercises formed centuries of souls."],
+[1582,"St. Teresa of Ávila","s","west","Carmelite reformer and mystic; first woman Doctor of the Church."],
+[1584,"St. Charles Borromeo","s","rome","Cardinal-archbishop of Milan, the living model of the reforms of Trent."],
+[1591,"St. John of the Cross","s","west","Mystical Doctor of the dark night and the living flame of love."],
+[1595,"St. Philip Neri","s","rome","The joyful 'Apostle of Rome' and founder of the Oratory."],
+[1597,"St. Paul Miki & Companions","s","asia","Twenty-six martyrs crucified above Nagasaki, preaching forgiveness from their crosses."],
+[1617,"St. Rose of Lima","s","americas","Peruvian mystic — the first canonized saint of the Americas."],
+[1621,"St. Robert Bellarmine","s","rome","Jesuit cardinal and Doctor, the great controversialist of the Catholic Reform."],
+[1622,"St. Francis de Sales","s","west","Gentle bishop of Geneva; his Introduction to the Devout Life taught holiness for lay people."],
+[1639,"St. Martin de Porres","s","americas","Dominican brother of Lima, humble healer of the poor and of animals."],
+[1649,"North American Martyrs","s","americas","St. Isaac Jogues, St. Jean de Brébeuf, and companions — Jesuits martyred among the Huron and Mohawk."],
+[1660,"St. Vincent de Paul","s","west","Apostle of charity to the poor, foundlings, and galley slaves."],
+[1680,"St. Kateri Tekakwitha","s","americas","The 'Lily of the Mohawks,' first Native American saint."],
+[1690,"St. Margaret Mary Alacoque","s","west","Visitation nun to whom the Sacred Heart of Jesus was revealed at Paray-le-Monial."],
+[1716,"St. Louis de Montfort","s","west","Preacher of True Devotion to Mary: totus tuus."],
+[1784,"St. Junípero Serra","s","americas","Franciscan founder of the California missions."],
+[1787,"St. Alphonsus Liguori","s","rome","Founder of the Redemptorists and Doctor of moral theology."],
+[1821,"St. Elizabeth Ann Seton","s","americas","Convert, widow, and mother — first native-born saint of the United States and pioneer of Catholic schools."],
+[1846,"St. Andrew Kim Taegon","s","asia","First Korean priest, martyred at twenty-five."],
+[1859,"St. John Vianney","s","west","The Curé of Ars, who spent up to eighteen hours a day in the confessional; patron of parish priests."],
+[1879,"St. Bernadette Soubirous","s","west","The visionary of Lourdes, who died a humble religious at Nevers."],
+[1886,"St. Charles Lwanga & Companions","s","africa","The Martyrs of Uganda, pages of the royal court burned for the faith."],
+[1888,"St. John Bosco","s","rome","'Father and teacher of youth,' founder of the Salesians."],
+[1889,"St. Damien of Molokai","s","asia","The leper priest of Molokai, who gave his life to Hawaii's outcasts."],
+[1890,"St. John Henry Newman","s","brit","Convert cardinal, author of the Essay on the Development of Doctrine; canonized 2019."],
+[1897,"St. Thérèse of Lisieux","s","west","The Little Flower and her 'little way' of confidence and love; Doctor of the Church at 24 years of life."],
+[1917,"St. Frances Xavier Cabrini","s","americas","Missionary to Italian immigrants and first United States citizen canonized."],
+[1938,"St. Faustina Kowalska","s","east","Polish visionary of the Divine Mercy: 'Jesus, I trust in You.'"],
+[1941,"St. Maximilian Kolbe","s","east","Franciscan who volunteered to die in the Auschwitz starvation bunker in another man's place."],
+[1942,"St. Teresa Benedicta (Edith Stein)","s","west","Jewish philosopher turned Carmelite, killed at Auschwitz; co-patroness of Europe."],
+[1968,"St. Padre Pio","s","rome","Capuchin stigmatist and confessor of San Giovanni Rotondo."],
+[1975,"St. Josemaría Escrivá","s","west","Founder of Opus Dei, apostle of the sanctification of ordinary work; died in Rome, canonized 2002."],
+[1980,"St. Óscar Romero","s","americas","Archbishop of San Salvador, martyred at the altar for defending the poor."],
+[1997,"St. Teresa of Calcutta","s","asia","Foundress of the Missionaries of Charity, serving 'the poorest of the poor.'"],
+[2005,"St. John Paul II","s","rome","Pope from 1978 to 2005 — philosopher, evangelist, and hammer of communism; canonized 2014."],
+[2006,"St. Carlo Acutis","s","rome","Computer-coding teenager who catalogued Eucharistic miracles online; canonized 2025 — the first millennial saint."]
+];
+
+const ERAS = [
+  [33,100,"Apostolic Age"],[100,313,"Age of Martyrs"],[313,604,"Age of the Fathers"],
+  [604,1054,"Early Middle Ages"],[1054,1300,"High Middle Ages"],[1300,1517,"Late Middle Ages"],
+  [1517,1650,"Reformation & Catholic Reform"],[1650,1900,"Age of Revolutions"],[1900,2030,"Modern Era"]
+];
+const TYPE_NAMES = {s:"Saint", c:"Council", p:"Persecution", e:"Event", m:"Marian Apparition", u:"Eucharistic Miracle"};
+const REGION_NAMES = {rome:"Rome & Italy", west:"Western Europe", brit:"Britain & Ireland", east:"Byzantium & E. Europe", holy:"Holy Land & Mid-East", africa:"Africa", americas:"Americas", asia:"Asia & Oceania"};
+const ICONS = {
+  s:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>',
+  c:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M4.5 18h15M12 3l8 5.5H4L12 3zM6.5 8.5v9.5M12 8.5v9.5M17.5 8.5v9.5"/></svg>',
+  p:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2c1 4-4 5-4 10a4 4 0 0 0 8 0c0-2-1-3-1-3s3 1 3 5a7 7 0 0 1-14 0c0-6 6-7 8-12z"/></svg>',
+  e:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 3v18M6.5 8.5h11"/></svg>',
+  m:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.4 5.4 5.9.5-4.5 3.9 1.4 5.7L12 15.6 6.8 18.5l1.4-5.7L3.7 8.9l5.9-.5z"/></svg>',
+  u:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6.5" r="3.2"/><path d="M6.5 12h11M8 12c0 3 1.8 4.5 4 4.5s4-1.5 4-4.5M12 16.5V20M9.5 20h5"/></svg>'
+};
+
+// ================= DATABASE =================
+const DB_KEY = 'catholic-timeline-db';
+let db = null;
+let dirty = false;
+
+function slug(n, y){
+  return (n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') + '-' + y).slice(0,80);
+}
+function seedDb(){
+  return {
+    v: 1,
+    entries: SEED.map(r => ({
+      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], d: r[4],
+      art: {sections: [{h: "Overview", b: r[4]}], quotes: [], links: []},
+      img: "", imgCap: "", audio: ""
+    }))
+  };
+}
+// Detect whether we're running inside a Claude artifact (persistent window.storage present)
+// or on a normal web host such as GitHub Pages (where we fetch data.json instead).
+const IS_ARTIFACT = (typeof window !== 'undefined' && window.storage && typeof window.storage.get === 'function');
+async function loadDb(){
+  if(IS_ARTIFACT){
+    try{
+      const res = await window.storage.get(DB_KEY);
+      if(res && res.value){ db = JSON.parse(res.value); return; }
+    }catch(e){ /* not found */ }
+    db = seedDb();
+    await saveDb();
+    return;
+  }
+  // Served from a web host (e.g. GitHub Pages): data.json in the repo is the source of truth.
+  try{
+    const r = await fetch('data.json', {cache: 'no-store'});
+    if(r.ok){ db = await r.json(); return; }
+  }catch(e){ /* opened as a local file, or data.json missing */ }
+  // Last-resort fallback (double-clicked local file, or no data.json yet): embedded seed.
+  db = seedDb();
+}
+async function saveDb(){
+  if(IS_ARTIFACT){
+    try{
+      const res = await window.storage.set(DB_KEY, JSON.stringify(db));
+      setStatus(res ? 'Saved ✓' : 'Save failed');
+      return !!res;
+    }catch(e){ setStatus('Save failed — try Export as backup'); return false; }
+  }
+  // On a web host there is no artifact storage. Changes live in this session only;
+  // publishing is done by Export → commit data.json to the repo.
+  setStatus('Updated for this session — use Export, then commit data.json to publish');
+  return true;
+}
+function setStatus(msg){
+  const el = document.getElementById('mStatus');
+  el.textContent = msg;
+  clearTimeout(setStatus._t);
+  setStatus._t = setTimeout(() => el.textContent = '', 4000);
+}
+function getEntry(id){ return db.entries.find(e => e.id === id); }
+
+// ================= TIMELINE =================
+const START = 0, END = 2030, SPAN = END - START;
+let ppy = 1.8;
+let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
+let activeRegion = "all";
+let currentEntry = null;
+
+const viewport = document.getElementById('viewport');
+const canvas = document.getElementById('canvas');
+const detail = document.getElementById('detail');
+const article = document.getElementById('article');
+const manage = document.getElementById('manage');
+
+function esc(s){
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fitPpy(){ return Math.max(0.28, (viewport.clientWidth - 20) / SPAN); }
+function centerYear(){ return START + (viewport.scrollLeft + viewport.clientWidth/2) / ppy; }
+function scrollToYear(y){ viewport.scrollLeft = (y - START) * ppy - viewport.clientWidth/2; }
+
+function filtered(){
+  return db.entries.filter(d => activeTypes[d.t] && (activeRegion === "all" || d.r === activeRegion))
+    .slice().sort((a,b) => a.y - b.y);
+}
+
+const TYPE_ORDER = ['s','c','p','m','u','e'];
+const TYPE_PLURALS = {s:"Saints", c:"Councils", p:"Persecutions", m:"Marian Apparitions", u:"Eucharistic Miracles", e:"Events"};
+const HEAD_H = 58;
+
+function render(){
+  if(!db) return;
+  const evs = filtered();
+  const showLabels = ppy >= 1.5;
+  const gap = showLabels ? 96 : 30;
+  const rowH = showLabels ? 52 : 32;
+  const bandPad = 8;
+
+  canvas.innerHTML = "";
+  canvas.style.width = (SPAN * ppy) + "px";
+
+  // Century grid lines (behind everything)
+  const step = ppy >= 4 ? 25 : ppy >= 2 ? 50 : 100;
+  for(let y = 0; y <= END; y += 100){
+    const g = document.createElement('div');
+    g.className = 'grid';
+    g.style.left = ((y-START)*ppy) + 'px';
+    canvas.appendChild(g);
+  }
+
+  // Sticky header: era bands + year axis (stays pinned while scrolling down)
+  const head = document.createElement('div');
+  head.className = 'timehead';
+  head.style.width = (SPAN * ppy) + 'px';
+  ERAS.forEach(([a,b,name]) => {
+    const el = document.createElement('div');
+    el.className = 'era';
+    el.style.left = ((a-START)*ppy) + 'px';
+    el.style.width = ((b-a)*ppy) + 'px';
+    el.innerHTML = '<span>'+name+'</span>';
+    head.appendChild(el);
+  });
+  const axis = document.createElement('div');
+  axis.className = 'axis';
+  axis.style.width = (SPAN*ppy) + 'px';
+  for(let y = 0; y <= END; y += step){
+    const x = (y-START)*ppy;
+    const t = document.createElement('div');
+    t.className = 'tick' + (y % 100 !== 0 ? ' minor' : '');
+    t.style.left = x + 'px';
+    axis.appendChild(t);
+    if(y % 100 === 0){
+      const l = document.createElement('div');
+      l.className = 'ticklbl';
+      l.style.left = x + 'px';
+      l.textContent = y === 0 ? 'AD 1' : y;
+      axis.appendChild(l);
+    }
+  }
+  head.appendChild(axis);
+  canvas.insertBefore(head, canvas.firstChild);
+
+  // One muted horizontal band per visible category — entries stay in their lane
+  let yCursor = HEAD_H + 4;
+  TYPE_ORDER.forEach(t => {
+    if(!activeTypes[t]) return;
+    const items = evs.filter(d => d.t === t);
+    if(!items.length) return;
+    const lanes = [];
+    let maxLane = 0;
+    const placed = items.map(d => {
+      const x = (d.y-START)*ppy;
+      let lane = 0;
+      while(lane < lanes.length && x - lanes[lane] < gap) lane++;
+      lanes[lane] = x;
+      maxLane = Math.max(maxLane, lane);
+      return {d: d, x: x, lane: lane};
+    });
+    const bandH = bandPad*2 + 16 + (maxLane+1)*rowH;
+    const band = document.createElement('div');
+    band.className = 'band band-' + t;
+    band.style.top = yCursor + 'px';
+    band.style.height = bandH + 'px';
+    band.style.width = (SPAN*ppy) + 'px';
+    band.innerHTML = '<span class="bandlbl t-'+t+'">'+TYPE_PLURALS[t]+'</span>';
+    canvas.appendChild(band);
+    placed.forEach(pl => {
+      const d = pl.d;
+      const el = document.createElement('div');
+      el.className = 'ev t-' + d.t;
+      el.style.left = pl.x + 'px';
+      el.style.top = (yCursor + bandPad + 16 + pl.lane*rowH) + 'px';
+      el.title = d.n + ' (AD ' + d.y + ')';
+      el.innerHTML = '<div class="ic">'+ICONS[d.t]+'</div>' +
+        (showLabels ? '<div class="nm">'+esc(d.n)+'</div><div class="yr">'+d.y+'</div>' : '');
+      el.addEventListener('click', (e) => { e.stopPropagation(); if(dragMoved) return; showDetail(d); });
+      canvas.appendChild(el);
+    });
+    yCursor += bandH;
+  });
+
+  canvas.style.height = (yCursor + 50) + 'px';
+  document.getElementById('count').textContent = evs.length + ' of ' + db.entries.length + ' shown';
+}
+
+function showDetail(d){
+  document.getElementById('dYear').textContent = 'AD ' + d.y;
+  document.getElementById('dName').textContent = d.n;
+  document.getElementById('dDesc').textContent = d.d;
+  document.getElementById('dBadges').innerHTML =
+    '<span class="badge t-'+d.t+'">'+TYPE_NAMES[d.t]+'</span>' +
+    '<span class="badge" style="color:var(--muted)">'+REGION_NAMES[d.r]+'</span>';
+  currentEntry = d;
+  detail.classList.add('open');
+}
+document.getElementById('detailClose').addEventListener('click', () => detail.classList.remove('open'));
+viewport.addEventListener('click', () => { if(dragMoved) return; detail.classList.remove('open'); });
+
+// ---- Click-drag panning (desktop): drag the background to shift the timeline ----
+let dragState = null, dragMoved = false;
+viewport.addEventListener('mousedown', (e) => {
+  if(e.button !== 0 || e.target.closest('.ev')) return;
+  dragState = {x: e.clientX, y: e.clientY, sl: viewport.scrollLeft, st: viewport.scrollTop};
+  dragMoved = false;
+  viewport.classList.add('dragging');
+  e.preventDefault();
+});
+window.addEventListener('mousemove', (e) => {
+  if(!dragState) return;
+  const dx = e.clientX - dragState.x, dy = e.clientY - dragState.y;
+  if(Math.abs(dx) > 4 || Math.abs(dy) > 4) dragMoved = true;
+  viewport.scrollLeft = dragState.sl - dx;
+  viewport.scrollTop = dragState.st - dy;
+});
+window.addEventListener('mouseup', () => {
+  if(!dragState) return;
+  dragState = null;
+  viewport.classList.remove('dragging');
+  setTimeout(() => { dragMoved = false; }, 0);
+});
+
+function setZoom(newPpy){
+  const cy = centerYear();
+  ppy = Math.min(8, Math.max(fitPpy(), newPpy));
+  render();
+  scrollToYear(cy);
+}
+document.getElementById('zoomIn').addEventListener('click', () => setZoom(ppy*1.5));
+document.getElementById('zoomOut').addEventListener('click', () => setZoom(ppy/1.5));
+document.getElementById('zoomFit').addEventListener('click', () => { ppy = fitPpy(); render(); viewport.scrollLeft = 0; });
+viewport.addEventListener('wheel', (e) => {
+  if(e.ctrlKey || e.metaKey){ e.preventDefault(); setZoom(ppy * (e.deltaY < 0 ? 1.2 : 1/1.2)); }
+}, {passive:false});
+
+document.querySelectorAll('#typeRow .tbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const t = btn.dataset.type;
+    activeTypes[t] = !activeTypes[t];
+    btn.classList.toggle('off', !activeTypes[t]);
+    render();
+  });
+});
+document.querySelectorAll('#regionRow .chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#regionRow .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeRegion = chip.dataset.region;
+    render();
+  });
+});
+window.addEventListener('resize', () => { ppy = Math.max(ppy, fitPpy()); render(); });
+
+// ================= ARTICLE VIEW (from DB) =================
+document.getElementById('dArtBtn').addEventListener('click', () => { if(currentEntry) openArticle(currentEntry); });
+document.getElementById('artBack').addEventListener('click', () => { stopAudio(); article.classList.remove('open'); });
+
+// Sanitize a limited set of HTML tags for article bodies (b i u em strong ul ol li br p a blockquote h3 h4)
+const RICH_TAGS = {B:1, STRONG:1, I:1, EM:1, U:1, BR:1, P:1, UL:1, OL:1, LI:1, A:1, BLOCKQUOTE:1, H3:1, H4:1};
+function sanitizeHtml(html){
+  const doc = new DOMParser().parseFromString('<div>' + String(html) + '</div>', 'text/html');
+  const root = doc.body.firstChild;
+  function walk(node){
+    let child = node.firstChild;
+    while(child){
+      const next = child.nextSibling;
+      if(child.nodeType === 1){
+        const tag = child.tagName;
+        if(tag === 'SCRIPT' || tag === 'STYLE' || tag === 'IFRAME' || tag === 'OBJECT' || tag === 'EMBED'){
+          node.removeChild(child);
+        } else if(!RICH_TAGS[tag]){
+          walk(child);
+          while(child.firstChild) node.insertBefore(child.firstChild, child);
+          node.removeChild(child);
+        } else {
+          const href = tag === 'A' ? child.getAttribute('href') : null;
+          Array.prototype.slice.call(child.attributes).forEach(a => child.removeAttribute(a.name));
+          if(tag === 'A' && href && /^https?:/i.test(href)){
+            child.setAttribute('href', href);
+            child.setAttribute('target', '_blank');
+            child.setAttribute('rel', 'noopener');
+          }
+          walk(child);
+        }
+      } else if(child.nodeType !== 3){
+        node.removeChild(child);
+      }
+      child = next;
+    }
+  }
+  walk(root);
+  return root.innerHTML;
+}
+function renderBody(b){
+  const s = String(b || '');
+  if(/<(p|ul|ol|blockquote|h3|h4)\b/i.test(s)){
+    return '<div class="artrich">' + sanitizeHtml(s) + '</div>';
+  }
+  if(/<\w+[^>]*>/.test(s)){
+    return s.split(/\n{2,}/).map(par => par.trim()).filter(Boolean)
+      .map(par => '<p class="artp">' + sanitizeHtml(par.replace(/\n/g, '<br>')) + '</p>').join('');
+  }
+  return s.split(/\n{2,}/).map(par => par.trim()).filter(Boolean)
+    .map(par => '<p class="artp">' + esc(par) + '</p>').join('');
+}
+
+function openArticle(d){
+  article.classList.add('open');
+  article.scrollTop = 0;
+  const art = d.art || {sections:[], quotes:[], links:[]};
+  let html = '';
+  html += '<div class="arttitle">' + esc(d.n) + '</div>';
+  html += '<div class="artbadges">' +
+    '<span class="badge t-' + d.t + '">' + TYPE_NAMES[d.t] + '</span>' +
+    '<span class="badge" style="color:var(--muted)">AD ' + d.y + '</span>' +
+    '<span class="badge" style="color:var(--muted)">' + REGION_NAMES[d.r] + '</span></div>';
+  if(d.img){
+    html += '<img class="artimg" src="' + esc(d.img) + '" alt="' + esc(d.n) + '" onerror="this.style.display=\'none\'">';
+    if(d.imgCap) html += '<div class="artcap">' + esc(d.imgCap) + '</div>';
+  }
+  if(d.audio){
+    html += '<div class="player">' +
+      '<button class="pbtn" id="apPlay" aria-label="Play">▶</button>' +
+      '<button class="pbtn sec" id="apStop" aria-label="Stop">■</button>' +
+      '<input type="range" id="apSeek" min="0" max="100" value="0" step="0.1" aria-label="Seek">' +
+      '<span class="ptime" id="apTime">0:00 / 0:00</span>' +
+      '</div>';
+  }
+  html += '<div class="artrule"></div>';
+  if(d.facts && d.facts.length){
+    html += '<div class="factbox"><div class="facth">Quick Facts</div>';
+    d.facts.forEach(f => {
+      if(!f || !f.label) return;
+      const val = f.url
+        ? '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.value || f.url) + '</a>'
+        : esc(f.value || '');
+      html += '<div class="factrow"><div class="factlabel">' + esc(f.label) + '</div><div class="factval">' + val + '</div></div>';
+    });
+    html += '</div>';
+  }
+  (art.sections || []).forEach(sec => {
+    if(sec.h) html += '<div class="arth">' + esc(sec.h) + '</div>';
+    html += renderBody(sec.b);
+  });
+  if(art.quotes && art.quotes.length){
+    html += '<div class="arth">From the Sources</div>';
+    art.quotes.forEach(q => {
+      html += '<div class="artquote">&ldquo;' + esc(q.text) + '&rdquo;' +
+        (q.source ? '<span class="qsrc">— ' + esc(q.source) + '</span>' : '') + '</div>';
+    });
+  }
+  if(art.links && art.links.length){
+    html += '<div class="arth">Sources &amp; Further Reading</div><ul class="artsrc">';
+    art.links.forEach(l => {
+      if(l.url) html += '<li><a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.label || l.url) + '</a></li>';
+    });
+    html += '</ul>';
+  }
+  document.getElementById('artBody').innerHTML = html;
+  if(d.audio) initAudio(d.audio);
+}
+
+// ---- Audio player ----
+let audioEl = null;
+function fmtTime(s){
+  if(!isFinite(s)) return '0:00';
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return m + ':' + String(sec).padStart(2,'0');
+}
+function initAudio(url){
+  stopAudio();
+  audioEl = new Audio(url);
+  audioEl.preload = 'metadata';
+  const play = document.getElementById('apPlay');
+  const stop = document.getElementById('apStop');
+  const seek = document.getElementById('apSeek');
+  const time = document.getElementById('apTime');
+  let scrubbing = false;
+
+  play.addEventListener('click', () => {
+    if(audioEl.paused){ audioEl.play(); play.textContent = '❚❚'; }
+    else { audioEl.pause(); play.textContent = '▶'; }
+  });
+  stop.addEventListener('click', () => {
+    audioEl.pause(); audioEl.currentTime = 0; play.textContent = '▶';
+    seek.value = 0; time.textContent = '0:00 / ' + fmtTime(audioEl.duration);
+  });
+  audioEl.addEventListener('loadedmetadata', () => {
+    time.textContent = '0:00 / ' + fmtTime(audioEl.duration);
+  });
+  audioEl.addEventListener('timeupdate', () => {
+    if(!scrubbing && audioEl.duration){
+      seek.value = (audioEl.currentTime / audioEl.duration) * 100;
+      time.textContent = fmtTime(audioEl.currentTime) + ' / ' + fmtTime(audioEl.duration);
+    }
+  });
+  audioEl.addEventListener('ended', () => { play.textContent = '▶'; seek.value = 0; });
+  audioEl.addEventListener('error', () => { time.textContent = 'audio unavailable'; });
+  seek.addEventListener('input', () => {
+    scrubbing = true;
+    if(audioEl.duration) time.textContent = fmtTime((seek.value/100)*audioEl.duration) + ' / ' + fmtTime(audioEl.duration);
+  });
+  seek.addEventListener('change', () => {
+    if(audioEl.duration) audioEl.currentTime = (seek.value/100) * audioEl.duration;
+    scrubbing = false;
+  });
+}
+function stopAudio(){
+  if(audioEl){ audioEl.pause(); audioEl.src = ''; audioEl = null; }
+}
+
+// ================= CONTENT MANAGER =================
+document.getElementById('manageBtn').addEventListener('click', () => { manage.classList.add('open'); renderMList(); });
+document.getElementById('manageBack').addEventListener('click', () => manage.classList.remove('open'));
+
+let editingId = null;
+
+function renderMList(){
+  const q = document.getElementById('mSearch').value.trim().toLowerCase();
+  const list = document.getElementById('mList');
+  const items = db.entries.slice().sort((a,b) => a.y - b.y)
+    .filter(e => !q || e.n.toLowerCase().includes(q) || String(e.y).includes(q));
+  list.innerHTML = '';
+  items.forEach(e => {
+    const b = document.createElement('button');
+    b.className = 'mitem';
+    b.innerHTML = '<span class="my">' + e.y + '</span><span>' + esc(e.n) + '</span><span class="mt">' + TYPE_NAMES[e.t] + '</span>';
+    b.addEventListener('click', () => openEditor(e.id));
+    list.appendChild(b);
+  });
+}
+document.getElementById('mSearch').addEventListener('input', renderMList);
+
+function serializeArt(art){
+  return (art.sections || []).map(s => (s.h ? '## ' + s.h + '\n' : '') + (s.b || '')).join('\n\n');
+}
+function parseArt(text){
+  const sections = [];
+  let cur = null;
+  text.split('\n').forEach(line => {
+    if(line.startsWith('## ')){
+      if(cur) sections.push(cur);
+      cur = {h: line.slice(3).trim(), b: ''};
+    } else {
+      if(!cur) cur = {h: '', b: ''};
+      cur.b += (cur.b ? '\n' : '') + line;
+    }
+  });
+  if(cur) sections.push(cur);
+  sections.forEach(s => s.b = s.b.trim());
+  return sections.filter(s => s.h || s.b);
+}
+function serializePairs(arr, k1, k2){
+  return (arr || []).map(x => (x[k1] || '') + ' :: ' + (x[k2] || '')).join('\n');
+}
+function parsePairs(text, k1, k2){
+  return text.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const i = l.indexOf('::');
+    const o = {};
+    o[k1] = (i >= 0 ? l.slice(0, i) : l).trim();
+    o[k2] = (i >= 0 ? l.slice(i + 2) : '').trim();
+    return o;
+  });
+}
+function serializeFacts(arr){
+  return (arr || []).map(f => [f.label || '', f.value || ''].concat(f.url ? [f.url] : []).join(' :: ')).join('\n');
+}
+function parseFacts(text){
+  return text.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const parts = l.split('::').map(s => s.trim());
+    const o = {label: parts[0] || '', value: parts[1] || ''};
+    if(parts[2]) o.url = parts[2];
+    return o;
+  });
+}
+
+function openEditor(id){
+  const e = id ? getEntry(id) : null;
+  editingId = id;
+  document.getElementById('mEditor').style.display = 'block';
+  document.getElementById('mEditorTitle').textContent = e ? 'Edit: ' + e.n : 'New Entry';
+  document.getElementById('fName').value = e ? e.n : '';
+  document.getElementById('fYear').value = e ? e.y : '';
+  document.getElementById('fType').value = e ? e.t : 's';
+  document.getElementById('fRegion').value = e ? e.r : 'rome';
+  document.getElementById('fDesc').value = e ? e.d : '';
+  document.getElementById('fArt').value = e ? serializeArt(e.art || {}) : '';
+  document.getElementById('fQuotes').value = e ? serializePairs((e.art||{}).quotes, 'text', 'source') : '';
+  document.getElementById('fLinks').value = e ? serializePairs((e.art||{}).links, 'label', 'url') : '';
+  document.getElementById('fFacts').value = e ? serializeFacts(e.facts) : '';
+  document.getElementById('fImg').value = e ? (e.img || '') : '';
+  document.getElementById('fImgCap').value = e ? (e.imgCap || '') : '';
+  document.getElementById('fAudio').value = e ? (e.audio || '') : '';
+  document.getElementById('mEditor').scrollIntoView({behavior:'smooth'});
+}
+document.getElementById('mNew').addEventListener('click', () => openEditor(null));
+
+document.getElementById('fSave').addEventListener('click', async () => {
+  const n = document.getElementById('fName').value.trim();
+  const y = parseInt(document.getElementById('fYear').value, 10);
+  if(!n || isNaN(y)){ setStatus('Name and year are required'); return; }
+  const obj = {
+    id: editingId || slug(n, y),
+    y: y, n: n,
+    t: document.getElementById('fType').value,
+    r: document.getElementById('fRegion').value,
+    d: document.getElementById('fDesc').value.trim(),
+    art: {
+      sections: parseArt(document.getElementById('fArt').value),
+      quotes: parsePairs(document.getElementById('fQuotes').value, 'text', 'source'),
+      links: parsePairs(document.getElementById('fLinks').value, 'label', 'url')
+    },
+    img: document.getElementById('fImg').value.trim(),
+    imgCap: document.getElementById('fImgCap').value.trim(),
+    audio: document.getElementById('fAudio').value.trim(),
+    facts: parseFacts(document.getElementById('fFacts').value)
+  };
+  const idx = db.entries.findIndex(e => e.id === obj.id);
+  if(idx >= 0) db.entries[idx] = obj; else db.entries.push(obj);
+  editingId = obj.id;
+  await saveDb();
+  renderMList();
+  render();
+});
+
+document.getElementById('fDelete').addEventListener('click', async () => {
+  if(!editingId){ document.getElementById('mEditor').style.display = 'none'; return; }
+  if(!confirm('Delete this entry permanently?')) return;
+  db.entries = db.entries.filter(e => e.id !== editingId);
+  editingId = null;
+  document.getElementById('mEditor').style.display = 'none';
+  await saveDb();
+  renderMList();
+  render();
+});
+
+// ---- Claude API helper: handles long searches (pause_turn), truncation, and real error messages ----
+async function callClaude(userContent, maxTokens){
+  const messages = [{role: 'user', content: userContent}];
+  for(let attempt = 0; attempt < 4; attempt++){
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: maxTokens,
+        messages: messages,
+        tools: [{type: "web_search_20250305", name: "web_search"}]
+      })
+    });
+    if(!resp.ok){
+      let msg = 'HTTP ' + resp.status;
+      try{
+        const e = await resp.json();
+        if(e && e.error && e.error.message) msg = e.error.message;
+      }catch(ignore){}
+      if(resp.status === 401 || resp.status === 403){
+        msg += ' — the Claude features only work while this file is running as an artifact inside the Claude app';
+      }
+      throw new Error(msg);
+    }
+    const data = await resp.json();
+    if(data.stop_reason === 'pause_turn'){
+      // Long-running web search paused the turn; send it back to continue.
+      messages.push({role: 'assistant', content: data.content});
+      continue;
+    }
+    if(data.stop_reason === 'max_tokens'){
+      throw new Error('Reply was cut off before finishing — try a smaller or simpler request');
+    }
+    return (data.content || []).map(b => b.type === 'text' ? b.text : '').join('');
+  }
+  throw new Error('Web search ran too long — try again or simplify the request');
+}
+function extractJson(text){
+  const clean = String(text).replace(/```json|```/g, '').trim();
+  const s = clean.indexOf('{'), e = clean.lastIndexOf('}');
+  if(s < 0 || e <= s) throw new Error('No JSON found in the reply — try again');
+  try{ return JSON.parse(clean.slice(s, e + 1)); }
+  catch(err){ throw new Error('The reply was not valid JSON (possibly truncated) — try again'); }
+}
+
+// Draft article with Claude (fills the form for review; you press Save to keep it)
+const FACT_HINTS = {
+  s: "Feast day; Born; Died; Title (e.g. Doctor of the Church, Martyr, Virgin, Pope); Beatified; Canonized; Patronage; Religious order; Major works; Attributes in art",
+  c: "Ecumenical number (e.g. 21st ecumenical); Convoked by; Location; Dates; Condemned; Defined; Key documents; Number of sessions",
+  p: "Regime or ruler; Region; Span of years; Cause; Notable martyrs; Estimated toll; Ended by",
+  m: "Seer(s); Location; Date(s); Title of Our Lady; Words or message; Approval status (diocesan or papal, with year); Feast day; Shrine",
+  u: "Location; Date; What occurred; Scientific findings; Approval status; Where venerated",
+  e: "Date; Location; Key figures; Significance; Related document or decree"
+};
+document.getElementById('fDraft').addEventListener('click', async () => {
+  const n = document.getElementById('fName').value.trim();
+  const y = document.getElementById('fYear').value;
+  const t = document.getElementById('fType').value;
+  if(!n){ setStatus('Enter a name first'); return; }
+  setStatus('Drafting… (web search can take a minute)');
+  try{
+    const text = await callClaude(
+"Write an in-depth reference article on \"" + n + "\" (" + TYPE_NAMES[t] + ", AD " + y + ", Catholic Church history). Search newadvent.org (Catholic Encyclopedia) first as the primary source; supplement with vatican.va, papal documents, or other reputable Catholic sources. Write from a faithful Catholic perspective, factual and precise with dates.\n" +
+"Respond ONLY with raw JSON, no fences:\n" +
+"{\"sections\":[{\"h\":\"heading\",\"b\":\"paragraphs separated by \\n\\n\"}],\"quotes\":[{\"text\":\"authentic quote\",\"source\":\"attribution\"}],\"links\":[{\"label\":\"New Advent: ...\",\"url\":\"https://www.newadvent.org/...\"}],\"facts\":[{\"label\":\"...\",\"value\":\"...\"}]}\n" +
+"Aim for depth: roughly 5-8 sections and about 900-1400 words total. Cover, as fits the subject: historical context and background; the life story or the events in detail; teaching, doctrine, or significance; controversies, opposition, or aftermath; and legacy, canonization, or veneration. Section bodies may use simple HTML (<b>, <i>, <u>, <ul>/<ol> with <li>, <br>) sparingly and purposefully.\n" +
+"quotes: 0-4 authentic, exactly-worded quotations with attribution — never invent or paraphrase a quotation.\n" +
+"links: New Advent first if it exists, then vatican.va or other reputable Catholic sources (up to 4 total).\n" +
+"facts: a Quick Facts list suited to this type. Use these labels where they genuinely apply — " + (FACT_HINTS[t] || FACT_HINTS.e) + ". Keep each value short (a date, a name, a place). Omit any fact you cannot verify.", 8000);
+    const parsed = extractJson(text);
+    document.getElementById('fArt').value = (parsed.sections || []).map(x => '## ' + (x.h||'') + '\n' + (x.b||'')).join('\n\n');
+    document.getElementById('fQuotes').value = serializePairs(parsed.quotes, 'text', 'source');
+    document.getElementById('fLinks').value = serializePairs(parsed.links, 'label', 'url');
+    document.getElementById('fFacts').value = serializeFacts(parsed.facts);
+    setStatus('Draft ready — review, then Save');
+  }catch(err){ setStatus('Draft failed: ' + err.message); }
+});
+
+// ---- Instruct Claude (database operations) ----
+document.getElementById('aiRun').addEventListener('click', async () => {
+  const cmd = document.getElementById('aiCmd').value.trim();
+  const log = document.getElementById('aiLog');
+  if(!cmd){ return; }
+  log.textContent = 'Working… (web search can take a minute)';
+  const catalog = db.entries.slice().sort((a,b) => a.y - b.y)
+    .map(e => e.id + ' | ' + e.y + ' | ' + e.n + ' | ' + e.t).join('\n');
+  try{
+    const text = await callClaude(
+"You are the content manager for a Catholic Church history timeline database. Be faithful to Catholic teaching and precise with facts; search the web (especially newadvent.org and vatican.va) if needed.\n" +
+"Types: s=Saint, c=Council, p=Persecution, e=Event, m=Marian Apparition, u=Eucharistic Miracle.\n" +
+"Regions: rome, west, brit, east, holy, africa, americas, asia.\n" +
+"Current entries (id | year | name | type):\n" + catalog + "\n\n" +
+"USER INSTRUCTION: " + cmd + "\n\n" +
+"Respond ONLY with raw JSON, no fences:\n" +
+"{\"summary\":\"one sentence describing what you did\",\"ops\":[\n" +
+"{\"op\":\"add\",\"entry\":{\"y\":0,\"n\":\"\",\"t\":\"s\",\"r\":\"rome\",\"d\":\"short description\",\"art\":{\"sections\":[{\"h\":\"\",\"b\":\"\"}],\"quotes\":[],\"links\":[]},\"facts\":[{\"label\":\"\",\"value\":\"\"}]}},\n" +
+"{\"op\":\"update\",\"id\":\"existing-id\",\"fields\":{\"d\":\"...\"}},\n" +
+"{\"op\":\"delete\",\"id\":\"existing-id\"}\n" +
+"]}\n" +
+"Article section bodies (art.sections[].b) may use simple HTML for readability: <b>, <i>, <u>, <ul>/<ol> with <li>, <br>. Use sparingly. When writing a full article, aim for depth: roughly 5-8 sections, ~900-1400 words, with only authentic quotations.\n" +
+"facts is an optional Quick Facts list ([{label,value} or {label,value,url}]) shown as a panel on the article. Use labels suited to the type — Saint: Feast day, Born, Died, Title, Canonized, Patronage, Order, Major works. Council: Ecumenical number, Convoked by, Location, Defined, Key documents. Persecution: Ruler/regime, Region, Span, Notable martyrs, Ended by. Marian: Seer(s), Location, Date(s), Approval status, Feast day. Eucharistic: Location, Date, Findings, Approval. Event: Date, Location, Key figures, Significance. Keep values short; omit unverifiable facts.\n" +
+"Use only the ops needed. For updates, include only changed fields (y, n, t, r, d, art, facts, img, imgCap, audio). Keep it focused — handle one coherent change per instruction.", 4000);
+    const parsed = extractJson(text);
+    const done = [];
+    (parsed.ops || []).forEach(op => {
+      if(op.op === 'add' && op.entry && op.entry.n){
+        const en = op.entry;
+        en.id = slug(en.n, en.y);
+        en.art = en.art || {sections:[{h:'Overview', b: en.d || ''}], quotes:[], links:[]};
+        en.img = en.img || ''; en.imgCap = en.imgCap || ''; en.audio = en.audio || ''; en.facts = en.facts || [];
+        const idx = db.entries.findIndex(x => x.id === en.id);
+        if(idx >= 0) db.entries[idx] = en; else db.entries.push(en);
+        done.push('Added: ' + en.n + ' (' + en.y + ')');
+      } else if(op.op === 'update' && op.id){
+        const en = getEntry(op.id);
+        if(en){ Object.assign(en, op.fields || {}); done.push('Updated: ' + en.n); }
+        else done.push('Not found: ' + op.id);
+      } else if(op.op === 'delete' && op.id){
+        const en = getEntry(op.id);
+        db.entries = db.entries.filter(x => x.id !== op.id);
+        done.push('Deleted: ' + (en ? en.n : op.id));
+      }
+    });
+    await saveDb();
+    renderMList();
+    render();
+    log.textContent = (parsed.summary || 'Done.') + '\n' + done.join('\n');
+  }catch(err){
+    log.textContent = 'Failed: ' + err.message;
+  }
+});
+
+// ---- JSON view / export / merge import / restore / reset ----
+let jsonFileName = 'catholic-timeline.json';
+
+function openJsonView(title, sub, data, fname){
+  document.getElementById('jsonTitle').textContent = title;
+  document.getElementById('jsonSub').textContent = sub;
+  document.getElementById('jsonText').value = JSON.stringify(data, null, 1);
+  jsonFileName = fname;
+  document.getElementById('jsonView').classList.add('open');
+  document.getElementById('jsonView').scrollTop = 0;
+}
+document.getElementById('jsonBack').addEventListener('click', () => document.getElementById('jsonView').classList.remove('open'));
+
+function jsonStatus(msg){
+  const el = document.getElementById('jsonStatus');
+  el.textContent = msg;
+  clearTimeout(jsonStatus._t);
+  jsonStatus._t = setTimeout(() => el.textContent = '', 4000);
+}
+document.getElementById('jsonSelect').addEventListener('click', () => {
+  const ta = document.getElementById('jsonText');
+  ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length);
+  jsonStatus('Selected — now copy');
+});
+document.getElementById('jsonCopy').addEventListener('click', async () => {
+  const ta = document.getElementById('jsonText');
+  try{
+    await navigator.clipboard.writeText(ta.value);
+    jsonStatus('Copied to clipboard ✓');
+  }catch(e){
+    ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length);
+    try{ document.execCommand('copy'); jsonStatus('Copied ✓'); }
+    catch(e2){ jsonStatus('Copy blocked — use Select All, then copy manually'); }
+  }
+});
+document.getElementById('jsonDownload').addEventListener('click', () => {
+  try{
+    const blob = new Blob([document.getElementById('jsonText').value], {type: 'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = jsonFileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    jsonStatus('Download attempted — if no file appears, use Copy All');
+  }catch(e){ jsonStatus('Download failed — use Copy All'); }
+});
+
+document.getElementById('mJsonAll').addEventListener('click', () => {
+  openJsonView('Database JSON — All Entries',
+    db.entries.length + ' entries · full backup · re-import with Restore Backup or merge with Add/Update',
+    db, 'catholic-timeline-all.json');
+});
+document.getElementById('mJsonFiltered').addEventListener('click', () => {
+  const evs = filtered();
+  const types = TYPE_ORDER.filter(t => activeTypes[t]).map(t => TYPE_NAMES[t]).join(', ');
+  const region = activeRegion === 'all' ? 'All regions' : REGION_NAMES[activeRegion];
+  openJsonView('Database JSON — Filtered',
+    evs.length + ' entries · ' + types + ' · ' + region + ' · edit and re-import via Paste JSON (Add/Update)',
+    {v: db.v || 1, entries: evs}, 'catholic-timeline-filtered.json');
+});
+
+// Merge import: adds new entries, updates existing (matched by id, else by name+year slug). Never deletes.
+function normalizeIncoming(parsed){
+  if(Array.isArray(parsed)) return parsed;
+  if(parsed && Array.isArray(parsed.entries)) return parsed.entries;
+  if(parsed && (parsed.n != null || parsed.id)) return [parsed];
+  return null;
+}
+function mergeEntries(list){
+  let added = 0, updated = 0, skipped = 0;
+  const notes = [];
+  list.forEach(inc => {
+    if(!inc || typeof inc !== 'object'){ skipped++; return; }
+    let id = inc.id;
+    if(!id && inc.n != null && inc.y != null) id = slug(inc.n, inc.y);
+    if(!id){ skipped++; return; }
+    const ex = getEntry(id);
+    if(ex){
+      Object.keys(inc).forEach(k => { if(k !== 'id') ex[k] = inc[k]; });
+      updated++; notes.push('Updated: ' + ex.n);
+    } else {
+      if(inc.n == null || inc.y == null){ skipped++; return; }
+      db.entries.push({
+        id: id, y: parseInt(inc.y, 10), n: String(inc.n),
+        t: inc.t || 'e', r: inc.r || 'rome', d: inc.d || '',
+        art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
+        img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || []
+      });
+      added++; notes.push('Added: ' + inc.n + ' (' + inc.y + ')');
+    }
+  });
+  return {added: added, updated: updated, skipped: skipped, notes: notes};
+}
+async function applyMerge(text, statusPrefix){
+  let parsed;
+  try{ parsed = JSON.parse(text); }
+  catch(e){ setStatus('Not valid JSON — check for missing brackets or commas'); return false; }
+  const list = normalizeIncoming(parsed);
+  if(!list){ setStatus('JSON must be an entry, an array of entries, or {"entries":[...]}'); return false; }
+  const r = mergeEntries(list);
+  await saveDb();
+  renderMList();
+  render();
+  setStatus(statusPrefix + ': ' + r.added + ' added, ' + r.updated + ' updated' + (r.skipped ? ', ' + r.skipped + ' skipped' : ''));
+  return true;
+}
+
+document.getElementById('mImportBtn').addEventListener('click', () => document.getElementById('mImportFile').click());
+document.getElementById('mImportFile').addEventListener('change', (ev) => {
+  const f = ev.target.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = () => applyMerge(r.result, 'Import');
+  r.readAsText(f);
+  ev.target.value = '';
+});
+
+document.getElementById('pasteApply').addEventListener('click', async () => {
+  const text = document.getElementById('pasteJson').value.trim();
+  if(!text){ setStatus('Paste JSON first'); return; }
+  const ok = await applyMerge(text, 'Applied');
+  if(ok) document.getElementById('pasteJson').value = '';
+});
+
+// Full restore (replaces everything) — for recovering a backup after artifact recreation
+document.getElementById('mRestoreBtn').addEventListener('click', () => {
+  if(!confirm('Restore a full backup? This REPLACES the entire database with the file contents. (For add/update only, use Import File instead.)')) return;
+  document.getElementById('mRestoreFile').click();
+});
+document.getElementById('mRestoreFile').addEventListener('change', (ev) => {
+  const f = ev.target.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = async () => {
+    try{
+      const parsed = JSON.parse(r.result);
+      if(!parsed.entries || !Array.isArray(parsed.entries)) throw new Error('bad format');
+      db = parsed;
+      await saveDb();
+      renderMList();
+      render();
+      setStatus('Restored ' + db.entries.length + ' entries (replaced all)');
+    }catch(e){ setStatus('Restore failed — not a valid backup file'); }
+  };
+  r.readAsText(f);
+  ev.target.value = '';
+});
+
+document.getElementById('mReset').addEventListener('click', async () => {
+  if(!confirm('Replace the whole database with the original seed data? Your edits will be lost (export a JSON backup first!)')) return;
+  db = seedDb();
+  await saveDb();
+  renderMList();
+  render();
+  setStatus('Reset to seed');
+});
+
+// ---- Manage button gating: hidden unless URL contains "manage" (#manage, ?manage, /manage) ----
+// Fallback for the artifact viewer (where the URL can't be edited): tap the title 5 times quickly.
+let tapUnlocked = false, titleTaps = [];
+function manageUnlocked(){
+  try{
+    const u = (location.hash + ' ' + location.search + ' ' + location.pathname).toLowerCase();
+    if(u.indexOf('manage') !== -1) return true;
+  }catch(e){}
+  return tapUnlocked;
+}
+function updateManageVisibility(){
+  document.getElementById('manageBtn').style.display = manageUnlocked() ? '' : 'none';
+}
+window.addEventListener('hashchange', updateManageVisibility);
+document.querySelector('h1').addEventListener('click', () => {
+  const now = Date.now();
+  titleTaps = titleTaps.filter(t => now - t < 3000);
+  titleTaps.push(now);
+  if(titleTaps.length >= 5 && !tapUnlocked){
+    tapUnlocked = true;
+    updateManageVisibility();
+  }
+});
+
+// ================= INIT =================
+(async function(){
+  updateManageVisibility();
+  await loadDb();
+  render();
+  scrollToYear(120);
+})();
+</script>
+</body>
+</html>
