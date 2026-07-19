@@ -124,6 +124,28 @@
   .ev .yr{font-size:9px; color:var(--muted); font-style:italic;}
   .t-s{color:var(--saint);} .t-c{color:var(--council);} .t-p{color:var(--persec);}
   .t-e{color:var(--event);} .t-m{color:var(--marian);} .t-u{color:var(--euch);}
+  /* Timeline search */
+  .searchwrap{position:relative; flex:1 1 260px; min-width:170px;}
+  #tlSearch{width:100%; box-sizing:border-box; background:var(--navy-deep); border:1px solid var(--gold); color:var(--parchment); border-radius:16px; padding:6px 12px; font-family:'EB Garamond',Georgia,serif; font-size:14px;}
+  #tlSearch:focus{outline:none; box-shadow:0 0 0 2px rgba(201,165,66,.35);}
+  .sresults{position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:40; display:none; background:linear-gradient(180deg,#14224A,#0C1735); border:1px solid var(--gold); border-radius:10px; overflow:hidden auto; box-shadow:0 8px 30px rgba(0,0,0,.6); max-height:50vh;}
+  .sresult{display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; border-bottom:1px solid rgba(201,165,66,.14); font-size:14px;}
+  .sresult:last-child{border-bottom:none;}
+  .sresult:hover{background:rgba(201,165,66,.12);}
+  .sresult .sdot{font-size:11px; line-height:1;}
+  .sresult .sname{flex:1;}
+  .sresult .syr{color:var(--muted); font-style:italic; font-size:12.5px;}
+  .sresult.sempty{color:var(--muted); cursor:default; font-style:italic;}
+  /* Search glow + zoom fade */
+  .ev.hit .ic{border-color:var(--gold-bright); animation:pulseHit 1.1s ease-in-out infinite;}
+  .ev.focus .ic{transform:scale(1.3); border-color:var(--gold-bright); box-shadow:0 0 16px 4px var(--gold-bright);}
+  @keyframes pulseHit{0%,100%{box-shadow:0 0 8px 1px var(--gold-bright);}50%{box-shadow:0 0 15px 4px var(--gold-bright);}}
+  .ev{animation:evin .22s ease;}
+  @keyframes evin{from{opacity:.25;}to{opacity:1;}}
+  /* GitHub publish box */
+  .ghbox{border:1px solid rgba(201,165,66,.4); border-radius:10px; padding:12px 14px; margin:14px 0; background:rgba(201,165,66,.04);}
+  .ghbox summary{cursor:pointer; font-family:'Cinzel',serif; font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold-bright);}
+  .ghbox[open] summary{margin-bottom:10px;}
   .detail{
     position:fixed; left:50%; transform:translateX(-50%) translateY(120%);
     bottom:12px; width:min(560px, calc(100% - 20px));
@@ -300,6 +322,13 @@
     <button class="chip" data-region="americas">Americas</button>
     <button class="chip" data-region="asia">Asia &amp; Oceania</button>
   </div>
+  <div class="row" id="searchRow">
+    <span class="lbl">Find</span>
+    <div class="searchwrap">
+      <input id="tlSearch" type="search" autocomplete="off" placeholder="Search by name — type 3+ letters…">
+      <div class="sresults" id="sResults"></div>
+    </div>
+  </div>
 </div>
 
 <div class="viewport" id="viewport">
@@ -353,6 +382,23 @@
       <span class="mstatus" id="mStatus"></span>
     </div>
     <div class="hint">&ldquo;JSON &mdash; Filtered&rdquo; exports only the entries matching the category and region filters currently set on the timeline. Both JSON views open a copyable window &mdash; save the text yourself if downloads don't work on your device.</div>
+    <details class="ghbox" id="ghBox">
+      <summary>Publish to GitHub (save your site online)</summary>
+      <div class="mgrid2">
+        <div class="mfield"><label>GitHub username / owner</label><input type="text" id="ghOwner" placeholder="your-username"></div>
+        <div class="mfield"><label>Repository name</label><input type="text" id="ghRepo" placeholder="catholic-timeline"></div>
+      </div>
+      <div class="mgrid2">
+        <div class="mfield"><label>Branch</label><input type="text" id="ghBranch" placeholder="main"></div>
+        <div class="mfield"><label>File path</label><input type="text" id="ghPath" placeholder="data.json"></div>
+      </div>
+      <div class="mfield"><label>Access token (fine-grained, this repo only, Contents: read/write)</label><input type="password" id="ghToken" placeholder="github_pat_…" autocomplete="off"></div>
+      <div class="mtool">
+        <button class="mbtn" id="ghPublish">Save to GitHub (Publish)</button>
+        <span class="mstatus" id="ghStatus"></span>
+      </div>
+      <div class="hint">Your token is stored only in this browser (never in the file or the repo) and is used to commit the current database to <b>data.json</b>. After publishing, your live site updates in about a minute. This only works on your hosted site, not inside the Claude artifact.</div>
+    </details>
 
     <div class="mbox">
       <h3>Paste JSON (Add / Update Only)</h3>
@@ -399,6 +445,16 @@
             <option value="americas">Americas</option><option value="asia">Asia &amp; Oceania</option>
           </select>
         </div>
+      </div>
+      <div class="mgrid2">
+        <div class="mfield"><label>Prominence (when it appears as you zoom)</label>
+          <select id="fTier">
+            <option value="1">1 — Always show (major)</option>
+            <option value="2">2 — Show when zoomed in</option>
+            <option value="3">3 — Show only when zoomed in deep (minor)</option>
+          </select>
+        </div>
+        <div class="mfield"><label>Alternate names for search (comma-separated)</label><input type="text" id="fAlt" placeholder="e.g. JPII, Karol Wojtyła"></div>
       </div>
       <div class="mfield"><label>Short Description (detail card)</label><textarea id="fDesc"></textarea></div>
       <div class="mfield"><label>Article — "## Heading" starts a section; blank lines between paragraphs; simple HTML allowed (&lt;b&gt; &lt;i&gt; &lt;u&gt; &lt;ul&gt; &lt;ol&gt; &lt;li&gt; &lt;br&gt; &lt;blockquote&gt; &lt;a href&gt;)</label><textarea class="tall" id="fArt"></textarea></div>
@@ -730,6 +786,7 @@ const HEAD_H = 58;
 function render(){
   if(!db) return;
   const evs = filtered();
+  let shown = 0;
   const showLabels = ppy >= 1.5;
   const gap = showLabels ? 96 : 30;
   const rowH = showLabels ? 52 : 32;
@@ -783,7 +840,7 @@ function render(){
   let yCursor = HEAD_H + 4;
   TYPE_ORDER.forEach(t => {
     if(!activeTypes[t]) return;
-    const items = evs.filter(d => d.t === t);
+    const items = evs.filter(d => d.t === t && (tierVisible(d) || searchHits.has(d.id)));
     if(!items.length) return;
     const lanes = [];
     let maxLane = 0;
@@ -806,7 +863,7 @@ function render(){
     placed.forEach(pl => {
       const d = pl.d;
       const el = document.createElement('div');
-      el.className = 'ev t-' + d.t;
+      el.className = 'ev t-' + d.t + (searchHits.has(d.id) ? ' hit' : '') + (searchFocusId === d.id ? ' focus' : '');
       el.style.left = pl.x + 'px';
       el.style.top = (yCursor + bandPad + 16 + pl.lane*rowH) + 'px';
       el.title = d.n + ' (AD ' + d.y + ')';
@@ -814,12 +871,13 @@ function render(){
         (showLabels ? '<div class="nm">'+esc(d.n)+'</div><div class="yr">'+d.y+'</div>' : '');
       el.addEventListener('click', (e) => { e.stopPropagation(); if(dragMoved) return; showDetail(d); });
       canvas.appendChild(el);
+      shown++;
     });
     yCursor += bandH;
   });
 
   canvas.style.height = (yCursor + 50) + 'px';
-  document.getElementById('count').textContent = evs.length + ' of ' + db.entries.length + ' shown';
+  document.getElementById('count').textContent = shown + ' of ' + db.entries.length + ' shown';
 }
 
 function showDetail(d){
@@ -833,7 +891,7 @@ function showDetail(d){
   detail.classList.add('open');
 }
 document.getElementById('detailClose').addEventListener('click', () => detail.classList.remove('open'));
-viewport.addEventListener('click', () => { if(dragMoved) return; detail.classList.remove('open'); });
+viewport.addEventListener('click', () => { if(dragMoved) return; detail.classList.remove('open'); const sr=document.getElementById('sResults'); if(sr) sr.style.display='none'; });
 
 // ---- Click-drag panning (desktop): drag the background to shift the timeline ----
 let dragState = null, dragMoved = false;
@@ -888,6 +946,92 @@ document.querySelectorAll('#regionRow .chip').forEach(chip => {
   });
 });
 window.addEventListener('resize', () => { ppy = Math.max(ppy, fitPpy()); render(); });
+
+// ---- Zoom tiers (level of detail) ----
+const TIER2_PPY = 1.0, TIER3_PPY = 2.2;
+function tierVisible(d){
+  const t = d.tier || 1;
+  if(t <= 1) return true;
+  if(t === 2) return ppy >= TIER2_PPY;
+  return ppy >= TIER3_PPY;
+}
+
+// ---- Search ----
+let searchHits = new Set();
+let searchFocusId = null;
+function fold(s){ return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+function runSearch(){
+  const q = fold(document.getElementById('tlSearch').value.trim());
+  const box = document.getElementById('sResults');
+  if(q.length < 3){ searchHits = new Set(); searchFocusId = null; box.style.display = 'none'; box.innerHTML = ''; render(); return; }
+  const pool = filtered();
+  const nameHit = d => fold(d.n).includes(q) || (Array.isArray(d.alt) && d.alt.some(a => fold(a).includes(q)));
+  const matches = pool.filter(d => nameHit(d) || fold(d.d).includes(q));
+  matches.sort((a,b) => { const an = nameHit(a), bn = nameHit(b); if(an !== bn) return an ? -1 : 1; return a.y - b.y; });
+  searchHits = new Set(matches.map(d => d.id));
+  box.innerHTML = '';
+  if(!matches.length){ box.innerHTML = '<div class="sresult sempty">No matches</div>'; }
+  matches.slice(0, 8).forEach(d => {
+    const r = document.createElement('div');
+    r.className = 'sresult';
+    r.innerHTML = '<span class="sdot t-'+d.t+'">\u25CF</span><span class="sname">'+esc(d.n)+'</span><span class="syr">AD '+d.y+'</span>';
+    r.addEventListener('click', () => focusEntry(d));
+    box.appendChild(r);
+  });
+  box.style.display = 'block';
+  render();
+}
+function focusEntry(d){
+  searchFocusId = d.id;
+  searchHits.add(d.id);
+  if(ppy < 1.8){ ppy = Math.min(8, Math.max(fitPpy(), 1.8)); }
+  render();
+  scrollToYear(d.y);
+  document.getElementById('sResults').style.display = 'none';
+  showDetail(d);
+}
+document.getElementById('tlSearch').addEventListener('input', runSearch);
+document.getElementById('tlSearch').addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){ e.target.value = ''; runSearch(); e.target.blur(); }
+});
+
+// ---- Publish to GitHub ----
+function prefillGh(){
+  let c = {};
+  try{ c = JSON.parse(localStorage.getItem('gh-config') || '{}'); }catch(e){}
+  const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
+  set('ghOwner', c.owner || '');
+  set('ghRepo', c.repo || '');
+  set('ghBranch', c.branch || 'main');
+  set('ghPath', c.path || 'data.json');
+  set('ghToken', localStorage.getItem('gh-token') || '');
+}
+async function publishToGitHub(){
+  const v = id => document.getElementById(id).value.trim();
+  const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', path = v('ghPath') || 'data.json', token = v('ghToken');
+  const st = document.getElementById('ghStatus');
+  if(!owner || !repo || !token){ st.textContent = 'Enter username, repository, and token first.'; return; }
+  localStorage.setItem('gh-config', JSON.stringify({owner, repo, branch, path}));
+  localStorage.setItem('gh-token', token);
+  const api = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + path.split('/').map(encodeURIComponent).join('/');
+  const hdr = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' };
+  st.textContent = 'Publishing…';
+  try{
+    let sha = null;
+    const g = await fetch(api + '?ref=' + encodeURIComponent(branch), { headers: hdr });
+    if(g.status === 200){ sha = (await g.json()).sha; }
+    else if(g.status === 401 || g.status === 403){ throw new Error('token rejected (check permissions)'); }
+    else if(g.status !== 404){ throw new Error('read failed (' + g.status + ')'); }
+    const json = JSON.stringify(db, null, 1);
+    const content = btoa(unescape(encodeURIComponent(json)));
+    const body = { message: 'Update data.json (' + db.entries.length + ' entries) via Content Manager', content: content, branch: branch };
+    if(sha) body.sha = sha;
+    const put = await fetch(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, hdr), body: JSON.stringify(body) });
+    if(put.status === 200 || put.status === 201){ st.textContent = 'Committed \u2713 — your site updates in about a minute.'; }
+    else { let m = ''; try{ m = (await put.json()).message; }catch(e){} throw new Error(m || ('commit failed ' + put.status)); }
+  }catch(err){ st.textContent = 'Publish failed: ' + err.message; }
+}
+document.getElementById('ghPublish').addEventListener('click', publishToGitHub);
 
 // ================= ARTICLE VIEW (from DB) =================
 document.getElementById('dArtBtn').addEventListener('click', () => { if(currentEntry) openArticle(currentEntry); });
@@ -1048,7 +1192,7 @@ function stopAudio(){
 }
 
 // ================= CONTENT MANAGER =================
-document.getElementById('manageBtn').addEventListener('click', () => { manage.classList.add('open'); renderMList(); });
+document.getElementById('manageBtn').addEventListener('click', () => { manage.classList.add('open'); renderMList(); prefillGh(); });
 document.getElementById('manageBack').addEventListener('click', () => manage.classList.remove('open'));
 
 let editingId = null;
@@ -1126,6 +1270,8 @@ function openEditor(id){
   document.getElementById('fQuotes').value = e ? serializePairs((e.art||{}).quotes, 'text', 'source') : '';
   document.getElementById('fLinks').value = e ? serializePairs((e.art||{}).links, 'label', 'url') : '';
   document.getElementById('fFacts').value = e ? serializeFacts(e.facts) : '';
+  document.getElementById('fTier').value = e ? String(e.tier || 1) : '1';
+  document.getElementById('fAlt').value = e && Array.isArray(e.alt) ? e.alt.join(', ') : '';
   document.getElementById('fImg').value = e ? (e.img || '') : '';
   document.getElementById('fImgCap').value = e ? (e.imgCap || '') : '';
   document.getElementById('fAudio').value = e ? (e.audio || '') : '';
@@ -1151,7 +1297,9 @@ document.getElementById('fSave').addEventListener('click', async () => {
     img: document.getElementById('fImg').value.trim(),
     imgCap: document.getElementById('fImgCap').value.trim(),
     audio: document.getElementById('fAudio').value.trim(),
-    facts: parseFacts(document.getElementById('fFacts').value)
+    facts: parseFacts(document.getElementById('fFacts').value),
+    tier: parseInt(document.getElementById('fTier').value, 10) || 1,
+    alt: document.getElementById('fAlt').value.split(/[\n,]/).map(s => s.trim()).filter(Boolean)
   };
   const idx = db.entries.findIndex(e => e.id === obj.id);
   if(idx >= 0) db.entries[idx] = obj; else db.entries.push(obj);
@@ -1268,13 +1416,14 @@ document.getElementById('aiRun').addEventListener('click', async () => {
 "USER INSTRUCTION: " + cmd + "\n\n" +
 "Respond ONLY with raw JSON, no fences:\n" +
 "{\"summary\":\"one sentence describing what you did\",\"ops\":[\n" +
-"{\"op\":\"add\",\"entry\":{\"y\":0,\"n\":\"\",\"t\":\"s\",\"r\":\"rome\",\"d\":\"short description\",\"art\":{\"sections\":[{\"h\":\"\",\"b\":\"\"}],\"quotes\":[],\"links\":[]},\"facts\":[{\"label\":\"\",\"value\":\"\"}]}},\n" +
+"{\"op\":\"add\",\"entry\":{\"y\":0,\"n\":\"\",\"t\":\"s\",\"r\":\"rome\",\"d\":\"short description\",\"art\":{\"sections\":[{\"h\":\"\",\"b\":\"\"}],\"quotes\":[],\"links\":[]},\"facts\":[{\"label\":\"\",\"value\":\"\"}],\"tier\":1,\"alt\":[]}},\n" +
 "{\"op\":\"update\",\"id\":\"existing-id\",\"fields\":{\"d\":\"...\"}},\n" +
 "{\"op\":\"delete\",\"id\":\"existing-id\"}\n" +
 "]}\n" +
 "Article section bodies (art.sections[].b) may use simple HTML for readability: <b>, <i>, <u>, <ul>/<ol> with <li>, <br>. Use sparingly. When writing a full article, aim for depth: roughly 5-8 sections, ~900-1400 words, with only authentic quotations.\n" +
 "facts is an optional Quick Facts list ([{label,value} or {label,value,url}]) shown as a panel on the article. Use labels suited to the type — Saint: Feast day, Born, Died, Title, Canonized, Patronage, Order, Major works. Council: Ecumenical number, Convoked by, Location, Defined, Key documents. Persecution: Ruler/regime, Region, Span, Notable martyrs, Ended by. Marian: Seer(s), Location, Date(s), Approval status, Feast day. Eucharistic: Location, Date, Findings, Approval. Event: Date, Location, Key figures, Significance. Keep values short; omit unverifiable facts.\n" +
-"Use only the ops needed. For updates, include only changed fields (y, n, t, r, d, art, facts, img, imgCap, audio). Keep it focused — handle one coherent change per instruction.", 4000);
+"tier (1-3) sets zoom prominence: 1 = always visible (major figures/events), 2 = appears when zoomed in, 3 = appears only at deep zoom (minor). Default 1. alt is an array of alternate names/nicknames for search (e.g. [\"JPII\",\"Karol Wojtyła\"]).\n" +
+"Use only the ops needed. For updates, include only changed fields (y, n, t, r, d, art, facts, tier, alt, img, imgCap, audio). Keep it focused — handle one coherent change per instruction.", 4000);
     const parsed = extractJson(text);
     const done = [];
     (parsed.ops || []).forEach(op => {
@@ -1282,7 +1431,7 @@ document.getElementById('aiRun').addEventListener('click', async () => {
         const en = op.entry;
         en.id = slug(en.n, en.y);
         en.art = en.art || {sections:[{h:'Overview', b: en.d || ''}], quotes:[], links:[]};
-        en.img = en.img || ''; en.imgCap = en.imgCap || ''; en.audio = en.audio || ''; en.facts = en.facts || [];
+        en.img = en.img || ''; en.imgCap = en.imgCap || ''; en.audio = en.audio || ''; en.facts = en.facts || []; en.tier = en.tier || 1; en.alt = en.alt || [];
         const idx = db.entries.findIndex(x => x.id === en.id);
         if(idx >= 0) db.entries[idx] = en; else db.entries.push(en);
         done.push('Added: ' + en.n + ' (' + en.y + ')');
@@ -1393,7 +1542,8 @@ function mergeEntries(list){
         id: id, y: parseInt(inc.y, 10), n: String(inc.n),
         t: inc.t || 'e', r: inc.r || 'rome', d: inc.d || '',
         art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
-        img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || []
+        img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
+        tier: inc.tier || 1, alt: inc.alt || []
       });
       added++; notes.push('Added: ' + inc.n + ' (' + inc.y + ')');
     }
