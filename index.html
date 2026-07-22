@@ -6,8 +6,8 @@
 <title>Two Millennia — A Timeline of the Catholic Church</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cardo:wght@400;700&family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap"></noscript>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap"></noscript>
 <style>
   :root{
     --navy:#0B1630; --navy-deep:#070F22; --navy-band:#101D3D;
@@ -31,18 +31,35 @@
   h1{
     font-family:'Cinzel', serif; font-weight:600;
     font-size:clamp(16px, 2.6vw, 25px); letter-spacing:.14em;
-    color:var(--gold-bright); text-transform:uppercase; text-align:center;
+    text-align:center;
   }
-  .subtitle{text-align:center; font-style:italic; color:var(--muted); font-size:clamp(11px,1.6vw,14px); margin-top:2px;}
-  .rule{width:min(420px,70%); height:1px; margin:7px auto 0; background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+  h1 .t1{font-family:'Cinzel',serif; font-weight:700; color:var(--gold-bright); text-transform:uppercase;}
+  h1 .t2{font-family:'EB Garamond',Georgia,serif; font-style:italic; font-weight:600; color:var(--parchment); text-transform:none; letter-spacing:.01em; margin-left:7px;}
+  .hamBtn{
+    position:absolute; top:10px; right:12px; z-index:70;
+    width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+    font-size:19px; line-height:1;
+    background:var(--navy-band); color:var(--gold-bright);
+    border:1px solid rgba(201,165,66,.5); border-radius:8px; cursor:pointer;
+  }
+  .hamBtn:hover{background:var(--gold); color:var(--navy-deep);}
+  .hamMenu{
+    position:absolute; top:50px; right:12px; left:12px; z-index:65;
+    background:linear-gradient(180deg,#14224A,#0C1735);
+    border:1px solid var(--gold); border-radius:10px;
+    padding:12px; box-shadow:0 8px 30px rgba(0,0,0,.6);
+    display:none; max-height:min(70vh, 520px); overflow-y:auto;
+  }
+  .hamMenu.open{display:block;}
+  .hamMenu .row{overflow-x:auto; margin-bottom:4px;}
   .managebtn{
-    position:absolute; top:12px; right:12px;
     font-family:'Cinzel',serif; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
     background:var(--navy-band); color:var(--gold-bright);
     border:1px solid rgba(201,165,66,.5); border-radius:14px;
-    padding:5px 12px; cursor:pointer;
+    padding:7px 12px; cursor:pointer;
   }
   .managebtn:hover{background:var(--gold); color:var(--navy-deep);}
+  .hamMenu .managebtn{display:block; width:100%; margin-top:12px; text-align:center;}
   .controls{
     flex:0 0 auto; padding:8px 12px;
     display:flex; flex-direction:column; gap:6px;
@@ -106,9 +123,12 @@
   .band-u{background:rgba(185,143,224,.055);}
   .band-e{background:rgba(126,156,201,.05);}
   .bandlbl{
-    position:sticky; left:8px; display:inline-block;
-    font-family:'Cinzel',serif; font-size:9.5px; letter-spacing:.2em; text-transform:uppercase;
-    opacity:.65; margin:4px 0 0 8px; pointer-events:none;
+    position:sticky; left:8px; top:64px; display:inline-block;
+    font-family:'Cinzel',serif; font-size:13px; letter-spacing:.22em; text-transform:uppercase;
+    opacity:.95; margin:4px 0 0 8px; pointer-events:none; z-index:3;
+    text-shadow:0 1px 4px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.7);
+    background:linear-gradient(90deg, rgba(7,15,34,.82), rgba(7,15,34,0) 92%);
+    padding:4px 14px 4px 6px; border-radius:4px;
   }
   .ev{position:absolute; display:flex; flex-direction:column; align-items:center; cursor:pointer; transform:translateX(-50%); z-index:2;}
   .ev .ic{
@@ -162,9 +182,24 @@
   .detail.open{transform:translateX(-50%) translateY(0);}
   .detail .close{position:absolute; top:8px; right:10px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1;}
   .detail .close:hover{color:var(--gold-bright);}
+  .draghandle{display:none; position:sticky; top:6px; z-index:6; width:38px; height:4px; border-radius:2px; background:rgba(201,165,66,.55); margin:0 auto 10px;}
+  @media (pointer:coarse){
+    .draghandle{display:block;}
+    #artBack, #dArtBtn, #detailClose{display:none;}
+    #article.overlay{
+      inset:auto; left:50%; right:auto; bottom:0; top:auto;
+      transform:translateX(-50%) translateY(100%);
+      width:min(560px, calc(100% - 20px));
+      height:88vh; max-height:88vh;
+      border:1px solid var(--gold); border-radius:16px 16px 0 0;
+      background:linear-gradient(180deg, #14224A, #0C1735);
+      box-shadow:0 -8px 30px rgba(0,0,0,.6);
+    }
+    #article.overlay.open{transform:translateX(-50%) translateY(0);}
+  }
   .dhead{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; padding-right:24px;}
   .dyear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:18px; font-weight:600;}
-  .dname{font-family:'Cardo',serif; font-size:20px; font-weight:700;}
+  .dname{font-size:19px; font-weight:600;}
   .dbadges{display:flex; gap:6px; margin-top:5px; flex-wrap:wrap;}
   .badge{font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:2px 9px; border-radius:10px; border:1px solid currentColor; font-family:'Cinzel',serif;}
   .ddesc{margin-top:8px; font-size:15px; line-height:1.45;}
@@ -182,33 +217,17 @@
     overflow-y:auto; transform:translateY(100%); transition:transform .3s ease;
   }
   .overlay.open{transform:translateY(0);}
-  .artwrap{max-width:720px; margin:0 auto; padding:14px 20px 80px;}
-  /* ---- Article: overlaying sticky header ---- */
-  #article{position:fixed; z-index:100; background:var(--navy-deep); overflow:hidden;
-           transform:none; display:none; top:0; left:0; width:100%; height:100%;}
-  #article.open{display:block;}
-  .artscroll{position:absolute; inset:0; overflow-y:auto; -webkit-overflow-scrolling:touch;
-             scrollbar-width:none; -ms-overflow-style:none;}
-  .artscroll::-webkit-scrollbar{display:none; width:0; height:0;}
-  .arthead{position:absolute; top:0; left:0; right:0; z-index:10; overflow:hidden;
-           background:var(--navy-deep);}
-  .artbar{position:relative; padding:10px 12px 8px; text-align:center;}
-  .artback{position:absolute; left:12px; top:10px; width:36px; height:36px; border-radius:50%;
-           border:none; background:var(--gold-bright); cursor:pointer; padding:0; z-index:2;
-           display:flex; align-items:center; justify-content:center;}
-  .artback:active{background:var(--gold);}
-  .artback svg{width:18px; height:18px; display:block;}
-  .artthumb{position:absolute; right:12px; top:8px; height:0; width:auto; opacity:0;
-            border-radius:3px; object-fit:cover; z-index:2;}
-  .artname{font-family:'Cardo',serif; font-weight:700; color:var(--gold-bright); line-height:1.12;
-           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 58px;}
-  .artyear{display:inline-flex; align-items:center; gap:8px; margin-top:2px; padding:0 10px 1px;
-           border-top:1.5px solid var(--gold); border-bottom:1.5px solid var(--gold);}
-  .artyear .fl{color:var(--gold); opacity:.8;}
-  .artyear b{font-family:'Cardo',serif; font-weight:700; color:var(--gold-bright); line-height:1.2;}
-  .arthero{width:100%; overflow:hidden; background:var(--navy-deep);}
-  .arthero img{width:100%; height:100%; object-fit:cover; object-position:center 22%; display:block;}
+  .artwrap{max-width:720px; margin:0 auto; padding:18px 20px 70px;}
+  .artback{
+    position:sticky; top:12px; z-index:5;
+    font-family:'Cinzel',serif; font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+    background:var(--navy-band); color:var(--gold-bright);
+    border:1px solid var(--gold); border-radius:16px; padding:6px 14px; cursor:pointer;
+  }
+  .artback:hover{background:var(--gold); color:var(--navy-deep);}
+  .arttitle{font-family:'Cinzel',serif; font-weight:700; color:var(--gold-bright); font-size:clamp(24px,5vw,34px); line-height:1.15; margin-top:20px; text-align:center;}
   .artsub{text-align:center; font-style:italic; color:var(--muted); font-size:16px; margin-top:6px;}
+  .artbadges{display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
   .artrule{width:min(360px,60%); height:1px; margin:18px auto; background:linear-gradient(90deg,transparent,var(--gold),transparent);}
   .arth{font-family:'Cinzel',serif; font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:26px 0 8px; border-bottom:1px solid rgba(201,165,66,.35); padding-bottom:5px;}
   .artp{font-size:17.5px; line-height:1.68; margin:0 0 14px;}
@@ -227,23 +246,19 @@
   .factval{flex:1;}
   .factval a{color:var(--gold-bright);}
   /* Audio player */
-  .player{display:flex; align-items:center; gap:12px; padding:8px 14px 10px; background:none; border:none;}
-  .pbtn{flex:0 0 auto; background:none; border:none; padding:0; cursor:pointer; line-height:0;}
-  .pbtn svg{width:30px; height:30px; fill:var(--gold-bright); display:block;}
-  .player input[type=range]{
-    flex:1 1 auto; -webkit-appearance:none; appearance:none; background:transparent;
-    height:18px; margin:0; cursor:pointer;
+  .player{
+    display:flex; align-items:center; gap:10px;
+    background:var(--navy-band); border:1px solid var(--gold);
+    border-radius:10px; padding:10px 14px; margin-top:18px;
   }
-  .player input[type=range]::-webkit-slider-runnable-track{
-    height:4px; border-radius:2px; background:rgba(201,165,66,.22);
+  .pbtn{
+    width:38px; height:38px; border-radius:50%; flex:0 0 auto;
+    background:var(--gold); color:var(--navy-deep); border:none;
+    font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;
   }
-  .player input[type=range]::-webkit-slider-thumb{
-    -webkit-appearance:none; width:12px; height:12px; border-radius:50%;
-    background:var(--gold-bright); margin-top:-4px; border:none;
-  }
-  .player input[type=range]::-moz-range-track{height:4px; border-radius:2px; background:rgba(201,165,66,.22);}
-  .player input[type=range]::-moz-range-progress{height:4px; border-radius:2px; background:var(--gold);}
-  .player input[type=range]::-moz-range-thumb{width:12px; height:12px; border:none; border-radius:50%; background:var(--gold-bright);}
+  .pbtn:hover{background:var(--gold-bright);}
+  .pbtn.sec{background:var(--navy-deep); color:var(--gold-bright); border:1px solid var(--gold);}
+  .player input[type=range]{flex:1 1 auto; accent-color:var(--gold);}
   .ptime{font-size:13px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums;}
   /* Manage view */
   .mtool{display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; align-items:center;}
@@ -304,12 +319,11 @@
   }
   @media (max-width:640px){
     .ev .nm{max-width:74px; font-size:10px;}
-    h1{letter-spacing:.08em; padding-right:70px; text-align:left;}
-    .subtitle{text-align:left;}
+    h1{letter-spacing:.08em; padding-right:52px; text-align:left;}
     .mgrid2{grid-template-columns:1fr;}
   }
   @media (prefers-reduced-motion: reduce){
-    .overlay,.detail,#article{transition:none !important;} .ev .ic{transition:none;}
+    .overlay,.detail{transition:none;} .ev .ic{transition:none;}
   }
   button:focus-visible{outline:2px solid var(--gold-bright); outline-offset:2px;}
 </style>
@@ -317,46 +331,45 @@
 <body>
 
 <header>
-  <h1>Two Millennia</h1>
-  <div class="subtitle">A Timeline of the Catholic Church</div>
-  <button class="managebtn" id="manageBtn">⚙ Manage</button>
-  <div class="rule"></div>
+  <h1><span class="t1">Catholic</span><span class="t2">Timeline</span></h1>
+  <button class="hamBtn" id="hamBtn" aria-label="Menu" aria-expanded="false">&#9776;</button>
+  <div class="hamMenu" id="hamMenu">
+    <div class="row" id="typeRow">
+      <span class="lbl">Show</span>
+      <button class="tbtn t-s" data-type="s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>Saints</button>
+      <button class="tbtn t-c" data-type="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M4.5 18h15M12 3l8 5.5H4L12 3zM6.5 8.5v9.5M12 8.5v9.5M17.5 8.5v9.5"/></svg>Councils</button>
+      <button class="tbtn t-p" data-type="p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2c1 4-4 5-4 10a4 4 0 0 0 8 0c0-2-1-3-1-3s3 1 3 5a7 7 0 0 1-14 0c0-6 6-7 8-12z"/></svg>Persecutions</button>
+      <button class="tbtn t-m" data-type="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.4 5.4 5.9.5-4.5 3.9 1.4 5.7L12 15.6 6.8 18.5l1.4-5.7L3.7 8.9l5.9-.5z"/></svg>Marian</button>
+      <button class="tbtn t-u" data-type="u"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6.5" r="3.2"/><path d="M6.5 12h11M8 12c0 3 1.8 4.5 4 4.5s4-1.5 4-4.5M12 16.5V20M9.5 20h5"/></svg>Eucharistic</button>
+      <button class="tbtn t-e" data-type="e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 3v18M6.5 8.5h11"/></svg>Events</button>
+    </div>
+    <div class="row" id="regionRow">
+      <span class="lbl">Region</span>
+      <button class="chip active" data-region="all">All</button>
+      <button class="chip" data-region="rome">Rome &amp; Italy</button>
+      <button class="chip" data-region="west">Western Europe</button>
+      <button class="chip" data-region="brit">Britain &amp; Ireland</button>
+      <button class="chip" data-region="east">Byzantium &amp; E. Europe</button>
+      <button class="chip" data-region="holy">Holy Land &amp; Mid-East</button>
+      <button class="chip" data-region="africa">Africa</button>
+      <button class="chip" data-region="americas">Americas</button>
+      <button class="chip" data-region="asia">Asia &amp; Oceania</button>
+    </div>
+    <button class="managebtn" id="manageBtn" style="display:none;">⚙ Manage</button>
+  </div>
 </header>
 
 <div class="controls">
-  <div class="row" id="typeRow">
-    <span class="lbl">Show</span>
-    <button class="tbtn t-s" data-type="s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>Saints</button>
-    <button class="tbtn t-c" data-type="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M4.5 18h15M12 3l8 5.5H4L12 3zM6.5 8.5v9.5M12 8.5v9.5M17.5 8.5v9.5"/></svg>Councils</button>
-    <button class="tbtn t-p" data-type="p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2c1 4-4 5-4 10a4 4 0 0 0 8 0c0-2-1-3-1-3s3 1 3 5a7 7 0 0 1-14 0c0-6 6-7 8-12z"/></svg>Persecutions</button>
-    <button class="tbtn t-m" data-type="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.4 5.4 5.9.5-4.5 3.9 1.4 5.7L12 15.6 6.8 18.5l1.4-5.7L3.7 8.9l5.9-.5z"/></svg>Marian</button>
-    <button class="tbtn t-u" data-type="u"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6.5" r="3.2"/><path d="M6.5 12h11M8 12c0 3 1.8 4.5 4 4.5s4-1.5 4-4.5M12 16.5V20M9.5 20h5"/></svg>Eucharistic</button>
-    <button class="tbtn t-e" data-type="e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 3v18M6.5 8.5h11"/></svg>Events</button>
-    <span style="width:10px; flex:0 0 auto;"></span>
+  <div class="row" id="searchRow">
+    <div class="searchwrap">
+      <input id="tlSearch" type="search" autocomplete="off" placeholder="Search by name — type 3+ letters…">
+      <div class="sresults" id="sResults"></div>
+    </div>
     <span class="lbl">Zoom</span>
     <button class="zbtn" id="zoomOut" aria-label="Zoom out">−</button>
     <button class="zbtn" id="zoomIn" aria-label="Zoom in">+</button>
     <button class="zbtn" id="zoomFit" style="font-size:12.5px;">Fit</button>
     <span class="count" id="count"></span>
-  </div>
-  <div class="row" id="regionRow">
-    <span class="lbl">Region</span>
-    <button class="chip active" data-region="all">All</button>
-    <button class="chip" data-region="rome">Rome &amp; Italy</button>
-    <button class="chip" data-region="west">Western Europe</button>
-    <button class="chip" data-region="brit">Britain &amp; Ireland</button>
-    <button class="chip" data-region="east">Byzantium &amp; E. Europe</button>
-    <button class="chip" data-region="holy">Holy Land &amp; Mid-East</button>
-    <button class="chip" data-region="africa">Africa</button>
-    <button class="chip" data-region="americas">Americas</button>
-    <button class="chip" data-region="asia">Asia &amp; Oceania</button>
-  </div>
-  <div class="row" id="searchRow">
-    <span class="lbl">Find</span>
-    <div class="searchwrap">
-      <input id="tlSearch" type="search" autocomplete="off" placeholder="Search by name — type 3+ letters…">
-      <div class="sresults" id="sResults"></div>
-    </div>
   </div>
 </div>
 
@@ -365,6 +378,7 @@
 </div>
 
 <div class="detail" id="detail">
+  <div class="draghandle" id="detailHandle"></div>
   <button class="close" id="detailClose" aria-label="Close">×</button>
   <div class="dhead"><span class="dyear" id="dYear"></span><span class="dname" id="dName"></span></div>
   <div class="dbadges" id="dBadges"></div>
@@ -372,26 +386,11 @@
   <button class="artopen" id="dArtBtn">Open Full Article</button>
 </div>
 
-<div id="article">
-  <div class="artscroll" id="artScroll">
-    <div class="artwrap" id="artBody"></div>
-  </div>
-  <div class="arthead" id="artHead">
-    <div class="artbar">
-      <button class="artback" id="artBack" aria-label="Back to timeline">
-        <svg viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5" fill="none" stroke="#070F22"
-             stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <img class="artthumb" id="artThumb" alt="">
-      <div class="artname" id="artName"></div>
-      <span class="artyear"><span class="fl" id="artFl1">&#10086;</span><b id="artYear"></b><span class="fl" id="artFl2">&#10087;</span></span>
-    </div>
-    <div class="arthero" id="artHero"><img id="artHeroImg" alt=""></div>
-    <div class="player" id="artPlayer" style="display:none">
-      <button class="pbtn" id="apPlay" aria-label="Play"></button>
-      <input type="range" id="apSeek" min="0" max="100" value="0" step="0.1" aria-label="Seek">
-      <span class="ptime" id="apTime">0:00 / 0:00</span>
-    </div>
+<div class="overlay" id="article">
+  <div class="draghandle" id="artHandle"></div>
+  <div class="artwrap">
+    <button class="artback" id="artBack">← Back to Timeline</button>
+    <div id="artBody"></div>
   </div>
 </div>
 
@@ -450,8 +449,18 @@
       <div class="mfield">
         <textarea id="pasteJson" placeholder='Paste entries JSON here: a single entry {...}, an array [...], or {"entries":[...]}. Matching ids are updated, new ones are added; nothing else in the database is touched.'></textarea>
       </div>
-      <button class="mbtn" id="pasteApply">Apply (Add/Update)</button>
+      <div class="mtool">
+        <button class="mbtn" id="pasteApply">Apply (Add/Update)</button>
+        <button class="mbtn" id="pasteClear">Clear</button>
+      </div>
       <div class="hint">This is the safe way to bring in entries drafted by Claude in a chat: copy Claude's JSON, paste it here, Apply. It never replaces the whole database.</div>
+    </div>
+
+    <div class="mbox">
+      <h3>Suggest Next Batch to Work On</h3>
+      <div class="mfield"><input type="text" id="batchHint" placeholder="Optional: e.g. &quot;Eucharistic miracles&quot;, &quot;saints&quot;, &quot;missing quotes&quot; — leave blank to let the site decide"></div>
+      <button class="mbtn" id="batchSuggest">What Should I Work On?</button>
+      <div class="hint">Finds up to 5 entries with the most missing content (full article, quotes, links, facts, country) and produces a copyable list. Paste it into a Claude chat along with the timeline JSON skill and say &ldquo;work on my website content&rdquo; — then bring Claude's reply back here via Paste JSON.</div>
     </div>
 
     <div class="mbox">
@@ -490,6 +499,9 @@
             <option value="americas">Americas</option><option value="asia">Asia &amp; Oceania</option>
           </select>
         </div>
+      </div>
+      <div class="mgrid2">
+        <div class="mfield"><label>Country (modern name — for country-shape display; for people who moved, use where they lived most)</label><input type="text" id="fCountry" placeholder="e.g. Italy, Spain, Algeria"></div>
       </div>
       <div class="mgrid2">
         <div class="mfield"><label>Prominence (when it appears as you zoom)</label>
@@ -751,7 +763,7 @@ function seedDb(){
   return {
     v: 1,
     entries: SEED.map(r => ({
-      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], d: r[4],
+      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", d: r[4],
       art: {sections: [{h: "Overview", b: r[4]}], quotes: [], links: []},
       img: "", imgCap: "", audio: ""
     }))
@@ -970,11 +982,57 @@ function showDetail(d){
   document.getElementById('dDesc').textContent = d.d;
   document.getElementById('dBadges').innerHTML =
     '<span class="badge t-'+d.t+'">'+TYPE_NAMES[d.t]+'</span>' +
-    '<span class="badge" style="color:var(--muted)">'+REGION_NAMES[d.r]+'</span>';
+    '<span class="badge" style="color:var(--muted)">'+REGION_NAMES[d.r]+'</span>' +
+    (d.country ? '<span class="badge" style="color:var(--muted)">'+esc(d.country)+'</span>' : '');
   currentEntry = d;
   detail.classList.add('open');
 }
 document.getElementById('detailClose').addEventListener('click', () => detail.classList.remove('open'));
+
+// ---- Swipe gestures (mobile): the teaser card is swiped up to expand into the full story,
+// swiped down to dismiss (mirroring the desktop "Open Full Article" button and × close button).
+function attachVerticalSwipe(el, onSwipeUp, onSwipeDown, threshold){
+  threshold = threshold || 45;
+  let startY = null, startX = null;
+  el.addEventListener('touchstart', (e) => {
+    if(e.touches.length !== 1) return;
+    startY = e.touches[0].clientY;
+    startX = e.touches[0].clientX;
+  }, {passive:true});
+  el.addEventListener('touchend', (e) => {
+    if(startY == null) return;
+    const t = (e.changedTouches && e.changedTouches[0]) || null;
+    const endY = t ? t.clientY : startY;
+    const endX = t ? t.clientX : startX;
+    const dy = endY - startY, dx = endX - startX;
+    startY = null;
+    if(Math.abs(dy) < threshold || Math.abs(dx) > Math.abs(dy)) return;
+    if(dy < 0){ if(onSwipeUp) onSwipeUp(); } else { if(onSwipeDown) onSwipeDown(); }
+  }, {passive:true});
+}
+attachVerticalSwipe(detail,
+  () => { if(currentEntry) openArticle(currentEntry); },
+  () => { detail.classList.remove('open'); }
+);
+// The full story sheet: swipe down closes it, but only once the article has been scrolled
+// all the way down — otherwise a downward swipe is just normal scrolling.
+(function(){
+  const artEl = document.getElementById('article');
+  let startY = null, atBottomOnStart = false;
+  artEl.addEventListener('touchstart', (e) => {
+    if(e.touches.length !== 1) return;
+    startY = e.touches[0].clientY;
+    atBottomOnStart = (artEl.scrollTop + artEl.clientHeight) >= (artEl.scrollHeight - 8);
+  }, {passive:true});
+  artEl.addEventListener('touchend', (e) => {
+    if(startY == null) return;
+    const t = (e.changedTouches && e.changedTouches[0]) || null;
+    const endY = t ? t.clientY : startY;
+    const dy = endY - startY;
+    startY = null;
+    if(atBottomOnStart && dy > 55){ stopAudio(); artEl.classList.remove('open'); }
+  }, {passive:true});
+})();
 viewport.addEventListener('click', () => { if(dragMoved) return; detail.classList.remove('open'); const sr=document.getElementById('sResults'); if(sr) sr.style.display='none'; });
 
 // ---- Click-drag panning (desktop): drag the background to shift the timeline ----
@@ -1127,7 +1185,7 @@ document.getElementById('ghPublish').addEventListener('click', publishToGitHub);
 
 // ================= ARTICLE VIEW (from DB) =================
 document.getElementById('dArtBtn').addEventListener('click', () => { if(currentEntry) openArticle(currentEntry); });
-document.getElementById('artBack').addEventListener('click', () => { stopAudio(); closeArticleAnimated(); });
+document.getElementById('artBack').addEventListener('click', () => { stopAudio(); article.classList.remove('open'); });
 
 // Sanitize a limited set of HTML tags for article bodies (b i u em strong ul ol li br p a blockquote h3 h4)
 const RICH_TAGS = {B:1, STRONG:1, I:1, EM:1, U:1, BR:1, P:1, UL:1, OL:1, LI:1, A:1, BLOCKQUOTE:1, H3:1, H4:1};
@@ -1179,24 +1237,29 @@ function renderBody(b){
 }
 
 function openArticle(d){
-  openArticleAnimated();
+  article.classList.add('open');
+  article.scrollTop = 0;
   const art = d.art || {sections:[], quotes:[], links:[]};
-  document.getElementById('artName').textContent = d.n;
-  document.getElementById('artYear').textContent = 'AD ' + d.y;
-  const heroWrap = document.getElementById('artHero');
-  const heroImg = document.getElementById('artHeroImg');
-  const thumbEl = document.getElementById('artThumb');
-  if(d.img){
-    heroImg.onerror = () => { HAS_IMG = false; heroWrap.style.display = 'none'; thumbEl.style.display = 'none'; resetArtHead(); };
-    heroImg.src = d.img; thumbEl.src = d.img;
-    heroWrap.style.display = ''; thumbEl.style.display = ''; HAS_IMG = true;
-  } else {
-    heroImg.removeAttribute('src'); heroWrap.style.display = 'none';
-    thumbEl.style.display = 'none'; HAS_IMG = false;
-  }
-  document.getElementById('artPlayer').style.display = d.audio ? '' : 'none';
   let html = '';
-  if(d.img && d.imgCap) html += '<div class="artcap">' + esc(d.imgCap) + '</div>';
+  html += '<div class="arttitle">' + esc(d.n) + '</div>';
+  html += '<div class="artbadges">' +
+    '<span class="badge t-' + d.t + '">' + TYPE_NAMES[d.t] + '</span>' +
+    '<span class="badge" style="color:var(--muted)">AD ' + d.y + '</span>' +
+    '<span class="badge" style="color:var(--muted)">' + REGION_NAMES[d.r] + '</span>' +
+    (d.country ? '<span class="badge" style="color:var(--muted)">' + esc(d.country) + '</span>' : '') + '</div>';
+  if(d.img){
+    html += '<img class="artimg" src="' + esc(d.img) + '" alt="' + esc(d.n) + '" onerror="this.style.display=\'none\'">';
+    if(d.imgCap) html += '<div class="artcap">' + esc(d.imgCap) + '</div>';
+  }
+  if(d.audio){
+    html += '<div class="player">' +
+      '<button class="pbtn" id="apPlay" aria-label="Play">▶</button>' +
+      '<button class="pbtn sec" id="apStop" aria-label="Stop">■</button>' +
+      '<input type="range" id="apSeek" min="0" max="100" value="0" step="0.1" aria-label="Seek">' +
+      '<span class="ptime" id="apTime">0:00 / 0:00</span>' +
+      '</div>';
+  }
+  html += '<div class="artrule"></div>';
   if(d.facts && d.facts.length){
     html += '<div class="factbox"><div class="facth">Quick Facts</div>';
     d.facts.forEach(f => {
@@ -1228,79 +1291,6 @@ function openArticle(d){
   }
   document.getElementById('artBody').innerHTML = html;
   if(d.audio) initAudio(d.audio);
-  requestAnimationFrame(() => resetArtHead());
-}
-
-// ---- scroll-linked collapsing header ----
-let HAS_IMG = false;
-const artScroll = document.getElementById('artScroll');
-const artHead = document.getElementById('artHead');
-const IMG_MAX = 350, COLLAPSE_RANGE = 520;
-const NM_MAX = 28, NM_MIN = 18, YR_MAX = 34, YR_MIN = 20, TH_MAX = 60;
-function layoutArtHead(){
-  const imgMax = HAS_IMG ? IMG_MAX : 0;
-  const s = Math.max(0, artScroll.scrollTop);
-  const p = Math.min(1, s / COLLAPSE_RANGE);
-  const e = p * p * (3 - 2 * p);
-  const hero = document.getElementById('artHero');
-  const heroImg = document.getElementById('artHeroImg');
-  const thumbEl = document.getElementById('artThumb');
-  hero.style.height = (imgMax * (1 - e)) + 'px';
-  heroImg.style.opacity = String(Math.max(0, 1 - e * 1.25));
-  document.getElementById('artName').style.fontSize = (NM_MAX - (NM_MAX - NM_MIN) * e) + 'px';
-  document.getElementById('artYear').style.fontSize = (YR_MAX - (YR_MAX - YR_MIN) * e) + 'px';
-  const fs = (15 - 4 * e) + 'px';
-  document.getElementById('artFl1').style.fontSize = fs;
-  document.getElementById('artFl2').style.fontSize = fs;
-  if(HAS_IMG){ thumbEl.style.height = (TH_MAX * e) + 'px'; thumbEl.style.opacity = String(e); }
-  document.getElementById('artBody').style.transform =
-    'translateY(' + (Math.min(s, COLLAPSE_RANGE) - imgMax * e) + 'px)';
-}
-function resetArtHead(){
-  artScroll.scrollTop = 0;
-  document.getElementById('artHero').style.height = (HAS_IMG ? IMG_MAX : 0) + 'px';
-  layoutArtHead();
-  document.getElementById('artBody').style.paddingTop = artHead.offsetHeight + 'px';
-}
-let artTicking = false;
-artScroll.addEventListener('scroll', () => {
-  if(artTicking) return;
-  artTicking = true;
-  requestAnimationFrame(() => { layoutArtHead(); artTicking = false; });
-}, {passive:true});
-window.addEventListener('resize', () => { if(article.classList.contains('open')) resetArtHead(); });
-
-// tap the article text to pause narration that started by accident
-document.getElementById('artBody').addEventListener('click', (e) => {
-  if(e.target.closest('a,button,input')) return;
-  if(audioEl && !audioEl.paused){ audioEl.pause(); setPlayIcon(false); }
-});
-
-// ---- grow the detail card into the full article, and shrink it back ----
-const ART_EASE = 'top .42s cubic-bezier(.4,0,.2,1), left .42s cubic-bezier(.4,0,.2,1), width .42s cubic-bezier(.4,0,.2,1), height .42s cubic-bezier(.4,0,.2,1), border-radius .42s ease';
-function openArticleAnimated(){
-  const r = detail.classList.contains('open') ? detail.getBoundingClientRect() : null;
-  article.classList.add('open');
-  if(!r) return;
-  article.style.transition = 'none';
-  article.style.top = r.top + 'px'; article.style.left = r.left + 'px';
-  article.style.width = r.width + 'px'; article.style.height = r.height + 'px';
-  article.style.borderRadius = '10px';
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    article.style.transition = ART_EASE;
-    article.style.top = '0px'; article.style.left = '0px';
-    article.style.width = '100%'; article.style.height = '100%';
-    article.style.borderRadius = '0px';
-  }));
-}
-function closeArticleAnimated(){
-  const r = detail.classList.contains('open') ? detail.getBoundingClientRect() : null;
-  if(!r){ article.classList.remove('open'); article.removeAttribute('style'); return; }
-  article.style.transition = ART_EASE;
-  article.style.top = r.top + 'px'; article.style.left = r.left + 'px';
-  article.style.width = r.width + 'px'; article.style.height = r.height + 'px';
-  article.style.borderRadius = '10px';
-  setTimeout(() => { article.classList.remove('open'); article.removeAttribute('style'); }, 430);
 }
 
 // ---- Audio player ----
@@ -1310,26 +1300,24 @@ function fmtTime(s){
   const m = Math.floor(s/60), sec = Math.floor(s%60);
   return m + ':' + String(sec).padStart(2,'0');
 }
-const ICON_PLAY  = '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z"/></svg>';
-const ICON_PAUSE = '<svg viewBox="0 0 24 24"><rect x="6.5" y="4.5" width="4" height="15" rx="1"/><rect x="13.5" y="4.5" width="4" height="15" rx="1"/></svg>';
-function setPlayIcon(playing){
-  const b = document.getElementById('apPlay');
-  if(b) b.innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
-}
 function initAudio(url){
   stopAudio();
   audioEl = new Audio(url);
   audioEl.preload = 'metadata';
   const play = document.getElementById('apPlay');
+  const stop = document.getElementById('apStop');
   const seek = document.getElementById('apSeek');
   const time = document.getElementById('apTime');
   let scrubbing = false;
-  setPlayIcon(false);
 
-  play.onclick = () => {
-    if(audioEl.paused){ audioEl.play(); setPlayIcon(true); }
-    else { audioEl.pause(); setPlayIcon(false); }
-  };
+  play.addEventListener('click', () => {
+    if(audioEl.paused){ audioEl.play(); play.textContent = '❚❚'; }
+    else { audioEl.pause(); play.textContent = '▶'; }
+  });
+  stop.addEventListener('click', () => {
+    audioEl.pause(); audioEl.currentTime = 0; play.textContent = '▶';
+    seek.value = 0; time.textContent = '0:00 / ' + fmtTime(audioEl.duration);
+  });
   audioEl.addEventListener('loadedmetadata', () => {
     time.textContent = '0:00 / ' + fmtTime(audioEl.duration);
   });
@@ -1339,7 +1327,7 @@ function initAudio(url){
       time.textContent = fmtTime(audioEl.currentTime) + ' / ' + fmtTime(audioEl.duration);
     }
   });
-  audioEl.addEventListener('ended', () => { setPlayIcon(false); seek.value = 0; });
+  audioEl.addEventListener('ended', () => { play.textContent = '▶'; seek.value = 0; });
   audioEl.addEventListener('error', () => { time.textContent = 'audio unavailable'; });
   seek.addEventListener('input', () => {
     scrubbing = true;
@@ -1428,6 +1416,7 @@ function openEditor(id){
   document.getElementById('fYear').value = e ? e.y : '';
   document.getElementById('fType').value = e ? e.t : 's';
   document.getElementById('fRegion').value = e ? e.r : 'rome';
+  document.getElementById('fCountry').value = e ? (e.country || '') : '';
   document.getElementById('fDesc').value = e ? e.d : '';
   document.getElementById('fArt').value = e ? serializeArt(e.art || {}) : '';
   document.getElementById('fQuotes').value = e ? serializePairs((e.art||{}).quotes, 'text', 'source') : '';
@@ -1451,6 +1440,7 @@ document.getElementById('fSave').addEventListener('click', async () => {
     y: y, n: n,
     t: document.getElementById('fType').value,
     r: document.getElementById('fRegion').value,
+    country: document.getElementById('fCountry').value.trim(),
     d: document.getElementById('fDesc').value.trim(),
     art: {
       sections: parseArt(document.getElementById('fArt').value),
@@ -1548,7 +1538,8 @@ document.getElementById('fDraft').addEventListener('click', async () => {
     const text = await callClaude(
 "Write an in-depth reference article on \"" + n + "\" (" + TYPE_NAMES[t] + ", AD " + y + ", Catholic Church history). Search newadvent.org (Catholic Encyclopedia) first as the primary source; supplement with vatican.va, papal documents, or other reputable Catholic sources. Write from a faithful Catholic perspective, factual and precise with dates.\n" +
 "Respond ONLY with raw JSON, no fences:\n" +
-"{\"sections\":[{\"h\":\"heading\",\"b\":\"paragraphs separated by \\n\\n\"}],\"quotes\":[{\"text\":\"authentic quote\",\"source\":\"attribution\"}],\"links\":[{\"label\":\"New Advent: ...\",\"url\":\"https://www.newadvent.org/...\"}],\"facts\":[{\"label\":\"...\",\"value\":\"...\"}]}\n" +
+"{\"sections\":[{\"h\":\"heading\",\"b\":\"paragraphs separated by \\n\\n\"}],\"quotes\":[{\"text\":\"authentic quote\",\"source\":\"attribution\"}],\"links\":[{\"label\":\"New Advent: ...\",\"url\":\"https://www.newadvent.org/...\"}],\"facts\":[{\"label\":\"...\",\"value\":\"...\"}],\"country\":\"...\"}\n" +
+"country: the single modern country name only (e.g. \"Italy\", \"Spain\", \"Algeria\") for the place most associated with this entry. For a person who lived in multiple countries, use the one where they spent the most time; if unclear, use where they died.\n" +
 "Aim for depth: roughly 5-8 sections and about 900-1400 words total. Cover, as fits the subject: historical context and background; the life story or the events in detail; teaching, doctrine, or significance; controversies, opposition, or aftermath; and legacy, canonization, or veneration. Section bodies may use simple HTML (<b>, <i>, <u>, <ul>/<ol> with <li>, <br>) sparingly and purposefully.\n" +
 "quotes: 0-4 authentic, exactly-worded quotations with attribution — never invent or paraphrase a quotation.\n" +
 "links: New Advent first if it exists, then vatican.va or other reputable Catholic sources (up to 4 total).\n" +
@@ -1558,6 +1549,7 @@ document.getElementById('fDraft').addEventListener('click', async () => {
     document.getElementById('fQuotes').value = serializePairs(parsed.quotes, 'text', 'source');
     document.getElementById('fLinks').value = serializePairs(parsed.links, 'label', 'url');
     document.getElementById('fFacts').value = serializeFacts(parsed.facts);
+    if(parsed.country) document.getElementById('fCountry').value = parsed.country;
     setStatus('Draft ready — review, then Save');
   }catch(err){ setStatus('Draft failed: ' + err.message); }
 });
@@ -1579,14 +1571,15 @@ document.getElementById('aiRun').addEventListener('click', async () => {
 "USER INSTRUCTION: " + cmd + "\n\n" +
 "Respond ONLY with raw JSON, no fences:\n" +
 "{\"summary\":\"one sentence describing what you did\",\"ops\":[\n" +
-"{\"op\":\"add\",\"entry\":{\"y\":0,\"n\":\"\",\"t\":\"s\",\"r\":\"rome\",\"d\":\"short description\",\"art\":{\"sections\":[{\"h\":\"\",\"b\":\"\"}],\"quotes\":[],\"links\":[]},\"facts\":[{\"label\":\"\",\"value\":\"\"}],\"tier\":1,\"alt\":[]}},\n" +
+"{\"op\":\"add\",\"entry\":{\"y\":0,\"n\":\"\",\"t\":\"s\",\"r\":\"rome\",\"country\":\"\",\"d\":\"short description\",\"art\":{\"sections\":[{\"h\":\"\",\"b\":\"\"}],\"quotes\":[],\"links\":[]},\"facts\":[{\"label\":\"\",\"value\":\"\"}],\"tier\":1,\"alt\":[]}},\n" +
 "{\"op\":\"update\",\"id\":\"existing-id\",\"fields\":{\"d\":\"...\"}},\n" +
 "{\"op\":\"delete\",\"id\":\"existing-id\"}\n" +
 "]}\n" +
+"country: the single modern country name only (e.g. \"Italy\", \"Poland\") for the place most associated with the entry — for people who moved around, the country they lived in most, or where they died if unclear. Include it on adds when placeable; include it on updates only when the instruction concerns it.\n" +
 "Article section bodies (art.sections[].b) may use simple HTML for readability: <b>, <i>, <u>, <ul>/<ol> with <li>, <br>. Use sparingly. When writing a full article, aim for depth: roughly 5-8 sections, ~900-1400 words, with only authentic quotations.\n" +
 "facts is an optional Quick Facts list ([{label,value} or {label,value,url}]) shown as a panel on the article. Use labels suited to the type — Saint: Feast day, Born, Died, Title, Canonized, Patronage, Order, Major works. Council: Ecumenical number, Convoked by, Location, Defined, Key documents. Persecution: Ruler/regime, Region, Span, Notable martyrs, Ended by. Marian: Seer(s), Location, Date(s), Approval status, Feast day. Eucharistic: Location, Date, Findings, Approval. Event: Date, Location, Key figures, Significance. Keep values short; omit unverifiable facts.\n" +
 "tier (1-3) sets zoom prominence: 1 = always visible (major figures/events), 2 = appears when zoomed in, 3 = appears only at deep zoom (minor). Default 1. alt is an array of alternate names/nicknames for search (e.g. [\"JPII\",\"Karol Wojtyła\"]).\n" +
-"Use only the ops needed. For updates, include only changed fields (y, n, t, r, d, art, facts, tier, alt, img, imgCap, audio). Keep it focused — handle one coherent change per instruction.", 4000);
+"Use only the ops needed. For updates, include only changed fields (y, n, t, r, country, d, art, facts, tier, alt, img, imgCap, audio). Keep it focused — handle one coherent change per instruction.", 4000);
     const parsed = extractJson(text);
     const done = [];
     (parsed.ops || []).forEach(op => {
@@ -1594,7 +1587,7 @@ document.getElementById('aiRun').addEventListener('click', async () => {
         const en = op.entry;
         en.id = slug(en.n, en.y);
         en.art = en.art || {sections:[{h:'Overview', b: en.d || ''}], quotes:[], links:[]};
-        en.img = en.img || ''; en.imgCap = en.imgCap || ''; en.audio = en.audio || ''; en.facts = en.facts || []; en.tier = en.tier || 1; en.alt = en.alt || [];
+        en.country = en.country || ''; en.img = en.img || ''; en.imgCap = en.imgCap || ''; en.audio = en.audio || ''; en.facts = en.facts || []; en.tier = en.tier || 1; en.alt = en.alt || [];
         const idx = db.entries.findIndex(x => x.id === en.id);
         if(idx >= 0) db.entries[idx] = en; else db.entries.push(en);
         done.push('Added: ' + en.n + ' (' + en.y + ')');
@@ -1703,7 +1696,7 @@ function mergeEntries(list){
       if(inc.n == null || inc.y == null){ skipped++; return; }
       db.entries.push({
         id: id, y: parseInt(inc.y, 10), n: String(inc.n),
-        t: inc.t || 'e', r: inc.r || 'rome', d: inc.d || '',
+        t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', d: inc.d || '',
         art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
         img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
         tier: inc.tier || 1, alt: inc.alt || []
@@ -1743,6 +1736,68 @@ document.getElementById('pasteApply').addEventListener('click', async () => {
   const ok = await applyMerge(text, 'Applied');
   if(ok) document.getElementById('pasteJson').value = '';
 });
+document.getElementById('pasteClear').addEventListener('click', () => {
+  document.getElementById('pasteJson').value = '';
+  setStatus('Cleared');
+});
+
+// ---- Suggest Next Batch: find entries most in need of content, output a copyable work order ----
+function entryNeeds(e){
+  const needs = [];
+  const art = e.art || {};
+  const sections = art.sections || [];
+  const wordCount = sections.reduce((sum, s) => sum + String(s.b || '').trim().split(/\s+/).filter(Boolean).length, 0);
+  const isStub = sections.length <= 1 && (!sections[0] || !sections[0].h || /^overview$/i.test(sections[0].h));
+  if(isStub || wordCount < 300) needs.push('art (full article, currently ' + wordCount + ' words)');
+  if(!art.quotes || !art.quotes.length) needs.push('quotes');
+  if(!art.links || !art.links.length) needs.push('links');
+  if(!e.facts || !e.facts.length) needs.push('facts');
+  if(!e.country) needs.push('country');
+  return needs;
+}
+function suggestBatch(hint){
+  let pool = db.entries.slice();
+  const h = fold(hint || '');
+  if(h){
+    const matched = pool.filter(e =>
+      fold(e.n).includes(h) || fold(TYPE_NAMES[e.t] || '').includes(h) ||
+      fold(REGION_NAMES[e.r] || '').includes(h) || fold(e.country || '').includes(h) ||
+      (h === 'quotes' && (!e.art || !e.art.quotes || !e.art.quotes.length)) ||
+      (h === 'links' && (!e.art || !e.art.links || !e.art.links.length)) ||
+      (h === 'facts' && (!e.facts || !e.facts.length)) ||
+      (h === 'country' && !e.country)
+    );
+    if(matched.length) pool = matched;
+  }
+  const scored = pool.map(e => ({e: e, needs: entryNeeds(e)})).filter(x => x.needs.length);
+  scored.sort((a, b) => b.needs.length - a.needs.length || a.e.y - b.e.y);
+  return scored.slice(0, 5);
+}
+function openPlainView(title, sub, text, fname){
+  document.getElementById('jsonTitle').textContent = title;
+  document.getElementById('jsonSub').textContent = sub;
+  document.getElementById('jsonText').value = text;
+  jsonFileName = fname;
+  document.getElementById('jsonView').classList.add('open');
+  document.getElementById('jsonView').scrollTop = 0;
+}
+document.getElementById('batchSuggest').addEventListener('click', () => {
+  const hint = document.getElementById('batchHint').value.trim();
+  const top = suggestBatch(hint);
+  if(!top.length){
+    setStatus('Nothing found needing work' + (hint ? ' matching "' + hint + '"' : '') + ' — try a different hint or check Reset filters');
+    return;
+  }
+  const list = top.map(x => ({id: x.e.id, n: x.e.n, y: x.e.y, t: TYPE_NAMES[x.e.t], r: REGION_NAMES[x.e.r], needs: x.needs}));
+  const text =
+'Work on my Catholic Church timeline content.\n\n' +
+'Use the "timeline-entry-json-skill.md" instructions to fill in the fields listed under "needs" for each entry below (search the web for facts as the skill directs). Respond with JSON in the skill\'s update format: for each entry, {"id": "...", plus only the changed fields}.\n\n' +
+JSON.stringify({entries: list}, null, 1) +
+'\n\nAfter I paste your reply into Paste JSON (Add/Update) and Apply, I may come back and ask "what should I work on next?" — you can tell me to press "What Should I Work On?" again.';
+  openPlainView('Suggested Next Batch',
+    top.length + ' entries' + (hint ? ' matching "' + hint + '"' : '') + ' — copy this to a Claude chat (with the timeline skill in its knowledge) and say "work on my website content"',
+    text, 'batch-suggestion.txt');
+});
 
 // Full restore (replaces everything) — for recovering a backup after artifact recreation
 document.getElementById('mRestoreBtn').addEventListener('click', () => {
@@ -1778,7 +1833,7 @@ document.getElementById('mReset').addEventListener('click', async () => {
 });
 
 // ---- Manage button gating: hidden unless URL contains "manage" (#manage, ?manage, /manage) ----
-// Fallback for the artifact viewer (where the URL can't be edited): tap the title 5 times quickly.
+// Fallback for the artifact viewer (where the URL can't be edited): tap the hamburger 5 times quickly.
 let tapUnlocked = false, titleTaps = [];
 function manageUnlocked(){
   try{
@@ -1788,10 +1843,21 @@ function manageUnlocked(){
   return tapUnlocked;
 }
 function updateManageVisibility(){
-  document.getElementById('manageBtn').style.display = manageUnlocked() ? '' : 'none';
+  const unlocked = manageUnlocked();
+  document.getElementById('manageBtn').style.display = unlocked ? 'block' : 'none';
+  const hb = document.getElementById('hamBtn');
+  if(hb) hb.innerHTML = unlocked ? '&#9881;' : '&#9776;';
 }
 window.addEventListener('hashchange', updateManageVisibility);
-document.querySelector('h1').addEventListener('click', () => {
+
+// ---- Hamburger menu: toggle open/closed; tapping it 5x quickly reveals the Manage entry (gear icon) ----
+const hamBtn = document.getElementById('hamBtn');
+const hamMenu = document.getElementById('hamMenu');
+hamBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const willOpen = !hamMenu.classList.contains('open');
+  hamMenu.classList.toggle('open', willOpen);
+  hamBtn.setAttribute('aria-expanded', String(willOpen));
   const now = Date.now();
   titleTaps = titleTaps.filter(t => now - t < 3000);
   titleTaps.push(now);
@@ -1800,6 +1866,13 @@ document.querySelector('h1').addEventListener('click', () => {
     updateManageVisibility();
   }
 });
+document.addEventListener('click', (e) => {
+  if(hamMenu.classList.contains('open') && !hamMenu.contains(e.target) && e.target !== hamBtn){
+    hamMenu.classList.remove('open');
+    hamBtn.setAttribute('aria-expanded', 'false');
+  }
+});
+document.getElementById('manageBtn').addEventListener('click', () => hamMenu.classList.remove('open'));
 
 // ================= INIT =================
 (async function(){
