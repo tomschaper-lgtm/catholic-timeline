@@ -23,28 +23,29 @@
     display:flex; flex-direction:column; overflow:hidden;
   }
   header{
-    padding:12px 14px 8px;
+    padding:16px 14px 10px;
     background:linear-gradient(180deg, #0A1430 0%, var(--navy-deep) 100%);
     border-bottom:1px solid rgba(201,165,66,.35);
     flex:0 0 auto; position:relative;
   }
   h1{
     font-family:'Cinzel', serif; font-weight:600;
-    font-size:clamp(16px, 2.6vw, 25px); letter-spacing:.14em;
+    font-size:clamp(22px, 5vw, 36px); letter-spacing:.13em;
     text-align:center;
   }
   h1 .t1{font-family:'Cinzel',serif; font-weight:700; color:var(--gold-bright); text-transform:uppercase;}
-  h1 .t2{font-family:'EB Garamond',Georgia,serif; font-style:italic; font-weight:600; color:var(--parchment); text-transform:none; letter-spacing:.01em; margin-left:7px;}
+  h1 .t2{font-family:'EB Garamond',Georgia,serif; font-style:italic; font-weight:600; color:var(--parchment); text-transform:none; letter-spacing:.01em; margin-left:8px;}
   .hamBtn{
-    position:absolute; top:10px; right:12px; z-index:70;
-    width:36px; height:36px; display:flex; align-items:center; justify-content:center;
-    font-size:19px; line-height:1;
-    background:var(--navy-band); color:var(--gold-bright);
-    border:1px solid rgba(201,165,66,.5); border-radius:8px; cursor:pointer;
+    position:absolute; top:8px; right:10px; z-index:70;
+    width:46px; height:46px; display:flex; align-items:center; justify-content:center;
+    font-size:28px; line-height:1;
+    background:transparent; color:var(--gold-bright);
+    border:none; border-radius:8px; cursor:pointer;
   }
-  .hamBtn:hover{background:var(--gold); color:var(--navy-deep);}
+  .hamBtn:hover{background:rgba(201,165,66,.15);}
+  .hamBtn:active{background:rgba(201,165,66,.25);}
   .hamMenu{
-    position:absolute; top:50px; right:12px; left:12px; z-index:65;
+    position:absolute; top:60px; right:12px; left:12px; z-index:65;
     background:linear-gradient(180deg,#14224A,#0C1735);
     border:1px solid var(--gold); border-radius:10px;
     padding:12px; box-shadow:0 8px 30px rgba(0,0,0,.6);
@@ -122,13 +123,14 @@
   .band-m{background:rgba(143,199,232,.055);}
   .band-u{background:rgba(185,143,224,.055);}
   .band-e{background:rgba(126,156,201,.05);}
+  .bandlblwrap{position:absolute; left:0; z-index:4; pointer-events:none;}
   .bandlbl{
-    position:sticky; left:8px; top:64px; display:inline-block;
+    position:sticky; left:0; top:58px; display:inline-block;
     font-family:'Cinzel',serif; font-size:13px; letter-spacing:.22em; text-transform:uppercase;
-    opacity:.95; margin:4px 0 0 8px; pointer-events:none; z-index:3;
+    opacity:.95; margin:0; pointer-events:none;
     text-shadow:0 1px 4px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.7);
-    background:linear-gradient(90deg, rgba(7,15,34,.82), rgba(7,15,34,0) 92%);
-    padding:4px 14px 4px 6px; border-radius:4px;
+    background:linear-gradient(90deg, rgba(7,15,34,.9), rgba(7,15,34,0) 92%);
+    padding:5px 16px 5px 14px; border-radius:0 4px 4px 0;
   }
   .ev{position:absolute; display:flex; flex-direction:column; align-items:center; cursor:pointer; transform:translateX(-50%); z-index:2;}
   .ev .ic{
@@ -140,11 +142,10 @@
   .ev:hover .ic{transform:scale(1.25); box-shadow:0 0 10px currentColor;}
   .ev svg{width:12px; height:12px;}
   .ev .nm{
-    margin-top:2px; font-size:10.5px; line-height:1.12; text-align:center; max-width:88px;
-    color:var(--parchment); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
-    overflow:hidden; text-shadow:0 1px 3px rgba(0,0,0,.9);
+    margin-top:2px; font-size:12.5px; line-height:1.15; text-align:center; max-width:112px;
+    color:var(--parchment); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    text-shadow:0 1px 3px rgba(0,0,0,.9);
   }
-  .ev .yr{font-size:9px; color:var(--muted); font-style:italic;}
   .t-s{color:var(--saint);} .t-c{color:var(--council);} .t-p{color:var(--persec);}
   .t-e{color:var(--event);} .t-m{color:var(--marian);} .t-u{color:var(--euch);}
   /* Timeline search */
@@ -185,7 +186,7 @@
   .draghandle{display:none; position:sticky; top:6px; z-index:6; width:38px; height:4px; border-radius:2px; background:rgba(201,165,66,.55); margin:0 auto 10px;}
   @media (pointer:coarse){
     .draghandle{display:block;}
-    #artBack, #dArtBtn, #detailClose{display:none;}
+    #dArtBtn, #detailClose{display:none;}
     #article.overlay{
       inset:auto; left:50%; right:auto; bottom:0; top:auto;
       transform:translateX(-50%) translateY(100%);
@@ -202,7 +203,7 @@
   .dname{font-size:19px; font-weight:600;}
   .dbadges{display:flex; gap:6px; margin-top:5px; flex-wrap:wrap;}
   .badge{font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:2px 9px; border-radius:10px; border:1px solid currentColor; font-family:'Cinzel',serif;}
-  .ddesc{margin-top:8px; font-size:15px; line-height:1.45;}
+  .ddesc{margin-top:8px; font-size:17px; line-height:1.5;}
   .artopen{
     margin-top:12px; width:100%;
     font-family:'Cinzel',serif; font-size:12.5px; letter-spacing:.12em; text-transform:uppercase;
@@ -225,12 +226,14 @@
     border:1px solid var(--gold); border-radius:16px; padding:6px 14px; cursor:pointer;
   }
   .artback:hover{background:var(--gold); color:var(--navy-deep);}
-  .arttitle{font-family:'Cinzel',serif; font-weight:700; color:var(--gold-bright); font-size:clamp(24px,5vw,34px); line-height:1.15; margin-top:20px; text-align:center;}
+  .arthead{position:relative; margin-top:6px;}
+  .artyear{position:absolute; top:2px; left:0; font-family:'Cinzel',serif; font-weight:600; color:#fff; font-size:clamp(21px,4.4vw,29px); letter-spacing:.03em;}
+  .arttitle{font-family:'Cinzel',serif; font-weight:700; color:var(--gold-bright); font-size:clamp(28px,6.2vw,42px); line-height:1.15; margin-top:30px; text-align:center;}
   .artsub{text-align:center; font-style:italic; color:var(--muted); font-size:16px; margin-top:6px;}
   .artbadges{display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
   .artrule{width:min(360px,60%); height:1px; margin:18px auto; background:linear-gradient(90deg,transparent,var(--gold),transparent);}
   .arth{font-family:'Cinzel',serif; font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:26px 0 8px; border-bottom:1px solid rgba(201,165,66,.35); padding-bottom:5px;}
-  .artp{font-size:17.5px; line-height:1.68; margin:0 0 14px;}
+  .artp{font-size:19.5px; line-height:1.68; margin:0 0 14px;}
   .artquote{border-left:3px solid var(--gold); background:rgba(201,165,66,.06); padding:10px 16px; margin:14px 0; font-style:italic; font-size:17px; line-height:1.6;}
   .artquote .qsrc{display:block; font-style:normal; font-size:13.5px; color:var(--muted); margin-top:5px;}
   .artsrc a{color:var(--gold-bright); font-size:15.5px;}
@@ -249,16 +252,22 @@
   .player{
     display:flex; align-items:center; gap:10px;
     background:var(--navy-band); border:1px solid var(--gold);
-    border-radius:10px; padding:10px 14px; margin-top:18px;
+    border-radius:10px; padding:10px 14px; margin:22px 0;
   }
   .pbtn{
-    width:38px; height:38px; border-radius:50%; flex:0 0 auto;
-    background:var(--gold); color:var(--navy-deep); border:none;
-    font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    width:38px; height:38px; border-radius:8px; flex:0 0 auto;
+    background:none; color:var(--gold); border:none;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
   }
-  .pbtn:hover{background:var(--gold-bright);}
-  .pbtn.sec{background:var(--navy-deep); color:var(--gold-bright); border:1px solid var(--gold);}
-  .player input[type=range]{flex:1 1 auto; accent-color:var(--gold);}
+  .pbtn:hover{color:var(--gold-bright);}
+  .player input[type=range]{
+    flex:1 1 auto; -webkit-appearance:none; appearance:none;
+    height:4px; background:rgba(201,165,66,.28); border-radius:2px; outline:none; accent-color:var(--gold);
+  }
+  .player input[type=range]::-webkit-slider-runnable-track{height:4px; background:rgba(201,165,66,.28); border-radius:2px;}
+  .player input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:var(--gold); margin-top:-4px; cursor:pointer;}
+  .player input[type=range]::-moz-range-track{height:4px; background:rgba(201,165,66,.28); border-radius:2px;}
+  .player input[type=range]::-moz-range-thumb{width:12px; height:12px; border-radius:50%; background:var(--gold); border:none; cursor:pointer;}
   .ptime{font-size:13px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums;}
   /* Manage view */
   .mtool{display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; align-items:center;}
@@ -296,7 +305,7 @@
   .mlog{font-size:14px; line-height:1.5; margin-top:8px; white-space:pre-wrap; color:var(--parchment); max-height:160px; overflow-y:auto;}
   .hint{font-size:13px; font-style:italic; color:var(--muted); margin-top:4px; line-height:1.4;}
   /* Rich-text article bodies */
-  .artrich{font-size:17.5px; line-height:1.68; margin:0 0 14px;}
+  .artrich{font-size:19.5px; line-height:1.68; margin:0 0 14px;}
   .artrich p{margin:0 0 14px;}
   .artrich ul, .artrich ol{margin:0 0 14px 26px;}
   .artrich li{margin-bottom:6px;}
@@ -318,8 +327,8 @@
     #jsonText, #pasteJson{font-size:16px;}
   }
   @media (max-width:640px){
-    .ev .nm{max-width:74px; font-size:10px;}
-    h1{letter-spacing:.08em; padding-right:52px; text-align:left;}
+    .ev .nm{max-width:92px; font-size:11px;}
+    h1{letter-spacing:.07em; padding-right:60px; text-align:left;}
     .mgrid2{grid-template-columns:1fr;}
   }
   @media (prefers-reduced-motion: reduce){
@@ -954,8 +963,14 @@ function render(){
     band.style.top = yCursor + 'px';
     band.style.height = bandH + 'px';
     band.style.width = (SPAN*ppy) + 'px';
-    band.innerHTML = '<span class="bandlbl t-'+t+'">'+TYPE_PLURALS[t]+'</span>';
     canvas.appendChild(band);
+    const lblWrap = document.createElement('div');
+    lblWrap.className = 'bandlblwrap';
+    lblWrap.style.top = yCursor + 'px';
+    lblWrap.style.height = bandH + 'px';
+    lblWrap.style.width = (SPAN*ppy) + 'px';
+    lblWrap.innerHTML = '<span class="bandlbl t-'+t+'">'+TYPE_PLURALS[t]+'</span>';
+    canvas.appendChild(lblWrap);
     placed.forEach(pl => {
       const d = pl.d;
       const el = document.createElement('div');
@@ -964,7 +979,7 @@ function render(){
       el.style.top = (yCursor + bandPad + 16 + pl.lane*rowH) + 'px';
       el.title = d.n + ' (AD ' + d.y + ')';
       el.innerHTML = '<div class="ic">'+ICONS[d.t]+'</div>' +
-        (showLabels ? '<div class="nm">'+esc(d.n)+'</div><div class="yr">'+d.y+'</div>' : '');
+        (showLabels ? '<div class="nm">'+esc(d.n)+' ('+d.y+')</div>' : '');
       el.addEventListener('click', (e) => { e.stopPropagation(); if(dragMoved) return; showDetail(d); });
       canvas.appendChild(el);
       shown++;
@@ -977,7 +992,7 @@ function render(){
 }
 
 function showDetail(d){
-  document.getElementById('dYear').textContent = 'AD ' + d.y;
+  document.getElementById('dYear').textContent = fmtYear(d.y);
   document.getElementById('dName').textContent = d.n;
   document.getElementById('dDesc').textContent = d.d;
   document.getElementById('dBadges').innerHTML =
@@ -1014,23 +1029,26 @@ attachVerticalSwipe(detail,
   () => { if(currentEntry) openArticle(currentEntry); },
   () => { detail.classList.remove('open'); }
 );
-// The full story sheet: swipe down closes it, but only once the article has been scrolled
-// all the way down — otherwise a downward swipe is just normal scrolling.
+// The full story sheet: swipe down closes it, once the article is scrolled all the way
+// to the top — otherwise a downward swipe is just normal scrolling of the content.
 (function(){
   const artEl = document.getElementById('article');
-  let startY = null, atBottomOnStart = false;
+  let startY = null, startX = null;
   artEl.addEventListener('touchstart', (e) => {
     if(e.touches.length !== 1) return;
     startY = e.touches[0].clientY;
-    atBottomOnStart = (artEl.scrollTop + artEl.clientHeight) >= (artEl.scrollHeight - 8);
+    startX = e.touches[0].clientX;
   }, {passive:true});
   artEl.addEventListener('touchend', (e) => {
     if(startY == null) return;
     const t = (e.changedTouches && e.changedTouches[0]) || null;
     const endY = t ? t.clientY : startY;
-    const dy = endY - startY;
+    const endX = t ? t.clientX : startX;
+    const dy = endY - startY, dx = endX - startX;
     startY = null;
-    if(atBottomOnStart && dy > 55){ stopAudio(); artEl.classList.remove('open'); }
+    if(dy > 55 && Math.abs(dx) < dy && artEl.scrollTop <= 4){
+      stopAudio(); artEl.classList.remove('open');
+    }
   }, {passive:true});
 })();
 viewport.addEventListener('click', () => { if(dragMoved) return; detail.classList.remove('open'); const sr=document.getElementById('sResults'); if(sr) sr.style.display='none'; });
@@ -1236,28 +1254,21 @@ function renderBody(b){
     .map(par => '<p class="artp">' + esc(par) + '</p>').join('');
 }
 
+function fmtYear(y){ return (y <= 99 ? 'AD ' + y : String(y)); }
+
 function openArticle(d){
   article.classList.add('open');
   article.scrollTop = 0;
   const art = d.art || {sections:[], quotes:[], links:[]};
   let html = '';
-  html += '<div class="arttitle">' + esc(d.n) + '</div>';
-  html += '<div class="artbadges">' +
-    '<span class="badge t-' + d.t + '">' + TYPE_NAMES[d.t] + '</span>' +
-    '<span class="badge" style="color:var(--muted)">AD ' + d.y + '</span>' +
-    '<span class="badge" style="color:var(--muted)">' + REGION_NAMES[d.r] + '</span>' +
-    (d.country ? '<span class="badge" style="color:var(--muted)">' + esc(d.country) + '</span>' : '') + '</div>';
+  html += '<div class="arthead"><span class="artyear">' + fmtYear(d.y) + '</span>' +
+    '<div class="arttitle">' + esc(d.n) + '</div></div>';
+  if(d.country){
+    html += '<div class="artbadges"><span class="badge" style="color:var(--muted)">' + esc(d.country) + '</span></div>';
+  }
   if(d.img){
     html += '<img class="artimg" src="' + esc(d.img) + '" alt="' + esc(d.n) + '" onerror="this.style.display=\'none\'">';
     if(d.imgCap) html += '<div class="artcap">' + esc(d.imgCap) + '</div>';
-  }
-  if(d.audio){
-    html += '<div class="player">' +
-      '<button class="pbtn" id="apPlay" aria-label="Play">▶</button>' +
-      '<button class="pbtn sec" id="apStop" aria-label="Stop">■</button>' +
-      '<input type="range" id="apSeek" min="0" max="100" value="0" step="0.1" aria-label="Seek">' +
-      '<span class="ptime" id="apTime">0:00 / 0:00</span>' +
-      '</div>';
   }
   html += '<div class="artrule"></div>';
   if(d.facts && d.facts.length){
@@ -1270,6 +1281,13 @@ function openArticle(d){
       html += '<div class="factrow"><div class="factlabel">' + esc(f.label) + '</div><div class="factval">' + val + '</div></div>';
     });
     html += '</div>';
+  }
+  if(d.audio){
+    html += '<div class="player">' +
+      '<button class="pbtn" id="apPlay" aria-label="Play">' + ICON_PLAY + '</button>' +
+      '<input type="range" id="apSeek" min="0" max="100" value="0" step="0.1" aria-label="Seek">' +
+      '<span class="ptime" id="apTime">0:00 / 0:00</span>' +
+      '</div>';
   }
   (art.sections || []).forEach(sec => {
     if(sec.h) html += '<div class="arth">' + esc(sec.h) + '</div>';
@@ -1300,23 +1318,20 @@ function fmtTime(s){
   const m = Math.floor(s/60), sec = Math.floor(s%60);
   return m + ':' + String(sec).padStart(2,'0');
 }
+const ICON_PLAY = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M7 4l14 8-14 8V4z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
 function initAudio(url){
   stopAudio();
   audioEl = new Audio(url);
   audioEl.preload = 'metadata';
   const play = document.getElementById('apPlay');
-  const stop = document.getElementById('apStop');
   const seek = document.getElementById('apSeek');
   const time = document.getElementById('apTime');
   let scrubbing = false;
 
   play.addEventListener('click', () => {
-    if(audioEl.paused){ audioEl.play(); play.textContent = '❚❚'; }
-    else { audioEl.pause(); play.textContent = '▶'; }
-  });
-  stop.addEventListener('click', () => {
-    audioEl.pause(); audioEl.currentTime = 0; play.textContent = '▶';
-    seek.value = 0; time.textContent = '0:00 / ' + fmtTime(audioEl.duration);
+    if(audioEl.paused){ audioEl.play(); play.innerHTML = ICON_PAUSE; play.setAttribute('aria-label','Pause'); }
+    else { audioEl.pause(); play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); }
   });
   audioEl.addEventListener('loadedmetadata', () => {
     time.textContent = '0:00 / ' + fmtTime(audioEl.duration);
@@ -1327,7 +1342,7 @@ function initAudio(url){
       time.textContent = fmtTime(audioEl.currentTime) + ' / ' + fmtTime(audioEl.duration);
     }
   });
-  audioEl.addEventListener('ended', () => { play.textContent = '▶'; seek.value = 0; });
+  audioEl.addEventListener('ended', () => { play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); seek.value = 0; });
   audioEl.addEventListener('error', () => { time.textContent = 'audio unavailable'; });
   seek.addEventListener('input', () => {
     scrubbing = true;
@@ -1833,7 +1848,7 @@ document.getElementById('mReset').addEventListener('click', async () => {
 });
 
 // ---- Manage button gating: hidden unless URL contains "manage" (#manage, ?manage, /manage) ----
-// Fallback for the artifact viewer (where the URL can't be edited): tap the hamburger 5 times quickly.
+// Fallback for the artifact viewer (where the URL can't be edited): tap the title 5 times quickly.
 let tapUnlocked = false, titleTaps = [];
 function manageUnlocked(){
   try{
@@ -1849,15 +1864,7 @@ function updateManageVisibility(){
   if(hb) hb.innerHTML = unlocked ? '&#9881;' : '&#9776;';
 }
 window.addEventListener('hashchange', updateManageVisibility);
-
-// ---- Hamburger menu: toggle open/closed; tapping it 5x quickly reveals the Manage entry (gear icon) ----
-const hamBtn = document.getElementById('hamBtn');
-const hamMenu = document.getElementById('hamMenu');
-hamBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  const willOpen = !hamMenu.classList.contains('open');
-  hamMenu.classList.toggle('open', willOpen);
-  hamBtn.setAttribute('aria-expanded', String(willOpen));
+document.querySelector('h1').addEventListener('click', () => {
   const now = Date.now();
   titleTaps = titleTaps.filter(t => now - t < 3000);
   titleTaps.push(now);
@@ -1865,6 +1872,16 @@ hamBtn.addEventListener('click', (e) => {
     tapUnlocked = true;
     updateManageVisibility();
   }
+});
+
+// ---- Hamburger menu: toggle the filters/Manage dropdown open and closed ----
+const hamBtn = document.getElementById('hamBtn');
+const hamMenu = document.getElementById('hamMenu');
+hamBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const willOpen = !hamMenu.classList.contains('open');
+  hamMenu.classList.toggle('open', willOpen);
+  hamBtn.setAttribute('aria-expanded', String(willOpen));
 });
 document.addEventListener('click', (e) => {
   if(hamMenu.classList.contains('open') && !hamMenu.contains(e.target) && e.target !== hamBtn){
