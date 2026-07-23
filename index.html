@@ -60,6 +60,12 @@
   }
   .managebtn:hover{background:var(--gold); color:var(--navy-deep);}
   .hamMenu .managebtn{display:block; width:100%; margin-top:12px; text-align:center;}
+  .hamToggle{
+    display:flex; align-items:center; gap:8px; margin-top:10px; padding-top:10px;
+    border-top:1px solid rgba(201,165,66,.2);
+    color:var(--parchment); font-size:13px; cursor:pointer;
+  }
+  .hamToggle input{accent-color:var(--gold); width:16px; height:16px; cursor:pointer;}
   .controls{
     flex:0 0 auto; padding:2px 12px 16px;
     display:flex; flex-direction:column; gap:6px;
@@ -417,6 +423,10 @@
       <button class="chip" data-region="americas">Americas</button>
       <button class="chip" data-region="asia">Asia &amp; Oceania</button>
     </div>
+    <label class="hamToggle">
+      <input type="checkbox" id="hideYearsGlobal">
+      <span>Hide years on timeline</span>
+    </label>
     <button class="managebtn" id="manageBtn" style="display:none;">⚙ Manage</button>
   </div>
 </header>
@@ -928,6 +938,7 @@ let ppy = 1.8;
 let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
 let activeRegion = "all";
 let currentEntry = null;
+let globalHideYears = false;
 
 const viewport = document.getElementById('viewport');
 const canvas = document.getElementById('canvas');
@@ -1013,8 +1024,8 @@ function render(){
   let shown = 0;
   const showLabels = ppy >= 1.5;
   const gap = showLabels ? 96 : 30;
-  const rowH = showLabels ? 60 : 32;
-  const bandPad = 8;
+  const rowH = showLabels ? (globalHideYears ? 42 : 60) : 32;
+  const bandPad = 16;
 
   canvas.innerHTML = "";
   canvas.style.width = totalWidth() + "px";
@@ -1113,7 +1124,7 @@ function render(){
       el.title = d.n + ' (AD ' + d.y + ')';
       el.dataset.id = d.id;
       el.innerHTML = '<div class="ic">'+ICONS[d.t]+'</div>' +
-        (showLabels ? (d.hideYear ? '' : '<div class="yr">~ '+d.y+' ~</div>') + '<div class="nm">'+esc(shortName(d.n))+'</div>' : '');
+        (showLabels ? ((globalHideYears || d.hideYear) ? '' : '<div class="yr">~ '+d.y+' ~</div>') + '<div class="nm">'+esc(shortName(d.n))+'</div>' : '');
       el.addEventListener('click', (e) => { e.stopPropagation(); if(dragMoved) return; showDetail(d); });
       canvas.appendChild(el);
       shown++;
@@ -2084,6 +2095,10 @@ document.addEventListener('click', (e) => {
   }
 });
 document.getElementById('manageBtn').addEventListener('click', () => hamMenu.classList.remove('open'));
+document.getElementById('hideYearsGlobal').addEventListener('change', (e) => {
+  globalHideYears = e.target.checked;
+  render();
+});
 
 // ================= INIT =================
 (async function(){
