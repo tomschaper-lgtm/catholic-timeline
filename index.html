@@ -25,7 +25,7 @@
   header{
     padding:16px 14px 10px;
     background:linear-gradient(180deg, #0A1430 0%, var(--navy-deep) 100%);
-    flex:0 0 auto; position:relative; z-index:80;
+    flex:0 0 auto; position:relative;
   }
   h1{
     font-family:'Cinzel', serif; font-weight:600;
@@ -35,7 +35,7 @@
   h1 .t1{font-family:'Cinzel',serif; font-weight:700; color:var(--gold-bright); text-transform:uppercase;}
   h1 .t2{font-family:'EB Garamond',Georgia,serif; font-style:italic; font-weight:600; color:var(--parchment); text-transform:none; letter-spacing:.01em; margin-left:8px;}
   .hamBtn{
-    position:absolute; top:8px; right:10px; z-index:70;
+    position:absolute; top:8px; right:10px; z-index:95;
     width:46px; height:46px; display:flex; align-items:center; justify-content:center;
     font-size:28px; line-height:1;
     background:transparent; color:var(--gold-bright);
@@ -44,7 +44,7 @@
   .hamBtn:hover{background:rgba(201,165,66,.15);}
   .hamBtn:active{background:rgba(201,165,66,.25);}
   .hamMenu{
-    position:absolute; top:60px; right:12px; left:12px; z-index:65;
+    position:absolute; top:60px; right:12px; left:12px; z-index:96;
     background:linear-gradient(180deg,#14224A,#0C1735);
     border:1px solid var(--gold); border-radius:10px;
     padding:12px; box-shadow:0 8px 30px rgba(0,0,0,.6);
@@ -107,7 +107,9 @@
   .tick{position:absolute; bottom:0; height:8px; width:1px; background:var(--gold);}
   .tick.minor{height:5px; background:rgba(201,165,66,.5);}
   .ticklbl{position:absolute; bottom:9px; transform:translateX(-50%); font-family:'Cinzel',serif; font-size:13px; color:var(--gold-bright); letter-spacing:.05em; white-space:nowrap;}
+  .ticklbl.minor{font-size:11px; color:var(--muted); opacity:.85;}
   .grid{position:absolute; top:58px; bottom:0; width:1px; background:rgba(201,165,66,.08);}
+  .grid.minor{background:rgba(201,165,66,.045);}
   /* Sticky header (eras + year axis) */
   .timehead{
     position:sticky; top:0; z-index:20; height:58px;
@@ -133,7 +135,7 @@
   }
   .ev{position:absolute; display:flex; flex-direction:column; align-items:center; cursor:pointer; transform:translateX(-50%); z-index:2;}
   .ev .ic{
-    width:22px; height:22px; border-radius:50%;
+    width:22px; height:22px; border-radius:50%; position:relative;
     display:flex; align-items:center; justify-content:center;
     background:var(--navy-deep); border:1.5px solid currentColor;
     box-shadow:0 0 6px rgba(0,0,0,.5); transition:transform .12s, box-shadow .12s;
@@ -141,11 +143,11 @@
   .ev:hover .ic{transform:scale(1.25); box-shadow:0 0 10px currentColor;}
   .ev svg{width:12px; height:12px;}
   .ev .yr{
-    font-size:11.5px; color:#fff; font-family:'Cinzel',serif; letter-spacing:.04em;
+    font-size:13px; color:#fff; font-family:'Cinzel',serif; letter-spacing:.04em;
     text-align:center; margin-top:2px; text-shadow:0 1px 3px rgba(0,0,0,.9);
   }
   .ev .nm{
-    margin-top:1px; font-size:12px; line-height:1.15; text-align:center; max-width:96px;
+    margin-top:1px; font-size:13.5px; line-height:1.15; text-align:center; max-width:96px;
     color:var(--parchment); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
     overflow:hidden; text-shadow:0 1px 3px rgba(0,0,0,.9);
   }
@@ -164,7 +166,7 @@
   }
   .searchClear.show{display:flex;}
   .searchClear:hover{color:var(--gold-bright);}
-  .monstranceWrap{flex:1 1 auto; position:relative; height:0; overflow:visible;}
+  .monstranceWrap{flex:1 1 auto; position:relative; height:0; overflow:visible; pointer-events:none;}
   .monstranceWrap svg{
     position:absolute; top:-70px; left:50%; transform:translateX(-50%); z-index:90;
     width:88px; height:112px; animation:monstranceGlow 3.5s ease-in-out infinite;
@@ -352,8 +354,8 @@
     #jsonText, #pasteJson{font-size:16px;}
   }
   @media (max-width:640px){
-    .ev .nm{max-width:78px; font-size:10.5px;}
-    .ev .yr{font-size:10px;}
+    .ev .nm{max-width:78px; font-size:11.5px;}
+    .ev .yr{font-size:11px;}
     h1{letter-spacing:.07em; padding-right:60px; text-align:left;}
     .mgrid2{grid-template-columns:1fr;}
   }
@@ -902,12 +904,29 @@ const detail = document.getElementById('detail');
 const article = document.getElementById('article');
 const manage = document.getElementById('manage');
 
+// The AD 0-100 stretch is rendered twice as wide as everywhere else, since that's
+// where entries are most densely packed — this trades "more pixels per year" for
+// less vertical stacking, instead of clustering/collapsing markers. yearToX/xToYear
+// replace the old straight (year-START)*ppy math everywhere it was used.
+const DISTORT_START = 0, DISTORT_END = 100, DISTORT_FACTOR = 2;
+const EFFECTIVE_SPAN = (DISTORT_END - DISTORT_START) * DISTORT_FACTOR + (END - DISTORT_END);
+function yearToX(y){
+  if(y <= DISTORT_END) return (y - START) * ppy * DISTORT_FACTOR;
+  return (DISTORT_END - START) * ppy * DISTORT_FACTOR + (y - DISTORT_END) * ppy;
+}
+function xToYear(x){
+  const distortedWidth = (DISTORT_END - START) * ppy * DISTORT_FACTOR;
+  if(x <= distortedWidth) return START + x / (ppy * DISTORT_FACTOR);
+  return DISTORT_END + (x - distortedWidth) / ppy;
+}
+function totalWidth(){ return yearToX(END); }
+
 function esc(s){
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function fitPpy(){ return Math.max(0.28, (viewport.clientWidth - 20) / SPAN); }
-function centerYear(){ return START + (viewport.scrollLeft + viewport.clientWidth/2) / ppy; }
-function scrollToYear(y){ viewport.scrollLeft = (y - START) * ppy - viewport.clientWidth/2; }
+function fitPpy(){ return Math.max(0.28, (viewport.clientWidth - 20) / EFFECTIVE_SPAN); }
+function centerYear(){ return xToYear(viewport.scrollLeft + viewport.clientWidth/2); }
+function scrollToYear(y){ viewport.scrollLeft = yearToX(y) - viewport.clientWidth/2; }
 
 // ---- Smooth animated travel across the timeline ----
 let scrollAnim = null;
@@ -953,7 +972,7 @@ function filtered(){
     .slice().sort((a,b) => a.y - b.y);
 }
 
-const TYPE_ORDER = ['s','c','p','m','u','e'];
+const TYPE_ORDER = ['e','s','c','p','m','u'];
 const TYPE_PLURALS = {s:"Saints", c:"Councils", p:"Persecutions", m:"Marian Apparitions", u:"Eucharistic Miracles", e:"Events"};
 const HEAD_H = 58;
 
@@ -963,54 +982,67 @@ function render(){
   let shown = 0;
   const showLabels = ppy >= 1.5;
   const gap = showLabels ? 96 : 30;
-  const rowH = showLabels ? 52 : 32;
+  const rowH = showLabels ? 60 : 32;
   const bandPad = 8;
 
   canvas.innerHTML = "";
-  canvas.style.width = (SPAN * ppy) + "px";
+  canvas.style.width = totalWidth() + "px";
 
-  // Century grid lines (behind everything)
+  // Century grid lines (behind everything), plus a finer line every 25 years
+  // within the widened AD 0-100 stretch so the distortion reads clearly.
   const step = ppy >= 4 ? 25 : ppy >= 2 ? 50 : 100;
   for(let y = 0; y <= END; y += 100){
     const g = document.createElement('div');
     g.className = 'grid';
-    g.style.left = ((y-START)*ppy) + 'px';
+    g.style.left = yearToX(y) + 'px';
+    canvas.appendChild(g);
+  }
+  for(let y = DISTORT_START + 25; y < DISTORT_END; y += 25){
+    const g = document.createElement('div');
+    g.className = 'grid minor';
+    g.style.left = yearToX(y) + 'px';
     canvas.appendChild(g);
   }
 
   // Sticky header: era bands + year axis (stays pinned while scrolling down)
   const head = document.createElement('div');
   head.className = 'timehead';
-  head.style.width = (SPAN * ppy) + 'px';
+  head.style.width = totalWidth() + 'px';
   ERAS.forEach(([a,b,name]) => {
     const el = document.createElement('div');
     el.className = 'era';
-    el.style.left = ((a-START)*ppy) + 'px';
-    el.style.width = ((b-a)*ppy) + 'px';
+    el.style.left = yearToX(a) + 'px';
+    el.style.width = (yearToX(b) - yearToX(a)) + 'px';
     el.innerHTML = '<span>'+name+'</span>';
     head.appendChild(el);
   });
   const axis = document.createElement('div');
   axis.className = 'axis';
-  axis.style.width = (SPAN*ppy) + 'px';
-  for(let y = 0; y <= END; y += step){
-    const x = (y-START)*ppy;
+  axis.style.width = totalWidth() + 'px';
+  const tickYears = new Set();
+  for(let y = 0; y <= END; y += step) tickYears.add(y);
+  for(let y = DISTORT_START; y <= DISTORT_END; y += 25) tickYears.add(y);
+  Array.from(tickYears).sort((a,b) => a-b).forEach(y => {
+    const x = yearToX(y);
+    const inDistortZone = y >= DISTORT_START && y <= DISTORT_END;
     const t = document.createElement('div');
     t.className = 'tick' + (y % 100 !== 0 ? ' minor' : '');
     t.style.left = x + 'px';
     axis.appendChild(t);
-    if(y % 100 === 0 && y !== 0){
+    if(y !== 0 && (y % 100 === 0 || (inDistortZone && y % 25 === 0))){
       const l = document.createElement('div');
-      l.className = 'ticklbl';
+      l.className = 'ticklbl' + (y % 100 !== 0 ? ' minor' : '');
       l.style.left = x + 'px';
       l.textContent = y;
       axis.appendChild(l);
     }
-  }
+  });
   head.appendChild(axis);
   canvas.insertBefore(head, canvas.firstChild);
 
-  // One muted horizontal band per visible category — entries stay in their lane
+  // One muted horizontal band per visible category — entries stay in their lane.
+  // (Crowding in the AD 1-100 stretch is handled by widening that stretch itself —
+  // see yearToX() — rather than by clustering or capping lanes.)
   let yCursor = HEAD_H + 4;
   TYPE_ORDER.forEach(t => {
     if(!activeTypes[t]) return;
@@ -1019,7 +1051,7 @@ function render(){
     const lanes = [];
     let maxLane = 0;
     const placed = items.map(d => {
-      const x = (d.y-START)*ppy;
+      const x = yearToX(d.y);
       let lane = 0;
       while(lane < lanes.length && x - lanes[lane] < gap) lane++;
       lanes[lane] = x;
@@ -1031,13 +1063,13 @@ function render(){
     band.className = 'band band-' + t;
     band.style.top = yCursor + 'px';
     band.style.height = bandH + 'px';
-    band.style.width = (SPAN*ppy) + 'px';
+    band.style.width = totalWidth() + 'px';
     canvas.appendChild(band);
     const lblWrap = document.createElement('div');
     lblWrap.className = 'bandlblwrap';
     lblWrap.style.top = yCursor + 'px';
     lblWrap.style.height = bandH + 'px';
-    lblWrap.style.width = (SPAN*ppy) + 'px';
+    lblWrap.style.width = totalWidth() + 'px';
     lblWrap.innerHTML = '<span class="bandlbl t-'+t+'">'+TYPE_PLURALS[t]+'</span>';
     canvas.appendChild(lblWrap);
     placed.forEach(pl => {
@@ -1047,8 +1079,9 @@ function render(){
       el.style.left = pl.x + 'px';
       el.style.top = (yCursor + bandPad + 16 + pl.lane*rowH) + 'px';
       el.title = d.n + ' (AD ' + d.y + ')';
+      el.dataset.id = d.id;
       el.innerHTML = '<div class="ic">'+ICONS[d.t]+'</div>' +
-        (showLabels ? '<div class="yr">~ '+d.y+' ~</div><div class="nm">'+esc(d.n)+'</div>' : '');
+        (showLabels ? '<div class="yr">~ '+d.y+' ~</div><div class="nm">'+esc(shortName(d.n))+'</div>' : '');
       el.addEventListener('click', (e) => { e.stopPropagation(); if(dragMoved) return; showDetail(d); });
       canvas.appendChild(el);
       shown++;
@@ -1119,7 +1152,11 @@ attachVerticalSwipe(detail,
     }
   }, {passive:true});
 })();
-viewport.addEventListener('click', () => { if(dragMoved) return; detail.classList.remove('open'); const sr=document.getElementById('sResults'); if(sr) sr.style.display='none'; });
+viewport.addEventListener('click', () => {
+  if(dragMoved) return;
+  detail.classList.remove('open');
+  const sr=document.getElementById('sResults'); if(sr) sr.style.display='none';
+});
 
 // ---- Click-drag panning (desktop): drag the background to shift the timeline ----
 let dragState = null, dragMoved = false;
@@ -1184,6 +1221,11 @@ function tierVisible(d){
 // ---- Search ----
 let searchHits = new Set();
 let searchFocusId = null;
+// Drops a leading "St." / "Sts." from names on the crowded timeline display only —
+// full names (with title) are still used everywhere else: search, detail, article.
+function shortName(n){
+  return String(n).replace(/^(Sts?\.)\s+/, '');
+}
 function fold(s){ return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 function runSearch(){
   const raw = document.getElementById('tlSearch').value;
@@ -1215,7 +1257,7 @@ function focusEntry(d){
   render();
   document.getElementById('sResults').style.display = 'none';
   document.getElementById('tlSearch').blur();
-  const left = (d.y - START) * ppy - viewport.clientWidth / 2;
+  const left = yearToX(d.y) - viewport.clientWidth / 2;
   // Centre vertically on the icon's lane too, if it rendered.
   const el = canvas.querySelector('.ev.focus');
   const top = el
