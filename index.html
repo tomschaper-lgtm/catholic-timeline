@@ -139,6 +139,13 @@
     background:linear-gradient(90deg, rgba(7,15,34,.9) 0%, rgba(7,15,34,.9) 38%, rgba(7,15,34,0) 100%);
     padding:5px 16px 5px 14px; border-radius:0 4px 4px 0;
   }
+  .bandyearwrap{position:absolute; z-index:3; pointer-events:none;}
+  .bandyear{
+    position:sticky; top:60px; display:inline-block;
+    font-family:'Cinzel',serif; font-size:11px; letter-spacing:.06em;
+    color:var(--muted); opacity:.6; white-space:nowrap;
+    text-shadow:0 1px 3px rgba(0,0,0,.9);
+  }
   .ev{position:absolute; display:flex; flex-direction:column; align-items:center; cursor:pointer; transform:translateX(-50%); z-index:2;}
   .ev .ic{
     width:22px; height:22px; border-radius:50%; position:relative;
@@ -263,6 +270,32 @@
     padding:9px 12px; cursor:pointer; font-weight:600;
   }
   .artopen:hover{background:var(--gold-bright);}
+  .qeditToggle{
+    display:none; margin-top:8px; width:100%;
+    font-family:'Cinzel',serif; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    background:var(--navy-band); color:var(--gold-bright); border:1px solid rgba(201,165,66,.5);
+    border-radius:6px; padding:7px 12px; cursor:pointer;
+  }
+  .qeditToggle.show{display:block;}
+  .qeditToggle:hover{background:var(--gold); color:var(--navy-deep);}
+  .qeditPanel{display:none; margin-top:10px; padding-top:10px; border-top:1px solid rgba(201,165,66,.2);}
+  .qeditPanel.open{display:block;}
+  .qeditPanel label{display:block; font-size:11px; color:var(--muted); margin:8px 0 3px; letter-spacing:.03em;}
+  .qeditPanel .qeHint{font-style:italic; opacity:.8;}
+  .qeditPanel input[type=text], .qeditPanel textarea{
+    width:100%; box-sizing:border-box; background:var(--navy-deep); border:1px solid var(--gold);
+    color:var(--parchment); border-radius:8px; padding:7px 10px;
+    font-family:'EB Garamond',Georgia,serif; font-size:14px; resize:vertical;
+  }
+  .qeditPanel input[type=text]:focus, .qeditPanel textarea:focus{outline:none; box-shadow:0 0 0 2px rgba(201,165,66,.35);}
+  .qeditBtns{display:flex; gap:8px; margin-top:10px;}
+  .qeBtn{
+    flex:1 1 auto; font-family:'Cinzel',serif; font-size:11.5px; letter-spacing:.08em; text-transform:uppercase;
+    background:var(--gold); color:var(--navy-deep); border:none; border-radius:6px;
+    padding:8px 12px; cursor:pointer; font-weight:600;
+  }
+  .qeBtn:hover{background:var(--gold-bright);}
+  .qeBtn.sec{background:var(--navy-deep); color:var(--gold-bright); border:1px solid var(--gold);}
   /* Overlays: article & manage */
   .overlay{
     position:fixed; inset:0; z-index:100;
@@ -424,7 +457,7 @@
       <button class="chip" data-region="asia">Asia &amp; Oceania</button>
     </div>
     <label class="hamToggle">
-      <input type="checkbox" id="hideYearsGlobal">
+      <input type="checkbox" id="hideYearsGlobal" autocomplete="off" checked>
       <span>Hide years on timeline</span>
     </label>
     <button class="managebtn" id="manageBtn" style="display:none;">⚙ Manage</button>
@@ -505,6 +538,19 @@
   <div class="dbadges" id="dBadges"></div>
   <div class="ddesc" id="dDesc"></div>
   <button class="artopen" id="dArtBtn">Open Full Article</button>
+  <button class="qeditToggle" id="qeditToggle">✎ Quick Edit</button>
+  <div class="qeditPanel" id="qeditPanel">
+    <label>Timeline Display Text <span class="qeHint">(blank = automatic)</span></label>
+    <input type="text" id="qeTlabel" placeholder="e.g. Guadalupe">
+    <label>Name</label>
+    <input type="text" id="qeName">
+    <label>Short Description</label>
+    <textarea id="qeDesc" rows="3"></textarea>
+    <div class="qeditBtns">
+      <button id="qeCancel" class="qeBtn sec">Cancel</button>
+      <button id="qeSave" class="qeBtn">Save</button>
+    </div>
+  </div>
 </div>
 
 <div class="overlay" id="article">
@@ -884,7 +930,7 @@ function seedDb(){
   return {
     v: 1,
     entries: SEED.map(r => ({
-      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, hideYear: false, d: r[4],
+      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, hideYear: false, displayLabel: "", d: r[4],
       art: {sections: [{h: "Overview", b: r[4]}], quotes: [], links: []},
       img: "", imgCap: "", audio: ""
     }))
@@ -938,7 +984,7 @@ let ppy = 1.8;
 let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
 let activeRegion = "all";
 let currentEntry = null;
-let globalHideYears = false;
+let globalHideYears = true;
 
 const viewport = document.getElementById('viewport');
 const canvas = document.getElementById('canvas');
@@ -1024,7 +1070,7 @@ function render(){
   let shown = 0;
   const showLabels = ppy >= 1.5;
   const gap = showLabels ? 96 : 30;
-  const rowH = showLabels ? (globalHideYears ? 42 : 60) : 32;
+  const rowH = showLabels ? (globalHideYears ? 58 : 80) : 32;
   const bandPad = 16;
 
   canvas.innerHTML = "";
@@ -1115,6 +1161,15 @@ function render(){
     lblWrap.style.width = totalWidth() + 'px';
     lblWrap.innerHTML = '<span class="bandlbl t-'+t+'">'+TYPE_PLURALS[t]+'</span>';
     canvas.appendChild(lblWrap);
+    for(let y = 100; y <= END; y += 100){
+      const yw = document.createElement('div');
+      yw.className = 'bandyearwrap';
+      yw.style.left = yearToX(y) + 'px';
+      yw.style.top = yCursor + 'px';
+      yw.style.height = bandH + 'px';
+      yw.innerHTML = '<span class="bandyear">'+y+'</span>';
+      canvas.appendChild(yw);
+    }
     placed.forEach(pl => {
       const d = pl.d;
       const el = document.createElement('div');
@@ -1124,7 +1179,7 @@ function render(){
       el.title = d.n + ' (AD ' + d.y + ')';
       el.dataset.id = d.id;
       el.innerHTML = '<div class="ic">'+ICONS[d.t]+'</div>' +
-        (showLabels ? ((globalHideYears || d.hideYear) ? '' : '<div class="yr">~ '+d.y+' ~</div>') + '<div class="nm">'+esc(shortName(d.n))+'</div>' : '');
+        (showLabels ? ((globalHideYears || d.hideYear) ? '' : '<div class="yr">~ '+d.y+' ~</div>') + '<div class="nm">'+esc((d.displayLabel && d.displayLabel.trim()) ? d.displayLabel : shortName(d.n, d.t))+'</div>' : '');
       el.addEventListener('click', (e) => { e.stopPropagation(); if(dragMoved) return; showDetail(d); });
       canvas.appendChild(el);
       shown++;
@@ -1146,15 +1201,19 @@ function showDetail(d){
   currentEntry = d;
   const oc = document.getElementById('offsetCtrl');
   const yt = document.getElementById('yearToggle');
+  const qb = document.getElementById('qeditToggle');
+  document.getElementById('qeditPanel').classList.remove('open');
   if(manageUnlocked()){
     oc.classList.add('show');
     document.getElementById('offsetVal').textContent = d.offset || 0;
     yt.classList.add('show');
     yt.textContent = d.hideYear ? 'Year: Off' : 'Year: On';
     yt.classList.toggle('off', !!d.hideYear);
+    qb.classList.add('show');
   } else {
     oc.classList.remove('show');
     yt.classList.remove('show');
+    qb.classList.remove('show');
   }
   detail.classList.add('open');
 }
@@ -1166,6 +1225,31 @@ document.getElementById('yearToggle').addEventListener('click', async (e) => {
   const yt = document.getElementById('yearToggle');
   yt.textContent = currentEntry.hideYear ? 'Year: Off' : 'Year: On';
   yt.classList.toggle('off', !!currentEntry.hideYear);
+  render();
+  await saveDb();
+});
+document.getElementById('qeditToggle').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if(!currentEntry) return;
+  document.getElementById('qeTlabel').value = currentEntry.displayLabel || '';
+  document.getElementById('qeName').value = currentEntry.n || '';
+  document.getElementById('qeDesc').value = currentEntry.d || '';
+  document.getElementById('qeditPanel').classList.add('open');
+});
+document.getElementById('qeCancel').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('qeditPanel').classList.remove('open');
+});
+document.getElementById('qeSave').addEventListener('click', async (e) => {
+  e.stopPropagation();
+  if(!currentEntry) return;
+  currentEntry.displayLabel = document.getElementById('qeTlabel').value.trim();
+  const newName = document.getElementById('qeName').value.trim();
+  if(newName) currentEntry.n = newName;
+  currentEntry.d = document.getElementById('qeDesc').value.trim();
+  document.getElementById('dName').textContent = currentEntry.n;
+  document.getElementById('dDesc').textContent = currentEntry.d;
+  document.getElementById('qeditPanel').classList.remove('open');
   render();
   await saveDb();
 });
@@ -1312,10 +1396,13 @@ function tierVisible(d){
 // ---- Search ----
 let searchHits = new Set();
 let searchFocusId = null;
-// Drops a leading "St." / "Sts." from names on the crowded timeline display only —
-// full names (with title) are still used everywhere else: search, detail, article.
-function shortName(n){
-  return String(n).replace(/^(Sts?\.)\s+/, '');
+// Drops a leading title/prefix from names on the crowded timeline display only —
+// full names are still used everywhere else: search, detail, article.
+function shortName(n, t){
+  let s = String(n).replace(/^(Sts?\.)\s+/, '');
+  if(t === 'u') s = s.replace(/^Miracle of\s+/i, '');
+  if(t === 'm') s = s.replace(/^Our Lady of\s+/i, '');
+  return s;
 }
 function fold(s){ return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 function runSearch(){
@@ -1916,7 +2003,7 @@ function mergeEntries(list){
       if(inc.n == null || inc.y == null){ skipped++; return; }
       db.entries.push({
         id: id, y: parseInt(inc.y, 10), n: String(inc.n),
-        t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, hideYear: !!inc.hideYear, d: inc.d || '',
+        t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, hideYear: !!inc.hideYear, displayLabel: inc.displayLabel || '', d: inc.d || '',
         art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
         img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
         tier: inc.tier || 1, alt: inc.alt || []
@@ -2103,6 +2190,8 @@ document.getElementById('hideYearsGlobal').addEventListener('change', (e) => {
 // ================= INIT =================
 (async function(){
   updateManageVisibility();
+  globalHideYears = true;
+  document.getElementById('hideYearsGlobal').checked = true;
   await loadDb();
   render();
   scrollToYear(120);
