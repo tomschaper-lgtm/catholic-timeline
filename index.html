@@ -205,18 +205,30 @@
   .detail .close{position:absolute; top:8px; right:10px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1;}
   .detail .close:hover{color:var(--gold-bright);}
   .offsetCtrl{
-    position:absolute; top:9px; right:42px; z-index:2;
-    display:none; align-items:center; gap:3px;
-    background:var(--navy-band); border:1px solid rgba(201,165,66,.5); border-radius:12px;
-    padding:2px 6px;
+    position:absolute; top:8px; right:52px; z-index:2;
+    display:none; align-items:center; gap:6px;
+    background:var(--navy-band); border:1px solid rgba(201,165,66,.5); border-radius:16px;
+    padding:4px 8px;
   }
   .offsetCtrl.show{display:flex;}
   .offsetCtrl button{
-    background:none; border:none; color:var(--gold-bright); font-size:12px; cursor:pointer;
-    width:16px; height:16px; display:flex; align-items:center; justify-content:center; line-height:1;
+    background:none; border:none; color:var(--gold-bright); font-size:19px; cursor:pointer;
+    width:30px; height:30px; display:flex; align-items:center; justify-content:center; line-height:1;
+    -webkit-user-select:none; user-select:none; touch-action:manipulation;
   }
   .offsetCtrl button:hover{color:#fff;}
-  .offsetCtrl span{font-size:11px; color:var(--muted); min-width:14px; text-align:center; font-variant-numeric:tabular-nums;}
+  .offsetCtrl button:active{color:#fff; transform:scale(0.9);}
+  .offsetCtrl span{font-size:14px; color:var(--muted); min-width:20px; text-align:center; font-variant-numeric:tabular-nums;}
+  .yearToggle{
+    position:absolute; top:46px; right:52px; z-index:2;
+    display:none;
+    background:var(--navy-band); border:1px solid rgba(201,165,66,.5); border-radius:12px;
+    color:var(--muted); font-size:11px; padding:4px 10px; cursor:pointer;
+    font-family:'Cinzel',serif; letter-spacing:.04em; text-transform:uppercase;
+  }
+  .yearToggle.show{display:block;}
+  .yearToggle:hover{border-color:var(--gold-bright);}
+  .yearToggle.off{color:var(--gold-bright); border-color:var(--gold-bright);}
   .draghandle{display:none; position:sticky; top:6px; z-index:6; width:38px; height:4px; border-radius:2px; background:rgba(201,165,66,.55); margin:0 auto 10px;}
   @media (pointer:coarse){
     .draghandle{display:block;}
@@ -477,6 +489,7 @@
     <span id="offsetVal">0</span>
     <button id="offsetRight" aria-label="Nudge later">▶</button>
   </div>
+  <button class="yearToggle" id="yearToggle">Year: ON</button>
   <button class="close" id="detailClose" aria-label="Close">×</button>
   <div class="dhead"><span class="dyear" id="dYear"></span><span class="dname" id="dName"></span></div>
   <div class="dbadges" id="dBadges"></div>
@@ -861,7 +874,7 @@ function seedDb(){
   return {
     v: 1,
     entries: SEED.map(r => ({
-      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, d: r[4],
+      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, hideYear: false, d: r[4],
       art: {sections: [{h: "Overview", b: r[4]}], quotes: [], links: []},
       img: "", imgCap: "", audio: ""
     }))
@@ -1064,7 +1077,8 @@ function render(){
   let yCursor = HEAD_H + 4;
   TYPE_ORDER.forEach(t => {
     if(!activeTypes[t]) return;
-    const items = evs.filter(d => d.t === t && (tierVisible(d) || searchHits.has(d.id)));
+    const items = evs.filter(d => d.t === t && (tierVisible(d) || searchHits.has(d.id)))
+      .slice().sort((a,b) => (a.y+(a.offset||0)) - (b.y+(b.offset||0)));
     if(!items.length) return;
     const lanes = [];
     let maxLane = 0;
@@ -1099,7 +1113,7 @@ function render(){
       el.title = d.n + ' (AD ' + d.y + ')';
       el.dataset.id = d.id;
       el.innerHTML = '<div class="ic">'+ICONS[d.t]+'</div>' +
-        (showLabels ? '<div class="yr">~ '+d.y+' ~</div><div class="nm">'+esc(shortName(d.n))+'</div>' : '');
+        (showLabels ? (d.hideYear ? '' : '<div class="yr">~ '+d.y+' ~</div>') + '<div class="nm">'+esc(shortName(d.n))+'</div>' : '');
       el.addEventListener('click', (e) => { e.stopPropagation(); if(dragMoved) return; showDetail(d); });
       canvas.appendChild(el);
       shown++;
@@ -1120,24 +1134,56 @@ function showDetail(d){
     (d.country ? '<span class="badge" style="color:var(--muted)">'+esc(d.country)+'</span>' : '');
   currentEntry = d;
   const oc = document.getElementById('offsetCtrl');
+  const yt = document.getElementById('yearToggle');
   if(manageUnlocked()){
     oc.classList.add('show');
     document.getElementById('offsetVal').textContent = d.offset || 0;
+    yt.classList.add('show');
+    yt.textContent = d.hideYear ? 'Year: Off' : 'Year: On';
+    yt.classList.toggle('off', !!d.hideYear);
   } else {
     oc.classList.remove('show');
+    yt.classList.remove('show');
   }
   detail.classList.add('open');
 }
 document.getElementById('detailClose').addEventListener('click', () => detail.classList.remove('open'));
-async function nudgeOffset(delta){
+document.getElementById('yearToggle').addEventListener('click', async (e) => {
+  e.stopPropagation();
+  if(!currentEntry) return;
+  currentEntry.hideYear = !currentEntry.hideYear;
+  const yt = document.getElementById('yearToggle');
+  yt.textContent = currentEntry.hideYear ? 'Year: Off' : 'Year: On';
+  yt.classList.toggle('off', !!currentEntry.hideYear);
+  render();
+  await saveDb();
+});
+function nudgeOffset(delta, deferSave){
   if(!currentEntry) return;
   currentEntry.offset = (currentEntry.offset || 0) + delta;
   document.getElementById('offsetVal').textContent = currentEntry.offset;
   render();
-  await saveDb();
+  if(!deferSave) saveDb();
 }
-document.getElementById('offsetLeft').addEventListener('click', (e) => { e.stopPropagation(); nudgeOffset(-1); });
-document.getElementById('offsetRight').addEventListener('click', (e) => { e.stopPropagation(); nudgeOffset(1); });
+let holdTimer = null, holdInterval = null;
+function startHold(delta){
+  nudgeOffset(delta);
+  clearTimeout(holdTimer); clearInterval(holdInterval);
+  holdTimer = setTimeout(() => {
+    holdInterval = setInterval(() => nudgeOffset(delta, true), 170);
+  }, 450);
+}
+function stopHold(){
+  clearTimeout(holdTimer); clearInterval(holdInterval);
+  holdTimer = null; holdInterval = null;
+  if(currentEntry) saveDb();
+}
+[['offsetLeft', -1], ['offsetRight', 1]].forEach(([id, delta]) => {
+  const btn = document.getElementById(id);
+  btn.addEventListener('pointerdown', (e) => { e.stopPropagation(); startHold(delta); });
+  ['pointerup','pointerleave','pointercancel'].forEach(ev =>
+    btn.addEventListener(ev, (e) => { e.stopPropagation(); stopHold(); }));
+});
 
 // ---- Swipe gestures (mobile): the teaser card is swiped up to expand into the full story,
 // swiped down to dismiss (mirroring the desktop "Open Full Article" button and × close button).
@@ -1859,7 +1905,7 @@ function mergeEntries(list){
       if(inc.n == null || inc.y == null){ skipped++; return; }
       db.entries.push({
         id: id, y: parseInt(inc.y, 10), n: String(inc.n),
-        t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, d: inc.d || '',
+        t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, hideYear: !!inc.hideYear, d: inc.d || '',
         art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
         img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
         tier: inc.tier || 1, alt: inc.alt || []
