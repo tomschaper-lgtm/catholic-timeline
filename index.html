@@ -204,6 +204,19 @@
   .detail.open{transform:translateX(-50%) translateY(0);}
   .detail .close{position:absolute; top:8px; right:10px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1;}
   .detail .close:hover{color:var(--gold-bright);}
+  .offsetCtrl{
+    position:absolute; top:9px; right:42px; z-index:2;
+    display:none; align-items:center; gap:3px;
+    background:var(--navy-band); border:1px solid rgba(201,165,66,.5); border-radius:12px;
+    padding:2px 6px;
+  }
+  .offsetCtrl.show{display:flex;}
+  .offsetCtrl button{
+    background:none; border:none; color:var(--gold-bright); font-size:12px; cursor:pointer;
+    width:16px; height:16px; display:flex; align-items:center; justify-content:center; line-height:1;
+  }
+  .offsetCtrl button:hover{color:#fff;}
+  .offsetCtrl span{font-size:11px; color:var(--muted); min-width:14px; text-align:center; font-variant-numeric:tabular-nums;}
   .draghandle{display:none; position:sticky; top:6px; z-index:6; width:38px; height:4px; border-radius:2px; background:rgba(201,165,66,.55); margin:0 auto 10px;}
   @media (pointer:coarse){
     .draghandle{display:block;}
@@ -459,6 +472,11 @@
 
 <div class="detail" id="detail">
   <div class="draghandle" id="detailHandle"></div>
+  <div class="offsetCtrl" id="offsetCtrl">
+    <button id="offsetLeft" aria-label="Nudge earlier">◀</button>
+    <span id="offsetVal">0</span>
+    <button id="offsetRight" aria-label="Nudge later">▶</button>
+  </div>
   <button class="close" id="detailClose" aria-label="Close">×</button>
   <div class="dhead"><span class="dyear" id="dYear"></span><span class="dname" id="dName"></span></div>
   <div class="dbadges" id="dBadges"></div>
@@ -843,7 +861,7 @@ function seedDb(){
   return {
     v: 1,
     entries: SEED.map(r => ({
-      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", d: r[4],
+      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, d: r[4],
       art: {sections: [{h: "Overview", b: r[4]}], quotes: [], links: []},
       img: "", imgCap: "", audio: ""
     }))
@@ -1051,7 +1069,7 @@ function render(){
     const lanes = [];
     let maxLane = 0;
     const placed = items.map(d => {
-      const x = yearToX(d.y);
+      const x = yearToX(d.y + (d.offset || 0));
       let lane = 0;
       while(lane < lanes.length && x - lanes[lane] < gap) lane++;
       lanes[lane] = x;
@@ -1101,9 +1119,25 @@ function showDetail(d){
     '<span class="badge" style="color:var(--muted)">'+REGION_NAMES[d.r]+'</span>' +
     (d.country ? '<span class="badge" style="color:var(--muted)">'+esc(d.country)+'</span>' : '');
   currentEntry = d;
+  const oc = document.getElementById('offsetCtrl');
+  if(manageUnlocked()){
+    oc.classList.add('show');
+    document.getElementById('offsetVal').textContent = d.offset || 0;
+  } else {
+    oc.classList.remove('show');
+  }
   detail.classList.add('open');
 }
 document.getElementById('detailClose').addEventListener('click', () => detail.classList.remove('open'));
+async function nudgeOffset(delta){
+  if(!currentEntry) return;
+  currentEntry.offset = (currentEntry.offset || 0) + delta;
+  document.getElementById('offsetVal').textContent = currentEntry.offset;
+  render();
+  await saveDb();
+}
+document.getElementById('offsetLeft').addEventListener('click', (e) => { e.stopPropagation(); nudgeOffset(-1); });
+document.getElementById('offsetRight').addEventListener('click', (e) => { e.stopPropagation(); nudgeOffset(1); });
 
 // ---- Swipe gestures (mobile): the teaser card is swiped up to expand into the full story,
 // swiped down to dismiss (mirroring the desktop "Open Full Article" button and × close button).
@@ -1825,7 +1859,7 @@ function mergeEntries(list){
       if(inc.n == null || inc.y == null){ skipped++; return; }
       db.entries.push({
         id: id, y: parseInt(inc.y, 10), n: String(inc.n),
-        t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', d: inc.d || '',
+        t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, d: inc.d || '',
         art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
         img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
         tier: inc.tier || 1, alt: inc.alt || []
