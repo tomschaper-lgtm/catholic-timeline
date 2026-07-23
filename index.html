@@ -1320,7 +1320,7 @@ attachVerticalSwipe(detail,
 // the currently active category/region filters).
 function navigateStory(direction){
   if(!currentEntry) return;
-  const list = filtered();
+  const list = filtered().filter(d => d.t === currentEntry.t);
   const idx = list.findIndex(d => d.id === currentEntry.id);
   if(idx === -1) return;
   const next = list[idx + direction];
@@ -1649,8 +1649,8 @@ function slideArticleTo(d, direction){
   body.style.transform = 'translateX(' + (direction > 0 ? '100%' : '-100%') + ')';
   void body.offsetWidth;
   requestAnimationFrame(() => {
-    clone.style.transition = 'transform .32s ease';
-    body.style.transition = 'transform .32s ease';
+    clone.style.transition = 'transform .5s ease';
+    body.style.transition = 'transform .5s ease';
     clone.style.transform = 'translateX(' + (direction > 0 ? '-100%' : '100%') + ')';
     body.style.transform = 'translateX(0)';
   });
@@ -1658,7 +1658,7 @@ function slideArticleTo(d, direction){
     clone.remove();
     body.style.transition = '';
     body.style.transform = '';
-  }, 340);
+  }, 520);
 }
 
 // ---- Audio player ----
