@@ -162,11 +162,11 @@
   .ev:hover .ic{transform:scale(1.25); box-shadow:0 0 10px currentColor;}
   .ev svg{width:12px; height:12px;}
   .ev .yr{
-    font-size:13px; color:#fff; font-family:'Cinzel',serif; letter-spacing:.04em;
-    text-align:center; margin-top:2px; text-shadow:0 1px 3px rgba(0,0,0,.9);
+    font-size:14px; color:#fff; font-family:'Cinzel',serif; letter-spacing:.04em;
+    text-align:center; margin-top:1px; text-shadow:0 1px 3px rgba(0,0,0,.9);
   }
   .ev .nm{
-    margin-top:1px; font-size:13.5px; line-height:1.15; text-align:center; max-width:96px;
+    margin-top:0; font-size:14.5px; line-height:1.15; text-align:center; max-width:96px;
     color:var(--parchment); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
     overflow:hidden; text-shadow:0 1px 3px rgba(0,0,0,.9);
   }
@@ -425,8 +425,8 @@
     #jsonText, #pasteJson{font-size:16px;}
   }
   @media (max-width:640px){
-    .ev .nm{max-width:78px; font-size:11.5px;}
-    .ev .yr{font-size:11px;}
+    .ev .nm{max-width:78px; font-size:12.5px;}
+    .ev .yr{font-size:12px;}
     h1{letter-spacing:.07em; padding-right:60px; text-align:left;}
     .mgrid2{grid-template-columns:1fr;}
   }
@@ -445,7 +445,7 @@
     <div class="row" id="typeRow">
       <span class="lbl">Show</span>
       <button class="tbtn t-s" data-type="s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>Saints</button>
-      <button class="tbtn t-c" data-type="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M4.5 18h15M12 3l8 5.5H4L12 3zM6.5 8.5v9.5M12 8.5v9.5M17.5 8.5v9.5"/></svg>Councils</button>
+      <button class="tbtn t-c" data-type="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M4.5 18h15M12 3l8 5.5H4L12 3zM6.5 8.5v9.5M12 8.5v9.5M17.5 8.5v9.5"/></svg>Ecumenical Councils</button>
       <button class="tbtn t-p" data-type="p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2c1 4-4 5-4 10a4 4 0 0 0 8 0c0-2-1-3-1-3s3 1 3 5a7 7 0 0 1-14 0c0-6 6-7 8-12z"/></svg>Persecutions</button>
       <button class="tbtn t-m" data-type="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.4 5.4 5.9.5-4.5 3.9 1.4 5.7L12 15.6 6.8 18.5l1.4-5.7L3.7 8.9l5.9-.5z"/></svg>Marian</button>
       <button class="tbtn t-u" data-type="u"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6.5" r="3.2"/><path d="M6.5 12h11M8 12c0 3 1.8 4.5 4 4.5s4-1.5 4-4.5M12 16.5V20M9.5 20h5"/></svg>Eucharistic</button>
@@ -914,7 +914,7 @@ const ERAS = [
   [604,1054,"Early Middle Ages"],[1054,1300,"High Middle Ages"],[1300,1517,"Late Middle Ages"],
   [1517,1650,"Reformation"],[1650,1900,"Age of Revolutions"],[1900,2030,"Modern Era"]
 ];
-const TYPE_NAMES = {s:"Saint", c:"Council", p:"Persecution", e:"Event", m:"Marian Apparition", u:"Eucharistic Miracle"};
+const TYPE_NAMES = {s:"Saint", c:"Ecumenical Council", p:"Persecution", e:"Event", m:"Marian Apparition", u:"Eucharistic Miracle"};
 const REGION_NAMES = {rome:"Rome & Italy", west:"Western Europe", brit:"Britain & Ireland", east:"Byzantium & E. Europe", holy:"Holy Land & Mid-East", africa:"Africa", americas:"Americas", asia:"Asia & Oceania"};
 const ICONS = {
   s:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>',
@@ -1068,7 +1068,7 @@ function filtered(){
 }
 
 const TYPE_ORDER = ['e','s','c','p','m','u'];
-const TYPE_PLURALS = {s:"Saints", c:"Councils", p:"Persecutions", m:"Marian Apparitions", u:"Eucharistic Miracles", e:"Events"};
+const TYPE_PLURALS = {s:"Saints", c:"Ecumenical Councils", p:"Persecutions", m:"Marian Apparitions", u:"Eucharistic Miracles", e:"Events"};
 const HEAD_H = 58;
 
 function render(){
@@ -1468,6 +1468,7 @@ function focusEntry(d){
   animateScroll(left, top, () => showDetail(d));
 }
 document.getElementById('tlSearch').addEventListener('input', runSearch);
+document.getElementById('tlSearch').addEventListener('focus', runSearch);
 document.getElementById('tlSearch').addEventListener('keydown', (e) => {
   if(e.key === 'Escape'){ e.target.value = ''; runSearch(); e.target.blur(); }
 });
