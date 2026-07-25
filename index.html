@@ -66,12 +66,6 @@
   }
   .managebtn:hover{background:var(--gold); color:var(--navy-deep);}
   .hamMenu .managebtn{display:block; width:100%; margin-top:12px; text-align:center;}
-  .hamToggle{
-    display:flex; align-items:center; gap:8px; margin-top:10px; padding-top:10px;
-    border-top:1px solid rgba(201,165,66,.2);
-    color:var(--parchment); font-size:13px; cursor:pointer;
-  }
-  .hamToggle input{accent-color:var(--gold); width:16px; height:16px; cursor:pointer;}
   .controls{
     flex:0 0 auto; padding:2px 12px 16px;
     display:flex; flex-direction:column; gap:6px;
@@ -161,10 +155,6 @@
   }
   .ev:hover .ic{transform:scale(1.25); box-shadow:0 0 10px currentColor;}
   .ev svg{width:12px; height:12px;}
-  .ev .yr{
-    font-size:14px; color:#fff; font-family:'Cinzel',serif; letter-spacing:.04em;
-    text-align:center; margin-top:1px; text-shadow:0 1px 3px rgba(0,0,0,.9);
-  }
   .ev .nm{
     margin-top:0; font-size:14.5px; line-height:1.15; text-align:center; max-width:96px;
     color:var(--parchment); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
@@ -218,13 +208,21 @@
     background:linear-gradient(180deg, #14224A, #0C1735);
     border:1px solid var(--gold); border-radius:10px;
     padding:14px 16px; box-shadow:0 8px 30px rgba(0,0,0,.6);
-    transition:transform .25s ease; z-index:50; max-height:60vh; overflow-y:auto;
+    transition:transform .25s ease; z-index:50;
   }
+  .detailInner{max-height:60vh; overflow-y:auto;}
+  .dportrait{
+    display:none; position:absolute; top:-20px; right:-14px; z-index:6;
+    width:78px; height:78px; border-radius:50%; overflow:hidden;
+    border:3px solid var(--gold); box-shadow:0 6px 16px rgba(0,0,0,.6), 0 0 0 3px var(--navy-deep);
+  }
+  .dportrait.show{display:block;}
+  .dportrait img{width:100%; height:100%; object-fit:cover; object-position:center 25%; transform:scale(1.35);}
   .detail.open{transform:translateX(-50%) translateY(0);}
-  .detail .close{position:absolute; top:8px; right:10px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1;}
+  .detail .close{position:absolute; top:8px; right:10px; z-index:7; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1;}
   .detail .close:hover{color:var(--gold-bright);}
   .offsetCtrl{
-    position:absolute; top:8px; right:52px; z-index:2;
+    position:absolute; top:8px; right:52px; z-index:7;
     display:none; align-items:center; gap:6px;
     background:var(--navy-band); border:1px solid rgba(201,165,66,.5); border-radius:16px;
     padding:4px 8px;
@@ -238,16 +236,6 @@
   .offsetCtrl button:hover{color:#fff;}
   .offsetCtrl button:active{color:#fff; transform:scale(0.9);}
   .offsetCtrl span{font-size:14px; color:var(--muted); min-width:20px; text-align:center; font-variant-numeric:tabular-nums;}
-  .yearToggle{
-    position:absolute; top:46px; right:52px; z-index:2;
-    display:none;
-    background:var(--navy-band); border:1px solid rgba(201,165,66,.5); border-radius:12px;
-    color:var(--muted); font-size:11px; padding:4px 10px; cursor:pointer;
-    font-family:'Cinzel',serif; letter-spacing:.04em; text-transform:uppercase;
-  }
-  .yearToggle.show{display:block;}
-  .yearToggle:hover{border-color:var(--gold-bright);}
-  .yearToggle.off{color:var(--gold-bright); border-color:var(--gold-bright);}
   .draghandle{display:none; position:sticky; top:6px; z-index:6; width:38px; height:4px; border-radius:2px; background:rgba(201,165,66,.55); margin:0 auto 10px;}
   @media (pointer:coarse){
     .draghandle{display:block;}
@@ -426,7 +414,6 @@
   }
   @media (max-width:640px){
     .ev .nm{max-width:78px; font-size:12.5px;}
-    .ev .yr{font-size:12px;}
     h1{letter-spacing:.07em; padding-right:60px; text-align:left;}
     .mgrid2{grid-template-columns:1fr;}
   }
@@ -463,10 +450,6 @@
       <button class="chip" data-region="americas">Americas</button>
       <button class="chip" data-region="asia">Asia &amp; Oceania</button>
     </div>
-    <label class="hamToggle">
-      <input type="checkbox" id="hideYearsGlobal" autocomplete="off" checked>
-      <span>Hide years on timeline</span>
-    </label>
     <button class="managebtn" id="manageBtn" style="display:none;">⚙ Manage</button>
   </div>
 </header>
@@ -534,28 +517,30 @@
 
 <div class="detail" id="detail">
   <div class="draghandle" id="detailHandle"></div>
+  <div class="dportrait" id="dPortrait"><img id="dPortraitImg" src="" alt=""></div>
   <div class="offsetCtrl" id="offsetCtrl">
     <button id="offsetLeft" aria-label="Nudge earlier">◀</button>
     <span id="offsetVal">0</span>
     <button id="offsetRight" aria-label="Nudge later">▶</button>
   </div>
-  <button class="yearToggle" id="yearToggle">Year: ON</button>
   <button class="close" id="detailClose" aria-label="Close">×</button>
-  <div class="dhead"><span class="dyear" id="dYear"></span><span class="dname" id="dName"></span></div>
-  <div class="dbadges" id="dBadges"></div>
-  <div class="ddesc" id="dDesc"></div>
-  <button class="artopen" id="dArtBtn">Open Full Article</button>
-  <button class="qeditToggle" id="qeditToggle">✎ Quick Edit</button>
-  <div class="qeditPanel" id="qeditPanel">
-    <label>Timeline Display Text <span class="qeHint">(blank = automatic)</span></label>
-    <input type="text" id="qeTlabel" placeholder="e.g. Guadalupe">
-    <label>Name</label>
-    <input type="text" id="qeName">
-    <label>Short Description</label>
-    <textarea id="qeDesc" rows="3"></textarea>
-    <div class="qeditBtns">
-      <button id="qeCancel" class="qeBtn sec">Cancel</button>
-      <button id="qeSave" class="qeBtn">Save</button>
+  <div class="detailInner" id="detailInner">
+    <div class="dhead"><span class="dyear" id="dYear"></span><span class="dname" id="dName"></span></div>
+    <div class="dbadges" id="dBadges"></div>
+    <div class="ddesc" id="dDesc"></div>
+    <button class="artopen" id="dArtBtn">Open Full Article</button>
+    <button class="qeditToggle" id="qeditToggle">✎ Quick Edit</button>
+    <div class="qeditPanel" id="qeditPanel">
+      <label>Timeline Display Text <span class="qeHint">(blank = automatic)</span></label>
+      <input type="text" id="qeTlabel" placeholder="e.g. Guadalupe">
+      <label>Name</label>
+      <input type="text" id="qeName">
+      <label>Short Description</label>
+      <textarea id="qeDesc" rows="3"></textarea>
+      <div class="qeditBtns">
+        <button id="qeCancel" class="qeBtn sec">Cancel</button>
+        <button id="qeSave" class="qeBtn">Save</button>
+      </div>
     </div>
   </div>
 </div>
@@ -600,6 +585,17 @@
       <span class="mstatus" id="mStatus"></span>
     </div>
     <div class="hint">&ldquo;JSON &mdash; Filtered&rdquo; exports only the entries matching the category and region filters currently set on the timeline. Both JSON views open a copyable window &mdash; save the text yourself if downloads don't work on your device.</div>
+
+    <div class="mbox">
+      <h3>Media Base Paths</h3>
+      <div class="mgrid2">
+        <div class="mfield"><label>Images folder</label><input type="text" id="imgBase" placeholder="e.g. images/ or https://yoursite.com/images/"></div>
+        <div class="mfield"><label>Audio folder</label><input type="text" id="audioBase" placeholder="e.g. audio/ or https://yoursite.com/audio/"></div>
+      </div>
+      <button class="mbtn" id="assetBaseSave">Save Base Paths</button>
+      <div class="hint">Set these once, then in an entry's Image and Audio fields you only need to type the file name (e.g. <b>augustine.jpg</b>) instead of the whole path. A value that already starts with <b>http://</b>, <b>https://</b>, or <b>/</b> is left exactly as typed, so existing full-URL entries keep working unchanged.</div>
+    </div>
+
     <details class="ghbox" id="ghBox">
       <summary>Publish to GitHub (save your site online)</summary>
       <div class="mgrid2">
@@ -693,10 +689,10 @@
       <div class="mfield"><label>Source Links — one per line: label :: url</label><textarea id="fLinks"></textarea></div>
       <div class="mfield"><label>Quick Facts — one per line: label :: value &nbsp;(optional source: label :: value :: url)</label><textarea id="fFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
       <div class="mgrid2">
-        <div class="mfield"><label>Image URL</label><input type="text" id="fImg" placeholder="https://…"></div>
+        <div class="mfield"><label>Image (filename, or full URL)</label><input type="text" id="fImg" placeholder="augustine.jpg — or https://…"></div>
         <div class="mfield"><label>Image Caption</label><input type="text" id="fImgCap"></div>
       </div>
-      <div class="mfield"><label>Audio URL (your recorded narration)</label><input type="text" id="fAudio" placeholder="https://…/augustine.mp3"></div>
+      <div class="mfield"><label>Audio (filename, or full URL)</label><input type="text" id="fAudio" placeholder="augustine.mp3 — or https://…"></div>
       <div class="mtool">
         <button class="mbtn" id="fSave">Save Entry</button>
         <button class="mbtn" id="fDraft">Draft Article with Claude</button>
@@ -936,8 +932,9 @@ function slug(n, y){
 function seedDb(){
   return {
     v: 1,
+    settings: {imageBase: "", audioBase: ""},
     entries: SEED.map(r => ({
-      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, hideYear: false, displayLabel: "", d: r[4],
+      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, displayLabel: "", d: r[4],
       art: {sections: [{h: "Overview", b: r[4]}], quotes: [], links: []},
       img: "", imgCap: "", audio: ""
     }))
@@ -950,7 +947,7 @@ async function loadDb(){
   if(IS_ARTIFACT){
     try{
       const res = await window.storage.get(DB_KEY);
-      if(res && res.value){ db = JSON.parse(res.value); return; }
+      if(res && res.value){ db = JSON.parse(res.value); db.settings = db.settings || {imageBase:"", audioBase:""}; return; }
     }catch(e){ /* not found */ }
     db = seedDb();
     await saveDb();
@@ -959,7 +956,7 @@ async function loadDb(){
   // Served from a web host (e.g. GitHub Pages): data.json in the repo is the source of truth.
   try{
     const r = await fetch('data.json', {cache: 'no-store'});
-    if(r.ok){ db = await r.json(); return; }
+    if(r.ok){ db = await r.json(); db.settings = db.settings || {imageBase:"", audioBase:""}; return; }
   }catch(e){ /* opened as a local file, or data.json missing */ }
   // Last-resort fallback (double-clicked local file, or no data.json yet): embedded seed.
   db = seedDb();
@@ -991,7 +988,6 @@ let ppy = 1.8;
 let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
 let activeRegion = "all";
 let currentEntry = null;
-let globalHideYears = true;
 
 const viewport = document.getElementById('viewport');
 const canvas = document.getElementById('canvas');
@@ -1077,7 +1073,7 @@ function render(){
   let shown = 0;
   const showLabels = ppy >= 1.5;
   const gap = showLabels ? 96 : 30;
-  const rowH = showLabels ? (globalHideYears ? 58 : 80) : 32;
+  const rowH = showLabels ? 62 : 32;
   const bandPad = 16;
 
   canvas.innerHTML = "";
@@ -1186,7 +1182,7 @@ function render(){
       el.title = d.n + ' (AD ' + d.y + ')';
       el.dataset.id = d.id;
       el.innerHTML = '<div class="ic">'+ICONS[d.t]+'</div>' +
-        (showLabels ? ((globalHideYears || d.hideYear) ? '' : '<div class="yr">~ '+d.y+' ~</div>') + '<div class="nm">'+esc((d.displayLabel && d.displayLabel.trim()) ? d.displayLabel : shortName(d.n, d.t))+'</div>' : '');
+        (showLabels ? '<div class="nm">'+esc((d.displayLabel && d.displayLabel.trim()) ? d.displayLabel : shortName(d.n, d.t))+'</div>' : '');
       el.addEventListener('click', (e) => { e.stopPropagation(); if(dragMoved) return; showDetail(d); });
       canvas.appendChild(el);
       shown++;
@@ -1205,36 +1201,32 @@ function showDetail(d){
     '<span class="badge t-'+d.t+'">'+TYPE_NAMES[d.t]+'</span>' +
     '<span class="badge" style="color:var(--muted)">'+REGION_NAMES[d.r]+'</span>' +
     (d.country ? '<span class="badge" style="color:var(--muted)">'+esc(d.country)+'</span>' : '');
+  const portrait = document.getElementById('dPortrait');
+  const portraitImg = document.getElementById('dPortraitImg');
+  if(d.img){
+    portraitImg.onerror = () => portrait.classList.remove('show');
+    portraitImg.src = resolveAsset(d.img, db.settings && db.settings.imageBase);
+    portrait.classList.add('show');
+  } else {
+    portrait.classList.remove('show');
+    portraitImg.removeAttribute('src');
+  }
   currentEntry = d;
   const oc = document.getElementById('offsetCtrl');
-  const yt = document.getElementById('yearToggle');
   const qb = document.getElementById('qeditToggle');
   document.getElementById('qeditPanel').classList.remove('open');
   if(manageUnlocked()){
     oc.classList.add('show');
     document.getElementById('offsetVal').textContent = d.offset || 0;
-    yt.classList.add('show');
-    yt.textContent = d.hideYear ? 'Year: Off' : 'Year: On';
-    yt.classList.toggle('off', !!d.hideYear);
     qb.classList.add('show');
   } else {
     oc.classList.remove('show');
-    yt.classList.remove('show');
     qb.classList.remove('show');
   }
   detail.classList.add('open');
+  prefetchImage(categoryNeighbor(d, 1));
 }
 document.getElementById('detailClose').addEventListener('click', () => detail.classList.remove('open'));
-document.getElementById('yearToggle').addEventListener('click', async (e) => {
-  e.stopPropagation();
-  if(!currentEntry) return;
-  currentEntry.hideYear = !currentEntry.hideYear;
-  const yt = document.getElementById('yearToggle');
-  yt.textContent = currentEntry.hideYear ? 'Year: Off' : 'Year: On';
-  yt.classList.toggle('off', !!currentEntry.hideYear);
-  render();
-  await saveDb();
-});
 document.getElementById('qeditToggle').addEventListener('click', (e) => {
   e.stopPropagation();
   if(!currentEntry) return;
@@ -1318,12 +1310,25 @@ attachVerticalSwipe(detail,
 // to the top — otherwise a downward swipe is just normal scrolling of the content.
 // Swipe left/right moves to the next/previous entry in chronological order (within
 // the currently active category/region filters).
+// Finds the entry that comes before/after a given one in chronological order,
+// within the same category — the same ordering swipe navigation uses.
+function categoryNeighbor(d, direction){
+  if(!d) return null;
+  const list = filtered().filter(x => x.t === d.t);
+  const idx = list.findIndex(x => x.id === d.id);
+  if(idx === -1) return null;
+  return list[idx + direction] || null;
+}
+// Quietly warms the browser's image cache for an entry likely to be viewed next,
+// so swiping or tapping into it feels instant instead of waiting on a slow load.
+function prefetchImage(d){
+  if(!d || !d.img) return;
+  const img = new Image();
+  img.src = resolveAsset(d.img, db.settings && db.settings.imageBase);
+}
 function navigateStory(direction){
   if(!currentEntry) return;
-  const list = filtered().filter(d => d.t === currentEntry.t);
-  const idx = list.findIndex(d => d.id === currentEntry.id);
-  if(idx === -1) return;
-  const next = list[idx + direction];
+  const next = categoryNeighbor(currentEntry, direction);
   if(!next) return;
   slideArticleTo(next, direction);
 }
@@ -1480,6 +1485,27 @@ document.getElementById('searchClear').addEventListener('click', () => {
 });
 
 // ---- Publish to GitHub ----
+// ---- Global media base paths: store a bare filename per entry, resolve to a full
+// path at render time using db.settings.imageBase / audioBase. A value that already
+// looks like a full URL or an absolute path is left untouched.
+function resolveAsset(path, base){
+  if(!path) return '';
+  if(/^(https?:)?\/\//i.test(path) || path.startsWith('/') || path.startsWith('data:')) return path;
+  if(!base) return path;
+  return base.replace(/\/+$/, '') + '/' + path.replace(/^\/+/, '');
+}
+function prefillAssetBase(){
+  document.getElementById('imgBase').value = (db.settings && db.settings.imageBase) || '';
+  document.getElementById('audioBase').value = (db.settings && db.settings.audioBase) || '';
+}
+document.getElementById('assetBaseSave').addEventListener('click', async () => {
+  db.settings = db.settings || {};
+  db.settings.imageBase = document.getElementById('imgBase').value.trim();
+  db.settings.audioBase = document.getElementById('audioBase').value.trim();
+  render();
+  await saveDb();
+  setStatus('Base paths saved');
+});
 function prefillGh(){
   let c = {};
   try{ c = JSON.parse(localStorage.getItem('gh-config') || '{}'); }catch(e){}
@@ -1583,7 +1609,7 @@ function fillArticleBody(d){
     html += '<div class="artbadges"><span class="badge" style="color:var(--muted)">' + esc(d.country) + '</span></div>';
   }
   if(d.img){
-    html += '<img class="artimg" src="' + esc(d.img) + '" alt="' + esc(d.n) + '" onerror="this.style.display=\'none\'">';
+    html += '<img class="artimg" src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="this.style.display=\'none\'">';
     if(d.imgCap) html += '<div class="artcap">' + esc(d.imgCap) + '</div>';
   }
   if(d.facts && d.facts.length){
@@ -1623,7 +1649,7 @@ function fillArticleBody(d){
     html += '</ul>';
   }
   document.getElementById('artBody').innerHTML = html;
-  if(d.audio) initAudio(d.audio);
+  if(d.audio) initAudio(resolveAsset(d.audio, db.settings && db.settings.audioBase));
 }
 function openArticle(d){
   currentEntry = d;
@@ -1631,6 +1657,8 @@ function openArticle(d){
   article.classList.add('open');
   article.scrollTop = 0;
   fillArticleBody(d);
+  prefetchImage(categoryNeighbor(d, -1));
+  prefetchImage(categoryNeighbor(d, 1));
 }
 // Swipe navigation between stories: the outgoing content is cloned and slid fully
 // off-screen while the new content (already live underneath, for correct height/
@@ -1645,6 +1673,8 @@ function slideArticleTo(d, direction){
   clone.className = 'artBodyClone';
   wrap.appendChild(clone);
   fillArticleBody(d);
+  prefetchImage(categoryNeighbor(d, -1));
+  prefetchImage(categoryNeighbor(d, 1));
   article.scrollTop = 0;
   body.style.transition = 'none';
   body.style.transform = 'translateX(' + (direction > 0 ? '100%' : '-100%') + ')';
@@ -1709,7 +1739,7 @@ function stopAudio(){
 }
 
 // ================= CONTENT MANAGER =================
-document.getElementById('manageBtn').addEventListener('click', () => { manage.classList.add('open'); renderMList(); prefillGh(); });
+document.getElementById('manageBtn').addEventListener('click', () => { manage.classList.add('open'); renderMList(); prefillGh(); prefillAssetBase(); });
 document.getElementById('manageBack').addEventListener('click', () => manage.classList.remove('open'));
 
 let editingId = null;
@@ -2062,7 +2092,7 @@ function mergeEntries(list){
       if(inc.n == null || inc.y == null){ skipped++; return; }
       db.entries.push({
         id: id, y: parseInt(inc.y, 10), n: String(inc.n),
-        t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, hideYear: !!inc.hideYear, displayLabel: inc.displayLabel || '', d: inc.d || '',
+        t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, displayLabel: inc.displayLabel || '', d: inc.d || '',
         art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
         img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
         tier: inc.tier || 1, alt: inc.alt || []
@@ -2241,16 +2271,10 @@ document.addEventListener('click', (e) => {
   }
 });
 document.getElementById('manageBtn').addEventListener('click', () => hamMenu.classList.remove('open'));
-document.getElementById('hideYearsGlobal').addEventListener('change', (e) => {
-  globalHideYears = e.target.checked;
-  render();
-});
 
 // ================= INIT =================
 (async function(){
   updateManageVisibility();
-  globalHideYears = true;
-  document.getElementById('hideYearsGlobal').checked = true;
   await loadDb();
   render();
   scrollToYear(120);
