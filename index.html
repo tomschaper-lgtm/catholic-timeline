@@ -218,12 +218,14 @@
   }
   .detailInner{max-height:60vh; overflow-y:auto;}
   .dportrait{
-    display:none; position:absolute; top:-20px; right:8px; z-index:6;
-    width:96px; height:96px; border-radius:50%; overflow:hidden;
+    display:none; position:absolute; top:-10px; right:22px; z-index:6;
+    width:104px; height:104px; border-radius:50%; overflow:hidden;
     border:3px solid var(--gold); box-shadow:0 6px 16px rgba(0,0,0,.6), 0 0 0 3px var(--navy-deep);
   }
   .dportrait.show{display:block;}
-  .dportrait img{width:100%; height:100%; object-fit:cover; object-position:center 25%; transform:scale(1.35);}
+  .dportrait.editable{cursor:grab; touch-action:none;}
+  .dportrait.dragging{cursor:grabbing; box-shadow:0 10px 24px rgba(0,0,0,.75), 0 0 0 3px var(--gold-bright);}
+  .dportrait img{width:100%; height:100%; object-fit:cover; object-position:center 25%; transform:scale(1.35); pointer-events:none;}
   .detail.open{transform:translateX(-50%) translateY(0);}
   .detail .close{position:absolute; top:8px; right:10px; z-index:7; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1;}
   .detail .close:hover{color:var(--gold-bright);}
@@ -1228,6 +1230,16 @@ function showDetail(d){
     portrait.classList.remove('show');
     portraitImg.removeAttribute('src');
   }
+  if(typeof d.portraitX === 'number' && typeof d.portraitY === 'number'){
+    portrait.style.left = d.portraitX + 'px';
+    portrait.style.top = d.portraitY + 'px';
+    portrait.style.right = 'auto';
+  } else {
+    portrait.style.left = '';
+    portrait.style.top = '';
+    portrait.style.right = '';
+  }
+  portrait.classList.toggle('editable', manageUnlocked() && showEditControls);
   currentEntry = d;
   const oc = document.getElementById('offsetCtrl');
   const qb = document.getElementById('qeditToggle');
@@ -2295,9 +2307,54 @@ document.getElementById('showEditControls').addEventListener('change', (e) => {
   if(detail.classList.contains('open') && currentEntry) showDetail(currentEntry);
 });
 
+// Portrait drag-to-reposition: only active in edit mode. Press and hold the
+// circle, drag it wherever looks best on the card, and release — the new
+// spot is saved on the entry (portraitX/portraitY, in px from the card's
+// own top-left corner) and used from then on instead of the default corner.
+function initPortraitDrag(){
+  const portrait = document.getElementById('dPortrait');
+  let dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+  portrait.addEventListener('pointerdown', (e) => {
+    if(!(manageUnlocked() && showEditControls) || !currentEntry) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragging = true;
+    portrait.setPointerCapture(e.pointerId);
+    const cardRect = detail.getBoundingClientRect();
+    const pRect = portrait.getBoundingClientRect();
+    startLeft = pRect.left - cardRect.left;
+    startTop = pRect.top - cardRect.top;
+    startX = e.clientX; startY = e.clientY;
+    portrait.style.right = 'auto';
+    portrait.style.left = startLeft + 'px';
+    portrait.style.top = startTop + 'px';
+    portrait.classList.add('dragging');
+  });
+  portrait.addEventListener('pointermove', (e) => {
+    if(!dragging) return;
+    e.preventDefault();
+    e.stopPropagation();
+    portrait.style.left = (startLeft + (e.clientX - startX)) + 'px';
+    portrait.style.top = (startTop + (e.clientY - startY)) + 'px';
+  });
+  const endDrag = async (e) => {
+    if(!dragging) return;
+    dragging = false;
+    portrait.classList.remove('dragging');
+    if(currentEntry){
+      currentEntry.portraitX = parseFloat(portrait.style.left) || 0;
+      currentEntry.portraitY = parseFloat(portrait.style.top) || 0;
+      await saveDb();
+    }
+  };
+  portrait.addEventListener('pointerup', endDrag);
+  portrait.addEventListener('pointercancel', endDrag);
+}
+
 // ================= INIT =================
 (async function(){
   updateManageVisibility();
+  initPortraitDrag();
   await loadDb();
   render();
   scrollToYear(120);
