@@ -218,14 +218,12 @@
   }
   .detailInner{max-height:60vh; overflow-y:auto;}
   .dportrait{
-    display:none; position:absolute; top:-10px; right:22px; z-index:6;
-    width:104px; height:104px; border-radius:50%; overflow:hidden;
-    border:3px solid var(--gold); box-shadow:0 6px 16px rgba(0,0,0,.6), 0 0 0 3px var(--navy-deep);
+    display:none; position:absolute; top:-20px; right:26px; z-index:6;
+    width:92px; height:118px; border-radius:14px; overflow:hidden;
+    border:1.5px solid var(--gold); box-shadow:0 14px 28px rgba(0,0,0,.5), 0 4px 10px rgba(0,0,0,.35);
   }
   .dportrait.show{display:block;}
-  .dportrait.editable{cursor:grab; touch-action:none;}
-  .dportrait.dragging{cursor:grabbing; box-shadow:0 10px 24px rgba(0,0,0,.75), 0 0 0 3px var(--gold-bright);}
-  .dportrait img{width:100%; height:100%; object-fit:cover; object-position:center 25%; transform:scale(1.35); pointer-events:none;}
+  .dportrait img{width:100%; height:100%; object-fit:cover; object-position:center 28%; transform:scale(1.12); pointer-events:none;}
   .detail.open{transform:translateX(-50%) translateY(0);}
   .detail .close{position:absolute; top:8px; right:10px; z-index:7; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1;}
   .detail .close:hover{color:var(--gold-bright);}
@@ -259,9 +257,9 @@
     }
     #article.overlay.open{transform:translateX(-50%) translateY(0);}
   }
-  .dhead{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; padding-right:24px;}
-  .dyear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:23px; font-weight:700;}
-  .dname{font-size:23px; font-weight:600;}
+  .dhead{display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding-right:118px;}
+  .dyear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:42px; font-weight:700; line-height:1;}
+  .dname{font-size:19px; font-weight:600; line-height:1.2;}
   .dtaper{width:min(220px, 70%); height:2px; margin:9px 0 3px; background:linear-gradient(90deg, var(--gold-bright), transparent);}
   .dbadges{display:flex; gap:6px; margin-top:5px; flex-wrap:wrap;}
   .badge{font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:2px 9px; border-radius:10px; border:1px solid currentColor; font-family:'Cinzel',serif;}
@@ -344,24 +342,24 @@
   .artcap{text-align:center; font-style:italic; color:var(--muted); font-size:13.5px; margin-top:6px;}
   /* Quick Facts panel */
   .factbox{border:1px solid rgba(201,165,66,.4); border-radius:10px; background:rgba(201,165,66,.05); padding:14px 18px; margin:22px 0;}
-  .factbox .facth{font-family:'Cinzel',serif; font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin-bottom:10px; text-align:center;}
-  .factrow{display:flex; gap:14px; padding:6px 0; border-bottom:1px solid rgba(201,165,66,.14); font-size:15.5px; line-height:1.5;}
+  .factrow{display:flex; gap:14px; padding:7px 0; border-bottom:1px solid rgba(201,165,66,.14); font-size:17.5px; line-height:1.5;}
   .factrow:last-child{border-bottom:none;}
-  .factlabel{flex:0 0 38%; max-width:38%; font-family:'Cinzel',serif; font-size:12px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); padding-top:2px;}
+  .factlabel{flex:0 0 38%; max-width:38%; font-family:'Cinzel',serif; font-size:14px; letter-spacing:.05em; text-transform:uppercase; color:#BFC9EA; padding-top:2px;}
   .factval{flex:1;}
   .factval a{color:var(--gold-bright);}
   /* Audio player */
   .player{
-    display:flex; align-items:center; gap:10px;
-    background:var(--navy-band); border:1px solid var(--gold);
-    border-radius:10px; padding:10px 14px; margin:22px 0;
+    display:flex; align-items:center; gap:8px;
+    margin:22px 0;
   }
   .pbtn{
-    width:38px; height:38px; border-radius:8px; flex:0 0 auto;
+    width:52px; height:52px; border-radius:50%; flex:0 0 auto;
     background:none; color:var(--gold); border:none;
     cursor:pointer; display:flex; align-items:center; justify-content:center;
+    -webkit-tap-highlight-color:transparent;
   }
   .pbtn:hover{color:var(--gold-bright);}
+  .pbtn:active{transform:scale(0.92);}
   .player input[type=range]{
     flex:1 1 auto; -webkit-appearance:none; appearance:none;
     height:4px; background:rgba(201,165,66,.28); border-radius:2px; outline:none; accent-color:var(--gold);
@@ -371,6 +369,19 @@
   .player input[type=range]::-moz-range-track{height:4px; background:rgba(201,165,66,.28); border-radius:2px;}
   .player input[type=range]::-moz-range-thumb{width:12px; height:12px; border-radius:50%; background:var(--gold); border:none; cursor:pointer;}
   .ptime{font-size:13px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums;}
+  .pauseIndicator{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(.85);
+    width:76px; height:76px; border-radius:50%; background:rgba(0,0,0,.55);
+    display:flex; align-items:center; justify-content:center; color:#fff;
+    opacity:0; pointer-events:none; z-index:30;
+  }
+  .pauseIndicator.show{animation:pauseFade 900ms ease;}
+  @keyframes pauseFade{
+    0%{opacity:0; transform:translate(-50%,-50%) scale(.85);}
+    15%{opacity:1; transform:translate(-50%,-50%) scale(1);}
+    70%{opacity:1;}
+    100%{opacity:0;}
+  }
   /* Manage view */
   .mtool{display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; align-items:center;}
   .mbtn{
@@ -395,7 +406,7 @@
   .mfield textarea{min-height:70px; resize:vertical; line-height:1.4;}
   .mfield textarea.tall{min-height:180px;}
   .mgrid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-  .mlist{max-height:240px; overflow-y:auto; border:1px solid rgba(201,165,66,.3); border-radius:8px; margin-top:8px;}
+  .mlist{max-height:150px; overflow-y:auto; border:1px solid rgba(201,165,66,.3); border-radius:8px; margin-top:8px;}
   .mitem{
     display:flex; gap:8px; align-items:baseline; width:100%; text-align:left;
     background:none; border:none; border-bottom:1px solid rgba(201,165,66,.15);
@@ -437,6 +448,105 @@
     .overlay,.detail{transition:none;} .ev .ic{transition:none;}
   }
   button:focus-visible{outline:2px solid var(--gold-bright); outline-offset:2px;}
+
+  /* ===================== Content Manager: white theme + tabs ===================== */
+  #manage{
+    --m-bg:#FFFFFF; --m-panel:#F7F5EE; --m-ink:#20263B; --m-sub:#6B7288;
+    --m-border:#DCD5BE; --m-accent:#8A6D1C; --m-accent-bright:#B08F2C;
+    --m-danger:#B4402E; --m-danger-bg:#FDEDEA;
+    background:var(--m-bg); color:var(--m-ink);
+  }
+  #manage .artwrap{max-width:900px;}
+  .mgmtTopBar{
+    position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between;
+    gap:10px; padding:14px 20px; background:var(--m-bg); border-bottom:1px solid var(--m-border);
+  }
+  .mgmtTitle{font-family:'Cinzel',serif; font-weight:700; font-size:19px; letter-spacing:.04em; color:var(--m-ink);}
+  .mgmtExitBtn{
+    font-family:'Cinzel',serif; font-size:11.5px; letter-spacing:.07em; text-transform:uppercase;
+    background:var(--m-ink); color:#fff; border:none; border-radius:8px; padding:9px 16px; cursor:pointer;
+  }
+  .mgmtExitBtn:hover{background:#3a4266;}
+  .mgmtTabs{
+    position:sticky; top:57px; z-index:19; display:flex; gap:2px; overflow-x:auto;
+    background:var(--m-panel); border-bottom:1px solid var(--m-border); padding:0 12px;
+  }
+  .mgmtTab{
+    flex:0 0 auto; font-family:'Cinzel',serif; font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+    background:none; color:var(--m-sub); border:none; border-bottom:3px solid transparent;
+    padding:13px 14px 10px; cursor:pointer; white-space:nowrap;
+  }
+  .mgmtTab:hover{color:var(--m-ink);}
+  .mgmtTab.active{color:var(--m-accent); border-bottom-color:var(--m-accent);}
+  .mgmtBody{padding-top:18px;}
+  .mgmtPanel{display:none;}
+  .mgmtPanel.active{display:block;}
+
+  /* Re-skin the shared .mbox/.mbtn/.mfield components specifically inside #manage */
+  #manage .mbox{background:var(--m-panel); border:1px solid var(--m-border);}
+  #manage h3{font-family:'Cinzel',serif; font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--m-accent); margin-bottom:8px;}
+  #manage .mbtn{background:#fff; color:var(--m-accent); border:1px solid var(--m-border);}
+  #manage .mbtn:hover{background:var(--m-accent); color:#fff; border-color:var(--m-accent);}
+  #manage .mbtn.danger{color:var(--m-danger); border-color:#E3B7AC;}
+  #manage .mbtn.danger:hover{background:var(--m-danger); color:#fff;}
+  #manage .mstatus, #manage .hint{color:var(--m-sub);}
+  #manage .mfield label{color:var(--m-sub);}
+  #manage .mfield input[type=text], #manage .mfield input[type=number],
+  #manage .mfield select, #manage .mfield textarea{
+    background:#fff; color:var(--m-ink); border:1px solid var(--m-border);
+  }
+  #manage .mfield input:focus, #manage .mfield select:focus, #manage .mfield textarea:focus{
+    outline:none; box-shadow:0 0 0 2px rgba(138,109,28,.25);
+  }
+  #manage .mlist{border:1px solid var(--m-border); background:#fff;}
+  #manage .mitem{color:var(--m-ink); border-bottom:1px solid var(--m-border);}
+  #manage .mitem:hover{background:var(--m-panel);}
+  #manage .mitem.selected{background:#F1E8C8; border-left:4px solid var(--m-accent); padding-left:6px;}
+  #manage .mitem .my{color:var(--m-accent);}
+  #manage .mitem .mt{color:var(--m-sub);}
+  #manage .mlog{color:var(--m-ink);}
+  #manage .ghbox{background:var(--m-panel); border:1px solid var(--m-border);}
+  #manage .ghbox summary{color:var(--m-accent);}
+  #manage .arttitle, #manage .artback{display:none;} /* replaced by mgmtTopBar */
+
+  /* Filters tab: toggle chips + year range */
+  .mgmtFilterRow{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+  .mfChip{
+    font-family:'Cinzel',serif; font-size:11.5px; letter-spacing:.03em;
+    background:#fff; color:var(--m-ink); border:1px solid var(--m-border); border-radius:16px;
+    padding:6px 12px; cursor:pointer;
+  }
+  .mfChip:hover{border-color:var(--m-accent-bright);}
+  .mfChip.on{background:var(--m-accent); color:#fff; border-color:var(--m-accent); font-weight:600;}
+  .mgmtYearRow{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
+  .mgmtYearRow .mfield{max-width:140px; margin-bottom:0;}
+  .mgmtFilterCount{font-size:12.5px; color:var(--m-sub); font-style:italic; margin:6px 0 10px;}
+  .mgmtRowLabel{font-family:'Cinzel',serif; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--m-sub); margin:0 0 6px;}
+  .mgmtYearInput{width:84px; background:#fff; color:var(--m-ink); border:1px solid var(--m-border); border-radius:6px; padding:7px 8px; font-family:'EB Garamond',serif; font-size:16px;}
+  #manage .mbtn.sm{padding:6px 10px; font-size:11px;}
+  .mgmtEntriesTop{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
+  .mgmtEntriesTop input[type=text]{
+    flex:1 1 auto; background:#fff; color:var(--m-ink); border:1px solid var(--m-border);
+    border-radius:6px; padding:8px 10px; font-family:'EB Garamond',serif; font-size:16px;
+  }
+  .mgmtEditorDivider{border-top:1px solid var(--m-border); margin:14px 0;}
+
+  /* Exit confirmation modal */
+  .mgmtExitModal{
+    position:fixed; inset:0; z-index:200; background:rgba(32,38,59,.55);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .mgmtExitBox{
+    background:#fff; border-radius:14px; max-width:380px; width:100%;
+    padding:22px 22px 18px; box-shadow:0 20px 60px rgba(0,0,0,.35);
+  }
+  .mgmtExitMsg{font-family:'Cinzel',serif; font-size:15px; color:var(--m-ink); margin-bottom:16px; letter-spacing:.02em;}
+  .mgmtExitBtns{display:flex; flex-direction:column; gap:9px;}
+  .mgmtExitBtns .mbtn{width:100%; text-align:center; padding:11px 12px; font-size:12.5px;}
+  @media (max-width:640px){
+    .mgmtTitle{font-size:16px;}
+    .mgmtTabs{top:52px;}
+  }
 </style>
 </head>
 <body>
@@ -569,6 +679,7 @@
 <div class="overlay" id="article">
   <div class="draghandle" id="artHandle"></div>
   <button class="artX" id="artClose" aria-label="Close">×</button>
+  <div class="pauseIndicator" id="pauseIndicator"></div>
   <div class="artwrap">
     <div id="artBody"></div>
   </div>
@@ -591,137 +702,221 @@
 </div>
 
 <div class="overlay" id="manage">
-  <div class="artwrap">
-    <button class="artback" id="manageBack">← Back to Timeline</button>
-    <div class="arttitle" style="font-size:24px;">Content Manager</div>
-    <div class="mtool">
-      <button class="mbtn" id="mNew">+ New Entry</button>
-      <button class="mbtn" id="mJsonAll">JSON &mdash; All Entries</button>
-      <button class="mbtn" id="mJsonFiltered">JSON &mdash; Filtered</button>
-      <button class="mbtn" id="mImportBtn">Import File (Add/Update)</button>
-      <input type="file" id="mImportFile" accept=".json,.txt" style="display:none;">
-      <button class="mbtn danger" id="mRestoreBtn">Restore Backup (Replace All)</button>
-      <input type="file" id="mRestoreFile" accept=".json,.txt" style="display:none;">
-      <button class="mbtn danger" id="mReset">Reset to Seed</button>
-      <span class="mstatus" id="mStatus"></span>
-    </div>
-    <div class="hint">&ldquo;JSON &mdash; Filtered&rdquo; exports only the entries matching the category and region filters currently set on the timeline. Both JSON views open a copyable window &mdash; save the text yourself if downloads don't work on your device.</div>
+  <div class="mgmtTopBar">
+    <div class="mgmtTitle">Content Manager</div>
+    <span class="mstatus" id="mStatus"></span>
+    <button class="mgmtExitBtn" id="mgmtExitBtn">Exit Content Manager</button>
+  </div>
+  <div class="mgmtTabs" role="tablist">
+    <button class="mgmtTab active" data-tab="entries">Entries</button>
+    <button class="mgmtTab" data-tab="export">Export</button>
+    <button class="mgmtTab" data-tab="import">Import</button>
+    <button class="mgmtTab" data-tab="settings">Settings</button>
+  </div>
 
-    <div class="mbox">
-      <h3>Media Base Paths</h3>
-      <div class="mgrid2">
-        <div class="mfield"><label>Images folder</label><input type="text" id="imgBase" placeholder="e.g. images/ or https://yoursite.com/images/"></div>
-        <div class="mfield"><label>Audio folder</label><input type="text" id="audioBase" placeholder="e.g. audio/ or https://yoursite.com/audio/"></div>
-      </div>
-      <button class="mbtn" id="assetBaseSave">Save Base Paths</button>
-      <div class="hint">Set these once, then in an entry's Image and Audio fields you only need to type the file name (e.g. <b>augustine.jpg</b>) instead of the whole path. A value that already starts with <b>http://</b>, <b>https://</b>, or <b>/</b> is left exactly as typed, so existing full-URL entries keep working unchanged.</div>
-    </div>
+  <div class="artwrap mgmtBody">
 
-    <details class="ghbox" id="ghBox">
-      <summary>Publish to GitHub (save your site online)</summary>
-      <div class="mgrid2">
-        <div class="mfield"><label>GitHub username / owner</label><input type="text" id="ghOwner" value="tomschaper-lgtm" placeholder="your-username"></div>
-        <div class="mfield"><label>Repository name</label><input type="text" id="ghRepo" value="catholic-timeline" placeholder="catholic-timeline"></div>
+    <!-- ===== TAB: Entries (list + editor, always in sync with the timeline's current card) ===== -->
+    <div class="mgmtPanel active" id="panel-entries">
+      <div class="mgmtEntriesTop">
+        <input type="text" id="mSearch" placeholder="Search entries…">
+        <button class="mbtn" id="mNew">+ New</button>
       </div>
-      <div class="mgrid2">
-        <div class="mfield"><label>Branch</label><input type="text" id="ghBranch" value="main" placeholder="main"></div>
-        <div class="mfield"><label>File path</label><input type="text" id="ghPath" value="data.json" placeholder="data.json"></div>
-      </div>
-      <div class="mfield"><label>Access token (fine-grained, this repo only, Contents: read/write)</label><input type="password" id="ghToken" placeholder="github_pat_…" autocomplete="off"></div>
-      <div class="mtool">
-        <button class="mbtn" id="ghPublish">Save to GitHub (Publish)</button>
-        <span class="mstatus" id="ghStatus"></span>
-      </div>
-      <div class="hint">The repository details are pre-filled &mdash; you only need to paste an <b>access token</b>. Create one at <b>github.com/settings/tokens?type=beta</b> (fine-grained &rarr; only <i>catholic-timeline</i> &rarr; Contents: Read and write). Your token is stored only in this browser, never in the file or the repo, and is used to commit the current database to <b>data.json</b>. After publishing, your live site updates in about a minute. This only works on your hosted site, not inside the Claude artifact.</div>
-    </details>
-
-    <div class="mbox">
-      <h3>Paste JSON (Add / Update Only)</h3>
-      <div class="mfield">
-        <textarea id="pasteJson" placeholder='Paste entries JSON here: a single entry {...}, an array [...], or {"entries":[...]}. Matching ids are updated, new ones are added; nothing else in the database is touched.'></textarea>
-      </div>
-      <div class="mtool">
-        <button class="mbtn" id="pasteApply">Apply (Add/Update)</button>
-        <button class="mbtn" id="pasteClear">Clear</button>
-      </div>
-      <div class="hint">This is the safe way to bring in entries drafted by Claude in a chat: copy Claude's JSON, paste it here, Apply. It never replaces the whole database.</div>
-    </div>
-
-    <div class="mbox">
-      <h3>Suggest Next Batch to Work On</h3>
-      <div class="mfield"><input type="text" id="batchHint" placeholder="Optional: e.g. &quot;Eucharistic miracles&quot;, &quot;saints&quot;, &quot;missing quotes&quot; — leave blank to let the site decide"></div>
-      <button class="mbtn" id="batchSuggest">What Should I Work On?</button>
-      <div class="hint">Finds up to 5 entries with the most missing content (full article, quotes, links, facts, country) and produces a copyable list. Paste it into a Claude chat along with the timeline JSON skill and say &ldquo;work on my website content&rdquo; — then bring Claude's reply back here via Paste JSON.</div>
-    </div>
-
-    <div class="mbox">
-      <h3>Instruct Claude</h3>
-      <div class="mfield">
-        <textarea id="aiCmd" placeholder="e.g. Add an entry for the apparition at Guadalupe of 1531... or: Write a full article for St. Augustine and save it... or: Move Fatima's description to mention the three children by name."></textarea>
-      </div>
-      <button class="mbtn" id="aiRun">Run Instruction</button>
-      <div class="mlog" id="aiLog"></div>
-      <div class="hint">Claude can search the web, then add, update, or delete entries — including writing full articles into the database. Changes save automatically; keep backups with Export.</div>
-    </div>
-
-    <div class="mbox">
-      <h3>Entries</h3>
-      <div class="mfield"><input type="text" id="mSearch" placeholder="Search entries…"></div>
+      <div class="mgmtFilterCount" id="mListCount"></div>
       <div class="mlist" id="mList"></div>
+
+      <div class="mgmtEditorDivider"></div>
+
+      <div id="mEditor">
+        <h3 id="mEditorTitle">New Entry</h3>
+        <div class="mgrid2">
+          <div class="mfield"><label>Name</label><input type="text" id="fName"></div>
+          <div class="mfield"><label>Year (AD)</label><input type="number" id="fYear"></div>
+          <div class="mfield"><label>Type</label>
+            <select id="fType">
+              <option value="s">Saint</option><option value="c">Council</option>
+              <option value="p">Persecution</option><option value="m">Marian Apparition</option>
+              <option value="u">Eucharistic Miracle</option><option value="e">Event</option>
+            </select>
+          </div>
+          <div class="mfield"><label>Region</label>
+            <select id="fRegion">
+              <option value="rome">Rome &amp; Italy</option><option value="west">Western Europe</option>
+              <option value="brit">Britain &amp; Ireland</option><option value="east">Byzantium &amp; E. Europe</option>
+              <option value="holy">Holy Land &amp; Mid-East</option><option value="africa">Africa</option>
+              <option value="americas">Americas</option><option value="asia">Asia &amp; Oceania</option>
+            </select>
+          </div>
+        </div>
+        <div class="mgrid2">
+          <div class="mfield"><label>Country (modern name — for country-shape display; for people who moved, use where they lived most)</label><input type="text" id="fCountry" placeholder="e.g. Italy, Spain, Algeria"></div>
+        </div>
+        <div class="mgrid2">
+          <div class="mfield"><label>Prominence (when it appears as you zoom)</label>
+            <select id="fTier">
+              <option value="1">1 — Always show (major)</option>
+              <option value="2">2 — Show when zoomed in</option>
+              <option value="3">3 — Show only when zoomed in deep (minor)</option>
+            </select>
+          </div>
+          <div class="mfield"><label>Alternate names for search (comma-separated)</label><input type="text" id="fAlt" placeholder="e.g. JPII, Karol Wojtyła"></div>
+        </div>
+        <div class="mfield"><label>Short Description (detail card)</label><textarea id="fDesc"></textarea></div>
+        <div class="mfield"><label>Article — "## Heading" starts a section; blank lines between paragraphs; simple HTML allowed (&lt;b&gt; &lt;i&gt; &lt;u&gt; &lt;ul&gt; &lt;ol&gt; &lt;li&gt; &lt;br&gt; &lt;blockquote&gt; &lt;a href&gt;)</label><textarea class="tall" id="fArt"></textarea></div>
+        <div class="mfield"><label>Quotes — one per line: quote text :: source</label><textarea id="fQuotes"></textarea></div>
+        <div class="mfield"><label>Source Links — one per line: label :: url</label><textarea id="fLinks"></textarea></div>
+        <div class="mfield"><label>Quick Facts — one per line: label :: value &nbsp;(optional source: label :: value :: url)</label><textarea id="fFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
+        <div class="mgrid2">
+          <div class="mfield"><label>Image (filename, or full URL)</label><input type="text" id="fImg" placeholder="augustine.jpg — or https://…"></div>
+          <div class="mfield"><label>Image Caption</label><input type="text" id="fImgCap"></div>
+        </div>
+        <div class="mfield"><label>Audio (filename, or full URL)</label><input type="text" id="fAudio" placeholder="augustine.mp3 — or https://…"></div>
+        <div class="mtool">
+          <button class="mbtn" id="fSave">Save Entry</button>
+          <button class="mbtn" id="fDraft">Draft Article with Claude</button>
+          <button class="mbtn danger" id="fDelete">Delete</button>
+        </div>
+      </div>
     </div>
 
-    <div class="mbox" id="mEditor" style="display:none;">
-      <h3 id="mEditorTitle">Edit Entry</h3>
-      <div class="mgrid2">
-        <div class="mfield"><label>Name</label><input type="text" id="fName"></div>
-        <div class="mfield"><label>Year (AD)</label><input type="number" id="fYear"></div>
-        <div class="mfield"><label>Type</label>
-          <select id="fType">
-            <option value="s">Saint</option><option value="c">Council</option>
-            <option value="p">Persecution</option><option value="m">Marian Apparition</option>
-            <option value="u">Eucharistic Miracle</option><option value="e">Event</option>
-          </select>
-        </div>
-        <div class="mfield"><label>Region</label>
-          <select id="fRegion">
-            <option value="rome">Rome &amp; Italy</option><option value="west">Western Europe</option>
-            <option value="brit">Britain &amp; Ireland</option><option value="east">Byzantium &amp; E. Europe</option>
-            <option value="holy">Holy Land &amp; Mid-East</option><option value="africa">Africa</option>
-            <option value="americas">Americas</option><option value="asia">Asia &amp; Oceania</option>
-          </select>
-        </div>
+    <!-- ===== TAB: Export ===== -->
+    <div class="mgmtPanel" id="panel-export">
+      <div class="mgmtRowLabel">Category (none = all)</div>
+      <div class="mgmtFilterRow" id="mfTypeRow">
+        <button class="mfChip" data-mtype="s">Saint</button>
+        <button class="mfChip" data-mtype="c">Council</button>
+        <button class="mfChip" data-mtype="p">Persecution</button>
+        <button class="mfChip" data-mtype="m">Marian</button>
+        <button class="mfChip" data-mtype="u">Eucharistic</button>
+        <button class="mfChip" data-mtype="e">Event</button>
       </div>
-      <div class="mgrid2">
-        <div class="mfield"><label>Country (modern name — for country-shape display; for people who moved, use where they lived most)</label><input type="text" id="fCountry" placeholder="e.g. Italy, Spain, Algeria"></div>
+      <div class="mgmtFilterRow" id="mfRegionRow" style="display:none;">
+        <button class="mfChip on" data-mregion="all">All Regions</button>
+        <button class="mfChip" data-mregion="rome">Rome &amp; Italy</button>
+        <button class="mfChip" data-mregion="west">Western Europe</button>
+        <button class="mfChip" data-mregion="brit">Britain &amp; Ireland</button>
+        <button class="mfChip" data-mregion="east">Byzantium &amp; E. Europe</button>
+        <button class="mfChip" data-mregion="holy">Holy Land &amp; Mid-East</button>
+        <button class="mfChip" data-mregion="africa">Africa</button>
+        <button class="mfChip" data-mregion="americas">Americas</button>
+        <button class="mfChip" data-mregion="asia">Asia &amp; Oceania</button>
       </div>
-      <div class="mgrid2">
-        <div class="mfield"><label>Prominence (when it appears as you zoom)</label>
-          <select id="fTier">
-            <option value="1">1 — Always show (major)</option>
-            <option value="2">2 — Show when zoomed in</option>
-            <option value="3">3 — Show only when zoomed in deep (minor)</option>
-          </select>
-        </div>
-        <div class="mfield"><label>Alternate names for search (comma-separated)</label><input type="text" id="fAlt" placeholder="e.g. JPII, Karol Wojtyła"></div>
+
+      <div class="mgmtRowLabel">Years</div>
+      <div class="mgmtYearRow">
+        <input type="number" id="mfYearFrom" placeholder="From" class="mgmtYearInput">
+        <span style="color:var(--m-sub);">&ndash;</span>
+        <input type="number" id="mfYearTo" placeholder="To" class="mgmtYearInput">
+        <button class="mbtn sm" id="mfReset">Reset</button>
       </div>
-      <div class="mfield"><label>Short Description (detail card)</label><textarea id="fDesc"></textarea></div>
-      <div class="mfield"><label>Article — "## Heading" starts a section; blank lines between paragraphs; simple HTML allowed (&lt;b&gt; &lt;i&gt; &lt;u&gt; &lt;ul&gt; &lt;ol&gt; &lt;li&gt; &lt;br&gt; &lt;blockquote&gt; &lt;a href&gt;)</label><textarea class="tall" id="fArt"></textarea></div>
-      <div class="mfield"><label>Quotes — one per line: quote text :: source</label><textarea id="fQuotes"></textarea></div>
-      <div class="mfield"><label>Source Links — one per line: label :: url</label><textarea id="fLinks"></textarea></div>
-      <div class="mfield"><label>Quick Facts — one per line: label :: value &nbsp;(optional source: label :: value :: url)</label><textarea id="fFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
-      <div class="mgrid2">
-        <div class="mfield"><label>Image (filename, or full URL)</label><input type="text" id="fImg" placeholder="augustine.jpg — or https://…"></div>
-        <div class="mfield"><label>Image Caption</label><input type="text" id="fImgCap"></div>
-      </div>
-      <div class="mfield"><label>Audio (filename, or full URL)</label><input type="text" id="fAudio" placeholder="augustine.mp3 — or https://…"></div>
+
+      <label class="hamToggle" style="color:var(--m-ink); margin-bottom:8px;">
+        <input type="checkbox" id="mExIncludeStory" checked>
+        <span>Include full story text (word/char/section counts always included)</span>
+      </label>
+
+      <div class="mgmtFilterCount" id="mfSummary"></div>
       <div class="mtool">
-        <button class="mbtn" id="fSave">Save Entry</button>
-        <button class="mbtn" id="fDraft">Draft Article with Claude</button>
-        <button class="mbtn danger" id="fDelete">Delete</button>
+        <button class="mbtn" id="mJsonAll">JSON &mdash; All</button>
+        <button class="mbtn" id="mJsonFiltered">JSON &mdash; Filtered</button>
+        <button class="mbtn" id="mCsvExport">Export CSV</button>
       </div>
-      <div class="hint">Images and audio live at URLs you host (e.g. a cloud drive with direct links, or a simple web host); the database stores the link.</div>
     </div>
 
+    <!-- ===== TAB: Import ===== -->
+    <div class="mgmtPanel" id="panel-import">
+      <div class="mbox">
+        <h3>Import File</h3>
+        <div class="mtool">
+          <button class="mbtn" id="mImportBtn">Import File (Add/Update)</button>
+          <input type="file" id="mImportFile" accept=".json,.txt" style="display:none;">
+        </div>
+        <div class="hint">Adds new entries and updates matching ids; never deletes anything.</div>
+      </div>
+
+      <div class="mbox">
+        <h3>Paste JSON (Add / Update Only)</h3>
+        <div class="mfield">
+          <textarea id="pasteJson" placeholder='Paste entries JSON here: a single entry {...}, an array [...], or {"entries":[...]}. Matching ids are updated, new ones are added; nothing else in the database is touched.'></textarea>
+        </div>
+        <div class="mtool">
+          <button class="mbtn" id="pasteApply">Apply (Add/Update)</button>
+          <button class="mbtn" id="pasteClear">Clear</button>
+        </div>
+        <div class="hint">This is the safe way to bring in entries drafted by Claude in a chat: copy Claude's JSON, paste it here, Apply. It never replaces the whole database.</div>
+      </div>
+
+      <details class="ghbox" id="ghBox">
+        <summary>Publish to GitHub (save your site online)</summary>
+        <div class="mgrid2">
+          <div class="mfield"><label>GitHub username / owner</label><input type="text" id="ghOwner" value="tomschaper-lgtm" placeholder="your-username"></div>
+          <div class="mfield"><label>Repository name</label><input type="text" id="ghRepo" value="catholic-timeline" placeholder="catholic-timeline"></div>
+        </div>
+        <div class="mgrid2">
+          <div class="mfield"><label>Branch</label><input type="text" id="ghBranch" value="main" placeholder="main"></div>
+          <div class="mfield"><label>File path</label><input type="text" id="ghPath" value="data.json" placeholder="data.json"></div>
+        </div>
+        <div class="mfield"><label>Access token (fine-grained, this repo only, Contents: read/write)</label><input type="password" id="ghToken" placeholder="github_pat_…" autocomplete="off"></div>
+        <div class="mtool">
+          <button class="mbtn" id="ghPublish">Save to GitHub (Publish)</button>
+          <span class="mstatus" id="ghStatus"></span>
+        </div>
+        <div class="hint">The repository details are pre-filled &mdash; you only need to paste an <b>access token</b>. Create one at <b>github.com/settings/tokens?type=beta</b> (fine-grained &rarr; only <i>catholic-timeline</i> &rarr; Contents: Read and write). Your token is stored only in this browser, never in the file or the repo, and is used to commit the current database to <b>data.json</b>. After publishing, your live site updates in about a minute. This only works on your hosted site, not inside the Claude artifact.</div>
+      </details>
+
+      <div class="mbox">
+        <h3>Restore &amp; Reset</h3>
+        <div class="mtool">
+          <button class="mbtn danger" id="mRestoreBtn">Restore Backup (Replace All)</button>
+          <input type="file" id="mRestoreFile" accept=".json,.txt" style="display:none;">
+          <button class="mbtn danger" id="mReset">Reset to Seed</button>
+        </div>
+        <div class="hint">Both of these replace the entire database. Take a JSON &mdash; All Entries backup first if you're not sure.</div>
+      </div>
+    </div>
+
+    <!-- ===== TAB: Settings ===== -->
+    <div class="mgmtPanel" id="panel-settings">
+      <div class="mbox">
+        <h3>Suggest Next Batch to Work On</h3>
+        <div class="mfield"><input type="text" id="batchHint" placeholder="Optional: e.g. &quot;Eucharistic miracles&quot;, &quot;saints&quot;, &quot;missing quotes&quot; — leave blank to let the site decide"></div>
+        <button class="mbtn" id="batchSuggest">What Should I Work On?</button>
+        <div class="hint">Finds up to 5 entries with the most missing content (full article, quotes, links, facts, country) and produces a copyable list. Paste it into a Claude chat along with the timeline JSON skill and say &ldquo;work on my website content&rdquo; — then bring Claude's reply back here via Paste JSON.</div>
+      </div>
+
+      <div class="mbox">
+        <h3>Instruct Claude</h3>
+        <div class="mfield">
+          <textarea id="aiCmd" placeholder="e.g. Add an entry for the apparition at Guadalupe of 1531... or: Write a full article for St. Augustine and save it... or: Move Fatima's description to mention the three children by name."></textarea>
+        </div>
+        <button class="mbtn" id="aiRun">Run Instruction</button>
+        <div class="mlog" id="aiLog"></div>
+        <div class="hint">Claude can search the web, then add, update, or delete entries — including writing full articles into the database. Changes save automatically; keep backups with Export.</div>
+      </div>
+
+      <details class="ghbox">
+        <summary>Media Base Paths</summary>
+        <div class="mgrid2">
+          <div class="mfield"><label>Images folder</label><input type="text" id="imgBase" placeholder="e.g. images/ or https://yoursite.com/images/"></div>
+          <div class="mfield"><label>Audio folder</label><input type="text" id="audioBase" placeholder="e.g. audio/ or https://yoursite.com/audio/"></div>
+        </div>
+        <button class="mbtn" id="assetBaseSave">Save Base Paths</button>
+        <div class="hint">Set these once, then in an entry's Image and Audio fields you only need to type the file name (e.g. <b>augustine.jpg</b>) instead of the whole path. A value that already starts with <b>http://</b>, <b>https://</b>, or <b>/</b> is left exactly as typed, so existing full-URL entries keep working unchanged.</div>
+      </details>
+    </div>
+
+
+  </div>
+</div>
+
+<div class="mgmtExitModal" id="mgmtExitModal" style="display:none;">
+  <div class="mgmtExitBox">
+    <div class="mgmtExitMsg">Exit the Content Manager?</div>
+    <div class="mgmtExitBtns">
+      <button class="mbtn" id="mgmtSaveExit">Save &amp; Exit</button>
+      <button class="mbtn danger" id="mgmtDiscardExit">Exit Without Saving</button>
+      <button class="mbtn" id="mgmtCancelExit">Cancel — Stay Here</button>
+    </div>
   </div>
 </div>
 
@@ -1009,6 +1204,7 @@ let ppy = 1.8;
 let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
 let activeRegion = "all";
 let currentEntry = null;
+let suppressArticleClick = false; // true briefly after a swipe-navigation gesture, so the tap-to-pause handler ignores it
 let showEditControls = true;
 
 const viewport = document.getElementById('viewport');
@@ -1230,16 +1426,6 @@ function showDetail(d){
     portrait.classList.remove('show');
     portraitImg.removeAttribute('src');
   }
-  if(typeof d.portraitX === 'number' && typeof d.portraitY === 'number'){
-    portrait.style.left = d.portraitX + 'px';
-    portrait.style.top = d.portraitY + 'px';
-    portrait.style.right = 'auto';
-  } else {
-    portrait.style.left = '';
-    portrait.style.top = '';
-    portrait.style.right = '';
-  }
-  portrait.classList.toggle('editable', manageUnlocked() && showEditControls);
   currentEntry = d;
   const oc = document.getElementById('offsetCtrl');
   const qb = document.getElementById('qeditToggle');
@@ -1382,6 +1568,8 @@ function navigateStory(direction){
       return;
     }
     if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)*1.5){
+      suppressArticleClick = true;
+      setTimeout(() => { suppressArticleClick = false; }, 400);
       navigateStory(dx < 0 ? 1 : -1);
     }
   }, {passive:true});
@@ -1643,7 +1831,7 @@ function fillArticleBody(d){
     if(d.imgCap) html += '<div class="artcap">' + esc(d.imgCap) + '</div>';
   }
   if(d.facts && d.facts.length){
-    html += '<div class="factbox"><div class="facth">Quick Facts</div>';
+    html += '<div class="factbox">';
     d.facts.forEach(f => {
       if(!f || !f.label) return;
       const val = f.url
@@ -1768,27 +1956,161 @@ function stopAudio(){
   if(audioEl){ audioEl.pause(); audioEl.src = ''; audioEl = null; }
 }
 
+// ---- Tap anywhere in the story to pause the audio, with a fading pause glyph as feedback ----
+const ICON_PAUSE_GLYPH = '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+function showPauseIndicator(){
+  const el = document.getElementById('pauseIndicator');
+  el.innerHTML = ICON_PAUSE_GLYPH;
+  el.classList.remove('show');
+  void el.offsetWidth; // restart the animation if it's already mid-fade
+  el.classList.add('show');
+}
+document.getElementById('article').addEventListener('click', (e) => {
+  if(suppressArticleClick) return;
+  if(!audioEl || audioEl.paused) return;
+  if(e.target.closest('.player, a, button, input, .artX')) return;
+  audioEl.pause();
+  const play = document.getElementById('apPlay');
+  if(play){ play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); }
+  showPauseIndicator();
+});
+
 // ================= CONTENT MANAGER =================
-document.getElementById('manageBtn').addEventListener('click', () => { manage.classList.add('open'); renderMList(); prefillGh(); prefillAssetBase(); });
-document.getElementById('manageBack').addEventListener('click', () => manage.classList.remove('open'));
+let mSnapshot = null; // deep copy of db taken when Manage is opened, for "Exit Without Saving"
+
+document.getElementById('manageBtn').addEventListener('click', () => {
+  manage.classList.add('open');
+  mSnapshot = JSON.parse(JSON.stringify(db));
+  switchMgmtTab('entries');
+  // Land on the Entries tab with the search box, highlighted row, and editor form
+  // all matching whatever card/story the person was viewing on the timeline.
+  document.getElementById('mSearch').value = currentEntry ? currentEntry.n : '';
+  renderMList(true);
+  openEditor(currentEntry ? currentEntry.id : null);
+  renderExportSummary();
+  prefillGh();
+  prefillAssetBase();
+});
+
+// ---- Tabs ----
+function switchMgmtTab(tab){
+  document.querySelectorAll('.mgmtTab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.mgmtPanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+  document.querySelector('.mgmtBody').scrollIntoView({block:'start'});
+}
+document.querySelectorAll('.mgmtTab').forEach(t => t.addEventListener('click', () => switchMgmtTab(t.dataset.tab)));
+
+// ---- Exit Content Manager: Save & Exit / Exit Without Saving / Cancel ----
+const mgmtExitModal = document.getElementById('mgmtExitModal');
+document.getElementById('mgmtExitBtn').addEventListener('click', () => { mgmtExitModal.style.display = 'flex'; });
+document.getElementById('mgmtCancelExit').addEventListener('click', () => { mgmtExitModal.style.display = 'none'; });
+document.getElementById('mgmtSaveExit').addEventListener('click', async () => {
+  await saveDb();
+  mgmtExitModal.style.display = 'none';
+  manage.classList.remove('open');
+});
+document.getElementById('mgmtDiscardExit').addEventListener('click', async () => {
+  if(mSnapshot){
+    db = JSON.parse(JSON.stringify(mSnapshot));
+    await saveDb();
+    render();
+    if(currentEntry) showDetail(getEntry(currentEntry.id) || currentEntry);
+  }
+  mgmtExitModal.style.display = 'none';
+  manage.classList.remove('open');
+});
 
 let editingId = null;
 
-function renderMList(){
+// ---- Selection sync: tapping an entry in the CMS updates the timeline's current card too,
+// and vice versa (the "on open" sync above). Both sides read/write the same `currentEntry`.
+function selectEntryFromCms(id){
+  const e = getEntry(id);
+  if(e){
+    currentEntry = e;
+    showDetail(e);
+  }
+  openEditor(id);
+  renderMList(false);
+  document.getElementById('mEditor').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ---- Export tab state: category/region/date-range filters, default = nothing checked = everything ----
+let mFilterTypes = {s:false, c:false, p:false, m:false, u:false, e:false};
+let mFilterRegion = 'all'; // region chips are hidden in the UI; kept for future use, always "all" for now
+
+document.querySelectorAll('#mfTypeRow .mfChip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const t = chip.dataset.mtype;
+    mFilterTypes[t] = !mFilterTypes[t];
+    chip.classList.toggle('on', mFilterTypes[t]);
+    renderExportSummary();
+  });
+});
+document.querySelectorAll('#mfRegionRow .mfChip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    mFilterRegion = chip.dataset.mregion;
+    document.querySelectorAll('#mfRegionRow .mfChip').forEach(c => c.classList.toggle('on', c === chip));
+    renderExportSummary();
+  });
+});
+document.getElementById('mfYearFrom').addEventListener('input', renderExportSummary);
+document.getElementById('mfYearTo').addEventListener('input', renderExportSummary);
+document.getElementById('mfReset').addEventListener('click', () => {
+  mFilterTypes = {s:false, c:false, p:false, m:false, u:false, e:false};
+  mFilterRegion = 'all';
+  document.querySelectorAll('#mfTypeRow .mfChip').forEach(c => c.classList.remove('on'));
+  document.querySelectorAll('#mfRegionRow .mfChip').forEach(c => c.classList.toggle('on', c.dataset.mregion === 'all'));
+  document.getElementById('mfYearFrom').value = '';
+  document.getElementById('mfYearTo').value = '';
+  renderExportSummary();
+});
+
+// Entries matching the Export tab's category/region/date-range filters (used for JSON — Filtered and CSV).
+function mExportFilteredEntries(){
+  const anyType = Object.values(mFilterTypes).some(Boolean);
+  const from = document.getElementById('mfYearFrom').value.trim();
+  const to = document.getElementById('mfYearTo').value.trim();
+  const fromY = from === '' ? -Infinity : parseInt(from, 10);
+  const toY = to === '' ? Infinity : parseInt(to, 10);
+  return db.entries.filter(e =>
+    (!anyType || mFilterTypes[e.t]) &&
+    (mFilterRegion === 'all' || e.r === mFilterRegion) &&
+    e.y >= fromY && e.y <= toY
+  );
+}
+function renderExportSummary(){
+  const sumEl = document.getElementById('mfSummary');
+  if(!sumEl) return;
+  const anyType = Object.values(mFilterTypes).some(Boolean);
+  const typeLabel = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
+  const regionLabel = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
+  sumEl.textContent = mExportFilteredEntries().length + ' entries match — ' + typeLabel + ' · ' + regionLabel;
+}
+
+// The Entries tab list is independent of the Export filters — it's a browsing/search list
+// that always tracks and highlights whichever entry is currently selected on the timeline.
+function renderMList(scrollToSelected){
   const q = document.getElementById('mSearch').value.trim().toLowerCase();
   const list = document.getElementById('mList');
   const items = db.entries.slice().sort((a,b) => a.y - b.y)
     .filter(e => !q || e.n.toLowerCase().includes(q) || String(e.y).includes(q));
   list.innerHTML = '';
+  let selectedRow = null;
   items.forEach(e => {
+    const isSelected = !!(currentEntry && currentEntry.id === e.id);
     const b = document.createElement('button');
-    b.className = 'mitem';
+    b.className = 'mitem' + (isSelected ? ' selected' : '');
     b.innerHTML = '<span class="my">' + e.y + '</span><span>' + esc(e.n) + '</span><span class="mt">' + TYPE_NAMES[e.t] + '</span>';
-    b.addEventListener('click', () => openEditor(e.id));
+    b.addEventListener('click', () => selectEntryFromCms(e.id));
     list.appendChild(b);
+    if(isSelected) selectedRow = b;
   });
+  const countEl = document.getElementById('mListCount');
+  if(countEl) countEl.textContent = items.length + ' of ' + db.entries.length + ' entries shown';
+  if(scrollToSelected && selectedRow) selectedRow.scrollIntoView({block:'center', behavior:'smooth'});
 }
-document.getElementById('mSearch').addEventListener('input', renderMList);
+document.getElementById('mSearch').addEventListener('input', () => renderMList(false));
 
 function serializeArt(art){
   return (art.sections || []).map(s => (s.h ? '## ' + s.h + '\n' : '') + (s.b || '')).join('\n\n');
@@ -1836,7 +2158,6 @@ function parseFacts(text){
 function openEditor(id){
   const e = id ? getEntry(id) : null;
   editingId = id;
-  document.getElementById('mEditor').style.display = 'block';
   document.getElementById('mEditorTitle').textContent = e ? 'Edit: ' + e.n : 'New Entry';
   document.getElementById('fName').value = e ? e.n : '';
   document.getElementById('fYear').value = e ? e.y : '';
@@ -1853,9 +2174,11 @@ function openEditor(id){
   document.getElementById('fImg').value = e ? (e.img || '') : '';
   document.getElementById('fImgCap').value = e ? (e.imgCap || '') : '';
   document.getElementById('fAudio').value = e ? (e.audio || '') : '';
-  document.getElementById('mEditor').scrollIntoView({behavior:'smooth'});
 }
-document.getElementById('mNew').addEventListener('click', () => openEditor(null));
+document.getElementById('mNew').addEventListener('click', () => {
+  openEditor(null);
+  document.getElementById('mEditor').scrollIntoView({behavior:'smooth', block:'start'});
+});
 
 document.getElementById('fSave').addEventListener('click', async () => {
   const n = document.getElementById('fName').value.trim();
@@ -1886,17 +2209,20 @@ document.getElementById('fSave').addEventListener('click', async () => {
   await saveDb();
   renderMList();
   render();
+  if(currentEntry && currentEntry.id === obj.id){ currentEntry = obj; showDetail(obj); }
 });
 
 document.getElementById('fDelete').addEventListener('click', async () => {
-  if(!editingId){ document.getElementById('mEditor').style.display = 'none'; return; }
+  if(!editingId){ openEditor(null); return; }
   if(!confirm('Delete this entry permanently?')) return;
+  const wasCurrent = currentEntry && currentEntry.id === editingId;
   db.entries = db.entries.filter(e => e.id !== editingId);
   editingId = null;
-  document.getElementById('mEditor').style.display = 'none';
+  openEditor(null);
   await saveDb();
   renderMList();
   render();
+  if(wasCurrent){ currentEntry = null; detail.classList.remove('open'); article.classList.remove('open'); }
 });
 
 // ---- Claude API helper: handles long searches (pause_turn), truncation, and real error messages ----
@@ -2085,18 +2411,83 @@ document.getElementById('jsonDownload').addEventListener('click', () => {
   }catch(e){ jsonStatus('Download failed — use Copy All'); }
 });
 
+// ---- Article stats: section/word/character counts, used by both JSON and CSV export ----
+function stripHtml(html){
+  return (html || '').replace(/<[^>]*>/g, ' ');
+}
+function articleStats(e){
+  const sections = (e.art && e.art.sections) || [];
+  const text = sections.map(s => stripHtml(s.b || '')).join(' ').replace(/\s+/g, ' ').trim();
+  const words = text ? text.split(' ') : [];
+  return {sectionCount: sections.length, wordCount: words.length, charCount: text.length};
+}
+// Builds the export payload for JSON — Filtered: each entry gets sectionCount/wordCount/charCount
+// added, and the full `art` object is included or stripped based on the Export tab's checkbox.
+function buildExportPayload(entries, includeStory){
+  return entries.map(e => {
+    const stats = articleStats(e);
+    const copy = JSON.parse(JSON.stringify(e));
+    if(!includeStory) delete copy.art;
+    copy.sectionCount = stats.sectionCount;
+    copy.wordCount = stats.wordCount;
+    copy.charCount = stats.charCount;
+    return copy;
+  });
+}
+function csvEscape(v){
+  const s = v == null ? '' : String(v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function toCSV(entries, includeStory){
+  const headers = ['id','year','name','type','region','country','description','tier','altNames',
+    'sectionCount','wordCount','charCount','quotesCount','linksCount','factsCount','hasImage','hasAudio'];
+  if(includeStory) headers.push('article');
+  const rows = [headers.map(csvEscape).join(',')];
+  entries.slice().sort((a,b) => a.y - b.y).forEach(e => {
+    const stats = articleStats(e);
+    const row = [
+      e.id, e.y, e.n, TYPE_NAMES[e.t] || e.t, REGION_NAMES[e.r] || e.r, e.country || '',
+      e.d || '', e.tier || 1, (e.alt || []).join('; '),
+      stats.sectionCount, stats.wordCount, stats.charCount,
+      ((e.art || {}).quotes || []).length, ((e.art || {}).links || []).length, (e.facts || []).length,
+      e.img ? 'Yes' : 'No', e.audio ? 'Yes' : 'No'
+    ];
+    if(includeStory){
+      const text = ((e.art || {}).sections || [])
+        .map(s => (s.h ? s.h + ': ' : '') + stripHtml(s.b || '').replace(/\s+/g, ' ').trim())
+        .join(' | ');
+      row.push(text);
+    }
+    rows.push(row.map(csvEscape).join(','));
+  });
+  return rows.join('\n');
+}
+
 document.getElementById('mJsonAll').addEventListener('click', () => {
   openJsonView('Database JSON — All Entries',
-    db.entries.length + ' entries · full backup · re-import with Restore Backup or merge with Add/Update',
+    db.entries.length + ' entries · full backup, ignores Export filters · re-import with Restore Backup or merge with Add/Update',
     db, 'catholic-timeline-all.json');
 });
 document.getElementById('mJsonFiltered').addEventListener('click', () => {
-  const evs = filtered();
-  const types = TYPE_ORDER.filter(t => activeTypes[t]).map(t => TYPE_NAMES[t]).join(', ');
-  const region = activeRegion === 'all' ? 'All regions' : REGION_NAMES[activeRegion];
+  const includeStory = document.getElementById('mExIncludeStory').checked;
+  const evs = buildExportPayload(mExportFilteredEntries(), includeStory);
+  const anyType = Object.values(mFilterTypes).some(Boolean);
+  const types = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
+  const region = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
   openJsonView('Database JSON — Filtered',
-    evs.length + ' entries · ' + types + ' · ' + region + ' · edit and re-import via Paste JSON (Add/Update)',
+    evs.length + ' entries · ' + types + ' · ' + region + (includeStory ? ' · full story included' : ' · story text excluded') + ' · set on the Export tab · edit and re-import via Paste JSON (Add/Update)',
     {v: db.v || 1, entries: evs}, 'catholic-timeline-filtered.json');
+});
+document.getElementById('mCsvExport').addEventListener('click', () => {
+  const includeStory = document.getElementById('mExIncludeStory').checked;
+  const evs = mExportFilteredEntries();
+  const csv = toCSV(evs, includeStory);
+  const anyType = Object.values(mFilterTypes).some(Boolean);
+  const types = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
+  const region = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
+  openPlainView('CSV Export',
+    evs.length + ' entries · ' + types + ' · ' + region + (includeStory ? ' · full story included' : ' · story text excluded') + ' · headings in row 1',
+    csv, 'catholic-timeline-export.csv');
 });
 
 // Merge import: adds new entries, updates existing (matched by id, else by name+year slug). Never deletes.
@@ -2307,54 +2698,9 @@ document.getElementById('showEditControls').addEventListener('change', (e) => {
   if(detail.classList.contains('open') && currentEntry) showDetail(currentEntry);
 });
 
-// Portrait drag-to-reposition: only active in edit mode. Press and hold the
-// circle, drag it wherever looks best on the card, and release — the new
-// spot is saved on the entry (portraitX/portraitY, in px from the card's
-// own top-left corner) and used from then on instead of the default corner.
-function initPortraitDrag(){
-  const portrait = document.getElementById('dPortrait');
-  let dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
-  portrait.addEventListener('pointerdown', (e) => {
-    if(!(manageUnlocked() && showEditControls) || !currentEntry) return;
-    e.preventDefault();
-    e.stopPropagation();
-    dragging = true;
-    portrait.setPointerCapture(e.pointerId);
-    const cardRect = detail.getBoundingClientRect();
-    const pRect = portrait.getBoundingClientRect();
-    startLeft = pRect.left - cardRect.left;
-    startTop = pRect.top - cardRect.top;
-    startX = e.clientX; startY = e.clientY;
-    portrait.style.right = 'auto';
-    portrait.style.left = startLeft + 'px';
-    portrait.style.top = startTop + 'px';
-    portrait.classList.add('dragging');
-  });
-  portrait.addEventListener('pointermove', (e) => {
-    if(!dragging) return;
-    e.preventDefault();
-    e.stopPropagation();
-    portrait.style.left = (startLeft + (e.clientX - startX)) + 'px';
-    portrait.style.top = (startTop + (e.clientY - startY)) + 'px';
-  });
-  const endDrag = async (e) => {
-    if(!dragging) return;
-    dragging = false;
-    portrait.classList.remove('dragging');
-    if(currentEntry){
-      currentEntry.portraitX = parseFloat(portrait.style.left) || 0;
-      currentEntry.portraitY = parseFloat(portrait.style.top) || 0;
-      await saveDb();
-    }
-  };
-  portrait.addEventListener('pointerup', endDrag);
-  portrait.addEventListener('pointercancel', endDrag);
-}
-
 // ================= INIT =================
 (async function(){
   updateManageVisibility();
-  initPortraitDrag();
   await loadDb();
   render();
   scrollToYear(120);
