@@ -66,6 +66,12 @@
   }
   .managebtn:hover{background:var(--gold); color:var(--navy-deep);}
   .hamMenu .managebtn{display:block; width:100%; margin-top:12px; text-align:center;}
+  .hamToggle{
+    display:flex; align-items:center; gap:8px; margin-top:10px; padding-top:10px;
+    border-top:1px solid rgba(201,165,66,.2);
+    color:var(--parchment); font-size:13px; cursor:pointer;
+  }
+  .hamToggle input{accent-color:var(--gold); width:16px; height:16px; cursor:pointer;}
   .controls{
     flex:0 0 auto; padding:2px 12px 16px;
     display:flex; flex-direction:column; gap:6px;
@@ -212,8 +218,8 @@
   }
   .detailInner{max-height:60vh; overflow-y:auto;}
   .dportrait{
-    display:none; position:absolute; top:-20px; right:-14px; z-index:6;
-    width:78px; height:78px; border-radius:50%; overflow:hidden;
+    display:none; position:absolute; top:-20px; right:8px; z-index:6;
+    width:96px; height:96px; border-radius:50%; overflow:hidden;
     border:3px solid var(--gold); box-shadow:0 6px 16px rgba(0,0,0,.6), 0 0 0 3px var(--navy-deep);
   }
   .dportrait.show{display:block;}
@@ -252,8 +258,9 @@
     #article.overlay.open{transform:translateX(-50%) translateY(0);}
   }
   .dhead{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; padding-right:24px;}
-  .dyear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:18px; font-weight:600;}
-  .dname{font-size:19px; font-weight:600;}
+  .dyear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:23px; font-weight:700;}
+  .dname{font-size:23px; font-weight:600;}
+  .dtaper{width:min(220px, 70%); height:2px; margin:9px 0 3px; background:linear-gradient(90deg, var(--gold-bright), transparent);}
   .dbadges{display:flex; gap:6px; margin-top:5px; flex-wrap:wrap;}
   .badge{font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:2px 9px; border-radius:10px; border:1px solid currentColor; font-family:'Cinzel',serif;}
   .ddesc{margin-top:8px; font-size:17px; line-height:1.5;}
@@ -450,6 +457,10 @@
       <button class="chip" data-region="americas">Americas</button>
       <button class="chip" data-region="asia">Asia &amp; Oceania</button>
     </div>
+    <label class="hamToggle" id="editControlsRow" style="display:none;">
+      <input type="checkbox" id="showEditControls" autocomplete="off" checked>
+      <span>Show edit controls on cards</span>
+    </label>
     <button class="managebtn" id="manageBtn" style="display:none;">⚙ Manage</button>
   </div>
 </header>
@@ -526,6 +537,7 @@
   <button class="close" id="detailClose" aria-label="Close">×</button>
   <div class="detailInner" id="detailInner">
     <div class="dhead"><span class="dyear" id="dYear"></span><span class="dname" id="dName"></span></div>
+    <div class="dtaper"></div>
     <div class="dbadges" id="dBadges"></div>
     <div class="ddesc" id="dDesc"></div>
     <button class="artopen" id="dArtBtn">Open Full Article</button>
@@ -988,6 +1000,7 @@ let ppy = 1.8;
 let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
 let activeRegion = "all";
 let currentEntry = null;
+let showEditControls = true;
 
 const viewport = document.getElementById('viewport');
 const canvas = document.getElementById('canvas');
@@ -1198,8 +1211,6 @@ function showDetail(d){
   document.getElementById('dName').textContent = d.n;
   document.getElementById('dDesc').textContent = d.d;
   document.getElementById('dBadges').innerHTML =
-    '<span class="badge t-'+d.t+'">'+TYPE_NAMES[d.t]+'</span>' +
-    '<span class="badge" style="color:var(--muted)">'+REGION_NAMES[d.r]+'</span>' +
     (d.country ? '<span class="badge" style="color:var(--muted)">'+esc(d.country)+'</span>' : '');
   const portrait = document.getElementById('dPortrait');
   const portraitImg = document.getElementById('dPortraitImg');
@@ -1215,7 +1226,7 @@ function showDetail(d){
   const oc = document.getElementById('offsetCtrl');
   const qb = document.getElementById('qeditToggle');
   document.getElementById('qeditPanel').classList.remove('open');
-  if(manageUnlocked()){
+  if(manageUnlocked() && showEditControls){
     oc.classList.add('show');
     document.getElementById('offsetVal').textContent = d.offset || 0;
     qb.classList.add('show');
@@ -2241,6 +2252,7 @@ function manageUnlocked(){
 function updateManageVisibility(){
   const unlocked = manageUnlocked();
   document.getElementById('manageBtn').style.display = unlocked ? 'block' : 'none';
+  document.getElementById('editControlsRow').style.display = unlocked ? 'flex' : 'none';
   const hb = document.getElementById('hamBtn');
   if(hb) hb.innerHTML = unlocked ? '&#9881;' : '&#9776;';
 }
@@ -2271,6 +2283,10 @@ document.addEventListener('click', (e) => {
   }
 });
 document.getElementById('manageBtn').addEventListener('click', () => hamMenu.classList.remove('open'));
+document.getElementById('showEditControls').addEventListener('change', (e) => {
+  showEditControls = e.target.checked;
+  if(detail.classList.contains('open') && currentEntry) showDetail(currentEntry);
+});
 
 // ================= INIT =================
 (async function(){
