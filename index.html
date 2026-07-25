@@ -263,7 +263,14 @@
   .dtaper{width:min(220px, 70%); height:2px; margin:9px 0 3px; background:linear-gradient(90deg, var(--gold-bright), transparent);}
   .dbadges{display:flex; gap:6px; margin-top:5px; flex-wrap:wrap;}
   .badge{font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:2px 9px; border-radius:10px; border:1px solid currentColor; font-family:'Cinzel',serif;}
-  .ddesc{margin-top:8px; font-size:17px; line-height:1.5;}
+  .ddesc{
+    margin-top:8px; font-size:17px; line-height:1.5; position:relative;
+    max-height:6.15em; overflow:hidden; cursor:pointer;
+  }
+  .ddesc::after{
+    content:''; position:absolute; left:0; right:0; bottom:0; height:1.6em;
+    background:linear-gradient(180deg, transparent, #12204a 75%); pointer-events:none;
+  }
   .artopen{
     margin-top:12px; width:100%;
     font-family:'Cinzel',serif; font-size:12.5px; letter-spacing:.12em; text-transform:uppercase;
@@ -1210,8 +1217,7 @@ function showDetail(d){
   document.getElementById('dYear').textContent = fmtYear(d.y);
   document.getElementById('dName').textContent = d.n;
   document.getElementById('dDesc').textContent = d.d;
-  document.getElementById('dBadges').innerHTML =
-    (d.country ? '<span class="badge" style="color:var(--muted)">'+esc(d.country)+'</span>' : '');
+  document.getElementById('dBadges').innerHTML = '';
   const portrait = document.getElementById('dPortrait');
   const portraitImg = document.getElementById('dPortraitImg');
   if(d.img){
@@ -1238,6 +1244,7 @@ function showDetail(d){
   prefetchImage(categoryNeighbor(d, 1));
 }
 document.getElementById('detailClose').addEventListener('click', () => detail.classList.remove('open'));
+document.getElementById('dDesc').addEventListener('click', (e) => { e.stopPropagation(); if(currentEntry) openArticle(currentEntry); });
 document.getElementById('qeditToggle').addEventListener('click', (e) => {
   e.stopPropagation();
   if(!currentEntry) return;
