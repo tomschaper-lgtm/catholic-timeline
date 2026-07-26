@@ -260,6 +260,7 @@
   .dhead{display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding-right:118px;}
   .dyear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
   .dname{font-size:25px; font-weight:600; line-height:1.15;}
+  .dcouncilnum{display:none; font-size:25px; font-weight:600; line-height:1.15; color:#fff;}
   .dtaper{width:min(220px, 70%); height:2px; margin:9px 0 3px; background:linear-gradient(90deg, var(--gold-bright), transparent);}
   .dbadges{display:flex; gap:6px; margin-top:5px; flex-wrap:wrap;}
   .badge{font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:2px 9px; border-radius:10px; border:1px solid currentColor; font-family:'Cinzel',serif;}
@@ -655,7 +656,7 @@
   </div>
   <button class="close" id="detailClose" aria-label="Close">×</button>
   <div class="detailInner" id="detailInner">
-    <div class="dhead"><span class="dyear" id="dYear"></span><span class="dname" id="dName"></span></div>
+    <div class="dhead"><span class="dyear" id="dYear"></span><span class="dcouncilnum" id="dCouncilNum"></span><span class="dname" id="dName"></span></div>
     <div class="dtaper"></div>
     <div class="dbadges" id="dBadges"></div>
     <div class="ddesc" id="dDesc"></div>
@@ -1416,6 +1417,28 @@ function showDetail(d){
   document.getElementById('dName').textContent = d.n;
   document.getElementById('dDesc').textContent = d.d;
   document.getElementById('dBadges').innerHTML = '';
+  const councilNumEl = document.getElementById('dCouncilNum');
+  if(d.t === 'c'){
+    let num = null;
+    const fact = (d.facts || []).find(f => f && f.label === 'Ecumenical number');
+    if(fact && fact.value){
+      const m = fact.value.match(/\d+/);
+      if(m) num = m[0];
+    }
+    if(!num){
+      const councils = db.entries.filter(e => e.t === 'c').slice().sort((a, b) => a.y - b.y);
+      const idx = councils.findIndex(e => e.id === d.id);
+      if(idx >= 0) num = String(idx + 1);
+    }
+    if(num){
+      councilNumEl.textContent = 'Ecumenical Council ' + num;
+      councilNumEl.style.display = 'block';
+    } else {
+      councilNumEl.style.display = 'none';
+    }
+  } else {
+    councilNumEl.style.display = 'none';
+  }
   const portrait = document.getElementById('dPortrait');
   const portraitImg = document.getElementById('dPortraitImg');
   if(d.img){
