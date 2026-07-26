@@ -216,7 +216,7 @@
     padding:7px 16px 14px; box-shadow:0 8px 30px rgba(0,0,0,.6);
     transition:transform .25s ease; z-index:50;
   }
-  .detailInner{max-height:60vh; overflow-y:auto;}
+  .detailInner{max-height:85vh; overflow-y:auto;}
   .dportrait{
     display:none; position:absolute; top:-20px; right:26px; z-index:6;
     width:92px; height:118px; border-radius:14px; overflow:hidden;
@@ -254,13 +254,14 @@
       border:1px solid var(--gold); border-radius:16px 16px 0 0;
       background:linear-gradient(180deg, #14224A, #0C1735);
       box-shadow:0 -8px 30px rgba(0,0,0,.6);
+      transition:transform .48s cubic-bezier(0.16, 1, 0.3, 1);
     }
     #article.overlay.open{transform:translateX(-50%) translateY(0);}
   }
   .dhead{display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding-right:118px;}
   .dyear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
   .dname{font-size:25px; font-weight:600; line-height:1.15;}
-  .dcouncilnum{display:none; font-size:25px; font-weight:600; line-height:1.15; color:#fff;}
+  .dcouncilnum{display:none; font-size:25px; font-weight:600; line-height:1.15; color:var(--parchment);}
   .dtaper{width:min(220px, 70%); height:2px; margin:9px 0 3px; background:linear-gradient(90deg, var(--gold-bright), transparent);}
   .dbadges{display:flex; gap:6px; margin-top:5px; flex-wrap:wrap;}
   .badge{font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:2px 9px; border-radius:10px; border:1px solid currentColor; font-family:'Cinzel',serif;}
@@ -1419,19 +1420,17 @@ function showDetail(d){
   document.getElementById('dBadges').innerHTML = '';
   const councilNumEl = document.getElementById('dCouncilNum');
   if(d.t === 'c'){
-    let num = null;
+    let text = null;
     const fact = (d.facts || []).find(f => f && f.label === 'Ecumenical number');
     if(fact && fact.value){
-      const m = fact.value.match(/\d+/);
-      if(m) num = m[0];
-    }
-    if(!num){
+      text = fact.value.replace(/(^|\s)([a-z])/g, (m, p1, p2) => p1 + p2.toUpperCase());
+    } else {
       const councils = db.entries.filter(e => e.t === 'c').slice().sort((a, b) => a.y - b.y);
       const idx = councils.findIndex(e => e.id === d.id);
-      if(idx >= 0) num = String(idx + 1);
+      if(idx >= 0) text = ordinalSuffix(idx + 1) + ' Ecumenical Council';
     }
-    if(num){
-      councilNumEl.textContent = 'Ecumenical Council ' + num;
+    if(text){
+      councilNumEl.textContent = text;
       councilNumEl.style.display = 'block';
     } else {
       councilNumEl.style.display = 'none';
@@ -1840,6 +1839,13 @@ function renderBody(b){
 }
 
 function fmtYear(y){ return (y <= 99 ? 'AD ' + y : String(y)); }
+function ordinalSuffix(n){
+  const j = n % 10, k = n % 100;
+  if(j === 1 && k !== 11) return n + 'st';
+  if(j === 2 && k !== 12) return n + 'nd';
+  if(j === 3 && k !== 13) return n + 'rd';
+  return n + 'th';
+}
 
 function fillArticleBody(d){
   const art = d.art || {sections:[], quotes:[], links:[]};
