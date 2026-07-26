@@ -280,6 +280,27 @@
     padding:9px 12px; cursor:pointer; font-weight:600;
   }
   .artopen:hover{background:var(--gold-bright);}
+  .artShareBtn{
+    position:absolute; top:10px; right:58px; z-index:10;
+    width:30px; height:30px; display:flex; align-items:center; justify-content:center;
+    background:none; border:none; color:#fff; cursor:pointer; padding:0;
+  }
+  .artShareBtn:hover{color:var(--gold-bright);}
+  .artShareBtn svg{width:19px; height:19px;}
+  .shareToast{
+    position:absolute; top:46px; right:10px; z-index:11;
+    display:none; text-align:center; white-space:nowrap;
+    font-family:'EB Garamond', serif; font-size:13px; color:var(--gold-bright);
+    background:rgba(12,23,53,.95); border:1px solid rgba(201,165,66,.5); border-radius:6px;
+    padding:6px 10px;
+  }
+  .shareToast.show{display:block; animation:shareFade 2.2s ease forwards;}
+  @keyframes shareFade{
+    0%{opacity:0; transform:translateY(-4px);}
+    12%{opacity:1; transform:translateY(0);}
+    75%{opacity:1;}
+    100%{opacity:0;}
+  }
   .qeditToggle{
     display:none; margin-top:8px; width:100%;
     font-family:'Cinzel',serif; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
@@ -681,6 +702,14 @@
 <div class="overlay" id="article">
   <div class="draghandle" id="artHandle"></div>
   <button class="artX" id="artClose" aria-label="Close">×</button>
+  <button class="artShareBtn" id="artShareBtn" aria-label="Share">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3v12"/>
+      <path d="M8 7l4-4 4 4"/>
+      <path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/>
+    </svg>
+  </button>
+  <div class="shareToast" id="shareToast"></div>
   <div class="pauseIndicator" id="pauseIndicator"></div>
   <div class="artwrap">
     <div id="artBody"></div>
@@ -1449,6 +1478,7 @@ function showDetail(d){
     portraitImg.removeAttribute('src');
   }
   currentEntry = d;
+  updateUrlForEntry(d);
   const oc = document.getElementById('offsetCtrl');
   const qb = document.getElementById('qeditToggle');
   document.getElementById('qeditPanel').classList.remove('open');
@@ -1463,8 +1493,59 @@ function showDetail(d){
   detail.classList.add('open');
   prefetchImage(categoryNeighbor(d, 1));
 }
-document.getElementById('detailClose').addEventListener('click', () => detail.classList.remove('open'));
+document.getElementById('detailClose').addEventListener('click', () => { detail.classList.remove('open'); clearUrlEntry(); });
 document.getElementById('dDesc').addEventListener('click', (e) => { e.stopPropagation(); if(currentEntry) openArticle(currentEntry); });
+
+// ---- Shareable deep links: #entry-id in the URL, safe no-op inside the Claude artifact iframe ----
+function updateUrlForEntry(d){
+  try{
+    const hash = '#' + d.id;
+    if(location.hash !== hash) history.pushState({entryId: d.id}, '', hash);
+  } catch(e){ /* sandboxed iframe (Claude artifact) — ignore */ }
+}
+function clearUrlEntry(){
+  try{
+    if(location.hash) history.pushState(null, '', location.pathname + location.search);
+  } catch(e){ /* ignore */ }
+}
+function entryUrl(d){
+  try{ return location.origin + location.pathname + '#' + d.id; }
+  catch(e){ return '#' + d.id; }
+}
+function showShareToast(msg){
+  const t = document.getElementById('shareToast');
+  t.textContent = msg;
+  t.classList.remove('show');
+  void t.offsetWidth; // restart animation
+  t.classList.add('show');
+}
+async function shareEntry(d){
+  const url = entryUrl(d);
+  const shareData = { title: d.n, text: d.d, url: url };
+  if(navigator.share){
+    try{ await navigator.share(shareData); }
+    catch(e){ /* user cancelled — no toast needed */ }
+    return;
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    try{ await navigator.clipboard.writeText(url); showShareToast('Link copied!'); return; }
+    catch(e){ /* fall through */ }
+  }
+  showShareToast('Copy this link: ' + url);
+}
+document.getElementById('artShareBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if(currentEntry) shareEntry(currentEntry);
+});
+window.addEventListener('popstate', () => {
+  const id = location.hash ? location.hash.slice(1) : '';
+  if(id){
+    const e = getEntry(id);
+    if(e) showDetail(e);
+  } else if(detail.classList.contains('open')){
+    detail.classList.remove('open');
+  }
+});
 document.getElementById('qeditToggle').addEventListener('click', (e) => {
   e.stopPropagation();
   if(!currentEntry) return;
@@ -2732,7 +2813,14 @@ document.getElementById('showEditControls').addEventListener('change', (e) => {
   updateManageVisibility();
   await loadDb();
   render();
-  scrollToYear(120);
+  const sharedId = location.hash ? location.hash.slice(1) : '';
+  const sharedEntry = sharedId ? getEntry(sharedId) : null;
+  if(sharedEntry){
+    scrollToYear(sharedEntry.y);
+    showDetail(sharedEntry);
+  } else {
+    scrollToYear(120);
+  }
 })();
 </script>
 </body>
