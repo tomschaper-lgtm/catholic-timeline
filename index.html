@@ -361,7 +361,14 @@
   .artquote .qsrc{display:block; font-style:normal; font-size:13.5px; color:var(--muted); margin-top:5px;}
   .artsrc a{color:var(--gold-bright); font-size:15.5px;}
   .artsrc li{margin-bottom:6px; margin-left:20px;}
-  .artimg{width:100%; border-radius:8px; border:1px solid rgba(201,165,66,.5); margin-top:18px; display:block;}
+  .artimg{width:100%; border-radius:8px; border:1px solid rgba(201,165,66,.5); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation;}
+  .imgLightbox{
+    position:fixed; inset:0; z-index:200; background:rgba(4,9,26,.97);
+    display:none; align-items:center; justify-content:center; padding:24px;
+    cursor:zoom-out; touch-action:manipulation;
+  }
+  .imgLightbox.open{display:flex;}
+  .imgLightbox img{max-width:100%; max-height:100%; object-fit:contain; border-radius:6px; box-shadow:0 8px 40px rgba(0,0,0,.6);}
   .artcap{text-align:center; font-style:italic; color:var(--muted); font-size:13.5px; margin-top:6px;}
   /* Quick Facts panel */
   .factbox{border:1px solid rgba(201,165,66,.4); border-radius:10px; background:rgba(201,165,66,.05); padding:14px 18px; margin:22px 0;}
@@ -714,6 +721,10 @@
   <div class="artwrap">
     <div id="artBody"></div>
   </div>
+</div>
+
+<div class="imgLightbox" id="imgLightbox">
+  <img id="imgLightboxImg" src="" alt="">
 </div>
 
 <div class="overlay" id="jsonView" style="z-index:120;">
@@ -2083,6 +2094,22 @@ document.getElementById('article').addEventListener('click', (e) => {
   const play = document.getElementById('apPlay');
   if(play){ play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); }
   showPauseIndicator();
+});
+
+// ---- Double-tap the article image to open it full-screen; a single tap on the lightbox closes it ----
+const imgLightbox = document.getElementById('imgLightbox');
+const imgLightboxImg = document.getElementById('imgLightboxImg');
+document.getElementById('artBody').addEventListener('dblclick', (e) => {
+  const img = e.target.closest('.artimg');
+  if(!img || !img.src) return;
+  e.preventDefault();
+  imgLightboxImg.src = img.src;
+  imgLightboxImg.alt = img.alt || '';
+  imgLightbox.classList.add('open');
+});
+imgLightbox.addEventListener('click', () => {
+  imgLightbox.classList.remove('open');
+  imgLightboxImg.src = '';
 });
 
 // ================= CONTENT MANAGER =================
