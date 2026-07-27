@@ -446,11 +446,18 @@
   .mitem .my{color:var(--gold-bright); font-family:'Cinzel',serif; font-size:12px; flex:0 0 46px;}
   .mitem .mt{margin-left:auto; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
   .mlog{font-size:14px; line-height:1.5; margin-top:8px; white-space:pre-wrap; color:var(--parchment); max-height:160px; overflow-y:auto;}
-  .mitem.done{opacity:.5;}
-  .mitem.done b{text-decoration:line-through;}
-  .wlActions{display:flex; gap:6px; flex:0 0 auto; margin-left:8px;}
-  .wlActions .mbtn{padding:4px 8px; font-size:10.5px;}
-  #wlList{max-height:260px;}
+  .wlTableWrap{max-height:320px; overflow:auto; border:1px solid var(--m-border); border-radius:6px; margin-bottom:14px;}
+  table.wlTable{width:100%; border-collapse:collapse; font-size:12.5px;}
+  table.wlTable th, table.wlTable td{padding:6px 8px; text-align:left; border-bottom:1px solid var(--m-border); vertical-align:top;}
+  table.wlTable th{position:sticky; top:0; background:var(--m-panel); color:var(--m-accent); font-family:'Cinzel',serif; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; z-index:1;}
+  table.wlTable td{color:var(--m-ink);}
+  table.wlTable tbody tr:nth-child(even){background:rgba(0,0,0,0.02);}
+  table.wlTable tbody tr.wlDone{opacity:.5;}
+  table.wlTable tbody tr.wlDone td:nth-child(4){text-decoration:line-through;}
+  table.wlTable td.wlNum{color:var(--m-sub); width:34px;}
+  table.wlTable td.wlActions{white-space:nowrap; width:1%;}
+  table.wlTable td.wlActions .mbtn{padding:3px 7px; font-size:10px; margin-right:4px;}
+  table.wlTable tbody tr.wlHidden{display:none;}
   .hint{font-size:13px; font-style:italic; color:var(--muted); margin-top:4px; line-height:1.4;}
   /* Rich-text article bodies */
   .artrich{font-size:19.5px; line-height:1.68; margin:0 0 14px;}
@@ -845,8 +852,18 @@
         <button class="mbtn" id="wlAdd">+ Add Task</button>
       </div>
 
-      <div class="mgmtFilterCount" id="wlCount"></div>
-      <div class="mlist" id="wlList"></div>
+      <div class="mtool" style="margin-bottom:6px; align-items:center;">
+        <span class="mgmtFilterCount" id="wlCount"></span>
+        <button class="mbtn" id="wlHideCompleted" style="margin-left:auto;">Hide Completed</button>
+      </div>
+      <div class="wlTableWrap">
+        <table class="wlTable">
+          <thead>
+            <tr><th>#</th><th>Key</th><th>Type</th><th>Task</th><th>Notes</th><th>Completed</th><th></th></tr>
+          </thead>
+          <tbody id="wlTbody"></tbody>
+        </table>
+      </div>
 
       <div class="mbox">
         <h3>Export Work List</h3>
@@ -873,7 +890,20 @@
           <button class="mbtn" id="wlPasteApply">Apply (Add/Update)</button>
           <button class="mbtn" id="wlPasteClear">Clear</button>
         </div>
-        <div class="hint">Same paste-JSON pattern as the Entries import: bring back a task list drafted by Claude, paste it here, Apply. Publishes automatically after applying if a GitHub token is set.</div>
+        <div class="hint">Same paste-JSON pattern as the Entries import: export your entries JSON (full or filtered) from the Export tab, paste it into a Claude chat with instructions like "find every saint with no quotes and add a task for each," paste what Claude returns here, Apply. Publishes automatically after applying if a GitHub token is set.</div>
+      </div>
+
+      <div class="mbox">
+        <h3>Change Log</h3>
+        <div class="hint" style="margin-top:0;">Every entity added, edited, or deleted — manually, via Import/Paste, or via Instruct Claude — is recorded here automatically.</div>
+        <div class="wlTableWrap">
+          <table class="wlTable">
+            <thead>
+              <tr><th>When</th><th>Entity</th><th>Change</th><th>Source</th></tr>
+            </thead>
+            <tbody id="wlLogTbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -911,6 +941,10 @@
       <label class="hamToggle" style="color:var(--m-ink); margin-bottom:8px;">
         <input type="checkbox" id="mExIncludeStory" checked>
         <span>Include full story text (word/char/section counts always included)</span>
+      </label>
+      <label class="hamToggle" style="color:var(--m-ink); margin-bottom:8px;">
+        <input type="checkbox" id="mExIncludeTeaser" checked>
+        <span>Include teaser text / short description (teaser word count always included)</span>
       </label>
 
       <div class="mgmtFilterCount" id="mfSummary"></div>
@@ -1250,9 +1284,10 @@ function seedDb(){
     entries: SEED.map(r => ({
       id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, displayLabel: "", d: r[4],
       art: {sections: [{h: "Overview", b: r[4]}], quotes: [], links: []},
-      img: "", imgCap: "", audio: ""
+      img: "", imgCap: "", audio: "", updated: ""
     })),
-    tasks: []
+    tasks: [],
+    changelog: []
   };
 }
 // Detect whether we're running inside a Claude artifact (persistent window.storage present)
@@ -1262,7 +1297,7 @@ async function loadDb(){
   if(IS_ARTIFACT){
     try{
       const res = await window.storage.get(DB_KEY);
-      if(res && res.value){ db = JSON.parse(res.value); db.settings = db.settings || {imageBase:"", audioBase:""}; db.tasks = db.tasks || []; return; }
+      if(res && res.value){ db = JSON.parse(res.value); db.settings = db.settings || {imageBase:"", audioBase:""}; db.tasks = db.tasks || []; db.changelog = db.changelog || []; return; }
     }catch(e){ /* not found */ }
     db = seedDb();
     await saveDb();
@@ -1271,7 +1306,7 @@ async function loadDb(){
   // Served from a web host (e.g. GitHub Pages): data.json in the repo is the source of truth.
   try{
     const r = await fetch('data.json', {cache: 'no-store'});
-    if(r.ok){ db = await r.json(); db.settings = db.settings || {imageBase:"", audioBase:""}; db.tasks = db.tasks || []; return; }
+    if(r.ok){ db = await r.json(); db.settings = db.settings || {imageBase:"", audioBase:""}; db.tasks = db.tasks || []; db.changelog = db.changelog || []; return; }
   }catch(e){ /* opened as a local file, or data.json missing */ }
   // Last-resort fallback (double-clicked local file, or no data.json yet): embedded seed.
   db = seedDb();
@@ -1296,6 +1331,15 @@ function setStatus(msg){
   setStatus._t = setTimeout(() => el.textContent = '', 4000);
 }
 function getEntry(id){ return db.entries.find(e => e.id === id); }
+function logChange(entityId, entityName, summary, source){
+  db.changelog = db.changelog || [];
+  db.changelog.unshift({
+    ts: new Date().toISOString(), entityId: entityId || '', entityName: entityName || '',
+    summary: summary || '', source: source || 'Manual'
+  });
+  if(db.changelog.length > 2000) db.changelog.length = 2000; // keep the log from growing unbounded
+}
+function touchEntry(entry){ entry.updated = new Date().toISOString(); }
 
 // ================= TIMELINE =================
 const START = 0, END = 2030, SPAN = END - START;
@@ -1331,6 +1375,13 @@ function totalWidth(){ return yearToX(END); }
 
 function esc(s){
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtDT(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'}) + ' ' +
+    d.toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
 }
 function fitPpy(){ return Math.max(0.28, (viewport.clientWidth - 20) / EFFECTIVE_SPAN); }
 function centerYear(){ return xToYear(viewport.scrollLeft + viewport.clientWidth/2); }
@@ -2193,6 +2244,7 @@ document.getElementById('manageBtn').addEventListener('click', () => {
   openEditor(currentEntry ? currentEntry.id : null);
   renderExportSummary();
   renderWlList();
+  renderChangeLog();
   populateWlEntityOptions();
   prefillGh();
   prefillAssetBase();
@@ -2203,7 +2255,7 @@ function switchMgmtTab(tab){
   document.querySelectorAll('.mgmtTab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.mgmtPanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
   document.querySelector('.mgmtBody').scrollIntoView({block:'start'});
-  if(tab === 'worklist'){ renderWlList(); populateWlEntityOptions(); }
+  if(tab === 'worklist'){ renderWlList(); renderChangeLog(); populateWlEntityOptions(); }
 }
 document.querySelectorAll('.mgmtTab').forEach(t => t.addEventListener('click', () => switchMgmtTab(t.dataset.tab)));
 
@@ -2366,7 +2418,7 @@ function parseFacts(text){
 function openEditor(id){
   const e = id ? getEntry(id) : null;
   editingId = id;
-  document.getElementById('mEditorTitle').textContent = e ? 'Edit: ' + e.n : 'New Entry';
+  document.getElementById('mEditorTitle').textContent = e ? 'Edit: ' + e.n + (e.updated ? ' (updated ' + fmtDT(e.updated) + ')' : '') : 'New Entry';
   document.getElementById('fName').value = e ? e.n : '';
   document.getElementById('fYear').value = e ? e.y : '';
   document.getElementById('fType').value = e ? e.t : 's';
@@ -2412,7 +2464,10 @@ document.getElementById('fSave').addEventListener('click', async () => {
     alt: document.getElementById('fAlt').value.split(/[\n,]/).map(s => s.trim()).filter(Boolean)
   };
   const idx = db.entries.findIndex(e => e.id === obj.id);
+  const wasAdd = idx < 0;
+  touchEntry(obj);
   if(idx >= 0) db.entries[idx] = obj; else db.entries.push(obj);
+  logChange(obj.id, obj.n, wasAdd ? 'Added (manual editor)' : 'Edited (manual editor)', 'Manual');
   editingId = obj.id;
   await saveDb();
   renderMList();
@@ -2424,7 +2479,9 @@ document.getElementById('fDelete').addEventListener('click', async () => {
   if(!editingId){ openEditor(null); return; }
   if(!confirm('Delete this entry permanently?')) return;
   const wasCurrent = currentEntry && currentEntry.id === editingId;
+  const delEntry = getEntry(editingId);
   db.entries = db.entries.filter(e => e.id !== editingId);
+  logChange(editingId, delEntry ? delEntry.n : editingId, 'Deleted (manual editor)', 'Manual');
   editingId = null;
   openEditor(null);
   await saveDb();
@@ -2548,16 +2605,19 @@ document.getElementById('aiRun').addEventListener('click', async () => {
         en.id = slug(en.n, en.y);
         en.art = en.art || {sections:[{h:'Overview', b: en.d || ''}], quotes:[], links:[]};
         en.country = en.country || ''; en.img = en.img || ''; en.imgCap = en.imgCap || ''; en.audio = en.audio || ''; en.facts = en.facts || []; en.tier = en.tier || 1; en.alt = en.alt || [];
+        touchEntry(en);
         const idx = db.entries.findIndex(x => x.id === en.id);
         if(idx >= 0) db.entries[idx] = en; else db.entries.push(en);
+        logChange(en.id, en.n, 'Added via Instruct Claude: ' + cmd, 'Instruct Claude');
         done.push('Added: ' + en.n + ' (' + en.y + ')');
       } else if(op.op === 'update' && op.id){
         const en = getEntry(op.id);
-        if(en){ Object.assign(en, op.fields || {}); done.push('Updated: ' + en.n); }
+        if(en){ Object.assign(en, op.fields || {}); touchEntry(en); logChange(en.id, en.n, 'Updated via Instruct Claude: ' + cmd, 'Instruct Claude'); done.push('Updated: ' + en.n); }
         else done.push('Not found: ' + op.id);
       } else if(op.op === 'delete' && op.id){
         const en = getEntry(op.id);
         db.entries = db.entries.filter(x => x.id !== op.id);
+        logChange(op.id, en ? en.n : op.id, 'Deleted via Instruct Claude: ' + cmd, 'Instruct Claude');
         done.push('Deleted: ' + (en ? en.n : op.id));
       }
     });
@@ -2627,18 +2687,27 @@ function articleStats(e){
   const sections = (e.art && e.art.sections) || [];
   const text = sections.map(s => stripHtml(s.b || '')).join(' ').replace(/\s+/g, ' ').trim();
   const words = text ? text.split(' ') : [];
-  return {sectionCount: sections.length, wordCount: words.length, charCount: text.length};
+  const teaserText = (e.d || '').replace(/\s+/g, ' ').trim();
+  const teaserWords = teaserText ? teaserText.split(' ') : [];
+  return {
+    sectionCount: sections.length, wordCount: words.length, charCount: text.length,
+    teaserWordCount: teaserWords.length, teaserCharCount: teaserText.length
+  };
 }
 // Builds the export payload for JSON — Filtered: each entry gets sectionCount/wordCount/charCount
-// added, and the full `art` object is included or stripped based on the Export tab's checkbox.
-function buildExportPayload(entries, includeStory){
+// and teaserWordCount/teaserCharCount added; the full `art` object and/or the teaser `d` field are
+// included or stripped based on the Export tab's two checkboxes.
+function buildExportPayload(entries, includeStory, includeTeaser){
   return entries.map(e => {
     const stats = articleStats(e);
     const copy = JSON.parse(JSON.stringify(e));
     if(!includeStory) delete copy.art;
+    if(!includeTeaser) delete copy.d;
     copy.sectionCount = stats.sectionCount;
     copy.wordCount = stats.wordCount;
     copy.charCount = stats.charCount;
+    copy.teaserWordCount = stats.teaserWordCount;
+    copy.teaserCharCount = stats.teaserCharCount;
     return copy;
   });
 }
@@ -2646,20 +2715,23 @@ function csvEscape(v){
   const s = v == null ? '' : String(v);
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
-function toCSV(entries, includeStory){
-  const headers = ['id','year','name','type','region','country','description','tier','altNames',
-    'sectionCount','wordCount','charCount','quotesCount','linksCount','factsCount','hasImage','hasAudio'];
+function toCSV(entries, includeStory, includeTeaser){
+  const headers = ['id','year','name','type','region','country'];
+  if(includeTeaser) headers.push('description');
+  headers.push('tier','altNames','sectionCount','wordCount','charCount','teaserWordCount','teaserCharCount',
+    'quotesCount','linksCount','factsCount','hasImage','hasAudio');
   if(includeStory) headers.push('article');
   const rows = [headers.map(csvEscape).join(',')];
   entries.slice().sort((a,b) => a.y - b.y).forEach(e => {
     const stats = articleStats(e);
-    const row = [
-      e.id, e.y, e.n, TYPE_NAMES[e.t] || e.t, REGION_NAMES[e.r] || e.r, e.country || '',
-      e.d || '', e.tier || 1, (e.alt || []).join('; '),
-      stats.sectionCount, stats.wordCount, stats.charCount,
+    const row = [e.id, e.y, e.n, TYPE_NAMES[e.t] || e.t, REGION_NAMES[e.r] || e.r, e.country || ''];
+    if(includeTeaser) row.push(e.d || '');
+    row.push(
+      e.tier || 1, (e.alt || []).join('; '),
+      stats.sectionCount, stats.wordCount, stats.charCount, stats.teaserWordCount, stats.teaserCharCount,
       ((e.art || {}).quotes || []).length, ((e.art || {}).links || []).length, (e.facts || []).length,
       e.img ? 'Yes' : 'No', e.audio ? 'Yes' : 'No'
-    ];
+    );
     if(includeStory){
       const text = ((e.art || {}).sections || [])
         .map(s => (s.h ? s.h + ': ' : '') + stripHtml(s.b || '').replace(/\s+/g, ' ').trim())
@@ -2678,23 +2750,31 @@ document.getElementById('mJsonAll').addEventListener('click', () => {
 });
 document.getElementById('mJsonFiltered').addEventListener('click', () => {
   const includeStory = document.getElementById('mExIncludeStory').checked;
-  const evs = buildExportPayload(mExportFilteredEntries(), includeStory);
+  const includeTeaser = document.getElementById('mExIncludeTeaser').checked;
+  const evs = buildExportPayload(mExportFilteredEntries(), includeStory, includeTeaser);
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const types = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
   const region = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
   openJsonView('Database JSON — Filtered',
-    evs.length + ' entries · ' + types + ' · ' + region + (includeStory ? ' · full story included' : ' · story text excluded') + ' · set on the Export tab · edit and re-import via Paste JSON (Add/Update)',
+    evs.length + ' entries · ' + types + ' · ' + region +
+      (includeStory ? ' · full story included' : ' · story text excluded') +
+      (includeTeaser ? ' · teaser included' : ' · teaser excluded') +
+      ' · set on the Export tab · edit and re-import via Paste JSON (Add/Update)',
     {v: db.v || 1, entries: evs}, 'catholic-timeline-filtered.json');
 });
 document.getElementById('mCsvExport').addEventListener('click', () => {
   const includeStory = document.getElementById('mExIncludeStory').checked;
+  const includeTeaser = document.getElementById('mExIncludeTeaser').checked;
   const evs = mExportFilteredEntries();
-  const csv = toCSV(evs, includeStory);
+  const csv = toCSV(evs, includeStory, includeTeaser);
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const types = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
   const region = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
   openPlainView('CSV Export',
-    evs.length + ' entries · ' + types + ' · ' + region + (includeStory ? ' · full story included' : ' · story text excluded') + ' · headings in row 1',
+    evs.length + ' entries · ' + types + ' · ' + region +
+      (includeStory ? ' · full story included' : ' · story text excluded') +
+      (includeTeaser ? ' · teaser included' : ' · teaser excluded') +
+      ' · headings in row 1',
     csv, 'catholic-timeline-export.csv');
 });
 
@@ -2716,17 +2796,22 @@ function mergeEntries(list){
     const ex = getEntry(id);
     if(ex){
       Object.keys(inc).forEach(k => { if(k !== 'id') ex[k] = inc[k]; });
+      touchEntry(ex);
       updated++; notes.push('Updated: ' + ex.n);
+      logChange(id, ex.n, 'Updated via Import/Paste JSON', 'Import');
     } else {
       if(inc.n == null || inc.y == null){ skipped++; return; }
-      db.entries.push({
+      const newEntry = {
         id: id, y: parseInt(inc.y, 10), n: String(inc.n),
         t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, displayLabel: inc.displayLabel || '', d: inc.d || '',
         art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
         img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
         tier: inc.tier || 1, alt: inc.alt || []
-      });
+      };
+      touchEntry(newEntry);
+      db.entries.push(newEntry);
       added++; notes.push('Added: ' + inc.n + ' (' + inc.y + ')');
+      logChange(id, inc.n, 'Added via Import/Paste JSON', 'Import');
     }
   });
   return {added: added, updated: updated, skipped: skipped, notes: notes};
@@ -2766,7 +2851,8 @@ document.getElementById('pasteClear').addEventListener('click', () => {
   setStatus('Cleared');
 });
 
-// ---- Work List: entity id / task type / associated MD file / completed date ----
+// ---- Work List: entity id / task type / associated MD file / completed date+time ----
+let wlHideDone = false;
 function taskSlug(entityId, taskType){
   const base = ((entityId || 'task') + '-' + (taskType || '')).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,70);
   return base + '-' + Date.now().toString(36).slice(-6);
@@ -2777,58 +2863,80 @@ function populateWlEntityOptions(){
   dl.innerHTML = db.entries.map(e => '<option value="' + esc(e.id) + '">' + esc(e.n) + ' (' + e.y + ')</option>').join('');
 }
 function renderWlList(){
-  const list = document.getElementById('wlList');
+  const tbody = document.getElementById('wlTbody');
   const tasks = (db.tasks || []).slice().sort((a, b) => {
     const ac = a.completed ? 1 : 0, bc = b.completed ? 1 : 0;
     if(ac !== bc) return ac - bc;
     return String(a.created || '').localeCompare(String(b.created || ''));
   });
+  const openCount = tasks.filter(t => !t.completed).length;
   document.getElementById('wlCount').textContent =
-    tasks.length + ' task' + (tasks.length === 1 ? '' : 's') + ' \u2014 ' + tasks.filter(t => !t.completed).length + ' open';
-  list.innerHTML = '';
+    tasks.length + ' task' + (tasks.length === 1 ? '' : 's') + ' \u2014 ' + openCount + ' open';
+  document.getElementById('wlHideCompleted').textContent = wlHideDone ? 'Show Completed' : 'Hide Completed';
+  tbody.innerHTML = '';
   if(!tasks.length){
-    list.innerHTML = '<div class="mitem" style="cursor:default;">No tasks yet — add one above.</div>';
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--m-sub);">No tasks yet — add one above.</td></tr>';
     return;
   }
-  tasks.forEach(t => {
-    const row = document.createElement('div');
-    row.className = 'mitem' + (t.completed ? ' done' : '');
-    row.style.cursor = 'default';
+  tasks.forEach((t, i) => {
     const ex = t.entityId ? getEntry(t.entityId) : null;
-    const entityLabel = ex ? ex.n : (t.entityId || 'Site-wide');
-    const body = document.createElement('span');
-    body.style.flex = '1 1 auto';
-    body.innerHTML =
-      '<b>' + esc(entityLabel) + '</b> — ' + esc(t.taskType || '') +
-      (t.mdFile ? '<br><span class="mt" style="margin-left:0;">' + esc(t.mdFile) + '</span>' : '') +
-      (t.notes ? '<br><span class="mt" style="margin-left:0;">' + esc(t.notes) + '</span>' : '') +
-      (t.completed ? '<br><span class="mt" style="margin-left:0;">Completed ' + esc(t.completed) + '</span>' : '');
-    const actions = document.createElement('span');
-    actions.className = 'wlActions';
+    const keyLabel = t.entityId || '(site-wide)';
+    const typeLabel = ex ? (TYPE_NAMES[ex.t] || ex.t) : '';
+    const tr = document.createElement('tr');
+    tr.className = (t.completed ? 'wlDone' : '') + (t.completed && wlHideDone ? ' wlHidden' : '');
+    tr.innerHTML =
+      '<td class="wlNum">' + (i + 1) + '</td>' +
+      '<td>' + esc(keyLabel) + (ex ? '<br><span style="color:var(--m-sub);">' + esc(ex.n) + '</span>' : '') + '</td>' +
+      '<td>' + esc(typeLabel) + '</td>' +
+      '<td>' + esc(t.taskType || '') + '</td>' +
+      '<td>' + esc(t.notes || '') + (t.mdFile ? '<br><span style="color:var(--m-sub);">' + esc(t.mdFile) + '</span>' : '') + '</td>' +
+      '<td>' + (t.completed ? esc(fmtDT(t.completed)) : '\u2014') + '</td>';
+    const actionsTd = document.createElement('td');
+    actionsTd.className = 'wlActions';
     const toggleBtn = document.createElement('button');
     toggleBtn.className = 'mbtn';
     toggleBtn.textContent = t.completed ? 'Reopen' : 'Mark Done';
-    toggleBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      t.completed = t.completed ? '' : new Date().toISOString().slice(0, 10);
+    toggleBtn.addEventListener('click', async () => {
+      t.completed = t.completed ? '' : new Date().toISOString();
       await saveDb();
       renderWlList();
     });
     const delBtn = document.createElement('button');
     delBtn.className = 'mbtn danger';
     delBtn.textContent = 'Delete';
-    delBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
+    delBtn.addEventListener('click', async () => {
       if(!confirm('Delete this task?')) return;
       db.tasks = db.tasks.filter(x => x.id !== t.id);
       await saveDb();
       renderWlList();
     });
-    actions.appendChild(toggleBtn);
-    actions.appendChild(delBtn);
-    row.appendChild(body);
-    row.appendChild(actions);
-    list.appendChild(row);
+    actionsTd.appendChild(toggleBtn);
+    actionsTd.appendChild(delBtn);
+    tr.appendChild(actionsTd);
+    tbody.appendChild(tr);
+  });
+}
+document.getElementById('wlHideCompleted').addEventListener('click', () => {
+  wlHideDone = !wlHideDone;
+  renderWlList();
+});
+function renderChangeLog(){
+  const tbody = document.getElementById('wlLogTbody');
+  if(!tbody) return;
+  const rows = (db.changelog || []).slice(0, 300);
+  tbody.innerHTML = '';
+  if(!rows.length){
+    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--m-sub);">No changes logged yet.</td></tr>';
+    return;
+  }
+  rows.forEach(c => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td style="white-space:nowrap;">' + esc(fmtDT(c.ts)) + '</td>' +
+      '<td>' + esc(c.entityName || c.entityId || '') + '</td>' +
+      '<td>' + esc(c.summary || '') + '</td>' +
+      '<td style="color:var(--m-sub);">' + esc(c.source || '') + '</td>';
+    tbody.appendChild(tr);
   });
 }
 document.getElementById('wlAdd').addEventListener('click', async () => {
@@ -2990,9 +3098,11 @@ document.getElementById('mRestoreFile').addEventListener('change', (ev) => {
       if(!parsed.entries || !Array.isArray(parsed.entries)) throw new Error('bad format');
       db = parsed;
       db.tasks = db.tasks || [];
+      db.changelog = db.changelog || [];
       await saveDb();
       renderMList();
       renderWlList();
+      renderChangeLog();
       render();
       setStatus('Restored ' + db.entries.length + ' entries (replaced all)');
     }catch(e){ setStatus('Restore failed — not a valid backup file'); }
@@ -3007,6 +3117,7 @@ document.getElementById('mReset').addEventListener('click', async () => {
   await saveDb();
   renderMList();
   renderWlList();
+  renderChangeLog();
   render();
   setStatus('Reset to seed');
 });
