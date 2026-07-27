@@ -446,6 +446,11 @@
   .mitem .my{color:var(--gold-bright); font-family:'Cinzel',serif; font-size:12px; flex:0 0 46px;}
   .mitem .mt{margin-left:auto; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
   .mlog{font-size:14px; line-height:1.5; margin-top:8px; white-space:pre-wrap; color:var(--parchment); max-height:160px; overflow-y:auto;}
+  .mitem.done{opacity:.5;}
+  .mitem.done b{text-decoration:line-through;}
+  .wlActions{display:flex; gap:6px; flex:0 0 auto; margin-left:8px;}
+  .wlActions .mbtn{padding:4px 8px; font-size:10.5px;}
+  #wlList{max-height:260px;}
   .hint{font-size:13px; font-style:italic; color:var(--muted); margin-top:4px; line-height:1.4;}
   /* Rich-text article bodies */
   .artrich{font-size:19.5px; line-height:1.68; margin:0 0 14px;}
@@ -751,6 +756,7 @@
   </div>
   <div class="mgmtTabs" role="tablist">
     <button class="mgmtTab active" data-tab="entries">Entries</button>
+    <button class="mgmtTab" data-tab="worklist">Work List</button>
     <button class="mgmtTab" data-tab="export">Export</button>
     <button class="mgmtTab" data-tab="import">Import</button>
     <button class="mgmtTab" data-tab="settings">Settings</button>
@@ -818,6 +824,56 @@
           <button class="mbtn" id="fDraft">Draft Article with Claude</button>
           <button class="mbtn danger" id="fDelete">Delete</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB: Work List ===== -->
+    <div class="mgmtPanel" id="panel-worklist">
+      <div class="mbox">
+        <h3>Add Task</h3>
+        <div class="mgrid2">
+          <div class="mfield"><label>Entity ID (blank = site-wide task)</label>
+            <input type="text" id="wlEntityId" list="wlEntityOptions" placeholder="e.g. augustine-of-hippo-397">
+            <datalist id="wlEntityOptions"></datalist>
+          </div>
+          <div class="mfield"><label>Task Type</label><input type="text" id="wlTaskType" placeholder="e.g. Write full article"></div>
+        </div>
+        <div class="mgrid2">
+          <div class="mfield"><label>Associated MD File</label><input type="text" id="wlMdFile" placeholder="e.g. augustine-of-hippo.md"></div>
+          <div class="mfield"><label>Notes (optional)</label><input type="text" id="wlNotes" placeholder="Optional context for whoever works the task"></div>
+        </div>
+        <button class="mbtn" id="wlAdd">+ Add Task</button>
+      </div>
+
+      <div class="mgmtFilterCount" id="wlCount"></div>
+      <div class="mlist" id="wlList"></div>
+
+      <div class="mbox">
+        <h3>Export Work List</h3>
+        <div class="mtool">
+          <button class="mbtn" id="wlJsonAll">JSON &mdash; All Tasks</button>
+        </div>
+      </div>
+
+      <div class="mbox">
+        <h3>Import File (Add / Update)</h3>
+        <div class="mtool">
+          <button class="mbtn" id="wlImportBtn">Import File (Add/Update)</button>
+          <input type="file" id="wlImportFile" accept=".json,.txt" style="display:none;">
+        </div>
+        <div class="hint">Adds new tasks and updates matching ids; never deletes anything. Publishes automatically after import if a GitHub token is set (see Import tab).</div>
+      </div>
+
+      <div class="mbox">
+        <h3>Paste JSON (Add / Update Only)</h3>
+        <div class="mfield">
+          <textarea id="wlPasteJson" placeholder='Paste task JSON here: a single task {...}, an array [...], or {"tasks":[...]}. Matching ids are updated, new ones are added; nothing else in the work list is touched.'></textarea>
+        </div>
+        <div class="mtool">
+          <button class="mbtn" id="wlPasteApply">Apply (Add/Update)</button>
+          <button class="mbtn" id="wlPasteClear">Clear</button>
+        </div>
+        <div class="hint">Same paste-JSON pattern as the Entries import: bring back a task list drafted by Claude, paste it here, Apply. Publishes automatically after applying if a GitHub token is set.</div>
       </div>
     </div>
 
@@ -1195,7 +1251,8 @@ function seedDb(){
       id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, displayLabel: "", d: r[4],
       art: {sections: [{h: "Overview", b: r[4]}], quotes: [], links: []},
       img: "", imgCap: "", audio: ""
-    }))
+    })),
+    tasks: []
   };
 }
 // Detect whether we're running inside a Claude artifact (persistent window.storage present)
@@ -1205,7 +1262,7 @@ async function loadDb(){
   if(IS_ARTIFACT){
     try{
       const res = await window.storage.get(DB_KEY);
-      if(res && res.value){ db = JSON.parse(res.value); db.settings = db.settings || {imageBase:"", audioBase:""}; return; }
+      if(res && res.value){ db = JSON.parse(res.value); db.settings = db.settings || {imageBase:"", audioBase:""}; db.tasks = db.tasks || []; return; }
     }catch(e){ /* not found */ }
     db = seedDb();
     await saveDb();
@@ -1214,7 +1271,7 @@ async function loadDb(){
   // Served from a web host (e.g. GitHub Pages): data.json in the repo is the source of truth.
   try{
     const r = await fetch('data.json', {cache: 'no-store'});
-    if(r.ok){ db = await r.json(); db.settings = db.settings || {imageBase:"", audioBase:""}; return; }
+    if(r.ok){ db = await r.json(); db.settings = db.settings || {imageBase:"", audioBase:""}; db.tasks = db.tasks || []; return; }
   }catch(e){ /* opened as a local file, or data.json missing */ }
   // Last-resort fallback (double-clicked local file, or no data.json yet): embedded seed.
   db = seedDb();
@@ -1877,6 +1934,16 @@ async function publishToGitHub(){
 }
 document.getElementById('ghPublish').addEventListener('click', publishToGitHub);
 
+// Auto-publish after Import / Save & Exit — only fires if a GitHub token is already configured
+// (set once under Import → Publish to GitHub). Silent no-op otherwise; ghStatus still gets the result.
+async function maybePublish(){
+  const tokenEl = document.getElementById('ghToken');
+  const ownerEl = document.getElementById('ghOwner');
+  if(!tokenEl || !ownerEl) return;
+  if(!tokenEl.value.trim() || !ownerEl.value.trim()) return; // nothing configured yet — save only
+  await publishToGitHub();
+}
+
 // ================= ARTICLE VIEW (from DB) =================
 document.getElementById('dArtBtn').addEventListener('click', () => { if(currentEntry) openArticle(currentEntry); });
 document.getElementById('artClose').addEventListener('click', () => { stopAudio(); article.classList.remove('open'); });
@@ -2125,6 +2192,8 @@ document.getElementById('manageBtn').addEventListener('click', () => {
   renderMList(true);
   openEditor(currentEntry ? currentEntry.id : null);
   renderExportSummary();
+  renderWlList();
+  populateWlEntityOptions();
   prefillGh();
   prefillAssetBase();
 });
@@ -2134,6 +2203,7 @@ function switchMgmtTab(tab){
   document.querySelectorAll('.mgmtTab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.mgmtPanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
   document.querySelector('.mgmtBody').scrollIntoView({block:'start'});
+  if(tab === 'worklist'){ renderWlList(); populateWlEntityOptions(); }
 }
 document.querySelectorAll('.mgmtTab').forEach(t => t.addEventListener('click', () => switchMgmtTab(t.dataset.tab)));
 
@@ -2143,6 +2213,7 @@ document.getElementById('mgmtExitBtn').addEventListener('click', () => { mgmtExi
 document.getElementById('mgmtCancelExit').addEventListener('click', () => { mgmtExitModal.style.display = 'none'; });
 document.getElementById('mgmtSaveExit').addEventListener('click', async () => {
   await saveDb();
+  await maybePublish();
   mgmtExitModal.style.display = 'none';
   manage.classList.remove('open');
 });
@@ -2679,7 +2750,7 @@ document.getElementById('mImportFile').addEventListener('change', (ev) => {
   const f = ev.target.files[0];
   if(!f) return;
   const r = new FileReader();
-  r.onload = () => applyMerge(r.result, 'Import');
+  r.onload = async () => { const ok = await applyMerge(r.result, 'Import'); if(ok) await maybePublish(); };
   r.readAsText(f);
   ev.target.value = '';
 });
@@ -2688,10 +2759,161 @@ document.getElementById('pasteApply').addEventListener('click', async () => {
   const text = document.getElementById('pasteJson').value.trim();
   if(!text){ setStatus('Paste JSON first'); return; }
   const ok = await applyMerge(text, 'Applied');
-  if(ok) document.getElementById('pasteJson').value = '';
+  if(ok){ document.getElementById('pasteJson').value = ''; await maybePublish(); }
 });
 document.getElementById('pasteClear').addEventListener('click', () => {
   document.getElementById('pasteJson').value = '';
+  setStatus('Cleared');
+});
+
+// ---- Work List: entity id / task type / associated MD file / completed date ----
+function taskSlug(entityId, taskType){
+  const base = ((entityId || 'task') + '-' + (taskType || '')).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,70);
+  return base + '-' + Date.now().toString(36).slice(-6);
+}
+function populateWlEntityOptions(){
+  const dl = document.getElementById('wlEntityOptions');
+  if(!dl) return;
+  dl.innerHTML = db.entries.map(e => '<option value="' + esc(e.id) + '">' + esc(e.n) + ' (' + e.y + ')</option>').join('');
+}
+function renderWlList(){
+  const list = document.getElementById('wlList');
+  const tasks = (db.tasks || []).slice().sort((a, b) => {
+    const ac = a.completed ? 1 : 0, bc = b.completed ? 1 : 0;
+    if(ac !== bc) return ac - bc;
+    return String(a.created || '').localeCompare(String(b.created || ''));
+  });
+  document.getElementById('wlCount').textContent =
+    tasks.length + ' task' + (tasks.length === 1 ? '' : 's') + ' \u2014 ' + tasks.filter(t => !t.completed).length + ' open';
+  list.innerHTML = '';
+  if(!tasks.length){
+    list.innerHTML = '<div class="mitem" style="cursor:default;">No tasks yet — add one above.</div>';
+    return;
+  }
+  tasks.forEach(t => {
+    const row = document.createElement('div');
+    row.className = 'mitem' + (t.completed ? ' done' : '');
+    row.style.cursor = 'default';
+    const ex = t.entityId ? getEntry(t.entityId) : null;
+    const entityLabel = ex ? ex.n : (t.entityId || 'Site-wide');
+    const body = document.createElement('span');
+    body.style.flex = '1 1 auto';
+    body.innerHTML =
+      '<b>' + esc(entityLabel) + '</b> — ' + esc(t.taskType || '') +
+      (t.mdFile ? '<br><span class="mt" style="margin-left:0;">' + esc(t.mdFile) + '</span>' : '') +
+      (t.notes ? '<br><span class="mt" style="margin-left:0;">' + esc(t.notes) + '</span>' : '') +
+      (t.completed ? '<br><span class="mt" style="margin-left:0;">Completed ' + esc(t.completed) + '</span>' : '');
+    const actions = document.createElement('span');
+    actions.className = 'wlActions';
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'mbtn';
+    toggleBtn.textContent = t.completed ? 'Reopen' : 'Mark Done';
+    toggleBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      t.completed = t.completed ? '' : new Date().toISOString().slice(0, 10);
+      await saveDb();
+      renderWlList();
+    });
+    const delBtn = document.createElement('button');
+    delBtn.className = 'mbtn danger';
+    delBtn.textContent = 'Delete';
+    delBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if(!confirm('Delete this task?')) return;
+      db.tasks = db.tasks.filter(x => x.id !== t.id);
+      await saveDb();
+      renderWlList();
+    });
+    actions.appendChild(toggleBtn);
+    actions.appendChild(delBtn);
+    row.appendChild(body);
+    row.appendChild(actions);
+    list.appendChild(row);
+  });
+}
+document.getElementById('wlAdd').addEventListener('click', async () => {
+  const entityId = document.getElementById('wlEntityId').value.trim();
+  const taskType = document.getElementById('wlTaskType').value.trim();
+  const mdFile = document.getElementById('wlMdFile').value.trim();
+  const notes = document.getElementById('wlNotes').value.trim();
+  if(!taskType){ setStatus('Task Type is required'); return; }
+  db.tasks = db.tasks || [];
+  db.tasks.push({
+    id: taskSlug(entityId, taskType), entityId: entityId, taskType: taskType,
+    mdFile: mdFile, notes: notes, completed: '', created: new Date().toISOString().slice(0, 10)
+  });
+  await saveDb();
+  renderWlList();
+  document.getElementById('wlEntityId').value = '';
+  document.getElementById('wlTaskType').value = '';
+  document.getElementById('wlMdFile').value = '';
+  document.getElementById('wlNotes').value = '';
+  setStatus('Task added');
+});
+
+// Merge import for tasks — same add/update-by-id pattern as mergeEntries, never deletes.
+function normalizeIncomingTasks(parsed){
+  if(Array.isArray(parsed)) return parsed;
+  if(parsed && Array.isArray(parsed.tasks)) return parsed.tasks;
+  if(parsed && (parsed.taskType != null || parsed.id)) return [parsed];
+  return null;
+}
+function mergeTasks(list){
+  let added = 0, updated = 0, skipped = 0;
+  db.tasks = db.tasks || [];
+  list.forEach(inc => {
+    if(!inc || typeof inc !== 'object'){ skipped++; return; }
+    let id = inc.id;
+    if(!id) id = taskSlug(inc.entityId, inc.taskType);
+    const ex = db.tasks.find(t => t.id === id);
+    if(ex){
+      Object.keys(inc).forEach(k => { if(k !== 'id') ex[k] = inc[k]; });
+      updated++;
+    } else {
+      if(!inc.taskType){ skipped++; return; }
+      db.tasks.push({
+        id: id, entityId: inc.entityId || '', taskType: inc.taskType,
+        mdFile: inc.mdFile || '', notes: inc.notes || '', completed: inc.completed || '',
+        created: inc.created || new Date().toISOString().slice(0, 10)
+      });
+      added++;
+    }
+  });
+  return {added: added, updated: updated, skipped: skipped};
+}
+async function applyMergeTasks(text, statusPrefix){
+  let parsed;
+  try{ parsed = JSON.parse(text); }
+  catch(e){ setStatus('Not valid JSON — check for missing brackets or commas'); return false; }
+  const list = normalizeIncomingTasks(parsed);
+  if(!list){ setStatus('JSON must be a task, an array of tasks, or {"tasks":[...]}'); return false; }
+  const r = mergeTasks(list);
+  await saveDb();
+  renderWlList();
+  setStatus(statusPrefix + ': ' + r.added + ' added, ' + r.updated + ' updated' + (r.skipped ? ', ' + r.skipped + ' skipped' : ''));
+  return true;
+}
+document.getElementById('wlJsonAll').addEventListener('click', () => {
+  openPlainView('Work List JSON', (db.tasks || []).length + ' tasks',
+    JSON.stringify({tasks: db.tasks || []}, null, 1), 'worklist.json');
+});
+document.getElementById('wlImportBtn').addEventListener('click', () => document.getElementById('wlImportFile').click());
+document.getElementById('wlImportFile').addEventListener('change', (ev) => {
+  const f = ev.target.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = async () => { const ok = await applyMergeTasks(r.result, 'Import'); if(ok) await maybePublish(); };
+  r.readAsText(f);
+  ev.target.value = '';
+});
+document.getElementById('wlPasteApply').addEventListener('click', async () => {
+  const text = document.getElementById('wlPasteJson').value.trim();
+  if(!text){ setStatus('Paste JSON first'); return; }
+  const ok = await applyMergeTasks(text, 'Applied');
+  if(ok){ document.getElementById('wlPasteJson').value = ''; await maybePublish(); }
+});
+document.getElementById('wlPasteClear').addEventListener('click', () => {
+  document.getElementById('wlPasteJson').value = '';
   setStatus('Cleared');
 });
 
@@ -2767,8 +2989,10 @@ document.getElementById('mRestoreFile').addEventListener('change', (ev) => {
       const parsed = JSON.parse(r.result);
       if(!parsed.entries || !Array.isArray(parsed.entries)) throw new Error('bad format');
       db = parsed;
+      db.tasks = db.tasks || [];
       await saveDb();
       renderMList();
+      renderWlList();
       render();
       setStatus('Restored ' + db.entries.length + ' entries (replaced all)');
     }catch(e){ setStatus('Restore failed — not a valid backup file'); }
@@ -2782,6 +3006,7 @@ document.getElementById('mReset').addEventListener('click', async () => {
   db = seedDb();
   await saveDb();
   renderMList();
+  renderWlList();
   render();
   setStatus('Reset to seed');
 });
