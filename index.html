@@ -1481,12 +1481,12 @@ function showDetail(d){
   }
   const portrait = document.getElementById('dPortrait');
   const portraitImg = document.getElementById('dPortraitImg');
+  portrait.classList.remove('show'); // hide the previous entry's image immediately so it never lingers under the new name/year
   if(d.img){
+    portraitImg.onload = () => portrait.classList.add('show');
     portraitImg.onerror = () => portrait.classList.remove('show');
     portraitImg.src = resolveAsset(d.img, db.settings && db.settings.imageBase);
-    portrait.classList.add('show');
   } else {
-    portrait.classList.remove('show');
     portraitImg.removeAttribute('src');
   }
   currentEntry = d;
