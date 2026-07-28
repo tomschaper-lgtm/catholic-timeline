@@ -423,7 +423,8 @@
   .mbtn:hover{background:var(--gold); color:var(--navy-deep);}
   .mbtn.danger{color:#E08876; border-color:rgba(212,91,69,.6);}
   .mbtn.danger:hover{background:var(--persec); color:#fff;}
-  .mstatus{font-size:13px; font-style:italic; color:var(--muted);}
+  .mstatus{font-size:13.5px; font-weight:600; color:var(--m-accent); background:rgba(138,109,28,.1); border-radius:5px; padding:3px 8px; display:inline-block;}
+  .mstatus:empty{padding:0; background:none;}
   .mbox{background:rgba(201,165,66,.05); border:1px solid rgba(201,165,66,.35); border-radius:10px; padding:14px; margin-top:16px;}
   .mbox h3{font-family:'Cinzel',serif; font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-bright); margin-bottom:8px;}
   .mfield{margin-bottom:10px;}
@@ -446,18 +447,6 @@
   .mitem .my{color:var(--gold-bright); font-family:'Cinzel',serif; font-size:12px; flex:0 0 46px;}
   .mitem .mt{margin-left:auto; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
   .mlog{font-size:14px; line-height:1.5; margin-top:8px; white-space:pre-wrap; color:var(--parchment); max-height:160px; overflow-y:auto;}
-  .wlTableWrap{max-height:320px; overflow:auto; border:1px solid var(--m-border); border-radius:6px; margin-bottom:14px;}
-  table.wlTable{width:100%; border-collapse:collapse; font-size:12.5px;}
-  table.wlTable th, table.wlTable td{padding:6px 8px; text-align:left; border-bottom:1px solid var(--m-border); vertical-align:top;}
-  table.wlTable th{position:sticky; top:0; background:var(--m-panel); color:var(--m-accent); font-family:'Cinzel',serif; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; z-index:1;}
-  table.wlTable td{color:var(--m-ink);}
-  table.wlTable tbody tr:nth-child(even){background:rgba(0,0,0,0.02);}
-  table.wlTable tbody tr.wlDone{opacity:.5;}
-  table.wlTable tbody tr.wlDone td:nth-child(4){text-decoration:line-through;}
-  table.wlTable td.wlNum{color:var(--m-sub); width:34px;}
-  table.wlTable td.wlActions{white-space:nowrap; width:1%;}
-  table.wlTable td.wlActions .mbtn{padding:3px 7px; font-size:10px; margin-right:4px;}
-  table.wlTable tbody tr.wlHidden{display:none;}
   .hint{font-size:13px; font-style:italic; color:var(--muted); margin-top:4px; line-height:1.4;}
   /* Rich-text article bodies */
   .artrich{font-size:19.5px; line-height:1.68; margin:0 0 14px;}
@@ -763,7 +752,6 @@
   </div>
   <div class="mgmtTabs" role="tablist">
     <button class="mgmtTab active" data-tab="entries">Entries</button>
-    <button class="mgmtTab" data-tab="worklist">Work List</button>
     <button class="mgmtTab" data-tab="export">Export</button>
     <button class="mgmtTab" data-tab="import">Import</button>
     <button class="mgmtTab" data-tab="settings">Settings</button>
@@ -834,79 +822,6 @@
       </div>
     </div>
 
-    <!-- ===== TAB: Work List ===== -->
-    <div class="mgmtPanel" id="panel-worklist">
-      <div class="mbox">
-        <h3>Add Task</h3>
-        <div class="mgrid2">
-          <div class="mfield"><label>Entity ID (blank = site-wide task)</label>
-            <input type="text" id="wlEntityId" list="wlEntityOptions" placeholder="e.g. augustine-of-hippo-397">
-            <datalist id="wlEntityOptions"></datalist>
-          </div>
-          <div class="mfield"><label>Task Type</label><input type="text" id="wlTaskType" placeholder="e.g. Write full article"></div>
-        </div>
-        <div class="mgrid2">
-          <div class="mfield"><label>Associated MD File</label><input type="text" id="wlMdFile" placeholder="e.g. augustine-of-hippo.md"></div>
-          <div class="mfield"><label>Notes (optional)</label><input type="text" id="wlNotes" placeholder="Optional context for whoever works the task"></div>
-        </div>
-        <button class="mbtn" id="wlAdd">+ Add Task</button>
-      </div>
-
-      <div class="mtool" style="margin-bottom:6px; align-items:center;">
-        <span class="mgmtFilterCount" id="wlCount"></span>
-        <button class="mbtn" id="wlHideCompleted" style="margin-left:auto;">Hide Completed</button>
-      </div>
-      <div class="wlTableWrap">
-        <table class="wlTable">
-          <thead>
-            <tr><th>#</th><th>Key</th><th>Type</th><th>Task</th><th>Notes</th><th>Completed</th><th></th></tr>
-          </thead>
-          <tbody id="wlTbody"></tbody>
-        </table>
-      </div>
-
-      <div class="mbox">
-        <h3>Export Work List</h3>
-        <div class="mtool">
-          <button class="mbtn" id="wlJsonAll">JSON &mdash; All Tasks</button>
-        </div>
-      </div>
-
-      <div class="mbox">
-        <h3>Import File (Add / Update)</h3>
-        <div class="mtool">
-          <button class="mbtn" id="wlImportBtn">Import File (Add/Update)</button>
-          <input type="file" id="wlImportFile" accept=".json,.txt" style="display:none;">
-        </div>
-        <div class="hint">Adds new tasks and updates matching ids; never deletes anything. Publishes automatically after import if a GitHub token is set (see Import tab).</div>
-      </div>
-
-      <div class="mbox">
-        <h3>Paste JSON (Add / Update Only)</h3>
-        <div class="mfield">
-          <textarea id="wlPasteJson" placeholder='Paste task JSON here: a single task {...}, an array [...], or {"tasks":[...]}. Matching ids are updated, new ones are added; nothing else in the work list is touched.'></textarea>
-        </div>
-        <div class="mtool">
-          <button class="mbtn" id="wlPasteApply">Apply (Add/Update)</button>
-          <button class="mbtn" id="wlPasteClear">Clear</button>
-        </div>
-        <div class="hint">Same paste-JSON pattern as the Entries import: export your entries JSON (full or filtered) from the Export tab, paste it into a Claude chat with instructions like "find every saint with no quotes and add a task for each," paste what Claude returns here, Apply. Publishes automatically after applying if a GitHub token is set.</div>
-      </div>
-
-      <div class="mbox">
-        <h3>Change Log</h3>
-        <div class="hint" style="margin-top:0;">Every entity added, edited, or deleted — manually, via Import/Paste, or via Instruct Claude — is recorded here automatically.</div>
-        <div class="wlTableWrap">
-          <table class="wlTable">
-            <thead>
-              <tr><th>When</th><th>Entity</th><th>Change</th><th>Source</th></tr>
-            </thead>
-            <tbody id="wlLogTbody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
     <!-- ===== TAB: Export ===== -->
     <div class="mgmtPanel" id="panel-export">
       <div class="mgmtRowLabel">Category (none = all)</div>
@@ -941,10 +856,6 @@
       <label class="hamToggle" style="color:var(--m-ink); margin-bottom:8px;">
         <input type="checkbox" id="mExIncludeStory" checked>
         <span>Include full story text (word/char/section counts always included)</span>
-      </label>
-      <label class="hamToggle" style="color:var(--m-ink); margin-bottom:8px;">
-        <input type="checkbox" id="mExIncludeTeaser" checked>
-        <span>Include teaser text / short description (teaser word count always included)</span>
       </label>
 
       <div class="mgmtFilterCount" id="mfSummary"></div>
@@ -1284,10 +1195,8 @@ function seedDb(){
     entries: SEED.map(r => ({
       id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, displayLabel: "", d: r[4],
       art: {sections: [{h: "Overview", b: r[4]}], quotes: [], links: []},
-      img: "", imgCap: "", audio: "", updated: ""
-    })),
-    tasks: [],
-    changelog: []
+      img: "", imgCap: "", audio: ""
+    }))
   };
 }
 // Detect whether we're running inside a Claude artifact (persistent window.storage present)
@@ -1297,7 +1206,7 @@ async function loadDb(){
   if(IS_ARTIFACT){
     try{
       const res = await window.storage.get(DB_KEY);
-      if(res && res.value){ db = JSON.parse(res.value); db.settings = db.settings || {imageBase:"", audioBase:""}; db.tasks = db.tasks || []; db.changelog = db.changelog || []; return; }
+      if(res && res.value){ db = JSON.parse(res.value); db.settings = db.settings || {imageBase:"", audioBase:""}; return; }
     }catch(e){ /* not found */ }
     db = seedDb();
     await saveDb();
@@ -1306,7 +1215,7 @@ async function loadDb(){
   // Served from a web host (e.g. GitHub Pages): data.json in the repo is the source of truth.
   try{
     const r = await fetch('data.json', {cache: 'no-store'});
-    if(r.ok){ db = await r.json(); db.settings = db.settings || {imageBase:"", audioBase:""}; db.tasks = db.tasks || []; db.changelog = db.changelog || []; return; }
+    if(r.ok){ db = await r.json(); db.settings = db.settings || {imageBase:"", audioBase:""}; return; }
   }catch(e){ /* opened as a local file, or data.json missing */ }
   // Last-resort fallback (double-clicked local file, or no data.json yet): embedded seed.
   db = seedDb();
@@ -1328,18 +1237,9 @@ function setStatus(msg){
   const el = document.getElementById('mStatus');
   el.textContent = msg;
   clearTimeout(setStatus._t);
-  setStatus._t = setTimeout(() => el.textContent = '', 4000);
+  setStatus._t = setTimeout(() => el.textContent = '', 6000);
 }
 function getEntry(id){ return db.entries.find(e => e.id === id); }
-function logChange(entityId, entityName, summary, source){
-  db.changelog = db.changelog || [];
-  db.changelog.unshift({
-    ts: new Date().toISOString(), entityId: entityId || '', entityName: entityName || '',
-    summary: summary || '', source: source || 'Manual'
-  });
-  if(db.changelog.length > 2000) db.changelog.length = 2000; // keep the log from growing unbounded
-}
-function touchEntry(entry){ entry.updated = new Date().toISOString(); }
 
 // ================= TIMELINE =================
 const START = 0, END = 2030, SPAN = END - START;
@@ -1375,13 +1275,6 @@ function totalWidth(){ return yearToX(END); }
 
 function esc(s){
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function fmtDT(iso){
-  if(!iso) return '';
-  const d = new Date(iso);
-  if(isNaN(d.getTime())) return String(iso);
-  return d.toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'}) + ' ' +
-    d.toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
 }
 function fitPpy(){ return Math.max(0.28, (viewport.clientWidth - 20) / EFFECTIVE_SPAN); }
 function centerYear(){ return xToYear(viewport.scrollLeft + viewport.clientWidth/2); }
@@ -1970,7 +1863,7 @@ async function publishToGitHub(){
   st.textContent = 'Publishing…';
   try{
     let sha = null;
-    const g = await fetch(api + '?ref=' + encodeURIComponent(branch), { headers: hdr });
+    const g = await fetch(api + '?ref=' + encodeURIComponent(branch), { headers: hdr, cache: 'no-store' });
     if(g.status === 200){ sha = (await g.json()).sha; }
     else if(g.status === 401 || g.status === 403){ throw new Error('token rejected (check permissions)'); }
     else if(g.status !== 404){ throw new Error('read failed (' + g.status + ')'); }
@@ -1984,16 +1877,6 @@ async function publishToGitHub(){
   }catch(err){ st.textContent = 'Publish failed: ' + err.message; }
 }
 document.getElementById('ghPublish').addEventListener('click', publishToGitHub);
-
-// Auto-publish after Import / Save & Exit — only fires if a GitHub token is already configured
-// (set once under Import → Publish to GitHub). Silent no-op otherwise; ghStatus still gets the result.
-async function maybePublish(){
-  const tokenEl = document.getElementById('ghToken');
-  const ownerEl = document.getElementById('ghOwner');
-  if(!tokenEl || !ownerEl) return;
-  if(!tokenEl.value.trim() || !ownerEl.value.trim()) return; // nothing configured yet — save only
-  await publishToGitHub();
-}
 
 // ================= ARTICLE VIEW (from DB) =================
 document.getElementById('dArtBtn').addEventListener('click', () => { if(currentEntry) openArticle(currentEntry); });
@@ -2243,9 +2126,6 @@ document.getElementById('manageBtn').addEventListener('click', () => {
   renderMList(true);
   openEditor(currentEntry ? currentEntry.id : null);
   renderExportSummary();
-  renderWlList();
-  renderChangeLog();
-  populateWlEntityOptions();
   prefillGh();
   prefillAssetBase();
 });
@@ -2255,7 +2135,6 @@ function switchMgmtTab(tab){
   document.querySelectorAll('.mgmtTab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.mgmtPanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
   document.querySelector('.mgmtBody').scrollIntoView({block:'start'});
-  if(tab === 'worklist'){ renderWlList(); renderChangeLog(); populateWlEntityOptions(); }
 }
 document.querySelectorAll('.mgmtTab').forEach(t => t.addEventListener('click', () => switchMgmtTab(t.dataset.tab)));
 
@@ -2265,7 +2144,6 @@ document.getElementById('mgmtExitBtn').addEventListener('click', () => { mgmtExi
 document.getElementById('mgmtCancelExit').addEventListener('click', () => { mgmtExitModal.style.display = 'none'; });
 document.getElementById('mgmtSaveExit').addEventListener('click', async () => {
   await saveDb();
-  await maybePublish();
   mgmtExitModal.style.display = 'none';
   manage.classList.remove('open');
 });
@@ -2418,7 +2296,7 @@ function parseFacts(text){
 function openEditor(id){
   const e = id ? getEntry(id) : null;
   editingId = id;
-  document.getElementById('mEditorTitle').textContent = e ? 'Edit: ' + e.n + (e.updated ? ' (updated ' + fmtDT(e.updated) + ')' : '') : 'New Entry';
+  document.getElementById('mEditorTitle').textContent = e ? 'Edit: ' + e.n : 'New Entry';
   document.getElementById('fName').value = e ? e.n : '';
   document.getElementById('fYear').value = e ? e.y : '';
   document.getElementById('fType').value = e ? e.t : 's';
@@ -2464,10 +2342,7 @@ document.getElementById('fSave').addEventListener('click', async () => {
     alt: document.getElementById('fAlt').value.split(/[\n,]/).map(s => s.trim()).filter(Boolean)
   };
   const idx = db.entries.findIndex(e => e.id === obj.id);
-  const wasAdd = idx < 0;
-  touchEntry(obj);
   if(idx >= 0) db.entries[idx] = obj; else db.entries.push(obj);
-  logChange(obj.id, obj.n, wasAdd ? 'Added (manual editor)' : 'Edited (manual editor)', 'Manual');
   editingId = obj.id;
   await saveDb();
   renderMList();
@@ -2479,9 +2354,7 @@ document.getElementById('fDelete').addEventListener('click', async () => {
   if(!editingId){ openEditor(null); return; }
   if(!confirm('Delete this entry permanently?')) return;
   const wasCurrent = currentEntry && currentEntry.id === editingId;
-  const delEntry = getEntry(editingId);
   db.entries = db.entries.filter(e => e.id !== editingId);
-  logChange(editingId, delEntry ? delEntry.n : editingId, 'Deleted (manual editor)', 'Manual');
   editingId = null;
   openEditor(null);
   await saveDb();
@@ -2605,19 +2478,16 @@ document.getElementById('aiRun').addEventListener('click', async () => {
         en.id = slug(en.n, en.y);
         en.art = en.art || {sections:[{h:'Overview', b: en.d || ''}], quotes:[], links:[]};
         en.country = en.country || ''; en.img = en.img || ''; en.imgCap = en.imgCap || ''; en.audio = en.audio || ''; en.facts = en.facts || []; en.tier = en.tier || 1; en.alt = en.alt || [];
-        touchEntry(en);
         const idx = db.entries.findIndex(x => x.id === en.id);
         if(idx >= 0) db.entries[idx] = en; else db.entries.push(en);
-        logChange(en.id, en.n, 'Added via Instruct Claude: ' + cmd, 'Instruct Claude');
         done.push('Added: ' + en.n + ' (' + en.y + ')');
       } else if(op.op === 'update' && op.id){
         const en = getEntry(op.id);
-        if(en){ Object.assign(en, op.fields || {}); touchEntry(en); logChange(en.id, en.n, 'Updated via Instruct Claude: ' + cmd, 'Instruct Claude'); done.push('Updated: ' + en.n); }
+        if(en){ Object.assign(en, op.fields || {}); done.push('Updated: ' + en.n); }
         else done.push('Not found: ' + op.id);
       } else if(op.op === 'delete' && op.id){
         const en = getEntry(op.id);
         db.entries = db.entries.filter(x => x.id !== op.id);
-        logChange(op.id, en ? en.n : op.id, 'Deleted via Instruct Claude: ' + cmd, 'Instruct Claude');
         done.push('Deleted: ' + (en ? en.n : op.id));
       }
     });
@@ -2687,27 +2557,18 @@ function articleStats(e){
   const sections = (e.art && e.art.sections) || [];
   const text = sections.map(s => stripHtml(s.b || '')).join(' ').replace(/\s+/g, ' ').trim();
   const words = text ? text.split(' ') : [];
-  const teaserText = (e.d || '').replace(/\s+/g, ' ').trim();
-  const teaserWords = teaserText ? teaserText.split(' ') : [];
-  return {
-    sectionCount: sections.length, wordCount: words.length, charCount: text.length,
-    teaserWordCount: teaserWords.length, teaserCharCount: teaserText.length
-  };
+  return {sectionCount: sections.length, wordCount: words.length, charCount: text.length};
 }
 // Builds the export payload for JSON — Filtered: each entry gets sectionCount/wordCount/charCount
-// and teaserWordCount/teaserCharCount added; the full `art` object and/or the teaser `d` field are
-// included or stripped based on the Export tab's two checkboxes.
-function buildExportPayload(entries, includeStory, includeTeaser){
+// added, and the full `art` object is included or stripped based on the Export tab's checkbox.
+function buildExportPayload(entries, includeStory){
   return entries.map(e => {
     const stats = articleStats(e);
     const copy = JSON.parse(JSON.stringify(e));
     if(!includeStory) delete copy.art;
-    if(!includeTeaser) delete copy.d;
     copy.sectionCount = stats.sectionCount;
     copy.wordCount = stats.wordCount;
     copy.charCount = stats.charCount;
-    copy.teaserWordCount = stats.teaserWordCount;
-    copy.teaserCharCount = stats.teaserCharCount;
     return copy;
   });
 }
@@ -2715,23 +2576,20 @@ function csvEscape(v){
   const s = v == null ? '' : String(v);
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
-function toCSV(entries, includeStory, includeTeaser){
-  const headers = ['id','year','name','type','region','country'];
-  if(includeTeaser) headers.push('description');
-  headers.push('tier','altNames','sectionCount','wordCount','charCount','teaserWordCount','teaserCharCount',
-    'quotesCount','linksCount','factsCount','hasImage','hasAudio');
+function toCSV(entries, includeStory){
+  const headers = ['id','year','name','type','region','country','description','tier','altNames',
+    'sectionCount','wordCount','charCount','quotesCount','linksCount','factsCount','hasImage','hasAudio'];
   if(includeStory) headers.push('article');
   const rows = [headers.map(csvEscape).join(',')];
   entries.slice().sort((a,b) => a.y - b.y).forEach(e => {
     const stats = articleStats(e);
-    const row = [e.id, e.y, e.n, TYPE_NAMES[e.t] || e.t, REGION_NAMES[e.r] || e.r, e.country || ''];
-    if(includeTeaser) row.push(e.d || '');
-    row.push(
-      e.tier || 1, (e.alt || []).join('; '),
-      stats.sectionCount, stats.wordCount, stats.charCount, stats.teaserWordCount, stats.teaserCharCount,
+    const row = [
+      e.id, e.y, e.n, TYPE_NAMES[e.t] || e.t, REGION_NAMES[e.r] || e.r, e.country || '',
+      e.d || '', e.tier || 1, (e.alt || []).join('; '),
+      stats.sectionCount, stats.wordCount, stats.charCount,
       ((e.art || {}).quotes || []).length, ((e.art || {}).links || []).length, (e.facts || []).length,
       e.img ? 'Yes' : 'No', e.audio ? 'Yes' : 'No'
-    );
+    ];
     if(includeStory){
       const text = ((e.art || {}).sections || [])
         .map(s => (s.h ? s.h + ': ' : '') + stripHtml(s.b || '').replace(/\s+/g, ' ').trim())
@@ -2750,31 +2608,23 @@ document.getElementById('mJsonAll').addEventListener('click', () => {
 });
 document.getElementById('mJsonFiltered').addEventListener('click', () => {
   const includeStory = document.getElementById('mExIncludeStory').checked;
-  const includeTeaser = document.getElementById('mExIncludeTeaser').checked;
-  const evs = buildExportPayload(mExportFilteredEntries(), includeStory, includeTeaser);
+  const evs = buildExportPayload(mExportFilteredEntries(), includeStory);
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const types = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
   const region = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
   openJsonView('Database JSON — Filtered',
-    evs.length + ' entries · ' + types + ' · ' + region +
-      (includeStory ? ' · full story included' : ' · story text excluded') +
-      (includeTeaser ? ' · teaser included' : ' · teaser excluded') +
-      ' · set on the Export tab · edit and re-import via Paste JSON (Add/Update)',
+    evs.length + ' entries · ' + types + ' · ' + region + (includeStory ? ' · full story included' : ' · story text excluded') + ' · set on the Export tab · edit and re-import via Paste JSON (Add/Update)',
     {v: db.v || 1, entries: evs}, 'catholic-timeline-filtered.json');
 });
 document.getElementById('mCsvExport').addEventListener('click', () => {
   const includeStory = document.getElementById('mExIncludeStory').checked;
-  const includeTeaser = document.getElementById('mExIncludeTeaser').checked;
   const evs = mExportFilteredEntries();
-  const csv = toCSV(evs, includeStory, includeTeaser);
+  const csv = toCSV(evs, includeStory);
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const types = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
   const region = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
   openPlainView('CSV Export',
-    evs.length + ' entries · ' + types + ' · ' + region +
-      (includeStory ? ' · full story included' : ' · story text excluded') +
-      (includeTeaser ? ' · teaser included' : ' · teaser excluded') +
-      ' · headings in row 1',
+    evs.length + ' entries · ' + types + ' · ' + region + (includeStory ? ' · full story included' : ' · story text excluded') + ' · headings in row 1',
     csv, 'catholic-timeline-export.csv');
 });
 
@@ -2796,22 +2646,17 @@ function mergeEntries(list){
     const ex = getEntry(id);
     if(ex){
       Object.keys(inc).forEach(k => { if(k !== 'id') ex[k] = inc[k]; });
-      touchEntry(ex);
       updated++; notes.push('Updated: ' + ex.n);
-      logChange(id, ex.n, 'Updated via Import/Paste JSON', 'Import');
     } else {
       if(inc.n == null || inc.y == null){ skipped++; return; }
-      const newEntry = {
+      db.entries.push({
         id: id, y: parseInt(inc.y, 10), n: String(inc.n),
         t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, displayLabel: inc.displayLabel || '', d: inc.d || '',
         art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
         img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
         tier: inc.tier || 1, alt: inc.alt || []
-      };
-      touchEntry(newEntry);
-      db.entries.push(newEntry);
+      });
       added++; notes.push('Added: ' + inc.n + ' (' + inc.y + ')');
-      logChange(id, inc.n, 'Added via Import/Paste JSON', 'Import');
     }
   });
   return {added: added, updated: updated, skipped: skipped, notes: notes};
@@ -2835,7 +2680,7 @@ document.getElementById('mImportFile').addEventListener('change', (ev) => {
   const f = ev.target.files[0];
   if(!f) return;
   const r = new FileReader();
-  r.onload = async () => { const ok = await applyMerge(r.result, 'Import'); if(ok) await maybePublish(); };
+  r.onload = () => applyMerge(r.result, 'Import');
   r.readAsText(f);
   ev.target.value = '';
 });
@@ -2844,184 +2689,10 @@ document.getElementById('pasteApply').addEventListener('click', async () => {
   const text = document.getElementById('pasteJson').value.trim();
   if(!text){ setStatus('Paste JSON first'); return; }
   const ok = await applyMerge(text, 'Applied');
-  if(ok){ document.getElementById('pasteJson').value = ''; await maybePublish(); }
+  if(ok) document.getElementById('pasteJson').value = '';
 });
 document.getElementById('pasteClear').addEventListener('click', () => {
   document.getElementById('pasteJson').value = '';
-  setStatus('Cleared');
-});
-
-// ---- Work List: entity id / task type / associated MD file / completed date+time ----
-let wlHideDone = false;
-function taskSlug(entityId, taskType){
-  const base = ((entityId || 'task') + '-' + (taskType || '')).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,70);
-  return base + '-' + Date.now().toString(36).slice(-6);
-}
-function populateWlEntityOptions(){
-  const dl = document.getElementById('wlEntityOptions');
-  if(!dl) return;
-  dl.innerHTML = db.entries.map(e => '<option value="' + esc(e.id) + '">' + esc(e.n) + ' (' + e.y + ')</option>').join('');
-}
-function renderWlList(){
-  const tbody = document.getElementById('wlTbody');
-  const tasks = (db.tasks || []).slice().sort((a, b) => {
-    const ac = a.completed ? 1 : 0, bc = b.completed ? 1 : 0;
-    if(ac !== bc) return ac - bc;
-    return String(a.created || '').localeCompare(String(b.created || ''));
-  });
-  const openCount = tasks.filter(t => !t.completed).length;
-  document.getElementById('wlCount').textContent =
-    tasks.length + ' task' + (tasks.length === 1 ? '' : 's') + ' \u2014 ' + openCount + ' open';
-  document.getElementById('wlHideCompleted').textContent = wlHideDone ? 'Show Completed' : 'Hide Completed';
-  tbody.innerHTML = '';
-  if(!tasks.length){
-    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--m-sub);">No tasks yet — add one above.</td></tr>';
-    return;
-  }
-  tasks.forEach((t, i) => {
-    const ex = t.entityId ? getEntry(t.entityId) : null;
-    const keyLabel = t.entityId || '(site-wide)';
-    const typeLabel = ex ? (TYPE_NAMES[ex.t] || ex.t) : '';
-    const tr = document.createElement('tr');
-    tr.className = (t.completed ? 'wlDone' : '') + (t.completed && wlHideDone ? ' wlHidden' : '');
-    tr.innerHTML =
-      '<td class="wlNum">' + (i + 1) + '</td>' +
-      '<td>' + esc(keyLabel) + (ex ? '<br><span style="color:var(--m-sub);">' + esc(ex.n) + '</span>' : '') + '</td>' +
-      '<td>' + esc(typeLabel) + '</td>' +
-      '<td>' + esc(t.taskType || '') + '</td>' +
-      '<td>' + esc(t.notes || '') + (t.mdFile ? '<br><span style="color:var(--m-sub);">' + esc(t.mdFile) + '</span>' : '') + '</td>' +
-      '<td>' + (t.completed ? esc(fmtDT(t.completed)) : '\u2014') + '</td>';
-    const actionsTd = document.createElement('td');
-    actionsTd.className = 'wlActions';
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'mbtn';
-    toggleBtn.textContent = t.completed ? 'Reopen' : 'Mark Done';
-    toggleBtn.addEventListener('click', async () => {
-      t.completed = t.completed ? '' : new Date().toISOString();
-      await saveDb();
-      renderWlList();
-    });
-    const delBtn = document.createElement('button');
-    delBtn.className = 'mbtn danger';
-    delBtn.textContent = 'Delete';
-    delBtn.addEventListener('click', async () => {
-      if(!confirm('Delete this task?')) return;
-      db.tasks = db.tasks.filter(x => x.id !== t.id);
-      await saveDb();
-      renderWlList();
-    });
-    actionsTd.appendChild(toggleBtn);
-    actionsTd.appendChild(delBtn);
-    tr.appendChild(actionsTd);
-    tbody.appendChild(tr);
-  });
-}
-document.getElementById('wlHideCompleted').addEventListener('click', () => {
-  wlHideDone = !wlHideDone;
-  renderWlList();
-});
-function renderChangeLog(){
-  const tbody = document.getElementById('wlLogTbody');
-  if(!tbody) return;
-  const rows = (db.changelog || []).slice(0, 300);
-  tbody.innerHTML = '';
-  if(!rows.length){
-    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--m-sub);">No changes logged yet.</td></tr>';
-    return;
-  }
-  rows.forEach(c => {
-    const tr = document.createElement('tr');
-    tr.innerHTML =
-      '<td style="white-space:nowrap;">' + esc(fmtDT(c.ts)) + '</td>' +
-      '<td>' + esc(c.entityName || c.entityId || '') + '</td>' +
-      '<td>' + esc(c.summary || '') + '</td>' +
-      '<td style="color:var(--m-sub);">' + esc(c.source || '') + '</td>';
-    tbody.appendChild(tr);
-  });
-}
-document.getElementById('wlAdd').addEventListener('click', async () => {
-  const entityId = document.getElementById('wlEntityId').value.trim();
-  const taskType = document.getElementById('wlTaskType').value.trim();
-  const mdFile = document.getElementById('wlMdFile').value.trim();
-  const notes = document.getElementById('wlNotes').value.trim();
-  if(!taskType){ setStatus('Task Type is required'); return; }
-  db.tasks = db.tasks || [];
-  db.tasks.push({
-    id: taskSlug(entityId, taskType), entityId: entityId, taskType: taskType,
-    mdFile: mdFile, notes: notes, completed: '', created: new Date().toISOString().slice(0, 10)
-  });
-  await saveDb();
-  renderWlList();
-  document.getElementById('wlEntityId').value = '';
-  document.getElementById('wlTaskType').value = '';
-  document.getElementById('wlMdFile').value = '';
-  document.getElementById('wlNotes').value = '';
-  setStatus('Task added');
-});
-
-// Merge import for tasks — same add/update-by-id pattern as mergeEntries, never deletes.
-function normalizeIncomingTasks(parsed){
-  if(Array.isArray(parsed)) return parsed;
-  if(parsed && Array.isArray(parsed.tasks)) return parsed.tasks;
-  if(parsed && (parsed.taskType != null || parsed.id)) return [parsed];
-  return null;
-}
-function mergeTasks(list){
-  let added = 0, updated = 0, skipped = 0;
-  db.tasks = db.tasks || [];
-  list.forEach(inc => {
-    if(!inc || typeof inc !== 'object'){ skipped++; return; }
-    let id = inc.id;
-    if(!id) id = taskSlug(inc.entityId, inc.taskType);
-    const ex = db.tasks.find(t => t.id === id);
-    if(ex){
-      Object.keys(inc).forEach(k => { if(k !== 'id') ex[k] = inc[k]; });
-      updated++;
-    } else {
-      if(!inc.taskType){ skipped++; return; }
-      db.tasks.push({
-        id: id, entityId: inc.entityId || '', taskType: inc.taskType,
-        mdFile: inc.mdFile || '', notes: inc.notes || '', completed: inc.completed || '',
-        created: inc.created || new Date().toISOString().slice(0, 10)
-      });
-      added++;
-    }
-  });
-  return {added: added, updated: updated, skipped: skipped};
-}
-async function applyMergeTasks(text, statusPrefix){
-  let parsed;
-  try{ parsed = JSON.parse(text); }
-  catch(e){ setStatus('Not valid JSON — check for missing brackets or commas'); return false; }
-  const list = normalizeIncomingTasks(parsed);
-  if(!list){ setStatus('JSON must be a task, an array of tasks, or {"tasks":[...]}'); return false; }
-  const r = mergeTasks(list);
-  await saveDb();
-  renderWlList();
-  setStatus(statusPrefix + ': ' + r.added + ' added, ' + r.updated + ' updated' + (r.skipped ? ', ' + r.skipped + ' skipped' : ''));
-  return true;
-}
-document.getElementById('wlJsonAll').addEventListener('click', () => {
-  openPlainView('Work List JSON', (db.tasks || []).length + ' tasks',
-    JSON.stringify({tasks: db.tasks || []}, null, 1), 'worklist.json');
-});
-document.getElementById('wlImportBtn').addEventListener('click', () => document.getElementById('wlImportFile').click());
-document.getElementById('wlImportFile').addEventListener('change', (ev) => {
-  const f = ev.target.files[0];
-  if(!f) return;
-  const r = new FileReader();
-  r.onload = async () => { const ok = await applyMergeTasks(r.result, 'Import'); if(ok) await maybePublish(); };
-  r.readAsText(f);
-  ev.target.value = '';
-});
-document.getElementById('wlPasteApply').addEventListener('click', async () => {
-  const text = document.getElementById('wlPasteJson').value.trim();
-  if(!text){ setStatus('Paste JSON first'); return; }
-  const ok = await applyMergeTasks(text, 'Applied');
-  if(ok){ document.getElementById('wlPasteJson').value = ''; await maybePublish(); }
-});
-document.getElementById('wlPasteClear').addEventListener('click', () => {
-  document.getElementById('wlPasteJson').value = '';
   setStatus('Cleared');
 });
 
@@ -3097,12 +2768,8 @@ document.getElementById('mRestoreFile').addEventListener('change', (ev) => {
       const parsed = JSON.parse(r.result);
       if(!parsed.entries || !Array.isArray(parsed.entries)) throw new Error('bad format');
       db = parsed;
-      db.tasks = db.tasks || [];
-      db.changelog = db.changelog || [];
       await saveDb();
       renderMList();
-      renderWlList();
-      renderChangeLog();
       render();
       setStatus('Restored ' + db.entries.length + ' entries (replaced all)');
     }catch(e){ setStatus('Restore failed — not a valid backup file'); }
@@ -3116,8 +2783,6 @@ document.getElementById('mReset').addEventListener('click', async () => {
   db = seedDb();
   await saveDb();
   renderMList();
-  renderWlList();
-  renderChangeLog();
   render();
   setStatus('Reset to seed');
 });
