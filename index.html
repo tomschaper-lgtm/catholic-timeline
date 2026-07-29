@@ -18,7 +18,7 @@
   :root{
     --navy:#0B1630; --navy-deep:#070F22; --navy-band:#101D3D;
     --gold:#C9A542; --gold-bright:#E8CD7E; --parchment:#EFE6CE; --muted:#9AA5BF;
-    --saint:#E0B84C; --council:#EDE4C8; --persec:#D45B45; --event:#7E9CC9;
+    --saint:#E0B84C; --council:#EDE4C8; --council-ecu:#F2C94C; --persec:#D45B45; --event:#7E9CC9;
     --marian:#8FC7E8; --euch:#B98FE0;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -168,6 +168,9 @@
   }
   .t-s{color:var(--saint);} .t-c{color:var(--council);} .t-p{color:var(--persec);}
   .t-e{color:var(--event);} .t-m{color:var(--marian);} .t-u{color:var(--euch);}
+  .ev.ecu{color:var(--council-ecu);}
+  .ev.ecu .ic{box-shadow:0 0 8px rgba(242,201,76,.7), 0 0 2px rgba(242,201,76,.9); border-width:2px;}
+  .ev.ecu:hover .ic{box-shadow:0 0 12px var(--council-ecu);}
   /* Timeline search */
   .searchwrap{position:relative; flex:0 0 220px; width:220px;}
   /* NOTE: 16px is the minimum font-size that prevents iOS Safari from auto-zooming
@@ -1169,7 +1172,7 @@ const ERAS = [
   [604,1054,"Early Middle Ages"],[1054,1300,"High Middle Ages"],[1300,1517,"Late Middle Ages"],
   [1517,1650,"Reformation"],[1650,1900,"Age of Revolutions"],[1900,2030,"Modern Era"]
 ];
-const TYPE_NAMES = {s:"Saint", c:"Ecumenical Council", p:"Persecution", e:"Event", m:"Marian Apparition", u:"Eucharistic Miracle"};
+const TYPE_NAMES = {s:"Saint", c:"Council", p:"Persecution", e:"Event", m:"Marian Apparition", u:"Eucharistic Miracle"};
 const REGION_NAMES = {rome:"Rome & Italy", west:"Western Europe", brit:"Britain & Ireland", east:"Byzantium & E. Europe", holy:"Holy Land & Mid-East", africa:"Africa", americas:"Americas", asia:"Asia & Oceania"};
 const ICONS = {
   s:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>',
@@ -1185,6 +1188,9 @@ const DB_KEY = 'catholic-timeline-db';
 let db = null;
 let dirty = false;
 
+function isEcumenical(d){
+  return d.t === 'c' && Array.isArray(d.facts) && d.facts.some(f => f && f.label === 'Ecumenical number');
+}
 function slug(n, y){
   return (n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') + '-' + y).slice(0,80);
 }
@@ -1437,7 +1443,7 @@ function render(){
     placed.forEach(pl => {
       const d = pl.d;
       const el = document.createElement('div');
-      el.className = 'ev t-' + d.t + (searchHits.has(d.id) ? ' hit' : '') + (searchFocusId === d.id ? ' focus' : '');
+      el.className = 'ev t-' + d.t + (isEcumenical(d) ? ' ecu' : '') + (searchHits.has(d.id) ? ' hit' : '') + (searchFocusId === d.id ? ' focus' : '');
       el.style.left = pl.x + 'px';
       el.style.top = (yCursor + bandPad + 16 + pl.lane*rowH) + 'px';
       el.title = d.n + ' (AD ' + d.y + ')';
