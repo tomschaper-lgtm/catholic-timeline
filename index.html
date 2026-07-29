@@ -592,7 +592,7 @@
     <div class="row" id="typeRow">
       <span class="lbl">Show</span>
       <button class="tbtn t-s" data-type="s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>Saints</button>
-      <button class="tbtn t-c" data-type="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M4.5 18h15M12 3l8 5.5H4L12 3zM6.5 8.5v9.5M12 8.5v9.5M17.5 8.5v9.5"/></svg>Ecumenical Councils</button>
+      <button class="tbtn t-c" data-type="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M4.5 18h15M12 3l8 5.5H4L12 3zM6.5 8.5v9.5M12 8.5v9.5M17.5 8.5v9.5"/></svg>Councils</button>
       <button class="tbtn t-p" data-type="p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2c1 4-4 5-4 10a4 4 0 0 0 8 0c0-2-1-3-1-3s3 1 3 5a7 7 0 0 1-14 0c0-6 6-7 8-12z"/></svg>Persecutions</button>
       <button class="tbtn t-m" data-type="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.4 5.4 5.9.5-4.5 3.9 1.4 5.7L12 15.6 6.8 18.5l1.4-5.7L3.7 8.9l5.9-.5z"/></svg>Marian</button>
       <button class="tbtn t-u" data-type="u"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6.5" r="3.2"/><path d="M6.5 12h11M8 12c0 3 1.8 4.5 4 4.5s4-1.5 4-4.5M12 16.5V20M9.5 20h5"/></svg>Eucharistic</button>
@@ -1331,7 +1331,7 @@ function filtered(){
 }
 
 const TYPE_ORDER = ['e','s','c','p','m','u'];
-const TYPE_PLURALS = {s:"Saints", c:"Ecumenical Councils", p:"Persecutions", m:"Marian Apparitions", u:"Eucharistic Miracles", e:"Events"};
+const TYPE_PLURALS = {s:"Saints", c:"Councils", p:"Persecutions", m:"Marian Apparitions", u:"Eucharistic Miracles", e:"Events"};
 const HEAD_H = 58;
 
 function render(){
@@ -1467,16 +1467,9 @@ function showDetail(d){
   document.getElementById('dBadges').innerHTML = '';
   const councilNumEl = document.getElementById('dCouncilNum');
   if(d.t === 'c'){
-    let text = null;
     const fact = (d.facts || []).find(f => f && f.label === 'Ecumenical number');
     if(fact && fact.value){
-      text = fact.value.replace(/(^|\s)([a-z])/g, (m, p1, p2) => p1 + p2.toUpperCase());
-    } else {
-      const councils = db.entries.filter(e => e.t === 'c').slice().sort((a, b) => a.y - b.y);
-      const idx = councils.findIndex(e => e.id === d.id);
-      if(idx >= 0) text = ordinalSuffix(idx + 1) + ' Ecumenical Council';
-    }
-    if(text){
+      const text = fact.value.replace(/(^|\s)([a-z])/g, (m, p1, p2) => p1 + p2.toUpperCase());
       councilNumEl.textContent = text;
       councilNumEl.style.display = 'block';
     } else {
@@ -1617,8 +1610,9 @@ function stopHold(){
 });
 
 // ---- Swipe gestures (mobile): the teaser card is swiped up to expand into the full story,
-// swiped down to dismiss (mirroring the desktop "Open Full Article" button and × close button).
-function attachVerticalSwipe(el, onSwipeUp, onSwipeDown, threshold){
+// swiped down to dismiss (mirroring the desktop "Open Full Article" button and × close button),
+// and swiped left/right to move to the next/previous entry — same as the full article view.
+function attachVerticalSwipe(el, onSwipeUp, onSwipeDown, onSwipeLeft, onSwipeRight, threshold){
   threshold = threshold || 45;
   let startY = null, startX = null;
   el.addEventListener('touchstart', (e) => {
@@ -1635,13 +1629,25 @@ function attachVerticalSwipe(el, onSwipeUp, onSwipeDown, threshold){
     const endX = t ? t.clientX : startX;
     const dy = endY - startY, dx = endX - startX;
     startY = null;
+    if(Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5){
+      if(dx < 0){ if(onSwipeLeft) onSwipeLeft(); } else { if(onSwipeRight) onSwipeRight(); }
+      return;
+    }
     if(Math.abs(dy) < threshold || Math.abs(dx) > Math.abs(dy)) return;
     if(dy < 0){ if(onSwipeUp) onSwipeUp(); } else { if(onSwipeDown) onSwipeDown(); }
   }, {passive:true});
 }
+function navigateTeaser(direction){
+  if(!currentEntry) return;
+  const next = categoryNeighbor(currentEntry, direction);
+  if(!next) return;
+  showDetail(next);
+}
 attachVerticalSwipe(detail,
   () => { if(currentEntry) openArticle(currentEntry); },
-  () => { detail.classList.remove('open'); }
+  () => { detail.classList.remove('open'); },
+  () => { navigateTeaser(1); },
+  () => { navigateTeaser(-1); }
 );
 // The full story sheet: swipe down closes it, once the article is scrolled all the way
 // to the top — otherwise a downward swipe is just normal scrolling of the content.
@@ -2013,6 +2019,7 @@ function slideArticleTo(d, direction){
   const wrap = document.querySelector('.artwrap');
   const body = document.getElementById('artBody');
   currentEntry = d;
+  showDetail(d); // keep the teaser card in sync underneath, so closing back down to it matches the article you're now viewing
   stopAudio();
   const clone = body.cloneNode(true);
   clone.removeAttribute('id');
