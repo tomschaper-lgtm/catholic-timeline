@@ -1,0 +1,21 @@
+name: List ElevenLabs Voices & Models
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  list-options:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: List voices and models
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: node scripts/list-elevenlabs-options.mjs
