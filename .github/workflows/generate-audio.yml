@@ -1,0 +1,112 @@
+name: Generate Audio Narration (ElevenLabs)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: 'Comma-separated entry ids to narrate. Leave blank to auto-select by category/count instead.'
+        required: false
+        default: ''
+      category:
+        description: 'Only used when "ids" is blank: s c p m u e, or blank for all'
+        required: false
+        default: ''
+      count:
+        description: 'Max number of entries to process this run'
+        required: false
+        default: '5'
+      voice_id:
+        description: 'ElevenLabs voice ID to narrate with'
+        required: true
+      model_id:
+        description: 'ElevenLabs model id'
+        required: false
+        default: 'eleven_multilingual_v2'
+      overwrite:
+        description: 'Regenerate audio even for entries that already have a narration file'
+        required: false
+        default: false
+        type: boolean
+      read_headings:
+        description: 'Narrate section headings, not just body text'
+        required: false
+        default: true
+        type: boolean
+      heading_pause_ms:
+        description: 'Silence (ms) between a heading and the paragraph after it'
+        required: false
+        default: '500'
+      section_pause_ms:
+        description: 'Silence (ms) between sections'
+        required: false
+        default: '700'
+      stability:
+        description: 'ElevenLabs stability (0-1)'
+        required: false
+        default: '0.5'
+      similarity_boost:
+        description: 'ElevenLabs similarity boost (0-1)'
+        required: false
+        default: '0.75'
+      style:
+        description: 'ElevenLabs style exaggeration (0-1)'
+        required: false
+        default: '0'
+      speed:
+        description: 'ElevenLabs speech speed multiplier (0.25-4.0)'
+        required: false
+        default: '1.0'
+      use_speaker_boost:
+        description: 'ElevenLabs speaker boost'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  generate-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Confirm ffmpeg/ffprobe are available
+        run: ffmpeg -version && ffprobe -version
+
+      - name: Generate audio narration
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          IDS: ${{ github.event.inputs.ids }}
+          CATEGORY: ${{ github.event.inputs.category }}
+          COUNT: ${{ github.event.inputs.count }}
+          VOICE_ID: ${{ github.event.inputs.voice_id }}
+          MODEL_ID: ${{ github.event.inputs.model_id }}
+          OVERWRITE: ${{ github.event.inputs.overwrite }}
+          READ_HEADINGS: ${{ github.event.inputs.read_headings }}
+          HEADING_PAUSE_MS: ${{ github.event.inputs.heading_pause_ms }}
+          SECTION_PAUSE_MS: ${{ github.event.inputs.section_pause_ms }}
+          STABILITY: ${{ github.event.inputs.stability }}
+          SIMILARITY_BOOST: ${{ github.event.inputs.similarity_boost }}
+          STYLE: ${{ github.event.inputs.style }}
+          SPEED: ${{ github.event.inputs.speed }}
+          USE_SPEAKER_BOOST: ${{ github.event.inputs.use_speaker_boost }}
+        run: node scripts/generate-audio.mjs
+
+      - name: Commit and push results
+        run: |
+          git config user.name "audio-narration-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data.json audio-log.csv audio/
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Generate audio narration via ElevenLabs [skip ci]"
+            git push
+          fi
