@@ -558,6 +558,29 @@
   .mgmtRowLabel{font-family:'Cinzel',serif; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--m-sub); margin:0 0 6px;}
   .mgmtYearInput{width:84px; background:#fff; color:var(--m-ink); border:1px solid var(--m-border); border-radius:6px; padding:7px 8px; font-family:'EB Garamond',serif; font-size:16px;}
   #manage .mbtn.sm{padding:6px 10px; font-size:11px;}
+
+  /* Export tab: per-field checkbox grid + stat summary box */
+  .mExFieldsGrid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr));
+    gap:6px 10px; margin-bottom:10px;
+  }
+  .mExFieldChk{
+    display:flex; align-items:center; gap:6px; font-size:13.5px; color:var(--m-ink); cursor:pointer;
+  }
+  .mExFieldChk input{accent-color:var(--m-accent); width:15px; height:15px; cursor:pointer;}
+  .mExStatBox{
+    background:rgba(138,109,28,.08); border:1px solid var(--m-border); border-radius:8px;
+    padding:10px 12px; margin:8px 0 12px; font-size:13px; color:var(--m-ink); line-height:1.5;
+  }
+  .mExStatBox b{color:var(--m-accent);}
+  /* Import tab: inline status feedback right at the point of action, not just the top bar */
+  .mImportStatus{
+    font-size:13px; color:var(--m-ink); background:rgba(138,109,28,.08);
+    border:1px solid var(--m-border); border-radius:8px; padding:8px 10px; margin-top:8px;
+    display:none; line-height:1.45;
+  }
+  .mImportStatus.show{display:block;}
+  .mImportStatus.err{background:rgba(200,60,50,.08); border-color:#E3B7AC; color:var(--m-danger);}
   .mgmtEntriesTop{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
   .mgmtEntriesTop input[type=text]{
     flex:1 1 auto; background:#fff; color:var(--m-ink); border:1px solid var(--m-border);
@@ -856,16 +879,20 @@
         <button class="mbtn sm" id="mfReset">Reset</button>
       </div>
 
-      <label class="hamToggle" style="color:var(--m-ink); margin-bottom:8px;">
-        <input type="checkbox" id="mExIncludeStory" checked>
-        <span>Include full story text (word/char/section counts always included)</span>
-      </label>
+      <div class="mgmtRowLabel">Fields to include in export</div>
+      <div class="mtool" style="margin-top:0; margin-bottom:8px;">
+        <button class="mbtn sm" id="mExCheckAll">Check All</button>
+        <button class="mbtn sm" id="mExClearAll">Clear All</button>
+      </div>
+      <div class="mExFieldsGrid" id="mExFieldsGrid"></div>
+      <div class="hint" style="margin-top:-4px; margin-bottom:10px;">Story text and audio narration URL are long fields and default to off &mdash; check them to include full articles or narration links in the export.</div>
 
       <div class="mgmtFilterCount" id="mfSummary"></div>
+      <div class="mExStatBox" id="mExStatBox"></div>
       <div class="mtool">
         <button class="mbtn" id="mJsonAll">JSON &mdash; All</button>
         <button class="mbtn" id="mJsonFiltered">JSON &mdash; Filtered</button>
-        <button class="mbtn" id="mCsvExport">Export CSV</button>
+        <button class="mbtn" id="mXlsxExport">Export Excel (.xlsx)</button>
       </div>
     </div>
 
@@ -878,6 +905,7 @@
           <input type="file" id="mImportFile" accept=".json,.txt" style="display:none;">
         </div>
         <div class="hint">Adds new entries and updates matching ids; never deletes anything.</div>
+        <div class="mImportStatus" id="mImportFileStatus"></div>
       </div>
 
       <div class="mbox">
@@ -890,6 +918,7 @@
           <button class="mbtn" id="pasteClear">Clear</button>
         </div>
         <div class="hint">This is the safe way to bring in entries drafted by Claude in a chat: copy Claude's JSON, paste it here, Apply. It never replaces the whole database.</div>
+        <div class="mImportStatus" id="pasteJsonStatus"></div>
       </div>
 
       <details class="ghbox" id="ghBox">
@@ -966,6 +995,7 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ================= SEED DATA =================
 // [year, name, type, region, shortDesc]
@@ -2190,6 +2220,64 @@ function selectEntryFromCms(id){
 let mFilterTypes = {s:false, c:false, p:false, m:false, u:false, e:false};
 let mFilterRegion = 'all'; // region chips are hidden in the UI; kept for future use, always "all" for now
 
+// ---- Export tab: per-field checkboxes (controls JSON — Filtered and Excel export columns) ----
+// Story text and audio narration URL are long fields, so they default OFF; everything else defaults ON.
+const EX_FIELDS = [
+  {key:'id', label:'ID'},
+  {key:'y', label:'Year'},
+  {key:'n', label:'Name'},
+  {key:'t', label:'Type'},
+  {key:'r', label:'Region'},
+  {key:'country', label:'Country'},
+  {key:'offset', label:'Lane Offset'},
+  {key:'displayLabel', label:'Display Label'},
+  {key:'d', label:'Short Description'},
+  {key:'art', label:'Full Story / Article (long)'},
+  {key:'facts', label:'Quick Facts'},
+  {key:'tier', label:'Tier'},
+  {key:'alt', label:'Alt Names'},
+  {key:'img', label:'Image URL'},
+  {key:'imgCap', label:'Image Caption'},
+  {key:'audio', label:'Audio Narration URL (long)'}
+];
+const EX_FIELDS_DEFAULT_OFF = {art:true, audio:true};
+let mExportFieldState = {};
+EX_FIELDS.forEach(f => { mExportFieldState[f.key] = !EX_FIELDS_DEFAULT_OFF[f.key]; });
+
+function renderExFieldsGrid(){
+  const grid = document.getElementById('mExFieldsGrid');
+  if(!grid) return;
+  grid.innerHTML = '';
+  EX_FIELDS.forEach(f => {
+    const label = document.createElement('label');
+    label.className = 'mExFieldChk';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!mExportFieldState[f.key];
+    cb.dataset.field = f.key;
+    cb.addEventListener('change', () => {
+      mExportFieldState[f.key] = cb.checked;
+      renderExportSummary();
+    });
+    const span = document.createElement('span');
+    span.textContent = f.label;
+    label.appendChild(cb);
+    label.appendChild(span);
+    grid.appendChild(label);
+  });
+}
+document.getElementById('mExCheckAll').addEventListener('click', () => {
+  EX_FIELDS.forEach(f => mExportFieldState[f.key] = true);
+  renderExFieldsGrid();
+  renderExportSummary();
+});
+document.getElementById('mExClearAll').addEventListener('click', () => {
+  EX_FIELDS.forEach(f => mExportFieldState[f.key] = false);
+  renderExFieldsGrid();
+  renderExportSummary();
+});
+renderExFieldsGrid();
+
 document.querySelectorAll('#mfTypeRow .mfChip').forEach(chip => {
   chip.addEventListener('click', () => {
     const t = chip.dataset.mtype;
@@ -2236,7 +2324,22 @@ function renderExportSummary(){
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const typeLabel = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
   const regionLabel = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
-  sumEl.textContent = mExportFilteredEntries().length + ' entries match — ' + typeLabel + ' · ' + regionLabel;
+  const evs = mExportFilteredEntries();
+  sumEl.textContent = evs.length + ' entries match — ' + typeLabel + ' · ' + regionLabel;
+
+  const statEl = document.getElementById('mExStatBox');
+  if(statEl){
+    let complete = 0, incomplete = 0, totalWords = 0, totalChars = 0;
+    evs.forEach(e => {
+      if(entryNeeds(e).length === 0) complete++; else incomplete++;
+      const stats = articleStats(e);
+      totalWords += stats.wordCount;
+      totalChars += stats.charCount;
+    });
+    statEl.innerHTML =
+      '<b>' + complete + '</b> complete · <b>' + incomplete + '</b> incomplete (of ' + evs.length + ' matched)<br>' +
+      'Story text totals — <b>' + totalWords.toLocaleString() + '</b> words · <b>' + totalChars.toLocaleString() + '</b> characters (for TTS cost estimates)';
+  }
 }
 
 // The Entries tab list is independent of the Export filters — it's a browsing/search list
@@ -2573,12 +2676,13 @@ function articleStats(e){
   return {sectionCount: sections.length, wordCount: words.length, charCount: text.length};
 }
 // Builds the export payload for JSON — Filtered: each entry gets sectionCount/wordCount/charCount
-// added, and the full `art` object is included or stripped based on the Export tab's checkbox.
-function buildExportPayload(entries, includeStory){
+// added (always, for TTS estimating), and only the schema fields checked on the Export tab are kept.
+function buildExportPayload(entries, fields){
   return entries.map(e => {
     const stats = articleStats(e);
-    const copy = JSON.parse(JSON.stringify(e));
-    if(!includeStory) delete copy.art;
+    const full = JSON.parse(JSON.stringify(e));
+    const copy = {};
+    EX_FIELDS.forEach(f => { if(fields[f.key] && full[f.key] !== undefined) copy[f.key] = full[f.key]; });
     copy.sectionCount = stats.sectionCount;
     copy.wordCount = stats.wordCount;
     copy.charCount = stats.charCount;
@@ -2589,29 +2693,63 @@ function csvEscape(v){
   const s = v == null ? '' : String(v);
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
-function toCSV(entries, includeStory){
-  const headers = ['id','year','name','type','region','country','description','tier','altNames',
-    'sectionCount','wordCount','charCount','quotesCount','linksCount','factsCount','hasImage','hasAudio'];
-  if(includeStory) headers.push('article');
-  const rows = [headers.map(csvEscape).join(',')];
+// Builds a row-based table (array of arrays, first row = headers) honoring the Export tab's
+// per-field checkboxes. Shared by the CSV/Excel exporter. Section/word/char counts are always
+// included since they're needed for TTS cost estimating regardless of which fields are checked.
+function buildExportTable(entries, fields){
+  const headers = [];
+  if(fields.id) headers.push('id');
+  if(fields.y) headers.push('year');
+  if(fields.n) headers.push('name');
+  if(fields.t) headers.push('type');
+  if(fields.r) headers.push('region');
+  if(fields.country) headers.push('country');
+  if(fields.offset) headers.push('offset');
+  if(fields.displayLabel) headers.push('displayLabel');
+  if(fields.d) headers.push('description');
+  if(fields.tier) headers.push('tier');
+  if(fields.alt) headers.push('altNames');
+  if(fields.img) headers.push('imageUrl');
+  if(fields.imgCap) headers.push('imageCaption');
+  if(fields.audio) headers.push('audioUrl');
+  headers.push('sectionCount', 'wordCount', 'charCount');
+  if(fields.art) headers.push('quotesCount', 'linksCount');
+  if(fields.facts) headers.push('factsCount');
+  if(fields.art) headers.push('article');
+
+  const rows = [headers];
   entries.slice().sort((a,b) => a.y - b.y).forEach(e => {
     const stats = articleStats(e);
-    const row = [
-      e.id, e.y, e.n, TYPE_NAMES[e.t] || e.t, REGION_NAMES[e.r] || e.r, e.country || '',
-      e.d || '', e.tier || 1, (e.alt || []).join('; '),
-      stats.sectionCount, stats.wordCount, stats.charCount,
-      ((e.art || {}).quotes || []).length, ((e.art || {}).links || []).length, (e.facts || []).length,
-      e.img ? 'Yes' : 'No', e.audio ? 'Yes' : 'No'
-    ];
-    if(includeStory){
+    const row = [];
+    if(fields.id) row.push(e.id);
+    if(fields.y) row.push(e.y);
+    if(fields.n) row.push(e.n);
+    if(fields.t) row.push(TYPE_NAMES[e.t] || e.t);
+    if(fields.r) row.push(REGION_NAMES[e.r] || e.r);
+    if(fields.country) row.push(e.country || '');
+    if(fields.offset) row.push(e.offset || 0);
+    if(fields.displayLabel) row.push(e.displayLabel || '');
+    if(fields.d) row.push(e.d || '');
+    if(fields.tier) row.push(e.tier || 1);
+    if(fields.alt) row.push((e.alt || []).join('; '));
+    if(fields.img) row.push(e.img || '');
+    if(fields.imgCap) row.push(e.imgCap || '');
+    if(fields.audio) row.push(e.audio || '');
+    row.push(stats.sectionCount, stats.wordCount, stats.charCount);
+    if(fields.art) row.push(((e.art || {}).quotes || []).length, ((e.art || {}).links || []).length);
+    if(fields.facts) row.push((e.facts || []).length);
+    if(fields.art){
       const text = ((e.art || {}).sections || [])
         .map(s => (s.h ? s.h + ': ' : '') + stripHtml(s.b || '').replace(/\s+/g, ' ').trim())
         .join(' | ');
       row.push(text);
     }
-    rows.push(row.map(csvEscape).join(','));
+    rows.push(row);
   });
-  return rows.join('\n');
+  return rows;
+}
+function toCSV(table){
+  return table.map(row => row.map(csvEscape).join(',')).join('\n');
 }
 
 document.getElementById('mJsonAll').addEventListener('click', () => {
@@ -2620,25 +2758,36 @@ document.getElementById('mJsonAll').addEventListener('click', () => {
     db, 'catholic-timeline-all.json');
 });
 document.getElementById('mJsonFiltered').addEventListener('click', () => {
-  const includeStory = document.getElementById('mExIncludeStory').checked;
-  const evs = buildExportPayload(mExportFilteredEntries(), includeStory);
+  const evs = buildExportPayload(mExportFilteredEntries(), mExportFieldState);
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const types = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
   const region = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
+  const fieldsOn = EX_FIELDS.filter(f => mExportFieldState[f.key]).map(f => f.label).join(', ');
   openJsonView('Database JSON — Filtered',
-    evs.length + ' entries · ' + types + ' · ' + region + (includeStory ? ' · full story included' : ' · story text excluded') + ' · set on the Export tab · edit and re-import via Paste JSON (Add/Update)',
+    evs.length + ' entries · ' + types + ' · ' + region + ' · fields: ' + (fieldsOn || 'none') + ' · edit and re-import via Paste JSON (Add/Update)',
     {v: db.v || 1, entries: evs}, 'catholic-timeline-filtered.json');
 });
-document.getElementById('mCsvExport').addEventListener('click', () => {
-  const includeStory = document.getElementById('mExIncludeStory').checked;
+document.getElementById('mXlsxExport').addEventListener('click', () => {
   const evs = mExportFilteredEntries();
-  const csv = toCSV(evs, includeStory);
+  const table = buildExportTable(evs, mExportFieldState);
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const types = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
   const region = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
-  openPlainView('CSV Export',
-    evs.length + ' entries · ' + types + ' · ' + region + (includeStory ? ' · full story included' : ' · story text excluded') + ' · headings in row 1',
-    csv, 'catholic-timeline-export.csv');
+  const fname = 'catholic-timeline-export.xlsx';
+  try{
+    if(typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
+    const ws = XLSX.utils.aoa_to_sheet(table);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Entries');
+    XLSX.writeFile(wb, fname);
+    setStatus(evs.length + ' entries · ' + types + ' · ' + region + ' — Excel file downloading (' + fname + ')');
+  }catch(e){
+    setStatus('Excel export failed (needs an internet connection to load the Excel library the first time) — falling back to CSV');
+    const csv = toCSV(table);
+    openPlainView('CSV Export (fallback)',
+      evs.length + ' entries · ' + types + ' · ' + region + ' · headings in row 1',
+      csv, 'catholic-timeline-export.csv');
+  }
 });
 
 // Merge import: adds new entries, updates existing (matched by id, else by name+year slug). Never deletes.
@@ -2674,17 +2823,41 @@ function mergeEntries(list){
   });
   return {added: added, updated: updated, skipped: skipped, notes: notes};
 }
-async function applyMerge(text, statusPrefix){
+// Shows a status message both in the sticky top bar (setStatus) and inline right next to the
+// control that was used, so it's visible without scrolling back up on a phone. `isError` reddens it.
+function showInlineStatus(elId, msg, isError){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  el.classList.toggle('err', !!isError);
+}
+async function applyMerge(text, statusPrefix, localStatusElId){
   let parsed;
   try{ parsed = JSON.parse(text); }
-  catch(e){ setStatus('Not valid JSON — check for missing brackets or commas'); return false; }
+  catch(e){
+    setStatus('Not valid JSON — check for missing brackets or commas');
+    if(localStatusElId) showInlineStatus(localStatusElId, 'Not valid JSON — check for missing brackets or commas', true);
+    return false;
+  }
   const list = normalizeIncoming(parsed);
-  if(!list){ setStatus('JSON must be an entry, an array of entries, or {"entries":[...]}'); return false; }
+  if(!list){
+    setStatus('JSON must be an entry, an array of entries, or {"entries":[...]}');
+    if(localStatusElId) showInlineStatus(localStatusElId, 'JSON must be an entry, an array of entries, or {"entries":[...]}', true);
+    return false;
+  }
   const r = mergeEntries(list);
   await saveDb();
   renderMList();
   render();
-  setStatus(statusPrefix + ': ' + r.added + ' added, ' + r.updated + ' updated' + (r.skipped ? ', ' + r.skipped + ' skipped' : ''));
+  const summary = statusPrefix + ': ' + r.added + ' added, ' + r.updated + ' updated' + (r.skipped ? ', ' + r.skipped + ' skipped' : '');
+  setStatus(summary);
+  if(localStatusElId){
+    const detail = r.notes && r.notes.length ? '<br>' + r.notes.map(esc).join('<br>') : '';
+    document.getElementById(localStatusElId).innerHTML = summary + detail;
+    document.getElementById(localStatusElId).classList.add('show');
+    document.getElementById(localStatusElId).classList.remove('err');
+  }
   return true;
 }
 
@@ -2693,20 +2866,22 @@ document.getElementById('mImportFile').addEventListener('change', (ev) => {
   const f = ev.target.files[0];
   if(!f) return;
   const r = new FileReader();
-  r.onload = () => applyMerge(r.result, 'Import');
+  r.onload = () => applyMerge(r.result, 'Import', 'mImportFileStatus');
   r.readAsText(f);
   ev.target.value = '';
 });
 
 document.getElementById('pasteApply').addEventListener('click', async () => {
   const text = document.getElementById('pasteJson').value.trim();
-  if(!text){ setStatus('Paste JSON first'); return; }
-  const ok = await applyMerge(text, 'Applied');
+  if(!text){ setStatus('Paste JSON first'); showInlineStatus('pasteJsonStatus', 'Paste JSON first', true); return; }
+  const ok = await applyMerge(text, 'Applied', 'pasteJsonStatus');
   if(ok) document.getElementById('pasteJson').value = '';
 });
 document.getElementById('pasteClear').addEventListener('click', () => {
   document.getElementById('pasteJson').value = '';
   setStatus('Cleared');
+  const el = document.getElementById('pasteJsonStatus');
+  el.classList.remove('show'); el.textContent = '';
 });
 
 // ---- Suggest Next Batch: find entries most in need of content, output a copyable work order ----
