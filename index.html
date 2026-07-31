@@ -368,7 +368,6 @@
     margin:-18px -20px 0; padding:20px 20px 10px;
     background-repeat:no-repeat;
   }
-  .artSticky.hasPortrait{min-height:150px; box-sizing:border-box;}
   .ahHead{display:flex; flex-direction:column; align-items:flex-start; gap:1px;}
   .artSticky.hasPortrait .ahHead{padding-right:120px;}
   .ahYear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
@@ -2077,16 +2076,16 @@ function fillArticleBody(d){
     '<div class="ahName">' + esc(d.n) + '</div></div>' +
     '<div class="ahTaper" id="ahTaper"></div>';
   html += '</div>'; // .artSticky
-  if(d.country){
-    html += '<div class="artbadges"><span class="badge" style="color:var(--muted)">' + esc(d.country) + '</span></div>';
-  }
   if(hasImg){
     html += '<img class="artimg" id="artHeroImg" src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="this.style.display=\'none\'">';
     if(d.imgCap) html += '<div class="artcap">' + esc(d.imgCap) + '</div>';
   }
-  if(d.facts && d.facts.length){
+  // Country now rides along in Quick Facts rather than as its own badge above the photo.
+  const factList = (d.facts || []).slice();
+  if(d.country) factList.push({label:'Country', value:d.country});
+  if(factList.length){
     html += '<div class="factbox">';
-    d.facts.forEach(f => {
+    factList.forEach(f => {
       if(!f || !f.label) return;
       const val = f.url
         ? '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.value || f.url) + '</a>'
@@ -2191,6 +2190,13 @@ function slideArticleTo(d, direction){
   currentEntry = d;
   showDetail(d); // keep the teaser card in sync underneath, so closing back down to it matches the article you're now viewing
   stopAudio();
+  // Park the flying photo for the duration of the slide. The incoming article is rendered
+  // while it is still translated a full screen-width off to the side, so measuring against
+  // it here would strand the photo at the edge. The inline photo simply slides in with the
+  // rest of the content, and the flying copy takes over once everything has settled.
+  flySuspended = true;
+  flyGeo = null;
+  document.getElementById('flyPortrait').classList.remove('on');
   const clone = body.cloneNode(true);
   clone.removeAttribute('id');
   clone.className = 'artBodyClone';
@@ -2212,6 +2218,9 @@ function slideArticleTo(d, direction){
     clone.remove();
     body.style.transition = '';
     body.style.transform = '';
+    flySuspended = false;
+    syncStickyBackdrops();
+    measureFly();
   }, 520);
 }
 
@@ -2306,8 +2315,10 @@ function syncStickyBackdrops(){
 const FLY_W = 104, FLY_H = 133;   // final corner size (matches .flyPortrait in CSS)
 const FLY_OVERHANG = 24;          // how far it rises above the card's top border
 const FLY_INSET = 20;             // gap from the card's right edge
+const FLY_DELAY = 48;             // scroll this far first, so a nudge doesn't start the flight
 let flyGeo = null;
 let flyRAF = null;
+let flySuspended = false;   // true while a left/right slide is in flight
 
 function measureFly(){
   const artEl = document.getElementById('article');
@@ -2315,7 +2326,7 @@ function measureFly(){
   const hero = document.getElementById('artHeroImg');
   const sticky = document.getElementById('artSticky');
   if(!fly) return;
-  if(!hero || !sticky || !artEl.classList.contains('open') || !hero.offsetHeight){
+  if(flySuspended || !hero || !sticky || !artEl.classList.contains('open') || !hero.offsetHeight){
     flyGeo = null;
     fly.classList.remove('on');
     updateFly();
@@ -2336,8 +2347,10 @@ function measureFly(){
     // and there is no border to overhang.
     endLeft: sheet.right - FLY_INSET - FLY_W,
     endTop: Math.max(8, sheet.top - FLY_OVERHANG),
-    // How far the reader scrolls to complete the flight.
-    dist: Math.max(120, hero.offsetHeight * 0.55)
+    // How far the reader scrolls to complete the flight. Roughly the photo's own height,
+    // so it settles into the corner at about the moment it would otherwise have scrolled
+    // off the top — which is what keeps it moving in step with the text.
+    dist: Math.max(240, hero.offsetHeight * 0.95)
   };
   fly.style.left = flyGeo.endLeft + 'px';
   fly.style.top = flyGeo.endTop + 'px';
@@ -2359,10 +2372,15 @@ function updateFly(){
   }
   const artEl = document.getElementById('article');
   const s = Math.max(0, artEl.scrollTop);
-  const raw = Math.min(1, s / flyGeo.dist);
+  const raw = Math.min(1, Math.max(0, (s - FLY_DELAY) / flyGeo.dist));
   const t = raw * raw * (3 - 2 * raw); // smoothstep, so it eases in and out of the corner
-  // Where the photo would be if it had simply scrolled with the page...
-  const fromTop = flyGeo.sheetTop + flyGeo.heroTop - s;
+  // Where the photo would be if it had simply scrolled with the page. Once the flight is
+  // under way the scroll term is damped, otherwise the photo races past the corner and has
+  // to drop back down into it; damped, it moves 1:1 with the text at first and then eases
+  // straight into its resting place without ever overshooting.
+  const preDelay = Math.min(s, FLY_DELAY);
+  const delta = Math.max(0, s - FLY_DELAY);
+  const fromTop = flyGeo.sheetTop + flyGeo.heroTop - preDelay - delta * Math.pow(1 - raw, 1.5);
   // ...blended toward its resting slot in the corner.
   const curLeft = flyGeo.heroLeft + (flyGeo.endLeft - flyGeo.heroLeft) * t;
   const curTop = fromTop + (flyGeo.endTop - fromTop) * t;
