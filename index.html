@@ -245,7 +245,7 @@
   .offsetCtrl button:hover{color:#fff;}
   .offsetCtrl button:active{color:#fff; transform:scale(0.9);}
   .offsetCtrl span{font-size:14px; color:var(--muted); min-width:20px; text-align:center; font-variant-numeric:tabular-nums;}
-  .draghandle{display:none; position:sticky; top:6px; z-index:6; width:38px; height:4px; border-radius:2px; background:rgba(201,165,66,.55); margin:0 auto 10px;}
+  .draghandle{display:none; position:sticky; top:6px; z-index:20; width:38px; height:4px; border-radius:2px; background:rgba(201,165,66,.55); margin:0 auto 10px;}
   @media (pointer:coarse){
     .draghandle{display:block;}
     #dArtBtn, #detailClose{display:none;}
@@ -334,10 +334,10 @@
   .overlay{
     position:fixed; inset:0; z-index:100;
     background:linear-gradient(180deg,#0A1430 0%, #070F22 40%);
-    overflow-y:auto; transform:translateY(100%); transition:transform .3s ease;
+    overflow-y:auto; overflow-x:hidden; transform:translateY(100%); transition:transform .3s ease;
   }
   .overlay.open{transform:translateY(0);}
-  .artwrap{max-width:720px; margin:0 auto; padding:18px 20px 70px; position:relative; overflow-x:hidden; overflow-y:visible;}
+  .artwrap{max-width:720px; margin:0 auto; padding:18px 20px 70px; position:relative;}
   .artBodyClone{position:absolute; top:0; left:0; width:100%; pointer-events:none;}
   .artback{
     position:sticky; top:12px; z-index:5;
@@ -347,7 +347,7 @@
   }
   .artback:hover{background:var(--gold); color:var(--navy-deep);}
   .artX{
-    position:absolute; top:10px; right:14px; z-index:10;
+    position:absolute; top:10px; right:14px; z-index:20;
     width:30px; height:30px; display:flex; align-items:center; justify-content:center;
     background:none; border:none; color:#fff; font-size:23px; line-height:1; cursor:pointer;
   }
@@ -356,6 +356,41 @@
   .artyear{display:block; font-family:'Cinzel',serif; font-weight:600; color:#fff; font-size:clamp(19px,4vw,26px); letter-spacing:.05em;}
   .arttitle{font-family:'Cinzel',serif; font-weight:700; color:var(--gold-bright); font-size:clamp(28px,6.2vw,42px); line-height:1.15; margin-top:8px; text-align:center;}
   .artsub{text-align:center; font-style:italic; color:var(--muted); font-size:16px; margin-top:6px;}
+  /* Sticky article header: year + name (same font/position as the teaser card) plus a
+     corner portrait (1.5x the teaser's) and, when present, the audio scrubber — all of it
+     pinned to the top of the article as the reader scrolls, styled as a floating card
+     just like the teaser (so the portrait can overhang above its top border). */
+  .artSticky{
+    position:sticky; top:8px; z-index:15;
+    margin:0 0 18px; padding:8px 16px 40px;
+    background:linear-gradient(180deg, #14224A, #0C1735);
+    border:1px solid var(--gold); border-radius:10px;
+    box-shadow:0 8px 30px rgba(0,0,0,.6);
+  }
+  .artSticky.hasPortrait{min-height:190px; box-sizing:border-box;}
+  .ahHead{display:flex; flex-direction:column; align-items:flex-start; gap:1px;}
+  .artSticky.hasPortrait .ahHead{padding-right:158px;}
+  .ahYear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
+  .ahName{font-size:25px; font-weight:600; line-height:1.15;}
+  .ahPortrait{
+    position:absolute; top:-16px; right:16px; z-index:2;
+    width:138px; height:177px; border-radius:16px; overflow:hidden;
+    border:1.5px solid var(--gold); box-shadow:0 14px 28px rgba(0,0,0,.5), 0 4px 10px rgba(0,0,0,.35);
+    opacity:0; pointer-events:none; cursor:zoom-in; transition:opacity .08s linear;
+  }
+  .ahPortrait img{width:100%; height:100%; object-fit:cover; object-position:center 28%; transform:scale(1.12); pointer-events:none;}
+  .artSticky .player{margin:12px 0 0; padding-right:0;}
+  .artSticky.hasPortrait .player{padding-right:150px; box-sizing:border-box;}
+  .ahShareBtn{
+    position:absolute !important; right:12px !important; bottom:2px !important; top:auto !important; left:auto !important;
+    z-index:6; width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+    background:none; border:none; color:#fff; cursor:pointer; padding:0;
+  }
+  .ahShareBtn:hover{color:var(--gold-bright);}
+  .ahShareBtn svg{width:19px; height:19px;}
+  #shareToast.ahToast{position:absolute; top:auto; bottom:38px; right:12px;}
+  /* Close button hidden for now — closing happens via swipe-down or the back gesture */
+  .artX{display:none;}
   .artbadges{display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
   .artrule{width:min(360px,60%); height:1px; margin:18px auto; background:linear-gradient(90deg,transparent,var(--gold),transparent);}
   .arth{font-family:'Cinzel',serif; font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:26px 0 8px; border-bottom:1px solid rgba(201,165,66,.35); padding-bottom:5px;}
@@ -364,7 +399,7 @@
   .artquote .qsrc{display:block; font-style:normal; font-size:13.5px; color:var(--muted); margin-top:5px;}
   .artsrc a{color:var(--gold-bright); font-size:15.5px;}
   .artsrc li{margin-bottom:6px; margin-left:20px;}
-  .artimg{width:100%; border-radius:8px; border:1px solid rgba(201,165,66,.5); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation;}
+  .artimg{width:100%; min-height:200px; border-radius:8px; border:1px solid rgba(201,165,66,.5); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
   .imgLightbox{
     position:fixed; inset:0; z-index:200; background:rgba(4,9,26,.97);
     display:none; align-items:center; justify-content:center; padding:24px;
@@ -386,7 +421,7 @@
     margin:22px 0;
   }
   .pbtn{
-    width:52px; height:52px; border-radius:50%; flex:0 0 auto;
+    width:66px; height:66px; margin:-7px 0; border-radius:50%; flex:0 0 auto;
     background:none; color:var(--gold); border:none;
     cursor:pointer; display:flex; align-items:center; justify-content:center;
     -webkit-tap-highlight-color:transparent;
@@ -1984,14 +2019,31 @@ function ordinalSuffix(n){
 
 function fillArticleBody(d){
   const art = d.art || {sections:[], quotes:[], links:[]};
+  const hasImg = !!d.img;
   let html = '';
-  html += '<div class="arthead"><span class="artyear">~ ' + fmtYear(d.y) + ' ~</span>' +
-    '<div class="arttitle">' + esc(d.n) + '</div></div>';
+  // Sticky header: year + name in the same font/position as the teaser card, a corner
+  // portrait 50% bigger than the teaser's (fades in once its image loads), and — when
+  // present — the audio scrubber. The whole block stays pinned to the top of the article
+  // as the reader scrolls, so it's always in view together.
+  html += '<div class="artSticky' + (hasImg ? ' hasPortrait' : '') + '" id="artSticky">' +
+    '<div class="ahHead"><span class="ahYear" id="ahYear">' + esc(fmtYear(d.y)) + '</span>' +
+    '<div class="ahName" id="ahName">' + esc(d.n) + '</div></div>';
+  if(hasImg){
+    html += '<div class="ahPortrait" id="ahPortrait"><img id="ahPortraitImg" src="" alt="' + esc(d.n) + '"></div>';
+  }
+  if(d.audio){
+    html += '<div class="player">' +
+      '<button class="pbtn" id="apPlay" aria-label="Play">' + ICON_PLAY + '</button>' +
+      '<input type="range" id="apSeek" min="0" max="100" value="0" step="0.1" aria-label="Seek">' +
+      '<span class="ptime" id="apTime">0:00 / 0:00</span>' +
+      '</div>';
+  }
+  html += '</div>'; // .artSticky
   if(d.country){
     html += '<div class="artbadges"><span class="badge" style="color:var(--muted)">' + esc(d.country) + '</span></div>';
   }
-  if(d.img){
-    html += '<img class="artimg" src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="this.style.display=\'none\'">';
+  if(hasImg){
+    html += '<img class="artimg" id="artHeroImg" src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="this.style.display=\'none\'">';
     if(d.imgCap) html += '<div class="artcap">' + esc(d.imgCap) + '</div>';
   }
   if(d.facts && d.facts.length){
@@ -2004,13 +2056,6 @@ function fillArticleBody(d){
       html += '<div class="factrow"><div class="factlabel">' + esc(f.label) + '</div><div class="factval">' + val + '</div></div>';
     });
     html += '</div>';
-  }
-  if(d.audio){
-    html += '<div class="player">' +
-      '<button class="pbtn" id="apPlay" aria-label="Play">' + ICON_PLAY + '</button>' +
-      '<input type="range" id="apSeek" min="0" max="100" value="0" step="0.1" aria-label="Seek">' +
-      '<span class="ptime" id="apTime">0:00 / 0:00</span>' +
-      '</div>';
   }
   (art.sections || []).forEach(sec => {
     if(sec.h) html += '<div class="arth">' + esc(sec.h) + '</div>';
@@ -2030,8 +2075,33 @@ function fillArticleBody(d){
     });
     html += '</ul>';
   }
+  // The share button + toast are persistent, listener-bound elements. On the first render
+  // they live outside #artBody; on later renders they were moved inside it (see below), so
+  // they must be detached BEFORE wiping #artBody's innerHTML, or that would destroy them.
+  const shareBtn = document.getElementById('artShareBtn');
+  const toastEl = document.getElementById('shareToast');
+  if(shareBtn && shareBtn.parentNode) shareBtn.parentNode.removeChild(shareBtn);
+  if(toastEl && toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
+
   document.getElementById('artBody').innerHTML = html;
+
+  // Move them into the freshly-built sticky header (bottom-right), so the rest of that
+  // header stays clear for the swipe-down-to-close gesture; re-appending preserves their
+  // existing click listeners.
+  const stickyEl = document.getElementById('artSticky');
+  if(stickyEl && shareBtn){ shareBtn.classList.add('ahShareBtn'); stickyEl.appendChild(shareBtn); }
+  if(stickyEl && toastEl){ toastEl.classList.add('ahToast'); stickyEl.appendChild(toastEl); }
+
+  // Corner portrait: the big inline photo and this small corner one crossfade into each
+  // other as the reader scrolls (see updatePicCrossfade), so both start from a clean state.
+  if(hasImg){
+    document.getElementById('ahPortraitImg').src = resolveAsset(d.img, db.settings && db.settings.imageBase);
+    const heroImgEl = document.getElementById('artHeroImg');
+    if(heroImgEl) heroImgEl.addEventListener('load', queuePicCrossfade);
+  }
+
   if(d.audio) initAudio(resolveAsset(d.audio, db.settings && db.settings.audioBase));
+  updatePicCrossfade();
 }
 function openArticle(d){
   currentEntry = d;
@@ -2082,8 +2152,8 @@ function fmtTime(s){
   const m = Math.floor(s/60), sec = Math.floor(s%60);
   return m + ':' + String(sec).padStart(2,'0');
 }
-const ICON_PLAY = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M7 4l14 8-14 8V4z"/></svg>';
-const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+const ICON_PLAY = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor"><path d="M7 4l14 8-14 8V4z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
 function initAudio(url){
   stopAudio();
   audioEl = new Audio(url);
@@ -2121,6 +2191,35 @@ function stopAudio(){
   if(audioEl){ audioEl.pause(); audioEl.src = ''; audioEl = null; }
 }
 
+// ---- Big photo <-> sticky corner-portrait crossfade ----
+// As the reader scrolls, the large inline photo fades out (roughly by the time half of
+// it has scrolled up under the sticky header) while the small corner portrait already
+// living in that sticky header fades in — giving the impression of the photo "morphing"
+// into its smaller sticky spot, even though they're two separate elements.
+let picCrossfadeRAF = null;
+function updatePicCrossfade(){
+  picCrossfadeRAF = null;
+  const heroImg = document.getElementById('artHeroImg');
+  const portrait = document.getElementById('ahPortrait');
+  const stickyEl = document.getElementById('artSticky');
+  if(!heroImg || !portrait || !stickyEl){ return; }
+  if(heroImg.offsetParent === null){ return; } // image failed to load / hidden — leave state as-is
+  const headerH = stickyEl.offsetHeight;
+  const imgRect = heroImg.getBoundingClientRect();
+  const threshold = Math.max(imgRect.height * 0.5, 1);
+  const hidden = headerH - imgRect.top;
+  const fraction = Math.max(0, Math.min(1, hidden / threshold));
+  heroImg.style.opacity = String(1 - fraction);
+  portrait.style.opacity = String(fraction);
+  portrait.style.pointerEvents = fraction > 0.5 ? 'auto' : 'none';
+}
+function queuePicCrossfade(){
+  if(picCrossfadeRAF) return;
+  picCrossfadeRAF = requestAnimationFrame(updatePicCrossfade);
+}
+document.getElementById('article').addEventListener('scroll', queuePicCrossfade, {passive:true});
+window.addEventListener('resize', queuePicCrossfade);
+
 // ---- Tap anywhere in the story to pause the audio, with a fading pause glyph as feedback ----
 const ICON_PAUSE_GLYPH = '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
 function showPauseIndicator(){
@@ -2144,7 +2243,7 @@ document.getElementById('article').addEventListener('click', (e) => {
 const imgLightbox = document.getElementById('imgLightbox');
 const imgLightboxImg = document.getElementById('imgLightboxImg');
 document.getElementById('artBody').addEventListener('dblclick', (e) => {
-  const img = e.target.closest('.artimg');
+  const img = e.target.closest('.artimg, #ahPortraitImg');
   if(!img || !img.src) return;
   e.preventDefault();
   imgLightboxImg.src = img.src;
