@@ -381,13 +381,27 @@
     transition:opacity .08s linear;
   }
   .artSticky.hasPortrait .ahTaper{width:min(220px, 52%);}
-  .ahPortrait{
-    position:absolute; top:12px; right:20px; z-index:2;
-    width:104px; height:133px; border-radius:14px; overflow:hidden;
-    border:1.5px solid var(--gold); box-shadow:0 14px 28px rgba(0,0,0,.5), 0 4px 10px rgba(0,0,0,.35);
-    opacity:0; pointer-events:none; cursor:zoom-in; transition:opacity .08s linear;
+  /* The flying photo. Sized here at its FINAL corner dimensions; the morph is done purely
+     with a transform (origin top-left), so at scroll 0 it lands exactly on top of the big
+     inline photo and the handoff is invisible. box-sizing keeps the animated border-width
+     from changing its footprint. */
+  .flyPortrait{
+    position:fixed; z-index:120; display:none; box-sizing:border-box;
+    width:104px; height:133px; overflow:hidden;
+    border:1.5px solid var(--gold); border-radius:14px;
+    transform-origin:top left; will-change:transform;
+    pointer-events:none; cursor:zoom-in;
   }
-  .ahPortrait img{width:100%; height:100%; object-fit:cover; object-position:center 28%; transform:scale(1.12); pointer-events:none;}
+  .flyPortrait.on{display:block;}
+  .flyPortrait.masked{display:none !important;}
+  .flyPortrait img{width:100%; height:100%; object-fit:cover; object-position:center 28%; display:block; pointer-events:none;}
+  /* A drag anywhere on the sticky header is a dismiss gesture, not a scroll, so the
+     header keeps its swipe-down-to-close behaviour at any scroll position. */
+  .artSticky{touch-action:none;}
+  /* The monstrance sits exactly where the corner photo comes to rest, so it steps aside
+     while a story is open. */
+  .monstranceWrap svg{transition:opacity .25s ease;}
+  body.artOpen .monstranceWrap svg{opacity:0;}
   /* The audio scrubber sits with the article text, directly above it, and pins itself
      just below the sticky header once it reaches the top. */
   .artPlayerWrap{
@@ -791,6 +805,12 @@
     <div id="artBody"></div>
   </div>
 </div>
+
+<!-- The photo that flies from its big inline position up into the corner of the story
+     header. It lives at body level, outside the article sheet, because the sheet clips
+     its contents and carries a transform — either of which would trap it inside and
+     stop it overhanging the card's top border. -->
+<div class="flyPortrait" id="flyPortrait" aria-hidden="true"><img id="flyPortraitImg" src="" alt=""></div>
 
 <div class="imgLightbox" id="imgLightbox">
   <img id="imgLightboxImg" src="" alt="">
@@ -1749,11 +1769,14 @@ function navigateStory(direction){
 }
 (function(){
   const artEl = document.getElementById('article');
-  let startY = null, startX = null;
+  let startY = null, startX = null, fromHeader = false;
   artEl.addEventListener('touchstart', (e) => {
     if(e.touches.length !== 1) return;
     startY = e.touches[0].clientY;
     startX = e.touches[0].clientX;
+    // A gesture begun on the sticky header is treated as a handle drag: the header
+    // doesn't scroll (touch-action:none), so swiping down there always dismisses.
+    fromHeader = !!(e.target.closest && e.target.closest('.artSticky'));
   }, {passive:true});
   artEl.addEventListener('touchend', (e) => {
     if(startY == null) return;
@@ -1761,9 +1784,10 @@ function navigateStory(direction){
     const endY = t ? t.clientY : startY;
     const endX = t ? t.clientX : startX;
     const dy = endY - startY, dx = endX - startX;
-    startY = null;
-    if(dy > 55 && Math.abs(dx) < dy && artEl.scrollTop <= 4){
-      stopAudio(); artEl.classList.remove('open');
+    const wasHeader = fromHeader;
+    startY = null; fromHeader = false;
+    if(dy > 55 && Math.abs(dx) < dy && (wasHeader || artEl.scrollTop <= 4)){
+      closeArticle();
       return;
     }
     if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)*1.5){
@@ -1773,6 +1797,22 @@ function navigateStory(direction){
     }
   }, {passive:true});
 })();
+// Tapping anywhere outside an open card — the search box, the masthead, the timeline —
+// closes it. Menus, dialogs and the search results list are excluded so their own
+// handlers can run.
+document.addEventListener('click', (e) => {
+  const inChrome = e.target.closest(
+    '#imgLightbox, #flyPortrait, #manage, #jsonView, #qeditPanel, .sresults, #hamMenu, .ev'
+  );
+  if(inChrome) return;
+  if(article.classList.contains('open')){
+    if(!e.target.closest('#article')) closeArticle();
+    return;
+  }
+  if(detail.classList.contains('open') && !e.target.closest('#detail')){
+    detail.classList.remove('open');
+  }
+});
 viewport.addEventListener('click', () => {
   if(dragMoved) return;
   detail.classList.remove('open');
@@ -1964,7 +2004,7 @@ document.getElementById('ghPublish').addEventListener('click', publishToGitHub);
 
 // ================= ARTICLE VIEW (from DB) =================
 document.getElementById('dArtBtn').addEventListener('click', () => { if(currentEntry) openArticle(currentEntry); });
-document.getElementById('artClose').addEventListener('click', () => { stopAudio(); article.classList.remove('open'); });
+document.getElementById('artClose').addEventListener('click', closeArticle);
 
 // Sanitize a limited set of HTML tags for article bodies (b i u em strong ul ol li br p a blockquote h3 h4)
 const RICH_TAGS = {B:1, STRONG:1, I:1, EM:1, U:1, BR:1, P:1, UL:1, OL:1, LI:1, A:1, BLOCKQUOTE:1, H3:1, H4:1};
@@ -2031,14 +2071,11 @@ function fillArticleBody(d){
   // Sticky header — year, name, taper rule and corner portrait, laid out exactly like the
   // teaser card. It has no border of its own: the article sheet is already a bordered card.
   // The taper and portrait stay invisible while the big photo is on screen, then fade in
-  // together as the photo scrolls away (see updatePicCrossfade).
+  // together as the photo flies up into the corner (see updateFly).
   html += '<div class="artSticky' + (hasImg ? ' hasPortrait' : '') + '" id="artSticky">' +
     '<div class="ahHead"><span class="ahYear">' + esc(fmtYear(d.y)) + '</span>' +
     '<div class="ahName">' + esc(d.n) + '</div></div>' +
     '<div class="ahTaper" id="ahTaper"></div>';
-  if(hasImg){
-    html += '<div class="ahPortrait" id="ahPortrait"><img id="ahPortraitImg" src="" alt="' + esc(d.n) + '"></div>';
-  }
   html += '</div>'; // .artSticky
   if(d.country){
     html += '<div class="artbadges"><span class="badge" style="color:var(--muted)">' + esc(d.country) + '</span></div>';
@@ -2087,26 +2124,63 @@ function fillArticleBody(d){
   }
   document.getElementById('artBody').innerHTML = html;
 
-  // Corner portrait: the big inline photo and this small corner one crossfade into each
-  // other as the reader scrolls (see updatePicCrossfade), so both start from a clean state.
+  // Hand the photo to the body-level flying element and cache the geometry the morph
+  // needs, so the scroll handler never has to measure the DOM again.
   if(hasImg){
-    document.getElementById('ahPortraitImg').src = resolveAsset(d.img, db.settings && db.settings.imageBase);
+    const flyImg = document.getElementById('flyPortraitImg');
+    const src = resolveAsset(d.img, db.settings && db.settings.imageBase);
+    if(flyImg.getAttribute('src') !== src) flyImg.src = src;
     const heroImgEl = document.getElementById('artHeroImg');
-    if(heroImgEl) heroImgEl.addEventListener('load', () => { syncStickyBackdrops(); queuePicCrossfade(); });
+    if(heroImgEl) heroImgEl.addEventListener('load', () => { syncStickyBackdrops(); measureFly(); });
   }
 
   if(d.audio) initAudio(resolveAsset(d.audio, db.settings && db.settings.audioBase));
   syncStickyBackdrops();
-  updatePicCrossfade();
+  measureFly();
 }
 function openArticle(d){
   currentEntry = d;
   stopAudio();
+  const opening = !article.classList.contains('open');
   article.classList.add('open');
+  document.body.classList.add('artOpen');
   article.scrollTop = 0;
   fillArticleBody(d);
   prefetchImage(categoryNeighbor(d, -1));
   prefetchImage(categoryNeighbor(d, 1));
+  // The sheet slides up on a transform, which a fixed-position element cannot ride along
+  // with. So during the open animation the inline photo shows normally, and the flying
+  // copy only takes over once the sheet has settled — the swap is invisible because at
+  // scroll 0 the two sit in exactly the same place.
+  if(opening){
+    flyGeo = null;
+    document.getElementById('flyPortrait').classList.remove('on');
+    const hero = document.getElementById('artHeroImg');
+    if(hero) hero.style.opacity = '1';
+    const settle = () => {
+      if(!article.classList.contains('open')) return;
+      syncStickyBackdrops();
+      measureFly();
+    };
+    // Wait for the slide to actually finish. A fixed delay is unreliable here: rendering a
+    // long article in the same frame can push the transition's start back well past it.
+    article.addEventListener('transitionend', function once(ev){
+      if(ev.target !== article || ev.propertyName !== 'transform') return;
+      article.removeEventListener('transitionend', once);
+      settle();
+    });
+    setTimeout(settle, 700); // safety net if the transition never reports
+  }
+}
+// Every route out of a story funnels through here so the audio, the flying photo and the
+// monstrance are always left in a consistent state.
+function closeArticle(){
+  stopAudio();
+  article.classList.remove('open');
+  document.body.classList.remove('artOpen');
+  flyGeo = null;
+  const fly = document.getElementById('flyPortrait');
+  if(fly) fly.classList.remove('on');
 }
 // Swipe navigation between stories: the outgoing content is cloned and slid fully
 // off-screen while the new content (already live underneath, for correct height/
@@ -2218,45 +2292,114 @@ function syncStickyBackdrops(){
   }
 }
 
-// ---- Big photo <-> sticky corner-portrait crossfade ----
-// As the reader scrolls, the large inline photo fades out (fully gone by the time about
-// half of it has slid up behind the sticky header) while the small corner portrait and the
-// gold taper rule fade in — so the big picture appears to shrink into its sticky corner.
-let picCrossfadeRAF = null;
-function updatePicCrossfade(){
-  picCrossfadeRAF = null;
-  const stickyEl = document.getElementById('artSticky');
-  if(!stickyEl) return;
+// ---- The flying photo -------------------------------------------------------------
+// The big inline photo and the small corner photo are the SAME element: a fixed-position
+// copy that lives at body level. It is laid out at the corner's final size and moved with
+// a transform, so at scroll 0 it sits exactly on top of the inline photo (which is left
+// invisible but still occupying its space) and the two are indistinguishable. Scrolling up
+// flies it into the corner of the sticky header, where it comes to rest overhanging the
+// card's top border; scrolling back down reverses it.
+//
+// All geometry is measured once per entry into `flyGeo`, so the scroll handler is pure
+// arithmetic — no getBoundingClientRect per frame, which is what keeps this from stuttering
+// during a hard flick.
+const FLY_W = 104, FLY_H = 133;   // final corner size (matches .flyPortrait in CSS)
+const FLY_OVERHANG = 24;          // how far it rises above the card's top border
+const FLY_INSET = 20;             // gap from the card's right edge
+let flyGeo = null;
+let flyRAF = null;
+
+function measureFly(){
+  const artEl = document.getElementById('article');
+  const fly = document.getElementById('flyPortrait');
+  const hero = document.getElementById('artHeroImg');
+  const sticky = document.getElementById('artSticky');
+  if(!fly) return;
+  if(!hero || !sticky || !artEl.classList.contains('open') || !hero.offsetHeight){
+    flyGeo = null;
+    fly.classList.remove('on');
+    updateFly();
+    return;
+  }
+  const sheet = artEl.getBoundingClientRect();
+  const heroRect = hero.getBoundingClientRect();
+  flyGeo = {
+    // Hero's position in the sheet's own scrolled content, so its on-screen position at
+    // any moment is just (sheetTop + heroTop - scrollTop).
+    heroTop: heroRect.top - sheet.top + artEl.scrollTop,
+    heroLeft: heroRect.left,
+    heroW: heroRect.width,
+    heroH: heroRect.height,
+    sheetTop: sheet.top,
+    // Final resting place: tucked into the card's top-right, riding above its border.
+    // Clamped so it can't escape off-screen on desktop, where the sheet is full-height
+    // and there is no border to overhang.
+    endLeft: sheet.right - FLY_INSET - FLY_W,
+    endTop: Math.max(8, sheet.top - FLY_OVERHANG),
+    // How far the reader scrolls to complete the flight.
+    dist: Math.max(120, hero.offsetHeight * 0.55)
+  };
+  fly.style.left = flyGeo.endLeft + 'px';
+  fly.style.top = flyGeo.endTop + 'px';
+  fly.classList.add('on');
+  hero.style.opacity = '0';
+  updateFly();
+}
+
+function updateFly(){
+  flyRAF = null;
+  const fly = document.getElementById('flyPortrait');
   const taper = document.getElementById('ahTaper');
-  const heroImg = document.getElementById('artHeroImg');
-  const portrait = document.getElementById('ahPortrait');
-  // No photo on this entry: nothing to crossfade, so simply show the taper rule.
-  if(!heroImg || !portrait){
-    if(taper) taper.style.opacity = '1';
+  if(!fly) return;
+  if(!flyGeo){
+    fly.classList.remove('on');
+    // No photo on this entry, so there is no flight to gate the taper rule on.
+    if(taper) taper.style.opacity = document.getElementById('artHeroImg') ? '0' : '1';
     return;
   }
-  // Photo hasn't loaded (or failed): leave the header in its "big picture" state.
-  if(!heroImg.naturalHeight || heroImg.offsetParent === null){
-    heroImg.style.opacity = '1';
-    portrait.style.opacity = '0';
-    if(taper) taper.style.opacity = '0';
-    return;
-  }
-  const imgRect = heroImg.getBoundingClientRect();
-  const threshold = Math.max(imgRect.height * 0.5, 1);
-  const hidden = stickyEl.offsetHeight - imgRect.top;
-  const fraction = Math.max(0, Math.min(1, hidden / threshold));
-  heroImg.style.opacity = String(1 - fraction);
-  portrait.style.opacity = String(fraction);
-  portrait.style.pointerEvents = fraction > 0.5 ? 'auto' : 'none';
-  if(taper) taper.style.opacity = String(fraction);
+  const artEl = document.getElementById('article');
+  const s = Math.max(0, artEl.scrollTop);
+  const raw = Math.min(1, s / flyGeo.dist);
+  const t = raw * raw * (3 - 2 * raw); // smoothstep, so it eases in and out of the corner
+  // Where the photo would be if it had simply scrolled with the page...
+  const fromTop = flyGeo.sheetTop + flyGeo.heroTop - s;
+  // ...blended toward its resting slot in the corner.
+  const curLeft = flyGeo.heroLeft + (flyGeo.endLeft - flyGeo.heroLeft) * t;
+  const curTop = fromTop + (flyGeo.endTop - fromTop) * t;
+  const curW = flyGeo.heroW + (FLY_W - flyGeo.heroW) * t;
+  const curH = flyGeo.heroH + (FLY_H - flyGeo.heroH) * t;
+  const sx = curW / FLY_W, sy = curH / FLY_H;
+  fly.style.transform = 'translate(' + (curLeft - flyGeo.endLeft) + 'px,' + (curTop - flyGeo.endTop) + 'px) scale(' + sx + ',' + sy + ')';
+  // Border, radius and shadow are all magnified by the transform, so they are written in
+  // pre-scale units to keep their on-screen thickness matching the design at both ends.
+  fly.style.borderWidth = ((1 + 0.5 * t) / sx) + 'px';
+  fly.style.borderColor = 'rgba(201,165,66,' + (0.5 + 0.5 * t) + ')';
+  fly.style.borderRadius = ((8 + 6 * t) / sx) + 'px';
+  fly.style.boxShadow = t > 0.01
+    ? '0 ' + (14 * t / sx) + 'px ' + (28 * t / sx) + 'px rgba(0,0,0,' + (0.5 * t) + ')'
+    : 'none';
+  fly.style.pointerEvents = t > 0.6 ? 'auto' : 'none';
+  if(taper) taper.style.opacity = String(t);
 }
-function queuePicCrossfade(){
-  if(picCrossfadeRAF) return;
-  picCrossfadeRAF = requestAnimationFrame(updatePicCrossfade);
+function queueFly(){
+  if(flyRAF) return;
+  flyRAF = requestAnimationFrame(updateFly);
 }
-document.getElementById('article').addEventListener('scroll', queuePicCrossfade, {passive:true});
-window.addEventListener('resize', () => { syncStickyBackdrops(); queuePicCrossfade(); });
+// The flying photo sits above the story sheet, so it must step aside whenever another
+// full-screen surface takes over. Watching their classes keeps this correct no matter
+// which button or gesture opened them.
+(function(){
+  const fly = document.getElementById('flyPortrait');
+  const others = ['manage','jsonView','imgLightbox','qeditPanel']
+    .map(id => document.getElementById(id)).filter(Boolean);
+  if(!fly || !others.length) return;
+  const sync = () => fly.classList.toggle('masked', others.some(el => el.classList.contains('open')));
+  const mo = new MutationObserver(sync);
+  others.forEach(el => mo.observe(el, {attributes:true, attributeFilter:['class']}));
+  sync();
+})();
+document.getElementById('article').addEventListener('scroll', queueFly, {passive:true});
+window.addEventListener('resize', () => { syncStickyBackdrops(); measureFly(); });
 
 // ---- Tap anywhere in the story to pause the audio, with a fading pause glyph as feedback ----
 const ICON_PAUSE_GLYPH = '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
@@ -2281,8 +2424,17 @@ document.getElementById('article').addEventListener('click', (e) => {
 const imgLightbox = document.getElementById('imgLightbox');
 const imgLightboxImg = document.getElementById('imgLightboxImg');
 document.getElementById('artBody').addEventListener('dblclick', (e) => {
-  const img = e.target.closest('.artimg, #ahPortraitImg');
+  const img = e.target.closest('.artimg');
   if(!img || !img.src) return;
+  e.preventDefault();
+  imgLightboxImg.src = img.src;
+  imgLightboxImg.alt = img.alt || '';
+  imgLightbox.classList.add('open');
+});
+// The flying photo stands in for the article image at both ends of its flight.
+document.getElementById('flyPortrait').addEventListener('dblclick', (e) => {
+  const img = document.getElementById('flyPortraitImg');
+  if(!img.src) return;
   e.preventDefault();
   imgLightboxImg.src = img.src;
   imgLightboxImg.alt = img.alt || '';
@@ -2617,7 +2769,7 @@ document.getElementById('fDelete').addEventListener('click', async () => {
   await saveDb();
   renderMList();
   render();
-  if(wasCurrent){ currentEntry = null; detail.classList.remove('open'); article.classList.remove('open'); }
+  if(wasCurrent){ currentEntry = null; detail.classList.remove('open'); closeArticle(); }
 });
 
 // ---- Claude API helper: handles long searches (pause_turn), truncation, and real error messages ----
