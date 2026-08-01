@@ -162,7 +162,7 @@
   .ev:hover .ic{transform:scale(1.25); box-shadow:0 0 10px currentColor;}
   .ev svg{width:12px; height:12px;}
   .ev .nm{
-    margin-top:0; font-size:14.5px; line-height:1.15; text-align:center; max-width:96px;
+    margin-top:0; font-size:14.5px; line-height:1.08; text-align:center; max-width:96px;
     color:var(--parchment); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
     overflow:hidden; text-shadow:0 1px 3px rgba(0,0,0,.9);
   }
@@ -1425,14 +1425,44 @@ const TYPE_ORDER = ['e','s','c','p','m','u'];
 const TYPE_PLURALS = {s:"Saints", c:"Councils", p:"Persecutions", m:"Marian Apparitions", u:"Eucharistic Miracles", e:"Events"};
 const HEAD_H = 58;
 
+// ---- Label width measurement (for lane packing) ----
+// Lanes used to reserve a flat 96px for every entry, so "Agnes" blocked exactly as much
+// horizontal room as "Marcellinus & Peter" — which forced short-labelled entries into
+// needless extra rows. Measuring each label lets neighbours sit much closer together and
+// collapses the stack. A canvas measurement is used because it costs no layout/reflow.
+let _measCtx = null;
+function labelMetrics(){
+  // Read the real font and max-width off a probe each render, so the narrower phone
+  // styles from the media query are picked up automatically.
+  const probe = document.createElement('div');
+  probe.className = 'ev';
+  probe.style.cssText = 'visibility:hidden;position:absolute;left:-9999px;top:0';
+  probe.innerHTML = '<div class="ic"></div><div class="nm">Mg</div>';
+  canvas.appendChild(probe);
+  const nm = probe.querySelector('.nm');
+  const cs = getComputedStyle(nm);
+  const font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+  const maxW = parseFloat(cs.maxWidth) || 96;
+  const iconW = probe.querySelector('.ic').getBoundingClientRect().width || 22;
+  probe.remove();
+  if(!_measCtx) _measCtx = document.createElement('canvas').getContext('2d');
+  _measCtx.font = font;
+  return {
+    maxW: maxW,
+    iconW: iconW,
+    width: (text) => Math.min(maxW, _measCtx.measureText(text || '').width)
+  };
+}
+
 function render(){
   if(!db) return;
   const evs = filtered();
   let shown = 0;
   const showLabels = ppy >= 1.5;
-  const gap = showLabels ? 96 : 30;
-  const rowH = showLabels ? 62 : 32;
+  const rowH = showLabels ? 56 : 30;
   const bandPad = 16;
+  const M = labelMetrics();
+  const PAD = 9;               // clear space required between neighbouring entries
 
   canvas.innerHTML = "";
   canvas.style.width = totalWidth() + "px";
@@ -1502,11 +1532,18 @@ function render(){
     let maxLane = 0;
     const placed = items.map(d => {
       const x = yearToX(d.y + (d.offset || 0));
+      // The entry is centred on x, so it occupies x ± half its widest part. Labels are
+      // centred under the icon, and an entry is never narrower than its own icon.
+      const label = (d.displayLabel && d.displayLabel.trim()) ? d.displayLabel : shortName(d.n, d.t);
+      const w = showLabels ? Math.max(M.iconW, M.width(label)) : M.iconW;
+      const half = w / 2 + PAD / 2;
+      // First free lane whose last entry ends before this one begins. Scanning in order
+      // and storing each lane's right edge keeps the number of lanes minimal.
       let lane = 0;
-      while(lane < lanes.length && x - lanes[lane] < gap) lane++;
-      lanes[lane] = x;
+      while(lane < lanes.length && x - half < lanes[lane]) lane++;
+      lanes[lane] = x + half;
       maxLane = Math.max(maxLane, lane);
-      return {d: d, x: x, lane: lane};
+      return {d: d, x: x, lane: lane, label: label};
     });
     const bandH = bandPad*2 + 16 + (maxLane+1)*rowH;
     const band = document.createElement('div');
@@ -1540,7 +1577,7 @@ function render(){
       el.title = d.n + ' (AD ' + d.y + ')';
       el.dataset.id = d.id;
       el.innerHTML = '<div class="ic">'+ICONS[d.t]+'</div>' +
-        (showLabels ? '<div class="nm">'+esc((d.displayLabel && d.displayLabel.trim()) ? d.displayLabel : shortName(d.n, d.t))+'</div>' : '');
+        (showLabels ? '<div class="nm">'+esc(pl.label)+'</div>' : '');
       el.addEventListener('click', (e) => { e.stopPropagation(); if(dragMoved) return; showDetail(d); });
       canvas.appendChild(el);
       shown++;
