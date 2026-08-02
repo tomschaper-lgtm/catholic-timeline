@@ -1,3 +1,4 @@
+<!-- Catholic Timeline — v73 — generated 2026-08-01 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -514,6 +515,8 @@
   .artrich b, .artrich strong{font-weight:700; color:#F5ECD6;}
   .artrich u{text-decoration-color:var(--gold); text-underline-offset:3px;}
   .artrich a{color:var(--gold-bright);}
+  a.entrylink{color:var(--gold-bright); text-decoration:none; border-bottom:1px dotted rgba(201,165,66,.65); cursor:pointer;}
+  a.entrylink:hover, a.entrylink:focus{border-bottom-style:solid;}
   .artrich blockquote{border-left:3px solid var(--gold); background:rgba(201,165,66,.06); padding:10px 16px; margin:14px 0; font-style:italic;}
   .artrich h3, .artrich h4{font-family:'Cinzel',serif; font-size:14px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold-bright); margin:18px 0 6px;}
   /* JSON viewer */
@@ -955,6 +958,13 @@
         <button class="mbtn" id="mJsonFiltered">JSON &mdash; Filtered</button>
         <button class="mbtn" id="mXlsxExport">Export Excel (.xlsx)</button>
       </div>
+
+      <div class="mgmtRowLabel">Auto-Link Cross-References <span style="font-weight:400; text-transform:none; letter-spacing:0;">(no AI &mdash; pattern matching only)</span></div>
+      <div class="mtool" style="margin-top:0;">
+        <button class="mbtn" id="xrefRunBtn">Scan &amp; Link (Filtered Entries)</button>
+      </div>
+      <div class="hint" style="margin-top:-4px;">Scans the entries matched by the filter above for plain-text mentions of <b>any</b> other entry's name (its display name or an alternate name, ≥6 characters, whole word only) and turns the <b>first</b> mention per article into a tappable <code>entry:</code> link. Only the filtered entries are edited; they can still link out to entries outside the filter. Never touches existing links, never links an entry to itself. Changes apply in this session only — review the report below, then Save to GitHub (Publish) as usual.</div>
+      <div class="mlog" id="xrefLog"></div>
     </div>
 
     <!-- ===== TAB: Import ===== -->
@@ -2066,6 +2076,14 @@ function sanitizeHtml(html){
             child.setAttribute('href', href);
             child.setAttribute('target', '_blank');
             child.setAttribute('rel', 'noopener');
+          } else if(tag === 'A' && href && /^entry:/i.test(href)){
+            // Internal cross-reference to another timeline entry, e.g. <a href="entry:st-augustine-430">Augustine</a>.
+            // No real href is set (so it never navigates/opens a new tab) — a delegated click
+            // handler on #artBody looks up data-entry and opens that entry's article instead.
+            child.setAttribute('data-entry', href.slice(6).trim());
+            child.setAttribute('class', 'entrylink');
+            child.setAttribute('role', 'link');
+            child.setAttribute('tabindex', '0');
           }
           walk(child);
         }
@@ -2473,6 +2491,23 @@ document.getElementById('article').addEventListener('click', (e) => {
   const play = document.getElementById('apPlay');
   if(play){ play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); }
   showPauseIndicator();
+});
+
+// ---- Tap an in-article cross-reference (e.g. "St. Augustine") to jump straight to that entry's article ----
+document.getElementById('artBody').addEventListener('click', (e) => {
+  const link = e.target.closest('.entrylink');
+  if(!link) return;
+  e.preventDefault();
+  const target = getEntry(link.getAttribute('data-entry'));
+  if(target) openArticle(target);
+});
+document.getElementById('artBody').addEventListener('keydown', (e) => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const link = e.target.closest('.entrylink');
+  if(!link) return;
+  e.preventDefault();
+  const target = getEntry(link.getAttribute('data-entry'));
+  if(target) openArticle(target);
 });
 
 // ---- Double-tap the article image to open it full-screen; a single tap on the lightbox closes it ----
@@ -2908,7 +2943,108 @@ document.getElementById('fDraft').addEventListener('click', async () => {
   }catch(err){ setStatus('Draft failed: ' + err.message); }
 });
 
-// ---- Instruct Claude (database operations) ----
+// ---- Auto-Link Cross-References (deterministic, no AI — scans db.entries in memory) ----
+const XREF_MIN_NAME_LEN = 6; // shortest candidate name eligible for auto-linking; short/common words are the biggest source of false positives
+function xrefEscapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function xrefBuildCandidates(entry){
+  const names = [entry.n, ...((entry.alt) || [])].filter(Boolean);
+  const seen = new Set();
+  const out = [];
+  names.forEach(name => {
+    const trimmed = String(name).trim();
+    if(trimmed.length < XREF_MIN_NAME_LEN) return;
+    const key = trimmed.toLowerCase();
+    if(seen.has(key)) return;
+    seen.add(key);
+    out.push({ text: trimmed, re: new RegExp('\\b' + xrefEscapeRegex(trimmed) + '\\b', 'i') });
+  });
+  return out.sort((a, b) => b.text.length - a.text.length);
+}
+function xrefFindMatches(segment, targets, linkedSoFar){
+  const found = [];
+  targets.forEach(t => {
+    if(linkedSoFar.has(t.id)) return;
+    for(const c of t.candidates){
+      const m = c.re.exec(segment);
+      if(m){ found.push({ start:m.index, end:m.index+m[0].length, id:t.id, text:m[0] }); break; }
+    }
+  });
+  found.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+  const resolved = [];
+  let lastEnd = -1;
+  found.forEach(m => { if(m.start >= lastEnd){ resolved.push(m); lastEnd = m.end; } });
+  return resolved;
+}
+function xrefApplyMatches(segment, matches){
+  if(!matches.length) return segment;
+  let out = '', cursor = 0;
+  matches.forEach(m => {
+    out += segment.slice(cursor, m.start);
+    out += '<a href="entry:' + m.id + '">' + m.text + '</a>';
+    cursor = m.end;
+  });
+  out += segment.slice(cursor);
+  return out;
+}
+function xrefLinkifyBody(body, targets, linkedSoFar){
+  const tokens = String(body || '').split(/(<[^>]+>)/g);
+  let insideAnchor = 0;
+  return tokens.map(tok => {
+    if(/^<a\b/i.test(tok)){ insideAnchor++; return tok; }
+    if(/^<\/a>/i.test(tok)){ insideAnchor = Math.max(0, insideAnchor - 1); return tok; }
+    if(/^<[^>]+>$/.test(tok)) return tok;
+    if(insideAnchor > 0) return tok;
+    const matches = xrefFindMatches(tok, targets, linkedSoFar);
+    matches.forEach(m => linkedSoFar.add(m.id));
+    return xrefApplyMatches(tok, matches);
+  }).join('');
+}
+function runAutoLinkEntries(){
+  const log = document.getElementById('xrefLog');
+  log.textContent = 'Scanning…';
+  // Targets (what can be linked TO) always come from the whole database — a filtered
+  // article should still be able to link out to an entry outside the current filter.
+  const allCandidates = db.entries.map(e => ({ id: e.id, n: e.n, candidates: xrefBuildCandidates(e) }));
+  // Sources (what gets SCANNED and EDITED) are scoped to the Export tab's active filter.
+  const scope = mExportFilteredEntries();
+  const lines = [];
+  let entriesChanged = 0, linksAdded = 0;
+  scope.forEach(entry => {
+    if(!entry.art || !Array.isArray(entry.art.sections) || !entry.art.sections.length) return;
+    const targets = allCandidates.filter(t => t.id !== entry.id);
+    const linkedSoFar = new Set();
+    let changed = false;
+    entry.art.sections.forEach(sec => {
+      const before = sec.b || '';
+      const after = xrefLinkifyBody(before, targets, linkedSoFar);
+      if(after !== before){ sec.b = after; changed = true; }
+    });
+    if(changed){
+      entriesChanged++;
+      linksAdded += linkedSoFar.size;
+      const names = [...linkedSoFar].map(id => (getEntry(id) || {}).n || id).join(', ');
+      lines.push(entry.n + '  →  ' + names);
+    }
+  });
+  const anyType = Object.values(mFilterTypes).some(Boolean);
+  const typeLabel = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
+  const regionLabel = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
+  const scopeLabel = 'Scope: ' + typeLabel + ' · ' + regionLabel + ' · ' + scope.length + ' entries matched the filter\n\n';
+  log.textContent = scopeLabel + (entriesChanged
+    ? entriesChanged + ' entries gained ' + linksAdded + ' link(s):\n' + lines.join('\n')
+    : 'No new cross-reference links found among the filtered entries.');
+  if(entriesChanged){
+    setStatus(entriesChanged + ' entries linked — review below, then Save to GitHub (Publish)');
+    saveDb();
+    renderMList();
+    render();
+  } else {
+    setStatus('No new links found in the current filter');
+  }
+}
+document.getElementById('xrefRunBtn').addEventListener('click', runAutoLinkEntries);
+
+
 document.getElementById('aiRun').addEventListener('click', async () => {
   const cmd = document.getElementById('aiCmd').value.trim();
   const log = document.getElementById('aiLog');
