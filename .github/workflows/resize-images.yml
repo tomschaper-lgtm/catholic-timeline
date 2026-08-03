@@ -1,11 +1,10 @@
 name: Resize Images
 
+# Manual-only: trigger it with the "Resize Images" button in the app's Manage screen (or from
+# the Actions tab). No longer runs automatically on push to images/ — one way to trigger it,
+# not two.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'images/**'
-  workflow_dispatch: {} # lets you trigger it manually from the Actions tab — use this once to sweep every image already in the repo
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -30,8 +29,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [ -d images ]; then
-            git add images/
+          if [ -d Images ]; then
+            git add Images/
           fi
           if git diff --cached --quiet; then
             echo "No image changes to commit."
