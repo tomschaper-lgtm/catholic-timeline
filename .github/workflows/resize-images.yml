@@ -30,7 +30,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add images/
+          if [ -d images ]; then
+            git add images/
+          fi
           if git diff --cached --quiet; then
             echo "No image changes to commit."
           else
