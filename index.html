@@ -1,4 +1,4 @@
-<!-- Catholic Timeline — v78 — generated 2026-08-03 -->
+<!-- Catholic Timeline — v80 — generated 2026-08-03 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1068,6 +1068,15 @@
       </div>
 
       <div class="mbox">
+        <h3>Fix Image Extensions</h3>
+        <div class="mtool">
+          <button class="mbtn" id="fixImgExtBtn">Check &amp; Fix Every Entry's Image Field</button>
+        </div>
+        <div class="hint">The runtime fallback (added in v79) means a stale <code>.png</code>/<code>.jpg</code> reference still displays fine, but it's still wrong in the data \u2014 this actually corrects it. For every entry with a photo, tries loading the exact file data.json points to; if that fails but the other extension works, updates that entry's <code>img</code> field to match. Nothing is guessed \u2014 both files are actually checked. Session-only until you Save to GitHub (Publish) above.</div>
+        <div class="mlog" id="fixImgExtLog"></div>
+      </div>
+
+      <div class="mbox">
         <h3>Restore &amp; Reset</h3>
         <div class="mtool">
           <button class="mbtn danger" id="mRestoreBtn">Restore Backup (Replace All)</button>
@@ -1832,11 +1841,28 @@ function categoryNeighbor(d, direction){
   if(idx === -1) return null;
   return list[idx + direction] || null;
 }
+// If an image 404s, the data might still reference the old extension from an in-place
+// PNG<->JPEG conversion — try the other common extension once before giving up entirely.
+function altExtUrl(url){
+  if(/\.png(\?.*)?$/i.test(url)) return url.replace(/\.png(\?.*)?$/i, (m, q) => '.jpg' + (q || ''));
+  if(/\.jpe?g(\?.*)?$/i.test(url)) return url.replace(/\.jpe?g(\?.*)?$/i, (m, q) => '.png' + (q || ''));
+  return null;
+}
+function imgExtFallback(img){
+  if(img.dataset.extRetried){ img.style.display = 'none'; return; } // already tried the alternate — genuinely missing
+  const alt = altExtUrl(img.src);
+  if(alt){ img.dataset.extRetried = '1'; img.src = alt; }
+  else { img.style.display = 'none'; }
+}
 // Quietly warms the browser's image cache for an entry likely to be viewed next,
 // so swiping or tapping into it feels instant instead of waiting on a slow load.
 function prefetchImage(d){
   if(!d || !d.img) return;
   const img = new Image();
+  img.onerror = () => {
+    const alt = altExtUrl(img.src);
+    if(alt && !img.dataset.extRetried){ img.dataset.extRetried = '1'; img.src = alt; }
+  };
   img.src = resolveAsset(d.img, db.settings && db.settings.imageBase);
 }
 function navigateStory(direction){
@@ -2147,6 +2173,54 @@ async function triggerWorkflow(filename){
 document.getElementById('runResizeWorkflow').addEventListener('click', () => triggerWorkflow('resize-images.yml'));
 document.getElementById('runConvertWorkflow').addEventListener('click', () => triggerWorkflow('convert-photo-pngs.yml'));
 
+// ---- Fix Image Extensions: actually corrects data.json, rather than relying on the runtime
+// fallback (altExtUrl/imgExtFallback) to paper over a stale reference on every page load. ----
+function imageLoads(url){
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
+}
+async function runFixImageExtensions(){
+  const log = document.getElementById('fixImgExtLog');
+  const candidates = db.entries.filter(e => e.img);
+  log.textContent = 'Checking ' + candidates.length + ' image(s)\u2026';
+  const lines = [];
+  let fixed = 0, broken = 0;
+  const CONCURRENCY = 6;
+  for(let i = 0; i < candidates.length; i += CONCURRENCY){
+    const batch = candidates.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map(async e => {
+      const url = resolveAsset(e.img, db.settings && db.settings.imageBase);
+      if(await imageLoads(url)) return; // current reference already works — nothing to do
+      const alt = altExtUrl(url);
+      if(!alt) return; // not a .png/.jpg/.jpeg — nothing this tool knows how to try
+      if(await imageLoads(alt)){
+        const newImg = e.img.replace(/\.(png|jpe?g)(\?.*)?$/i, (m, ext, q) => (/png/i.test(ext) ? '.jpg' : '.png') + (q || ''));
+        lines.push(e.n + ':  ' + e.img + '  \u2192  ' + newImg);
+        e.img = newImg;
+        fixed++;
+      } else {
+        lines.push(e.n + ':  BROKEN \u2014 neither extension loads (' + e.img + ')');
+        broken++;
+      }
+    }));
+    log.textContent = 'Checked ' + Math.min(i + CONCURRENCY, candidates.length) + ' of ' + candidates.length + '\u2026';
+  }
+  const summary = 'Checked ' + candidates.length + ' image(s). Fixed ' + fixed + '.' + (broken ? ' ' + broken + ' still broken (neither extension found).' : '');
+  log.textContent = summary + (lines.length ? '\n\n' + lines.join('\n') : '');
+  if(fixed){
+    setStatus(fixed + ' image reference(s) fixed \u2014 review below, then Save to GitHub (Publish)');
+    await saveDb();
+    renderMList();
+  } else {
+    setStatus(broken ? broken + ' image(s) still broken \u2014 see the log' : 'All image references already correct');
+  }
+}
+document.getElementById('fixImgExtBtn').addEventListener('click', runFixImageExtensions);
+
 // ================= ARTICLE VIEW (from DB) =================
 document.getElementById('dArtBtn').addEventListener('click', () => { if(currentEntry) openArticle(currentEntry); });
 document.getElementById('artClose').addEventListener('click', closeArticle);
@@ -2253,7 +2327,7 @@ function fillArticleBody(d, peek){
       '</div>';
   }
   if(hasImg){
-    html += '<img class="artimg" id="artHeroImg"' + (peek ? ' style="opacity:0"' : '') + ' src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="this.style.display=\'none\'">';
+    html += '<img class="artimg" id="artHeroImg"' + (peek ? ' style="opacity:0"' : '') + ' src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="imgExtFallback(this)">';
     if(d.imgCap) html += '<div class="artcap">' + esc(d.imgCap) + '</div>';
   }
   // Country now rides along in Quick Facts rather than as its own badge above the photo.
@@ -2304,7 +2378,14 @@ function fillArticleBody(d, peek){
   if(hasImg){
     const flyImg = document.getElementById('flyPortraitImg');
     const src = resolveAsset(d.img, db.settings && db.settings.imageBase);
-    if(flyImg.getAttribute('src') !== src) flyImg.src = src;
+    if(flyImg.getAttribute('src') !== src){
+      delete flyImg.dataset.extRetried;
+      flyImg.onerror = () => {
+        const alt = altExtUrl(flyImg.src);
+        if(alt && !flyImg.dataset.extRetried){ flyImg.dataset.extRetried = '1'; flyImg.src = alt; }
+      };
+      flyImg.src = src;
+    }
     const heroImgEl = document.getElementById('artHeroImg');
     if(heroImgEl) heroImgEl.addEventListener('load', () => { syncStickyBackdrops(); measureFly(); });
   }
