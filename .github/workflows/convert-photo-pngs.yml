@@ -1,0 +1,39 @@
+name: Convert Photo PNGs
+
+# Deliberately manual-only (workflow_dispatch), unlike Resize Images which runs automatically
+# on push. Converting a PNG to JPEG renames the file, and data.json has to be updated to
+# match — that's a bigger, more visible change than shrinking a file in place, so it should
+# only happen when you actually ask for it (button in the app, or the Actions tab).
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install sharp
+        run: npm install sharp
+
+      - name: Convert heavy photo PNGs to JPEG (and update data.json)
+        run: node scripts/convert-photo-pngs.mjs
+
+      - name: Commit changes (if any)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Convert heavy photo PNGs to JPEG"
+            git push
+          fi
