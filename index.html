@@ -1,4 +1,4 @@
-<!-- Catholic Timeline — v83 — generated 2026-08-03 -->
+<!-- Catholic Timeline — v84 — generated 2026-08-03 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -898,7 +898,7 @@
 
 <div class="overlay" id="manage">
   <div class="mgmtTopBar">
-    <div class="mgmtTitle">Content Manager <span id="mgmtVersion" style="font-weight:400; font-size:12px; color:var(--m-muted, #8a8272); letter-spacing:.02em;"></span></div>
+    <div class="mgmtTitle">Content Manager <span id="mgmtVersion" style="display:inline-block; font-family:'EB Garamond',Georgia,serif; font-weight:700; font-size:13px; letter-spacing:.06em; color:#6b5a1f; background:rgba(201,165,66,.22); border:1px solid rgba(201,165,66,.55); border-radius:10px; padding:2px 9px; vertical-align:middle; margin-left:8px;"></span></div>
     <span class="mstatus" id="mStatus"></span>
     <button class="mgmtExitBtn" id="mgmtExitBtn">Exit Content Manager</button>
   </div>
@@ -1140,7 +1140,7 @@
   <div class="mgmtExitBox">
     <div class="mgmtExitMsg">Exit the Content Manager?</div>
     <div class="mgmtExitBtns">
-      <button class="mbtn" id="mgmtSaveExit">Save &amp; Exit</button>
+      <button class="mbtn" id="mgmtSaveExit">Save, Publish &amp; Exit</button>
       <button class="mbtn danger" id="mgmtDiscardExit">Exit Without Saving</button>
       <button class="mbtn" id="mgmtCancelExit">Cancel — Stay Here</button>
     </div>
@@ -1370,7 +1370,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v83';
+const APP_VERSION = 'v84';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -2130,7 +2130,7 @@ async function publishToGitHub(){
   const v = id => document.getElementById(id).value.trim();
   const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', path = v('ghPath') || 'data.json', token = v('ghToken');
   const st = document.getElementById('ghStatus');
-  if(!owner || !repo || !token){ st.textContent = 'Enter username, repository, and token first.'; return; }
+  if(!owner || !repo || !token){ st.textContent = 'Enter username, repository, and token first.'; return false; }
   localStorage.setItem('gh-config', JSON.stringify({owner, repo, branch, path}));
   localStorage.setItem('gh-token', token);
   const api = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + path.split('/').map(encodeURIComponent).join('/');
@@ -2147,9 +2147,14 @@ async function publishToGitHub(){
     const body = { message: 'Update data.json (' + db.entries.length + ' entries) via Content Manager', content: content, branch: branch };
     if(sha) body.sha = sha;
     const put = await fetch(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, hdr), body: JSON.stringify(body) });
-    if(put.status === 200 || put.status === 201){ st.textContent = 'Committed \u2713 — your site updates in about a minute.'; }
+    if(put.status === 200 || put.status === 201){ st.textContent = 'Committed \u2713 — your site updates in about a minute.'; return true; }
     else { let m = ''; try{ m = (await put.json()).message; }catch(e){} throw new Error(m || ('commit failed ' + put.status)); }
-  }catch(err){ st.textContent = 'Publish failed: ' + err.message; }
+  }catch(err){ st.textContent = 'Publish failed: ' + err.message; return false; }
+}
+// True when enough GitHub detail has been entered for a publish to be worth attempting.
+function ghConfigured(){
+  const v = id => (document.getElementById(id).value || '').trim();
+  return !!(v('ghOwner') && v('ghRepo') && v('ghToken'));
 }
 document.getElementById('ghPublish').addEventListener('click', publishToGitHub);
 
@@ -2949,9 +2954,32 @@ const mgmtExitModal = document.getElementById('mgmtExitModal');
 document.getElementById('mgmtExitBtn').addEventListener('click', () => { mgmtExitModal.style.display = 'flex'; });
 document.getElementById('mgmtCancelExit').addEventListener('click', () => { mgmtExitModal.style.display = 'none'; });
 document.getElementById('mgmtSaveExit').addEventListener('click', async () => {
-  await saveDb();
-  mgmtExitModal.style.display = 'none';
-  manage.classList.remove('open');
+  const btn = document.getElementById('mgmtSaveExit');
+  const msg = document.querySelector('#mgmtExitModal .mgmtExitMsg');
+  await saveDb(); // always write locally first, so nothing is lost even if the network fails
+  // Then push to GitHub, so "Save" means the live site is actually updated — previously this
+  // only saved locally, which made changes look published when they hadn't left the browser.
+  if(!ghConfigured()){
+    msg.textContent = 'Saved on this device. (No GitHub token set, so the live site was not updated.)';
+    setTimeout(() => { mgmtExitModal.style.display = 'none'; manage.classList.remove('open'); msg.textContent = 'Exit the Content Manager?'; }, 1600);
+    return;
+  }
+  const wasLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Publishing…';
+  msg.textContent = 'Saving and publishing to GitHub…';
+  const ok = await publishToGitHub();
+  btn.disabled = false;
+  btn.textContent = wasLabel;
+  if(ok){
+    msg.textContent = 'Published \u2713 Your live site updates in about a minute.';
+    setTimeout(() => { mgmtExitModal.style.display = 'none'; manage.classList.remove('open'); msg.textContent = 'Exit the Content Manager?'; }, 1400);
+  } else {
+    // Stay put on failure rather than closing — silently exiting after a failed publish is
+    // exactly how edits get lost track of.
+    const detail = (document.getElementById('ghStatus') || {}).textContent || '';
+    msg.textContent = 'Saved on this device, but publishing failed. ' + detail + ' Your changes are safe — try Publish again from the Import tab.';
+  }
 });
 document.getElementById('mgmtDiscardExit').addEventListener('click', async () => {
   if(mSnapshot){
