@@ -1,4 +1,4 @@
-<!-- Catholic Timeline — v73 — generated 2026-08-01 -->
+<!-- Catholic Timeline — v76 — generated 2026-08-02 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -354,6 +354,18 @@
     background:none; border:none; color:#fff; font-size:23px; line-height:1; cursor:pointer;
   }
   .artX:hover{color:var(--gold-bright);}
+  /* Appears in the sticky header only while there's cross-reference navigation history to
+     unwind (see articleBackStack); pops one level per tap, and is gone once the stack is
+     empty or the article is closed. touch-action:auto so a tap isn't swallowed by the
+     header's own swipe-to-dismiss handling. */
+  .artBackBtn{
+    display:inline-flex; align-items:center; gap:4px; margin-bottom:8px;
+    font-family:'Cinzel',serif; font-size:11.5px; letter-spacing:.08em; text-transform:uppercase;
+    background:var(--navy-band); color:var(--gold-bright);
+    border:1px solid var(--gold); border-radius:14px; padding:5px 12px;
+    cursor:pointer; touch-action:auto;
+  }
+  .artBackBtn:hover{background:var(--gold); color:var(--navy-deep);}
   .arthead{margin-top:10px; text-align:center;}
   .artyear{display:block; font-family:'Cinzel',serif; font-weight:600; color:#fff; font-size:clamp(19px,4vw,26px); letter-spacing:.05em;}
   .arttitle{font-family:'Cinzel',serif; font-weight:700; color:var(--gold-bright); font-size:clamp(28px,6.2vw,42px); line-height:1.15; margin-top:8px; text-align:center;}
@@ -381,10 +393,12 @@
     transition:opacity .08s linear;
   }
   .artSticky.hasPortrait .ahTaper{width:min(220px, 52%);}
-  /* The flying photo. Sized here at its FINAL corner dimensions; the morph is done purely
-     with a transform (origin top-left), so at scroll 0 it lands exactly on top of the big
-     inline photo and the handoff is invisible. box-sizing keeps the animated border-width
-     from changing its footprint. */
+  /* The flying photo. width/height below are just a pre-JS fallback — measureFly() sets the
+     real size per entry to match that photo's own aspect ratio (so the crop never changes
+     between the inline photo and this corner badge, and the scroll-driven scale is always
+     uniform). The morph itself is done with a transform (origin top-left), so at scroll 0 it
+     lands exactly on top of the big inline photo and the handoff is invisible. box-sizing
+     keeps the animated border-width from changing its footprint. */
   .flyPortrait{
     position:fixed; z-index:120; display:none; box-sizing:border-box;
     width:104px; height:133px; overflow:hidden;
@@ -394,7 +408,7 @@
   }
   .flyPortrait.on{display:block;}
   .flyPortrait.masked{display:none !important;}
-  .flyPortrait img{width:100%; height:100%; object-fit:cover; object-position:center 28%; display:block; pointer-events:none;}
+  .flyPortrait img{width:100%; height:100%; object-fit:cover; object-position:center; display:block; pointer-events:none;}
   /* A drag anywhere on the sticky header is a dismiss gesture, not a scroll, so the
      header keeps its swipe-down-to-close behaviour at any scroll position. */
   .artSticky{touch-action:none;}
@@ -1354,6 +1368,21 @@ let ppy = 1.8;
 let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
 let activeRegion = "all";
 let currentEntry = null;
+// Cross-reference navigation history: entry ids visited via an in-article "entry:" link,
+// most-recent-last. Popped one at a time by the Back button; cleared whenever the article
+// is closed or a fresh entry is opened by any route other than a link/back tap.
+let articleBackStack = [];
+function updateArticleBackBtn(){
+  const btn = document.getElementById('artBackBtn');
+  if(btn) btn.style.display = articleBackStack.length ? '' : 'none';
+}
+function goBackArticle(){
+  const id = articleBackStack.pop();
+  if(!id) return;
+  const entry = getEntry(id);
+  if(entry) openArticle(entry, {preserveStack:true});
+  else updateArticleBackBtn();
+}
 let suppressArticleClick = false; // true briefly after a swipe-navigation gesture, so the tap-to-pause handler ignores it
 let showEditControls = true;
 
@@ -1818,6 +1847,11 @@ function navigateStory(direction){
   let startY = null, startX = null, fromHeader = false;
   artEl.addEventListener('touchstart', (e) => {
     if(e.touches.length !== 1) return;
+    // A touch starting on the audio player (or any other interactive control) is that
+    // control's own gesture — pressing Play or dragging the scrubber — never a swipe.
+    // Leaving startY unset makes touchend's guard below bail out immediately, so native
+    // button/slider behavior runs completely undisturbed.
+    if(e.target.closest('.player, input, button, a')){ startY = null; return; }
     startY = e.touches[0].clientY;
     startX = e.touches[0].clientX;
     // A gesture begun on the sticky header is treated as a handle drag: the header
@@ -2127,6 +2161,7 @@ function fillArticleBody(d){
   // The taper and portrait stay invisible while the big photo is on screen, then fade in
   // together as the photo flies up into the corner (see updateFly).
   html += '<div class="artSticky' + (hasImg ? ' hasPortrait' : '') + '" id="artSticky">' +
+    (articleBackStack.length ? '<button type="button" class="artBackBtn" id="artBackBtn" aria-label="Back to previous entry">&larr; Back</button>' : '') +
     '<div class="ahHead"><span class="ahYear">' + esc(fmtYear(d.y)) + '</span>' +
     '<div class="ahName">' + esc(d.n) + '</div></div>' +
     '<div class="ahTaper" id="ahTaper"></div>';
@@ -2192,7 +2227,8 @@ function fillArticleBody(d){
   syncStickyBackdrops();
   measureFly();
 }
-function openArticle(d){
+function openArticle(d, opts){
+  if(!opts || !opts.preserveStack) articleBackStack = []; // fresh open (timeline, search, teaser card…) starts a new chain
   currentEntry = d;
   stopAudio();
   const opening = !article.classList.contains('open');
@@ -2233,6 +2269,7 @@ function closeArticle(){
   article.classList.remove('open');
   document.body.classList.remove('artOpen');
   flyGeo = null;
+  articleBackStack = []; // the whole cross-reference trail disappears once you leave the article
   const fly = document.getElementById('flyPortrait');
   if(fly) fly.classList.remove('on');
 }
@@ -2240,6 +2277,7 @@ function closeArticle(){
 // off-screen while the new content (already live underneath, for correct height/
 // scroll) slides in from the opposite side.
 function slideArticleTo(d, direction){
+  articleBackStack = []; // chronological prev/next swipe is an unrelated navigation path — not part of the link trail
   const wrap = document.querySelector('.artwrap');
   const body = document.getElementById('artBody');
   currentEntry = d;
@@ -2367,7 +2405,8 @@ function syncStickyBackdrops(){
 // All geometry is measured once per entry into `flyGeo`, so the scroll handler is pure
 // arithmetic — no getBoundingClientRect per frame, which is what keeps this from stuttering
 // during a hard flick.
-const FLY_W = 104, FLY_H = 133;   // final corner size (matches .flyPortrait in CSS)
+const FLY_AREA = 104 * 133;       // target visual footprint of the resting corner badge (same as the old fixed box)
+const FLY_MIN = 70, FLY_MAX = 156; // clamp so extreme photo aspect ratios still produce a sane badge size
 const FLY_OVERHANG = 24;          // how far it rises above the card's top border
 const FLY_INSET = 20;             // gap from the card's right edge
 const FLY_DELAY = 48;             // scroll this far first, so a nudge doesn't start the flight
@@ -2389,6 +2428,17 @@ function measureFly(){
   }
   const sheet = artEl.getBoundingClientRect();
   const heroRect = hero.getBoundingClientRect();
+  // Give the resting corner badge the SAME aspect ratio as the photo itself (not a fixed
+  // portrait shape). This is what keeps the crop identical between the big inline photo and
+  // the corner badge at every moment — no re-crop pop when the swap happens, and no
+  // non-uniform stretch while it shrinks, because width and height always scale together.
+  const aspect = heroRect.width / heroRect.height;
+  let flyW = Math.sqrt(FLY_AREA * aspect);
+  let flyH = flyW / aspect;
+  const shrink = Math.min(1, FLY_MAX / Math.max(flyW, flyH));
+  const grow = Math.max(1, FLY_MIN / Math.min(flyW, flyH));
+  const clamp = shrink < 1 ? shrink : grow;
+  flyW *= clamp; flyH *= clamp;
   flyGeo = {
     // Hero's position in the sheet's own scrolled content, so its on-screen position at
     // any moment is just (sheetTop + heroTop - scrollTop).
@@ -2396,17 +2446,21 @@ function measureFly(){
     heroLeft: heroRect.left,
     heroW: heroRect.width,
     heroH: heroRect.height,
+    flyW: flyW,
+    flyH: flyH,
     sheetTop: sheet.top,
     // Final resting place: tucked into the card's top-right, riding above its border.
     // Clamped so it can't escape off-screen on desktop, where the sheet is full-height
     // and there is no border to overhang.
-    endLeft: sheet.right - FLY_INSET - FLY_W,
+    endLeft: sheet.right - FLY_INSET - flyW,
     endTop: Math.max(8, sheet.top - FLY_OVERHANG),
     // How far the reader scrolls to complete the flight. Roughly the photo's own height,
     // so it settles into the corner at about the moment it would otherwise have scrolled
     // off the top — which is what keeps it moving in step with the text.
     dist: Math.max(240, hero.offsetHeight * 0.95)
   };
+  fly.style.width = flyW + 'px';
+  fly.style.height = flyH + 'px';
   fly.style.left = flyGeo.endLeft + 'px';
   fly.style.top = flyGeo.endTop + 'px';
   fly.classList.add('on');
@@ -2439,9 +2493,12 @@ function updateFly(){
   // ...blended toward its resting slot in the corner.
   const curLeft = flyGeo.heroLeft + (flyGeo.endLeft - flyGeo.heroLeft) * t;
   const curTop = fromTop + (flyGeo.endTop - fromTop) * t;
-  const curW = flyGeo.heroW + (FLY_W - flyGeo.heroW) * t;
-  const curH = flyGeo.heroH + (FLY_H - flyGeo.heroH) * t;
-  const sx = curW / FLY_W, sy = curH / FLY_H;
+  const curW = flyGeo.heroW + (flyGeo.flyW - flyGeo.heroW) * t;
+  const curH = flyGeo.heroH + (flyGeo.flyH - flyGeo.heroH) * t;
+  // curW/curH always share the same aspect ratio as the photo (both heroW:heroH and
+  // flyW:flyH are that same ratio), so this scale is uniform — sx and sy are always equal,
+  // which is what keeps the photo from ever stretching during the flight.
+  const sx = curW / flyGeo.flyW, sy = curH / flyGeo.flyH;
   fly.style.transform = 'translate(' + (curLeft - flyGeo.endLeft) + 'px,' + (curTop - flyGeo.endTop) + 'px) scale(' + sx + ',' + sy + ')';
   // Border, radius and shadow are all magnified by the transform, so they are written in
   // pre-scale units to keep their on-screen thickness matching the design at both ends.
@@ -2493,21 +2550,28 @@ document.getElementById('article').addEventListener('click', (e) => {
   showPauseIndicator();
 });
 
-// ---- Tap an in-article cross-reference (e.g. "St. Augustine") to jump straight to that entry's article ----
+// ---- Tap an in-article cross-reference (e.g. "St. Augustine") to jump straight to that entry's article,
+// and tap Back (when it appears) to unwind that trail one step at a time, infinitely. ----
+function followEntryLink(id){
+  const target = getEntry(id);
+  if(!target) return;
+  if(currentEntry) articleBackStack.push(currentEntry.id);
+  openArticle(target, {preserveStack:true});
+}
 document.getElementById('artBody').addEventListener('click', (e) => {
+  if(e.target.closest('#artBackBtn')){ e.preventDefault(); goBackArticle(); return; }
   const link = e.target.closest('.entrylink');
   if(!link) return;
   e.preventDefault();
-  const target = getEntry(link.getAttribute('data-entry'));
-  if(target) openArticle(target);
+  followEntryLink(link.getAttribute('data-entry'));
 });
 document.getElementById('artBody').addEventListener('keydown', (e) => {
   if(e.key !== 'Enter' && e.key !== ' ') return;
+  if(e.target.closest('#artBackBtn')){ e.preventDefault(); goBackArticle(); return; }
   const link = e.target.closest('.entrylink');
   if(!link) return;
   e.preventDefault();
-  const target = getEntry(link.getAttribute('data-entry'));
-  if(target) openArticle(target);
+  followEntryLink(link.getAttribute('data-entry'));
 });
 
 // ---- Double-tap the article image to open it full-screen; a single tap on the lightbox closes it ----
