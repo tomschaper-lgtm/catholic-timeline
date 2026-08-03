@@ -23,7 +23,7 @@ import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 
-const IMAGES_DIR = 'images';
+const IMAGES_DIR = 'Images'; // the legacy capitalized folder where your photos actually live
 const DATA_JSON = 'data.json';
 const MIN_BYTES_TO_CONVERT = 300 * 1024; // only worth converting a PNG this large or bigger
 const JPEG_QUALITY = 84;
