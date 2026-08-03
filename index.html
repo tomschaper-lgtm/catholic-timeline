@@ -1,4 +1,4 @@
-<!-- Catholic Timeline — v76 — generated 2026-08-02 -->
+<!-- Catholic Timeline — v77 — generated 2026-08-03 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -21,6 +21,7 @@
     --gold:#C9A542; --gold-bright:#E8CD7E; --parchment:#EFE6CE; --muted:#9AA5BF;
     --saint:#E0B84C; --council:#EDE4C8; --council-ecu:#F2C94C; --persec:#D45B45; --event:#7E9CC9;
     --marian:#8FC7E8; --euch:#B98FE0;
+    --peekH: 230px; /* ~2in peek-card height: date/name/first heading + a snippet, tune freely */
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   html,body{height:100%;}
@@ -261,6 +262,10 @@
       transition:transform .48s cubic-bezier(0.16, 1, 0.3, 1);
     }
     #article.overlay.open{transform:translateX(-50%) translateY(0);}
+    #article.overlay.open.peek{transform:translateX(-50%) translateY(calc(100% - var(--peekH)));}
+    /* The peek→full expand specifically runs slower than the open/close slide, so the
+       card's rise reads as a deliberate reveal rather than a snap. */
+    #article.overlay.expanding{transition:transform .6s cubic-bezier(.22,.61,.36,1);}
   }
   .dhead{display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding-right:118px;}
   .dyear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
@@ -338,6 +343,8 @@
     overflow-y:auto; overflow-x:hidden; transform:translateY(100%); transition:transform .3s ease;
   }
   .overlay.open{transform:translateY(0);}
+  .overlay.open.peek{transform:translateY(calc(100% - var(--peekH))); overflow:hidden;}
+  .overlay.expanding{transition:transform .6s cubic-bezier(.22,.61,.36,1);}
   .artwrap{max-width:720px; margin:0 auto; padding:18px 20px 70px; position:relative;}
   .artBodyClone{position:absolute; top:0; left:0; width:100%; pointer-events:none;}
   .artBodyClone .artSticky, .artBodyClone .artPlayerWrap{position:static;}
@@ -434,6 +441,30 @@
   .artquote .qsrc{display:block; font-style:normal; font-size:13.5px; color:var(--muted); margin-top:5px;}
   .artsrc a{color:var(--gold-bright); font-size:15.5px;}
   .artsrc li{margin-bottom:6px; margin-left:20px;}
+  /* The peek-state preview: first heading + a text snippet, shown only while .peek is active.
+     On expand it fades and collapses out of flow, which is what lets the hero photo (sitting
+     right after it in the DOM, already opacity:0) slide up into its place and fade in —
+     no separate slide animation needed, just two opposite fades. */
+  .artPeek{
+    overflow:hidden; max-height:600px; opacity:1;
+    transition: opacity .4s ease, max-height .5s ease .05s, margin .5s ease .05s;
+  }
+  .artPeek.collapsed{opacity:0; max-height:0; margin:0; pointer-events:none;}
+  .artPeekH{font-family:'Cinzel',serif; font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:16px 0 7px;}
+  .artPeekBody{font-size:17.5px; line-height:1.62; color:var(--parchment);}
+  /* Bottom blur/fade mask, shown only while peeking. A true sibling of #article (not a
+     descendant), since #article carries its own transform for the slide animation, which
+     would otherwise turn a position:fixed child into something anchored to the sheet's own
+     box instead of the real viewport. */
+  #peekFade{
+    position:fixed; left:0; right:0; bottom:0; height:64px; z-index:105;
+    pointer-events:none; display:none;
+    background:linear-gradient(to bottom, transparent, rgba(7,15,34,.94) 75%);
+    -webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+    -webkit-mask-image:linear-gradient(to bottom, transparent, black 60%);
+    mask-image:linear-gradient(to bottom, transparent, black 60%);
+  }
+  #peekFade.show{display:block;}
   .artimg{width:100%; border-radius:8px; border:1px solid rgba(201,165,66,.5); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
   .imgLightbox{
     position:fixed; inset:0; z-index:200; background:rgba(4,9,26,.97);
@@ -777,11 +808,6 @@
 <div class="detail" id="detail">
   <div class="draghandle" id="detailHandle"></div>
   <div class="dportrait" id="dPortrait"><img id="dPortraitImg" src="" alt=""></div>
-  <div class="offsetCtrl" id="offsetCtrl">
-    <button id="offsetLeft" aria-label="Nudge earlier">◀</button>
-    <span id="offsetVal">0</span>
-    <button id="offsetRight" aria-label="Nudge later">▶</button>
-  </div>
   <button class="close" id="detailClose" aria-label="Close">×</button>
   <div class="detailInner" id="detailInner">
     <div class="dhead"><span class="dyear" id="dYear"></span><span class="dcouncilnum" id="dCouncilNum"></span><span class="dname" id="dName"></span></div>
@@ -789,19 +815,6 @@
     <div class="dbadges" id="dBadges"></div>
     <div class="ddesc" id="dDesc"></div>
     <button class="artopen" id="dArtBtn">Open Full Article</button>
-    <button class="qeditToggle" id="qeditToggle">✎ Quick Edit</button>
-    <div class="qeditPanel" id="qeditPanel">
-      <label>Timeline Display Text <span class="qeHint">(blank = automatic)</span></label>
-      <input type="text" id="qeTlabel" placeholder="e.g. Guadalupe">
-      <label>Name</label>
-      <input type="text" id="qeName">
-      <label>Short Description</label>
-      <textarea id="qeDesc" rows="3"></textarea>
-      <div class="qeditBtns">
-        <button id="qeCancel" class="qeBtn sec">Cancel</button>
-        <button id="qeSave" class="qeBtn">Save</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -818,6 +831,25 @@
   <div class="shareToast" id="shareToast"></div>
   <div class="pauseIndicator" id="pauseIndicator"></div>
   <div class="artwrap">
+    <button class="qeditToggle" id="qeditToggle">✎ Quick Edit</button>
+    <div class="qeditPanel" id="qeditPanel">
+      <div class="offsetCtrl" id="offsetCtrl">
+        <label style="display:inline; margin:0 8px 0 0;">Timeline position</label>
+        <button id="offsetLeft" aria-label="Nudge earlier">◀</button>
+        <span id="offsetVal">0</span>
+        <button id="offsetRight" aria-label="Nudge later">▶</button>
+      </div>
+      <label>Timeline Display Text <span class="qeHint">(blank = automatic)</span></label>
+      <input type="text" id="qeTlabel" placeholder="e.g. Guadalupe">
+      <label>Name</label>
+      <input type="text" id="qeName">
+      <label>Short Description</label>
+      <textarea id="qeDesc" rows="3"></textarea>
+      <div class="qeditBtns">
+        <button id="qeCancel" class="qeBtn sec">Cancel</button>
+        <button id="qeSave" class="qeBtn">Save</button>
+      </div>
+    </div>
     <div id="artBody"></div>
   </div>
 </div>
@@ -827,6 +859,7 @@
      its contents and carries a transform — either of which would trap it inside and
      stop it overhanging the card's top border. -->
 <div class="flyPortrait" id="flyPortrait" aria-hidden="true"><img id="flyPortraitImg" src="" alt=""></div>
+<div id="peekFade" aria-hidden="true"></div>
 
 <div class="imgLightbox" id="imgLightbox">
   <img id="imgLightboxImg" src="" alt="">
@@ -1627,52 +1660,12 @@ function render(){
   canvas.style.height = (yCursor + 50) + 'px';
 }
 
+// The old separate teaser card is retired — this now just opens the one unified card in
+// its peek state. Kept as a thin wrapper (rather than rewriting every call site) since
+// icon taps, search, shared links, the editor, and the resize handler all still call it.
 function showDetail(d){
-  document.getElementById('dYear').textContent = fmtYear(d.y);
-  document.getElementById('dName').textContent = d.n;
-  document.getElementById('dDesc').textContent = d.d;
-  document.getElementById('dBadges').innerHTML = '';
-  const councilNumEl = document.getElementById('dCouncilNum');
-  if(d.t === 'c'){
-    const fact = (d.facts || []).find(f => f && f.label === 'Ecumenical number');
-    if(fact && fact.value){
-      const text = fact.value.replace(/(^|\s)([a-z])/g, (m, p1, p2) => p1 + p2.toUpperCase());
-      councilNumEl.textContent = text;
-      councilNumEl.style.display = 'block';
-    } else {
-      councilNumEl.style.display = 'none';
-    }
-  } else {
-    councilNumEl.style.display = 'none';
-  }
-  const portrait = document.getElementById('dPortrait');
-  const portraitImg = document.getElementById('dPortraitImg');
-  portrait.classList.remove('show'); // hide the previous entry's image immediately so it never lingers under the new name/year
-  if(d.img){
-    portraitImg.onload = () => portrait.classList.add('show');
-    portraitImg.onerror = () => portrait.classList.remove('show');
-    portraitImg.src = resolveAsset(d.img, db.settings && db.settings.imageBase);
-  } else {
-    portraitImg.removeAttribute('src');
-  }
-  currentEntry = d;
-  updateUrlForEntry(d);
-  const oc = document.getElementById('offsetCtrl');
-  const qb = document.getElementById('qeditToggle');
-  document.getElementById('qeditPanel').classList.remove('open');
-  if(manageUnlocked() && showEditControls){
-    oc.classList.add('show');
-    document.getElementById('offsetVal').textContent = d.offset || 0;
-    qb.classList.add('show');
-  } else {
-    oc.classList.remove('show');
-    qb.classList.remove('show');
-  }
-  detail.classList.add('open');
-  prefetchImage(categoryNeighbor(d, 1));
+  openArticle(d, {peek:true});
 }
-document.getElementById('detailClose').addEventListener('click', () => { detail.classList.remove('open'); clearUrlEntry(); });
-document.getElementById('dDesc').addEventListener('click', (e) => { e.stopPropagation(); if(currentEntry) openArticle(currentEntry); });
 
 // ---- Shareable deep links: #entry-id in the URL, safe no-op inside the Claude artifact iframe ----
 function updateUrlForEntry(d){
@@ -1720,8 +1713,8 @@ window.addEventListener('popstate', () => {
   if(id){
     const e = getEntry(id);
     if(e) showDetail(e);
-  } else if(detail.classList.contains('open')){
-    detail.classList.remove('open');
+  } else if(article.classList.contains('open')){
+    closeArticle();
   }
 });
 document.getElementById('qeditToggle').addEventListener('click', (e) => {
@@ -1743,8 +1736,8 @@ document.getElementById('qeSave').addEventListener('click', async (e) => {
   const newName = document.getElementById('qeName').value.trim();
   if(newName) currentEntry.n = newName;
   currentEntry.d = document.getElementById('qeDesc').value.trim();
-  document.getElementById('dName').textContent = currentEntry.n;
-  document.getElementById('dDesc').textContent = currentEntry.d;
+  const nameEl = document.querySelector('#artBody .ahName');
+  if(nameEl) nameEl.textContent = currentEntry.n;
   document.getElementById('qeditPanel').classList.remove('open');
   render();
   await saveDb();
@@ -1866,6 +1859,12 @@ function navigateStory(direction){
     const dy = endY - startY, dx = endX - startX;
     const wasHeader = fromHeader;
     startY = null; fromHeader = false;
+    // Flick up out of the peek card expands it to the full story — slower/smoother than a
+    // snap, handled entirely by the .expanding CSS transition (see expandArticle()).
+    if(article.classList.contains('peek') && dy < -40 && Math.abs(dx) < Math.abs(dy)){
+      expandArticle();
+      return;
+    }
     if(dy > 55 && Math.abs(dx) < dy && (wasHeader || artEl.scrollTop <= 4)){
       closeArticle();
       return;
@@ -1877,6 +1876,13 @@ function navigateStory(direction){
     }
   }, {passive:true});
 })();
+// Tapping the peek card (not just swiping up) also expands it — the only way desktop
+// users can expand it at all, and a natural affordance on mobile too.
+document.getElementById('article').addEventListener('click', (e) => {
+  if(!article.classList.contains('peek')) return;
+  if(e.target.closest('.player, a, button, input')) return;
+  expandArticle();
+});
 // Tapping anywhere outside an open card — the search box, the masthead, the timeline —
 // closes it. Menus, dialogs and the search results list are excluded so their own
 // handlers can run.
@@ -2152,7 +2158,18 @@ function ordinalSuffix(n){
   return n + 'th';
 }
 
-function fillArticleBody(d){
+// A short plain-text preview of a section's body for the peek card: strips HTML, collapses
+// whitespace, and trims to a word boundary so it never cuts off mid-word.
+function peekSnippet(html, maxLen){
+  maxLen = maxLen || 220;
+  const text = String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if(!text) return '';
+  if(text.length <= maxLen) return esc(text);
+  const cut = text.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(' ');
+  return esc((lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trim()) + '\u2026';
+}
+function fillArticleBody(d, peek){
   const art = d.art || {sections:[], quotes:[], links:[]};
   const hasImg = !!d.img;
   let html = '';
@@ -2166,8 +2183,18 @@ function fillArticleBody(d){
     '<div class="ahName">' + esc(d.n) + '</div></div>' +
     '<div class="ahTaper" id="ahTaper"></div>';
   html += '</div>'; // .artSticky
+  if(peek){
+    // The peek card's own content: first heading + a text snippet. Sits right where the hero
+    // photo will end up — collapsing this away and fading the (already-present, opacity:0)
+    // hero in is the entire expand transition; see expandArticle().
+    const first = (art.sections || [])[0];
+    html += '<div class="artPeek" id="artPeek">' +
+      (first && first.h ? '<div class="artPeekH">' + esc(first.h) + '</div>' : '') +
+      '<div class="artPeekBody">' + peekSnippet(first && first.b) + '</div>' +
+      '</div>';
+  }
   if(hasImg){
-    html += '<img class="artimg" id="artHeroImg" src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="this.style.display=\'none\'">';
+    html += '<img class="artimg" id="artHeroImg"' + (peek ? ' style="opacity:0"' : '') + ' src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="this.style.display=\'none\'">';
     if(d.imgCap) html += '<div class="artcap">' + esc(d.imgCap) + '</div>';
   }
   // Country now rides along in Quick Facts rather than as its own badge above the photo.
@@ -2225,28 +2252,49 @@ function fillArticleBody(d){
 
   if(d.audio) initAudio(resolveAsset(d.audio, db.settings && db.settings.audioBase));
   syncStickyBackdrops();
-  measureFly();
+  if(peek){ flyGeo = null; document.getElementById('flyPortrait').classList.remove('on'); }
+  else measureFly();
+}
+// Shows/hides the Quick Edit toggle and offset nudger based on the owner-unlock state —
+// called both when a card opens and when the "show edit controls" setting is toggled live.
+function syncEditControls(d){
+  document.getElementById('qeditPanel').classList.remove('open');
+  const qb = document.getElementById('qeditToggle');
+  if(manageUnlocked() && showEditControls){
+    document.getElementById('offsetCtrl').classList.add('show');
+    document.getElementById('offsetVal').textContent = d.offset || 0;
+    qb.classList.add('show');
+  } else {
+    document.getElementById('offsetCtrl').classList.remove('show');
+    qb.classList.remove('show');
+  }
 }
 function openArticle(d, opts){
-  if(!opts || !opts.preserveStack) articleBackStack = []; // fresh open (timeline, search, teaser card…) starts a new chain
+  opts = opts || {};
+  if(!opts.preserveStack) articleBackStack = []; // fresh open (timeline, search, shared link…) starts a new chain
   currentEntry = d;
   stopAudio();
+  updateUrlForEntry(d);
+  syncEditControls(d);
   const opening = !article.classList.contains('open');
+  article.classList.toggle('peek', !!opts.peek);
   article.classList.add('open');
   document.body.classList.add('artOpen');
   article.scrollTop = 0;
-  fillArticleBody(d);
+  fillArticleBody(d, !!opts.peek);
+  document.getElementById('peekFade').classList.toggle('show', !!opts.peek);
   prefetchImage(categoryNeighbor(d, -1));
   prefetchImage(categoryNeighbor(d, 1));
   // The sheet slides up on a transform, which a fixed-position element cannot ride along
   // with. So during the open animation the inline photo shows normally, and the flying
   // copy only takes over once the sheet has settled — the swap is invisible because at
-  // scroll 0 the two sit in exactly the same place.
+  // scroll 0 the two sit in exactly the same place. (In peek mode the hero starts hidden
+  // entirely — see fillArticleBody — so this only matters once the card is expanded.)
   if(opening){
     flyGeo = null;
     document.getElementById('flyPortrait').classList.remove('on');
     const hero = document.getElementById('artHeroImg');
-    if(hero) hero.style.opacity = '1';
+    if(hero) hero.style.opacity = opts.peek ? '0' : '1';
     const settle = () => {
       if(!article.classList.contains('open')) return;
       syncStickyBackdrops();
@@ -2262,26 +2310,61 @@ function openArticle(d, opts){
     setTimeout(settle, 700); // safety net if the transition never reports
   }
 }
+// Expands a peeking card to the full story in place: the card itself rises the rest of the
+// way (a slower, deliberate transition — see .expanding), while the peek preview collapses
+// out of flow and the hero photo (already sitting in the same spot at opacity:0) fades in
+// to take its place. No slide-from-bottom on the photo — just the two crossfading.
+function expandArticle(){
+  if(!article.classList.contains('peek')) return;
+  article.classList.add('expanding');
+  article.classList.remove('peek');
+  document.getElementById('peekFade').classList.remove('show');
+  const peekEl = document.getElementById('artPeek');
+  if(peekEl) peekEl.classList.add('collapsed');
+  const hero = document.getElementById('artHeroImg');
+  if(hero){
+    hero.style.transition = 'opacity .55s ease .15s';
+    hero.style.opacity = '1';
+  }
+  article.scrollTop = 0;
+  const done = () => {
+    article.classList.remove('expanding');
+    if(hero) hero.style.transition = ''; // hand back to the short CSS rule the fly-photo handoff relies on
+    syncStickyBackdrops();
+    measureFly();
+  };
+  article.addEventListener('transitionend', function once(ev){
+    if(ev.target !== article || ev.propertyName !== 'transform') return;
+    article.removeEventListener('transitionend', once);
+    done();
+  });
+  setTimeout(done, 750); // safety net matching the .expanding transition duration
+}
 // Every route out of a story funnels through here so the audio, the flying photo and the
-// monstrance are always left in a consistent state.
+// monstrance are always left in a consistent state. There is no "back to peek" — closing
+// always closes completely, whichever state the card was in.
 function closeArticle(){
   stopAudio();
-  article.classList.remove('open');
+  article.classList.remove('open', 'peek', 'expanding');
   document.body.classList.remove('artOpen');
   flyGeo = null;
   articleBackStack = []; // the whole cross-reference trail disappears once you leave the article
+  document.getElementById('peekFade').classList.remove('show');
+  clearUrlEntry();
   const fly = document.getElementById('flyPortrait');
   if(fly) fly.classList.remove('on');
 }
 // Swipe navigation between stories: the outgoing content is cloned and slid fully
 // off-screen while the new content (already live underneath, for correct height/
-// scroll) slides in from the opposite side.
+// scroll) slides in from the opposite side. Whatever peek/full state the card was already
+// in carries over to the new entry unchanged.
 function slideArticleTo(d, direction){
   articleBackStack = []; // chronological prev/next swipe is an unrelated navigation path — not part of the link trail
+  const peek = article.classList.contains('peek');
   const wrap = document.querySelector('.artwrap');
   const body = document.getElementById('artBody');
   currentEntry = d;
-  showDetail(d); // keep the teaser card in sync underneath, so closing back down to it matches the article you're now viewing
+  updateUrlForEntry(d);
   stopAudio();
   // Park the flying photo for the duration of the slide. The incoming article is rendered
   // while it is still translated a full screen-width off to the side, so measuring against
@@ -2294,7 +2377,7 @@ function slideArticleTo(d, direction){
   clone.removeAttribute('id');
   clone.className = 'artBodyClone';
   wrap.appendChild(clone);
-  fillArticleBody(d);
+  fillArticleBody(d, peek);
   prefetchImage(categoryNeighbor(d, -1));
   prefetchImage(categoryNeighbor(d, 1));
   article.scrollTop = 0;
@@ -2312,8 +2395,7 @@ function slideArticleTo(d, direction){
     body.style.transition = '';
     body.style.transform = '';
     flySuspended = false;
-    syncStickyBackdrops();
-    measureFly();
+    if(!peek){ syncStickyBackdrops(); measureFly(); }
   }, 520);
 }
 
@@ -2420,7 +2502,7 @@ function measureFly(){
   const hero = document.getElementById('artHeroImg');
   const sticky = document.getElementById('artSticky');
   if(!fly) return;
-  if(flySuspended || !hero || !sticky || !artEl.classList.contains('open') || !hero.offsetHeight){
+  if(flySuspended || !hero || !sticky || !artEl.classList.contains('open') || artEl.classList.contains('peek') || !hero.offsetHeight){
     flyGeo = null;
     fly.classList.remove('on');
     updateFly();
@@ -3569,7 +3651,7 @@ document.addEventListener('click', (e) => {
 document.getElementById('manageBtn').addEventListener('click', () => hamMenu.classList.remove('open'));
 document.getElementById('showEditControls').addEventListener('change', (e) => {
   showEditControls = e.target.checked;
-  if(detail.classList.contains('open') && currentEntry) showDetail(currentEntry);
+  if(article.classList.contains('open') && currentEntry) syncEditControls(currentEntry);
 });
 
 // ================= INIT =================
