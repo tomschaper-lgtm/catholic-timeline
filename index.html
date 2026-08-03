@@ -1,4 +1,4 @@
-<!-- Catholic Timeline — v77 — generated 2026-08-03 -->
+<!-- Catholic Timeline — v78 — generated 2026-08-03 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1054,8 +1054,18 @@
           <button class="mbtn" id="ghPublish">Save to GitHub (Publish)</button>
           <span class="mstatus" id="ghStatus"></span>
         </div>
-        <div class="hint">The repository details are pre-filled &mdash; you only need to paste an <b>access token</b>. Create one at <b>github.com/settings/tokens?type=beta</b> (fine-grained &rarr; only <i>catholic-timeline</i> &rarr; Contents: Read and write). Your token is stored only in this browser, never in the file or the repo, and is used to commit the current database to <b>data.json</b>. After publishing, your live site updates in about a minute. This only works on your hosted site, not inside the Claude artifact.</div>
+        <div class="hint">The repository details are pre-filled &mdash; you only need to paste an <b>access token</b>. Create one at <b>github.com/settings/tokens?type=beta</b> (fine-grained &rarr; only <i>catholic-timeline</i> &rarr; Contents: Read and write). If you also want the "Run GitHub Action" buttons below, add <b>Actions: Read and write</b> to the same token. Your token is stored only in this browser, never in the file or the repo, and is used to commit the current database to <b>data.json</b>. After publishing, your live site updates in about a minute. This only works on your hosted site, not inside the Claude artifact.</div>
       </details>
+
+      <div class="mbox">
+        <h3>Run GitHub Action</h3>
+        <div class="mtool">
+          <button class="mbtn" id="runResizeWorkflow">&#9654; Resize Images</button>
+          <button class="mbtn" id="runConvertWorkflow">&#9654; Convert Photo PNGs</button>
+        </div>
+        <div class="hint">Runs the workflow on GitHub directly &mdash; no need to hunt through the Actions tab. Uses the same username/repo/branch/token as Publish above (add <b>Actions: Read and write</b> to the token if you haven't). Takes 10&ndash;20 seconds; this button waits and reports success or failure below.</div>
+        <div class="mlog" id="runWorkflowLog"></div>
+      </div>
 
       <div class="mbox">
         <h3>Restore &amp; Reset</h3>
@@ -2087,6 +2097,55 @@ async function publishToGitHub(){
   }catch(err){ st.textContent = 'Publish failed: ' + err.message; }
 }
 document.getElementById('ghPublish').addEventListener('click', publishToGitHub);
+
+// ---- Run a GitHub Actions workflow directly from the app (no need to navigate GitHub's UI) ----
+// Reuses the same owner/repo/branch/token fields as Publish above. workflow_dispatch itself
+// returns no run info (just 204 No Content), so after firing it this polls the workflow's
+// recent runs for one that started after the dispatch, and reports when it finishes.
+async function triggerWorkflow(filename){
+  const v = id => document.getElementById(id).value.trim();
+  const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', token = v('ghToken');
+  const log = document.getElementById('runWorkflowLog');
+  if(!owner || !repo || !token){ log.textContent = 'Enter GitHub username, repository, and token in the Publish section above first.'; return; }
+  const hdr = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' };
+  const dispatchedAt = Date.now();
+  log.textContent = 'Starting ' + filename + '\u2026';
+  try{
+    const dispatchUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/actions/workflows/' + encodeURIComponent(filename) + '/dispatches';
+    const res = await fetch(dispatchUrl, {
+      method: 'POST',
+      headers: Object.assign({'Content-Type':'application/json'}, hdr),
+      body: JSON.stringify({ ref: branch })
+    });
+    if(res.status !== 204){
+      let m = ''; try{ m = (await res.json()).message; }catch(e){}
+      if(res.status === 401 || res.status === 403) throw new Error('token rejected \u2014 it may need "Actions: Read and write" permission added. ' + m);
+      if(res.status === 404) throw new Error('workflow not found \u2014 check ' + filename + ' exists in .github/workflows/ on branch ' + branch);
+      throw new Error(m || ('failed (' + res.status + ')'));
+    }
+    log.textContent = filename + ' started \u2014 watching for it to finish\u2026';
+    const runsUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/actions/workflows/' + encodeURIComponent(filename) + '/runs?branch=' + encodeURIComponent(branch) + '&per_page=5';
+    for(let i = 0; i < 20; i++){
+      await new Promise(r => setTimeout(r, 3000));
+      const runsRes = await fetch(runsUrl, { headers: hdr, cache: 'no-store' });
+      if(!runsRes.ok) continue;
+      const data = await runsRes.json();
+      const run = (data.workflow_runs || []).find(r => new Date(r.created_at).getTime() >= dispatchedAt - 5000);
+      if(!run) continue;
+      if(run.status === 'completed'){
+        const secs = Math.round((new Date(run.updated_at) - new Date(run.created_at)) / 1000);
+        log.textContent = filename + ': ' + run.conclusion + ' (finished in ' + secs + 's). Details: ' + run.html_url;
+        return;
+      }
+      log.textContent = filename + ' is running\u2026 (' + run.status + ')';
+    }
+    log.textContent = filename + ' is still running \u2014 check the Actions tab on GitHub for the result.';
+  }catch(err){
+    log.textContent = 'Failed: ' + err.message;
+  }
+}
+document.getElementById('runResizeWorkflow').addEventListener('click', () => triggerWorkflow('resize-images.yml'));
+document.getElementById('runConvertWorkflow').addEventListener('click', () => triggerWorkflow('convert-photo-pngs.yml'));
 
 // ================= ARTICLE VIEW (from DB) =================
 document.getElementById('dArtBtn').addEventListener('click', () => { if(currentEntry) openArticle(currentEntry); });
