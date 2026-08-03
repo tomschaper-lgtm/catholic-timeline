@@ -1,4 +1,4 @@
-<!-- Catholic Timeline — v82 — generated 2026-08-03 -->
+<!-- Catholic Timeline — v83 — generated 2026-08-03 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -262,7 +262,7 @@
       transition:transform .48s cubic-bezier(0.16, 1, 0.3, 1);
     }
     #article.overlay.open{transform:translateX(-50%) translateY(0);}
-    #article.overlay.open.peek{transform:translateX(-50%) translateY(calc(100% - var(--peekH)));}
+    #article.overlay.open.peek{transform:translateX(-50%) translateY(calc(100% - var(--peekH))); overflow:hidden;}
     /* The peek→full expand specifically runs slower than the open/close slide, so the
        card's rise reads as a deliberate reveal rather than a snap. */
     #article.overlay.expanding{transition:transform .6s cubic-bezier(.22,.61,.36,1);}
@@ -431,6 +431,9 @@
     background-repeat:no-repeat;
   }
   .artPlayerWrap .player{margin:0;}
+  /* Generous tap area: the whole strip is live, so a thumb landing beside the triangle still
+     works the transport instead of doing nothing (or, previously, dismissing the card). */
+  .artPlayerWrap{cursor:pointer; -webkit-tap-highlight-color:transparent;}
   /* Let the card's own background show through the scrubber strip instead of painting a
      separate panel colour behind it. */
   .artPlayerWrap{background-color:transparent !important; background-image:none !important;}
@@ -506,18 +509,27 @@
   .player input[type=range]::-moz-range-track{height:4px; background:rgba(201,165,66,.28); border-radius:2px;}
   .player input[type=range]::-moz-range-thumb{width:12px; height:12px; border-radius:50%; background:var(--gold); border:none; cursor:pointer;}
   .ptime{font-size:13px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums;}
+  /* position:fixed (not absolute) so it centres on the VISIBLE card rather than on the full
+     scroll height of the article — #article carries a transform, which makes fixed children
+     anchor to the card's own box. The old absolute/top:50% put it halfway down the entire
+     scrollable content, which is why it appeared half off-screen. */
   .pauseIndicator{
-    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) scale(.85);
-    width:76px; height:76px; border-radius:50%; background:rgba(0,0,0,.55);
-    display:flex; align-items:center; justify-content:center; color:#fff;
-    opacity:0; pointer-events:none; z-index:30;
+    position:fixed; top:38%; left:50%; transform:translate(-50%,-50%) scale(.85);
+    display:flex; align-items:center; justify-content:center; gap:16px;
+    opacity:0; pointer-events:none; z-index:130;
   }
-  .pauseIndicator.show{animation:pauseFade 900ms ease;}
+  .pauseIndicator i{
+    display:block; width:20px; height:82px; border-radius:7px;
+    background:rgba(255,255,255,.82);
+    -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+    box-shadow:0 4px 18px rgba(0,0,0,.45);
+  }
+  .pauseIndicator.show{animation:pauseFade 1500ms ease forwards;}
   @keyframes pauseFade{
     0%{opacity:0; transform:translate(-50%,-50%) scale(.85);}
-    15%{opacity:1; transform:translate(-50%,-50%) scale(1);}
-    70%{opacity:1;}
-    100%{opacity:0;}
+    10%{opacity:1; transform:translate(-50%,-50%) scale(1);}
+    65%{opacity:1; transform:translate(-50%,-50%) scale(1);}
+    100%{opacity:0; transform:translate(-50%,-50%) scale(1.04);}
   }
   /* Manage view */
   .mtool{display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; align-items:center;}
@@ -1358,7 +1370,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v82';
+const APP_VERSION = 'v83';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -1940,7 +1952,10 @@ document.addEventListener('click', (e) => {
   const path = (typeof e.composedPath === 'function' ? e.composedPath() : null) || [];
   const hit = sel => path.some(n => n && n.nodeType === 1 && n.matches && n.matches(sel)) ||
                      !!(e.target.isConnected && e.target.closest && e.target.closest(sel));
-  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, #qeditPanel, .sresults, #hamMenu, .ev')) return;
+  // The whole audio-player strip is a no-close zone: a tap anywhere near the play button —
+  // on the button, beside it, on the scrubber row — is always a transport control, never a
+  // "you clicked outside the card" dismissal.
+  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, #qeditPanel, .sresults, #hamMenu, .ev, .artPlayerWrap, .player')) return;
   if(article.classList.contains('open')){
     if(!hit('#article')) closeArticle();
     return;
@@ -2763,6 +2778,11 @@ function updateFly(){
   const fly = document.getElementById('flyPortrait');
   const taper = document.getElementById('ahTaper');
   if(!fly) return;
+  // While peeking the corner portrait is owned by placePeekFly() and flyGeo is deliberately
+  // null — without this guard the very next scroll/rAF tick would hit the !flyGeo branch
+  // below and pull the portrait straight back off the screen.
+  const peekingNow = document.getElementById('article').classList.contains('peek');
+  if(peekingNow) return;
   if(!flyGeo){
     fly.classList.remove('on');
     // No photo on this entry, so there is no flight to gate the taper rule on.
@@ -2822,7 +2842,7 @@ document.getElementById('article').addEventListener('scroll', queueFly, {passive
 window.addEventListener('resize', () => { syncStickyBackdrops(); measureFly(); });
 
 // ---- Tap anywhere in the story to pause the audio, with a fading pause glyph as feedback ----
-const ICON_PAUSE_GLYPH = '<svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+const ICON_PAUSE_GLYPH = '<i></i><i></i>'; // two large frosted bars, styled by .pauseIndicator i
 function showPauseIndicator(){
   const el = document.getElementById('pauseIndicator');
   el.innerHTML = ICON_PAUSE_GLYPH;
@@ -2830,10 +2850,20 @@ function showPauseIndicator(){
   void el.offsetWidth; // restart the animation if it's already mid-fade
   el.classList.add('show');
 }
+// A tap anywhere on the player strip other than the scrubber works the play/pause button,
+// so the effective target is the whole row rather than just the 66px triangle.
+document.addEventListener('click', (e) => {
+  const strip = e.target.closest && e.target.closest('.artPlayerWrap, .player');
+  if(!strip) return;
+  if(e.target.closest('input, a')) return;      // the scrubber and links keep their own behaviour
+  if(e.target.closest('#apPlay')) return;       // the button itself is already handled natively
+  const play = document.getElementById('apPlay');
+  if(play) play.click();
+});
 document.getElementById('article').addEventListener('click', (e) => {
   if(suppressArticleClick) return;
   if(!audioEl || audioEl.paused) return;
-  if(e.target.closest('.player, a, button, input, .artX')) return;
+  if(e.target.closest('.player, .artPlayerWrap, a, button, input, .artX')) return;
   audioEl.pause();
   const play = document.getElementById('apPlay');
   if(play){ play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); }
