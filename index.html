@@ -1,4 +1,4 @@
-<!-- Catholic Timeline — v80 — generated 2026-08-03 -->
+<!-- Catholic Timeline — v82 — generated 2026-08-03 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -256,7 +256,7 @@
       transform:translateX(-50%) translateY(100%);
       width:min(560px, calc(100% - 20px));
       height:88vh; max-height:88vh;
-      border:1px solid var(--gold); border-radius:16px 16px 0 0;
+      border:1px solid var(--gold); border-radius:24px 24px 0 0;
       background:linear-gradient(180deg, #14224A, #0C1735);
       box-shadow:0 -8px 30px rgba(0,0,0,.6);
       transition:transform .48s cubic-bezier(0.16, 1, 0.3, 1);
@@ -431,6 +431,9 @@
     background-repeat:no-repeat;
   }
   .artPlayerWrap .player{margin:0;}
+  /* Let the card's own background show through the scrubber strip instead of painting a
+     separate panel colour behind it. */
+  .artPlayerWrap{background-color:transparent !important; background-image:none !important;}
   /* Share and close buttons hidden for now — swipe down to close. */
   .artShareBtn, .artX{display:none;}
   .artbadges{display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
@@ -465,7 +468,7 @@
     mask-image:linear-gradient(to bottom, transparent, black 60%);
   }
   #peekFade.show{display:block;}
-  .artimg{width:100%; border-radius:8px; border:1px solid rgba(201,165,66,.5); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
+  .artimg{width:100%; border-radius:16px; border:1px solid rgba(201,165,66,.5); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
   .imgLightbox{
     position:fixed; inset:0; z-index:200; background:rgba(4,9,26,.97);
     display:none; align-items:center; justify-content:center; padding:24px;
@@ -883,7 +886,7 @@
 
 <div class="overlay" id="manage">
   <div class="mgmtTopBar">
-    <div class="mgmtTitle">Content Manager</div>
+    <div class="mgmtTitle">Content Manager <span id="mgmtVersion" style="font-weight:400; font-size:12px; color:var(--m-muted, #8a8272); letter-spacing:.02em;"></span></div>
     <span class="mstatus" id="mStatus"></span>
     <button class="mgmtExitBtn" id="mgmtExitBtn">Exit Content Manager</button>
   </div>
@@ -1352,6 +1355,11 @@ const ICONS = {
 
 // ================= DATABASE =================
 const DB_KEY = 'catholic-timeline-db';
+// Bumped by hand each time a new build is produced — matches the HTML comment at the very
+// top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
+// site is actually running, without having to view source.
+const APP_VERSION = 'v82';
+document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
 
@@ -1923,12 +1931,18 @@ document.getElementById('article').addEventListener('click', (e) => {
 // closes it. Menus, dialogs and the search results list are excluded so their own
 // handlers can run.
 document.addEventListener('click', (e) => {
-  const inChrome = e.target.closest(
-    '#imgLightbox, #flyPortrait, #manage, #jsonView, #qeditPanel, .sresults, #hamMenu, .ev'
-  );
-  if(inChrome) return;
+  // Resolve where the click came from using composedPath(), which is captured at dispatch
+  // time, instead of closest() on e.target. A control whose own handler rewrites its markup
+  // mid-click — the audio player swapping its play/pause icon is exactly this — leaves
+  // e.target detached from the document by the time this bubble handler runs, and closest()
+  // on a detached node returns null, which made a Play tap look like a click outside the
+  // card and closed the whole article.
+  const path = (typeof e.composedPath === 'function' ? e.composedPath() : null) || [];
+  const hit = sel => path.some(n => n && n.nodeType === 1 && n.matches && n.matches(sel)) ||
+                     !!(e.target.isConnected && e.target.closest && e.target.closest(sel));
+  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, #qeditPanel, .sresults, #hamMenu, .ev')) return;
   if(article.classList.contains('open')){
-    if(!e.target.closest('#article')) closeArticle();
+    if(!hit('#article')) closeArticle();
     return;
   }
   if(detail.classList.contains('open') && !e.target.closest('#detail')){
@@ -2387,13 +2401,58 @@ function fillArticleBody(d, peek){
       flyImg.src = src;
     }
     const heroImgEl = document.getElementById('artHeroImg');
-    if(heroImgEl) heroImgEl.addEventListener('load', () => { syncStickyBackdrops(); measureFly(); });
+    // In peek mode the corner portrait is parked by placePeekFly(); calling measureFly()
+    // here would bail out (it refuses to run while peeking) and strip the portrait off again.
+    if(heroImgEl) heroImgEl.addEventListener('load', () => {
+      syncStickyBackdrops();
+      if(document.getElementById('article').classList.contains('peek')) placePeekFly(true);
+      else measureFly();
+    });
   }
 
   if(d.audio) initAudio(resolveAsset(d.audio, db.settings && db.settings.audioBase));
   syncStickyBackdrops();
-  if(peek){ flyGeo = null; document.getElementById('flyPortrait').classList.remove('on'); }
+  if(peek){ flyGeo = null; placePeekFly(hasImg); }
   else measureFly();
+}
+// In the peek card the big hero photo is hidden, but the small corner portrait is shown
+// straight away — parked in exactly the size and spot it settles into once the full article
+// is scrolled up, so expanding the card doesn't move it.
+function placePeekFly(hasImg){
+  const fly = document.getElementById('flyPortrait');
+  const artEl = document.getElementById('article');
+  if(!fly) return;
+  const img = document.getElementById('flyPortraitImg');
+  if(!hasImg || !img || !img.getAttribute('src')){ fly.classList.remove('on'); return; }
+  const place = () => {
+    if(!artEl.classList.contains('peek')){ return; }
+    const natW = img.naturalWidth, natH = img.naturalHeight;
+    if(!natW || !natH){ return; }
+    const aspect = natW / natH;
+    let w = Math.sqrt(FLY_AREA * aspect), h = w / aspect;
+    const shrink = Math.min(1, FLY_MAX / Math.max(w, h));
+    const grow = Math.max(1, FLY_MIN / Math.min(w, h));
+    const clamp = shrink < 1 ? shrink : grow;
+    w *= clamp; h *= clamp;
+    const sheet = artEl.getBoundingClientRect();
+    fly.style.width = w + 'px';
+    fly.style.height = h + 'px';
+    fly.style.left = (sheet.right - FLY_INSET - w) + 'px';
+    fly.style.top = Math.max(8, sheet.top - FLY_OVERHANG) + 'px';
+    fly.style.transform = 'none';
+    fly.style.borderWidth = '1.5px';
+    fly.style.borderColor = 'rgba(201,165,66,1)';
+    fly.style.borderRadius = '14px';
+    fly.style.boxShadow = '0 14px 28px rgba(0,0,0,.5)';
+    fly.style.pointerEvents = 'none';
+    fly.classList.add('on');
+  };
+  if(img.complete && img.naturalWidth) place();
+  else img.addEventListener('load', place, {once:true});
+  // The card is still sliding up when this first runs; re-place once it has settled so the
+  // portrait sits against the card's final top edge rather than its in-flight position.
+  setTimeout(place, 260);
+  setTimeout(place, 620);
 }
 // Shows/hides the Quick Edit toggle and offset nudger based on the owner-unlock state —
 // called both when a card opens and when the "show edit controls" setting is toggled live.
@@ -2642,7 +2701,11 @@ function measureFly(){
   const hero = document.getElementById('artHeroImg');
   const sticky = document.getElementById('artSticky');
   if(!fly) return;
-  if(flySuspended || !hero || !sticky || !artEl.classList.contains('open') || artEl.classList.contains('peek') || !hero.offsetHeight){
+  // While peeking, the corner portrait is owned by placePeekFly() and is deliberately parked
+  // in its landed position — bail out without touching it, or the settle/transitionend passes
+  // that run just after a card opens would strip it straight back off.
+  if(artEl.classList.contains('peek')){ flyGeo = null; return; }
+  if(flySuspended || !hero || !sticky || !artEl.classList.contains('open') || !hero.offsetHeight){
     flyGeo = null;
     fly.classList.remove('on');
     updateFly();
@@ -2681,8 +2744,13 @@ function measureFly(){
     // off the top — which is what keeps it moving in step with the text.
     dist: Math.max(240, hero.offsetHeight * 0.95)
   };
-  fly.style.width = flyW + 'px';
-  fly.style.height = flyH + 'px';
+  // Lay the flying copy out at the photo's FULL on-screen size and let the transform scale
+  // it DOWN into the corner. Sizing it at the small corner dimensions and scaling UP (the
+  // previous approach) made the browser rasterise the image at ~135px and then magnify that
+  // bitmap ~2.4x, which is what made the big hero photo look soft; it also divided the
+  // border width by the scale until it was invisible at the top of the article.
+  fly.style.width = flyGeo.heroW + 'px';
+  fly.style.height = flyGeo.heroH + 'px';
   fly.style.left = flyGeo.endLeft + 'px';
   fly.style.top = flyGeo.endTop + 'px';
   fly.classList.add('on');
@@ -2720,7 +2788,7 @@ function updateFly(){
   // curW/curH always share the same aspect ratio as the photo (both heroW:heroH and
   // flyW:flyH are that same ratio), so this scale is uniform — sx and sy are always equal,
   // which is what keeps the photo from ever stretching during the flight.
-  const sx = curW / flyGeo.flyW, sy = curH / flyGeo.flyH;
+  const sx = curW / flyGeo.heroW, sy = curH / flyGeo.heroH;
   fly.style.transform = 'translate(' + (curLeft - flyGeo.endLeft) + 'px,' + (curTop - flyGeo.endTop) + 'px) scale(' + sx + ',' + sy + ')';
   // Border, radius and shadow are all magnified by the transform, so they are written in
   // pre-scale units to keep their on-screen thickness matching the design at both ends.
@@ -3230,19 +3298,48 @@ document.getElementById('fDraft').addEventListener('click', async () => {
 });
 
 // ---- Auto-Link Cross-References (deterministic, no AI — scans db.entries in memory) ----
-const XREF_MIN_NAME_LEN = 6; // shortest candidate name eligible for auto-linking; short/common words are the biggest source of false positives
+const XREF_MIN_NAME_LEN = 5; // shortest candidate eligible for auto-linking; very short words are the main false-positive risk
+// Words that must never become a link on their own — either too generic, or (like a bare
+// "Mary" or "Jesus") so frequent in this material that auto-linking every mention would be
+// noise rather than navigation.
+const XREF_STOPWORDS = new Set(['mary','jesus','christ','god','lord','saint','pope','john','paul','peter','james','anne','joseph','the','our lady','father','son','holy spirit','virgin','church','rome','israel']);
 function xrefEscapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// Builds the list of text forms that should link to an entry. Beyond the full display name
+// and any alt names, this derives the natural shorter forms writers actually use in prose —
+// dropping the "St."/"Pope"/"Bl." style prefix, and the distinctive multi-word tail of a
+// name like "Thomas Aquinas" out of "St. Thomas Aquinas" — which is what the first version
+// missed: it only ever matched the entry's exact full name, so ordinary mentions such as
+// "Aquinas" or "Augustine" were passed over.
+function xrefNameForms(name){
+  const forms = [];
+  const raw = String(name).trim();
+  if(!raw) return forms;
+  forms.push(raw);
+  // Strip an honorific prefix: "St. Thomas Aquinas" -> "Thomas Aquinas", "Pope St. Leo the Great" -> "Leo the Great"
+  const stripped = raw.replace(/^(St\.?|Ss\.?|Saint|Pope|Bl\.?|Blessed|Bishop|Fr\.?|Father|Mother|Sr\.?|Sister|Venerable)\s+/gi, '').trim();
+  if(stripped && stripped !== raw) forms.push(stripped);
+  // The distinctive tail of a two-or-more-word name: "Thomas Aquinas" -> "Aquinas",
+  // "Teresa of Avila" keeps its "of ..." qualifier rather than reducing to a bare first name.
+  const parts = stripped.split(/\s+/);
+  if(parts.length > 1 && !/^(of|the|de|di|da|von|van)$/i.test(parts[1])){
+    forms.push(parts[parts.length - 1]);
+  }
+  return forms;
+}
 function xrefBuildCandidates(entry){
   const names = [entry.n, ...((entry.alt) || [])].filter(Boolean);
   const seen = new Set();
   const out = [];
   names.forEach(name => {
-    const trimmed = String(name).trim();
-    if(trimmed.length < XREF_MIN_NAME_LEN) return;
-    const key = trimmed.toLowerCase();
-    if(seen.has(key)) return;
-    seen.add(key);
-    out.push({ text: trimmed, re: new RegExp('\\b' + xrefEscapeRegex(trimmed) + '\\b', 'i') });
+    xrefNameForms(name).forEach(form => {
+      const trimmed = form.trim();
+      if(trimmed.length < XREF_MIN_NAME_LEN) return;
+      const key = trimmed.toLowerCase();
+      if(seen.has(key)) return;
+      if(XREF_STOPWORDS.has(key)) return;
+      seen.add(key);
+      out.push({ text: trimmed, re: new RegExp('\\b' + xrefEscapeRegex(trimmed) + '\\b', 'i') });
+    });
   });
   return out.sort((a, b) => b.text.length - a.text.length);
 }
