@@ -1,4 +1,4 @@
-<!-- Catholic Timeline — v84 — generated 2026-08-03 -->
+<!-- Catholic Timeline — v88 — generated 2026-08-03 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -609,6 +609,12 @@
     background:var(--m-bg); color:var(--m-ink);
   }
   #manage .artwrap{max-width:900px;}
+  #versionStamp{
+    font-family:'EB Garamond', Georgia, serif; font-size:11px; font-weight:400;
+    letter-spacing:.1em; font-style:normal; text-transform:none;
+    color:rgba(201,165,66,.62); margin-left:9px; vertical-align:super;
+    pointer-events:none; -webkit-user-select:none; user-select:none;
+  }
   .mgmtTopBar{
     position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between;
     gap:10px; padding:14px 20px; background:var(--m-bg); border-bottom:1px solid var(--m-border);
@@ -727,7 +733,11 @@
 <body>
 
 <header>
-  <h1><span class="t1">Catholic</span><span class="t2">Timeline</span></h1>
+  <!-- Build stamp, inline beside the title. Deliberately always visible rather than hidden
+       behind the header: a position:fixed element does not get revealed by iOS rubber-band
+       overscroll (fixed elements stay pinned while the page bounces), so the earlier
+       "hidden until you pull down" placement could never actually be seen on an iPhone. -->
+  <h1><span class="t1">Catholic</span><span class="t2">Timeline</span><span id="versionStamp" aria-hidden="true"></span></h1>
   <button class="hamBtn" id="hamBtn" aria-label="Menu" aria-expanded="false">&#9776;</button>
   <div class="hamMenu" id="hamMenu">
     <div class="row" id="typeRow">
@@ -1370,8 +1380,9 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v84';
+const APP_VERSION = 'v88';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
+document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
 
@@ -1405,9 +1416,16 @@ async function loadDb(){
     await saveDb();
     return;
   }
-  // Served from a web host (e.g. GitHub Pages): data.json in the repo is the source of truth.
+  // Served from a web host (e.g. GitHub Pages / Cloudflare Pages): data.json in the repo is
+  // the source of truth.
+  //
+  // The unique ?t= timestamp matters. `cache: 'no-store'` only bypasses THIS BROWSER's cache
+  // — it has no effect on a CDN sitting in front of the site, so Cloudflare would happily keep
+  // serving an old data.json long after the repo was updated, and no amount of clearing local
+  // history would change it. A URL the edge has never seen before cannot be served from its
+  // cache, which forces a genuine round trip to the origin every load.
   try{
-    const r = await fetch('data.json', {cache: 'no-store'});
+    const r = await fetch('data.json?t=' + Date.now(), {cache: 'no-store'});
     if(r.ok){ db = await r.json(); db.settings = db.settings || {imageBase:"", audioBase:""}; return; }
   }catch(e){ /* opened as a local file, or data.json missing */ }
   // Last-resort fallback (double-clicked local file, or no data.json yet): embedded seed.
@@ -1455,7 +1473,15 @@ function goBackArticle(){
   if(entry) openArticle(entry, {preserveStack:true});
   else updateArticleBackBtn();
 }
-let suppressArticleClick = false; // true briefly after a swipe-navigation gesture, so the tap-to-pause handler ignores it
+let suppressArticleClick = false;
+// Set during the CAPTURE phase of any click that begins inside the article card, before any
+// handler has a chance to re-render or replace the clicked element. See the document-level
+// click handler for why the event target itself can't be trusted by bubble time.
+let articleClickWasInside = false;
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  articleClickWasInside = !!(t && t.closest && t.closest('#article, #flyPortrait, #imgLightbox'));
+}, true); // true briefly after a swipe-navigation gesture, so the tap-to-pause handler ignores it
 let showEditControls = true;
 
 const viewport = document.getElementById('viewport');
@@ -1943,12 +1969,13 @@ document.getElementById('article').addEventListener('click', (e) => {
 // closes it. Menus, dialogs and the search results list are excluded so their own
 // handlers can run.
 document.addEventListener('click', (e) => {
-  // Resolve where the click came from using composedPath(), which is captured at dispatch
-  // time, instead of closest() on e.target. A control whose own handler rewrites its markup
-  // mid-click — the audio player swapping its play/pause icon is exactly this — leaves
-  // e.target detached from the document by the time this bubble handler runs, and closest()
-  // on a detached node returns null, which made a Play tap look like a click outside the
-  // card and closed the whole article.
+  // Decide "inside or outside the card?" from the capture-phase flag recorded above, not from
+  // the event target. By the time this bubble handler runs, the element that was clicked may
+  // no longer exist: the play button rewrites its own icon, and following a cross-reference
+  // link re-renders the whole article body. A detached node reports no ancestors, so both
+  // looked like clicks outside the card and closed it. The capture listener runs before any
+  // of that can happen, so its answer is always the true one.
+  if(articleClickWasInside){ articleClickWasInside = false; return; }
   const path = (typeof e.composedPath === 'function' ? e.composedPath() : null) || [];
   const hit = sel => path.some(n => n && n.nodeType === 1 && n.matches && n.matches(sel)) ||
                      !!(e.target.isConnected && e.target.closest && e.target.closest(sel));
@@ -2468,7 +2495,11 @@ function placePeekFly(hasImg){
     fly.classList.add('on');
   };
   if(img.complete && img.naturalWidth) place();
-  else img.addEventListener('load', place, {once:true});
+  // 'error' matters as much as 'load' here: when data.json still names a .png that has been
+  // converted to .jpg, the first request fails and the extension fallback swaps the src, so
+  // the picture only becomes measurable after that second attempt resolves.
+  img.addEventListener('load', place);
+  img.addEventListener('error', () => setTimeout(place, 120));
   // The card is still sliding up when this first runs; re-place once it has settled so the
   // portrait sits against the card's final top edge rather than its in-flight position.
   setTimeout(place, 260);
@@ -2511,7 +2542,10 @@ function openArticle(d, opts){
   // entirely — see fillArticleBody — so this only matters once the card is expanded.)
   if(opening){
     flyGeo = null;
-    document.getElementById('flyPortrait').classList.remove('on');
+    // Only clear the flying photo when opening straight into the full article. In peek mode
+    // placePeekFly() has just parked the corner portrait, and stripping it here left the
+    // preview with no picture until some later event happened to re-add it.
+    if(!opts.peek) document.getElementById('flyPortrait').classList.remove('on');
     const hero = document.getElementById('artHeroImg');
     if(hero) hero.style.opacity = opts.peek ? '0' : '1';
     const settle = () => {
@@ -2879,7 +2913,18 @@ document.getElementById('article').addEventListener('click', (e) => {
 // and tap Back (when it appears) to unwind that trail one step at a time, infinitely. ----
 function followEntryLink(id){
   const target = getEntry(id);
-  if(!target) return;
+  if(!target){
+    // The linked entry has been renamed or deleted since the link was generated. Say so
+    // rather than appearing to do nothing, and leave the current article open.
+    setStatus('That linked entry no longer exists (' + id + ')');
+    const toast = document.getElementById('shareToast');
+    if(toast){
+      toast.textContent = 'That linked entry no longer exists.';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+    return;
+  }
   if(currentEntry) articleBackStack.push(currentEntry.id);
   openArticle(target, {preserveStack:true});
 }
