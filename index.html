@@ -1,4 +1,13 @@
-<!-- Catholic Timeline — v88 — generated 2026-08-03 -->
+<!-- Catholic Timeline — v89 — generated 2026-08-03 21:40 UTC
+     v89 changes:
+       • Peek→full expand now MORPHS the small corner photo down into the big hero photo
+         (and full→peek morphs it back up), instead of a crossfade. Slower, eased.
+       • Swipe down from the full story returns to the peek card; swipe down again closes.
+       • Hero photo now carries the same 1.5px gold border / 14px radius as the corner badge.
+       • Card is full-bleed to the screen edges with a deeper top-corner radius.
+       • iPhone rotation no longer strands the photo: orientation/resize is debounced and
+         re-places the corner badge (peek) or re-measures the flight (full).
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -251,21 +260,31 @@
   @media (pointer:coarse){
     .draghandle{display:block;}
     #dArtBtn, #detailClose{display:none;}
+    /* Full-bleed to the screen edges — no side gutters. The only thing separating the card
+       from the wallpaper is its own gold hairline and the deep rounding on the top corners,
+       which is what gives it the "sheet pulled up from the bottom" read. Side/bottom borders
+       are dropped since they'd sit flush against the screen edge and just read as fringe. */
     #article.overlay{
-      inset:auto; left:50%; right:auto; bottom:0; top:auto;
-      transform:translateX(-50%) translateY(100%);
-      width:min(560px, calc(100% - 20px));
+      inset:auto; left:0; right:0; bottom:0; top:auto;
+      transform:translateY(100%);
+      width:100%;
       height:88vh; max-height:88vh;
-      border:1px solid var(--gold); border-radius:24px 24px 0 0;
+      /* Full hairline minus the bottom edge: a lone border-top would taper off into nothing
+         at each rounded corner, whereas having the side borders present lets the browser
+         draw the arc properly. The sides land on the screen edge, where they read as the
+         card's own outline rather than as a gutter. */
+      border:1px solid var(--gold); border-bottom:none;
+      border-radius:34px 34px 0 0;
       background:linear-gradient(180deg, #14224A, #0C1735);
       box-shadow:0 -8px 30px rgba(0,0,0,.6);
       transition:transform .48s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    #article.overlay.open{transform:translateX(-50%) translateY(0);}
-    #article.overlay.open.peek{transform:translateX(-50%) translateY(calc(100% - var(--peekH))); overflow:hidden;}
-    /* The peek→full expand specifically runs slower than the open/close slide, so the
-       card's rise reads as a deliberate reveal rather than a snap. */
-    #article.overlay.expanding{transition:transform .6s cubic-bezier(.22,.61,.36,1);}
+    #article.overlay.open{transform:translateY(0);}
+    #article.overlay.open.peek{transform:translateY(calc(100% - var(--peekH))); overflow:hidden;}
+    /* The peek→full expand (and the full→peek collapse) run slower than the open/close
+       slide, so the card's rise reads as a deliberate reveal rather than a snap. The photo
+       morph in expandArticle()/collapseArticle() is timed to match. */
+    #article.overlay.expanding{transition:transform .78s cubic-bezier(.22,.61,.36,1);}
   }
   .dhead{display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding-right:118px;}
   .dyear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
@@ -344,7 +363,7 @@
   }
   .overlay.open{transform:translateY(0);}
   .overlay.open.peek{transform:translateY(calc(100% - var(--peekH))); overflow:hidden;}
-  .overlay.expanding{transition:transform .6s cubic-bezier(.22,.61,.36,1);}
+  .overlay.expanding{transition:transform .78s cubic-bezier(.22,.61,.36,1);}
   .artwrap{max-width:720px; margin:0 auto; padding:18px 20px 70px; position:relative;}
   .artBodyClone{position:absolute; top:0; left:0; width:100%; pointer-events:none;}
   .artBodyClone .artSticky, .artBodyClone .artPlayerWrap{position:static;}
@@ -451,11 +470,19 @@
      On expand it fades and collapses out of flow, which is what lets the hero photo (sitting
      right after it in the DOM, already opacity:0) slide up into its place and fade in —
      no separate slide animation needed, just two opposite fades. */
+  /* Collapses on expand and re-opens on collapse-back-to-peek, so the same element serves
+     both directions. Timed a touch under the .78s card rise: the text is out of the way
+     before the photo finishes growing into its place. */
   .artPeek{
     overflow:hidden; max-height:600px; opacity:1;
-    transition: opacity .4s ease, max-height .5s ease .05s, margin .5s ease .05s;
+    transition: opacity .34s ease .18s, max-height .5s ease .1s, margin .5s ease .1s;
   }
-  .artPeek.collapsed{opacity:0; max-height:0; margin:0; pointer-events:none;}
+  /* Transitions come from the TARGET state, so this rule times the expand direction (fade
+     out promptly, get out of the flow) while the rule above times the way back. */
+  .artPeek.collapsed{
+    opacity:0; max-height:0; margin:0; pointer-events:none;
+    transition: opacity .26s ease, max-height .46s ease .04s, margin .46s ease .04s;
+  }
   .artPeekH{font-family:'Cinzel',serif; font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:16px 0 7px;}
   .artPeekBody{font-size:17.5px; line-height:1.62; color:var(--parchment);}
   /* Bottom blur/fade mask, shown only while peeking. A true sibling of #article (not a
@@ -471,7 +498,9 @@
     mask-image:linear-gradient(to bottom, transparent, black 60%);
   }
   #peekFade.show{display:block;}
-  .artimg{width:100%; border-radius:16px; border:1px solid rgba(201,165,66,.5); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
+  /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
+     so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
+  .artimg{width:100%; border-radius:14px; border:1.5px solid var(--gold); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
   .imgLightbox{
     position:fixed; inset:0; z-index:200; background:rgba(4,9,26,.97);
     display:none; align-items:center; justify-content:center; padding:24px;
@@ -1380,7 +1409,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v88';
+const APP_VERSION = 'v89';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -1947,7 +1976,12 @@ function navigateStory(direction){
       expandArticle();
       return;
     }
+    // Swipe down unwinds one step at a time: full story → preview card → gone. Only the
+    // full state has somewhere to fall back to, and only if this card was opened as a
+    // preview in the first place (canCollapseToPeek checks that); a story opened straight
+    // to full — from a cross-reference link, say — closes outright as it always did.
     if(dy > 55 && Math.abs(dx) < dy && (wasHeader || artEl.scrollTop <= 4)){
+      if(collapseArticle()) return;
       closeArticle();
       return;
     }
@@ -1963,6 +1997,10 @@ function navigateStory(direction){
 document.getElementById('article').addEventListener('click', (e) => {
   if(!article.classList.contains('peek')) return;
   if(e.target.closest('.player, a, button, input')) return;
+  // A swipe-down that just collapsed the card back to a preview can be followed by a
+  // synthesised click on some devices, which would bounce it straight back to full. Ignore
+  // taps for a moment after a collapse so "down" reliably means down.
+  if(performance.now() - lastCollapseAt < 500) return;
   expandArticle();
 });
 // Tapping anywhere outside an open card — the search box, the masthead, the timeline —
@@ -2465,45 +2503,75 @@ function fillArticleBody(d, peek){
 // In the peek card the big hero photo is hidden, but the small corner portrait is shown
 // straight away — parked in exactly the size and spot it settles into once the full article
 // is scrolled up, so expanding the card doesn't move it.
-function placePeekFly(hasImg){
+// The parked corner-badge geometry, derived from the photo's own aspect ratio. Shared by
+// placePeekFlyNow() and by the morph, which needs the same numbers as its start/end point.
+function peekFlyBox(){
+  const artEl = document.getElementById('article');
+  const img = document.getElementById('flyPortraitImg');
+  if(!artEl || !img) return null;
+  const natW = img.naturalWidth, natH = img.naturalHeight;
+  if(!natW || !natH) return null;
+  const aspect = natW / natH;
+  let w = Math.sqrt(FLY_AREA * aspect), h = w / aspect;
+  const shrink = Math.min(1, FLY_MAX / Math.max(w, h));
+  const grow = Math.max(1, FLY_MIN / Math.min(w, h));
+  const clamp = shrink < 1 ? shrink : grow;
+  w *= clamp; h *= clamp;
+  const sheet = artEl.getBoundingClientRect();
+  return {
+    width: w, height: h,
+    left: sheet.right - FLY_INSET - w,
+    top: Math.max(8, sheet.top - FLY_OVERHANG)
+  };
+}
+// Parks the corner badge at its resting geometry. Safe to call repeatedly — it re-measures
+// every time, which is exactly what makes it the right fix for a device rotation.
+function placePeekFlyNow(){
   const fly = document.getElementById('flyPortrait');
   const artEl = document.getElementById('article');
+  const img = document.getElementById('flyPortraitImg');
+  if(!fly || !artEl || !artEl.classList.contains('peek')) return;
+  if(morphing) return;                       // a morph owns the photo; don't fight it
+  // The <img> keeps whatever src it was last given, so an entry with NO photo would happily
+  // measure and re-park the previous entry's picture. Ask the entry itself, not the element.
+  if(!currentEntry || !currentEntry.img){ fly.classList.remove('on'); return; }
+  if(!img || !img.getAttribute('src')){ fly.classList.remove('on'); return; }
+  const box = peekFlyBox();
+  if(!box) return;
+  fly.style.transition = '';
+  fly.style.width = box.width + 'px';
+  fly.style.height = box.height + 'px';
+  fly.style.left = box.left + 'px';
+  fly.style.top = box.top + 'px';
+  fly.style.transform = 'none';
+  fly.style.borderWidth = '1.5px';
+  fly.style.borderColor = 'rgba(201,165,66,1)';
+  fly.style.borderRadius = '14px';
+  fly.style.boxShadow = '0 14px 28px rgba(0,0,0,.5)';
+  fly.style.pointerEvents = 'none';
+  fly.classList.add('on');
+}
+function placePeekFly(hasImg){
+  const fly = document.getElementById('flyPortrait');
   if(!fly) return;
   const img = document.getElementById('flyPortraitImg');
   if(!hasImg || !img || !img.getAttribute('src')){ fly.classList.remove('on'); return; }
-  const place = () => {
-    if(!artEl.classList.contains('peek')){ return; }
-    const natW = img.naturalWidth, natH = img.naturalHeight;
-    if(!natW || !natH){ return; }
-    const aspect = natW / natH;
-    let w = Math.sqrt(FLY_AREA * aspect), h = w / aspect;
-    const shrink = Math.min(1, FLY_MAX / Math.max(w, h));
-    const grow = Math.max(1, FLY_MIN / Math.min(w, h));
-    const clamp = shrink < 1 ? shrink : grow;
-    w *= clamp; h *= clamp;
-    const sheet = artEl.getBoundingClientRect();
-    fly.style.width = w + 'px';
-    fly.style.height = h + 'px';
-    fly.style.left = (sheet.right - FLY_INSET - w) + 'px';
-    fly.style.top = Math.max(8, sheet.top - FLY_OVERHANG) + 'px';
-    fly.style.transform = 'none';
-    fly.style.borderWidth = '1.5px';
-    fly.style.borderColor = 'rgba(201,165,66,1)';
-    fly.style.borderRadius = '14px';
-    fly.style.boxShadow = '0 14px 28px rgba(0,0,0,.5)';
-    fly.style.pointerEvents = 'none';
-    fly.classList.add('on');
-  };
-  if(img.complete && img.naturalWidth) place();
-  // 'error' matters as much as 'load' here: when data.json still names a .png that has been
-  // converted to .jpg, the first request fails and the extension fallback swaps the src, so
-  // the picture only becomes measurable after that second attempt resolves.
-  img.addEventListener('load', place);
-  img.addEventListener('error', () => setTimeout(place, 120));
+  // Hook the image's own load/error ONCE per element. 'error' matters as much as 'load':
+  // when data.json still names a .png that has been converted to .jpg, the first request
+  // fails and the extension fallback swaps the src, so the picture only becomes measurable
+  // after that second attempt resolves. (Re-adding these on every call — as this used to —
+  // stacked a fresh pair of listeners per card open, which is a slow leak and made a late
+  // load fire the placement many times over.)
+  if(!img.dataset.peekHooked){
+    img.dataset.peekHooked = '1';
+    img.addEventListener('load', placePeekFlyNow);
+    img.addEventListener('error', () => setTimeout(placePeekFlyNow, 120));
+  }
+  placePeekFlyNow();
   // The card is still sliding up when this first runs; re-place once it has settled so the
   // portrait sits against the card's final top edge rather than its in-flight position.
-  setTimeout(place, 260);
-  setTimeout(place, 620);
+  setTimeout(placePeekFlyNow, 260);
+  setTimeout(placePeekFlyNow, 620);
 }
 // Shows/hides the Quick Edit toggle and offset nudger based on the owner-unlock state —
 // called both when a card opens and when the "show edit controls" setting is toggled live.
@@ -2521,6 +2589,7 @@ function syncEditControls(d){
 }
 function openArticle(d, opts){
   opts = opts || {};
+  cancelMorph();   // a flight belonging to the outgoing entry must not land on the new one
   if(!opts.preserveStack) articleBackStack = []; // fresh open (timeline, search, shared link…) starts a new chain
   currentEntry = d;
   stopAudio();
@@ -2563,41 +2632,240 @@ function openArticle(d, opts){
     setTimeout(settle, 700); // safety net if the transition never reports
   }
 }
+// ---- The peek ⇄ hero photo morph --------------------------------------------------
+// Expanding a peek card used to be a crossfade: the small corner badge simply stayed put
+// while the big hero photo faded in underneath it. Now the SAME flying element travels —
+// it grows and slides from the corner badge down into the hero's slot (and shrinks back
+// up again on the way out), so the eye follows one photo the whole way.
+//
+// The destination is PREDICTED before anything starts moving, not measured live. That
+// distinction matters: while the flight is under way the card is still rising on its own
+// transform and the preview text is still collapsing out of the flow, so a live measurement
+// would point at wherever the hero happens to be mid-transition — which is far too low early
+// on. Chasing that makes the photo swing down and then come back up. Predicting the resting
+// position instead gives one clean, straight path.
+const MORPH_MS = 720;             // deliberately slower than the old .55s crossfade
+let morphing = false;             // true while the morph owns the flying photo
+let morphRAF = null;
+
+function cancelMorph(){
+  if(morphRAF){ cancelAnimationFrame(morphRAF); morphRAF = null; }
+  morphing = false;
+}
+// easeInOutCubic — a gentle start, a little travel speed in the middle, a soft landing.
+function morphEase(x){
+  return x < 0.5 ? 4*x*x*x : 1 - Math.pow(-2*x + 2, 3) / 2;
+}
+// Runs the flight. `target()` is called per frame and returns the CURRENT destination rect
+// ({left, top, width, height} in viewport coordinates), or null if it can't be measured.
+// `onDone` hands the photo back to whichever system owns it at the end.
+function runFlyMorph(target, onDone){
+  const fly = document.getElementById('flyPortrait');
+  if(!fly || !fly.classList.contains('on')) return false;
+  const from = fly.getBoundingClientRect();
+  const first = target();
+  if(!from.width || !from.height || !first || !first.width || !first.height) return false;
+  cancelMorph();
+  morphing = true;
+  // Lay the element out at its START size and drive the whole flight with a transform, the
+  // same trick measureFly() uses: the browser rasterises the photo once, at its starting
+  // resolution, so there's no re-layout per frame and no shimmer.
+  fly.style.transition = 'none';
+  fly.style.width = from.width + 'px';
+  fly.style.height = from.height + 'px';
+  fly.style.left = from.left + 'px';
+  fly.style.top = from.top + 'px';
+  fly.style.transform = 'none';
+  fly.style.pointerEvents = 'none';
+  const t0 = performance.now();
+  const step = (now) => {
+    const raw = Math.min(1, (now - t0) / MORPH_MS);
+    const t = morphEase(raw);
+    const to = target() || first;
+    const curW = from.width  + (to.width  - from.width)  * t;
+    const curH = from.height + (to.height - from.height) * t;
+    const curL = from.left   + (to.left   - from.left)   * t;
+    const curT = from.top    + (to.top    - from.top)    * t;
+    const sx = curW / from.width, sy = curH / from.height;
+    fly.style.transform = 'translate(' + (curL - from.left) + 'px,' + (curT - from.top) +
+                          'px) scale(' + sx + ',' + sy + ')';
+    // Border, radius and shadow all ride the transform, so they're written in pre-scale
+    // units to keep their on-screen size constant. Border and radius are now the same at
+    // both ends (1.5px / 14px), matching .artimg — only the drop shadow fades, since a
+    // full-width hero photo shouldn't look like it's floating above the page.
+    fly.style.borderWidth = (1.5 / sx) + 'px';
+    fly.style.borderRadius = (14 / sx) + 'px';
+    // "Badgeness": 1 while it's the small floating corner photo, 0 once it's the full-width
+    // hero. Growing means we're leaving the badge behind; shrinking means we're becoming one.
+    const badgeness = to.width > from.width ? (1 - t) : t;
+    fly.style.boxShadow = badgeness > 0.01
+      ? '0 ' + (14 * badgeness / sx) + 'px ' + (28 * badgeness / sx) + 'px rgba(0,0,0,' + (0.5 * badgeness) + ')'
+      : 'none';
+    if(raw < 1){ morphRAF = requestAnimationFrame(step); return; }
+    morphRAF = null;
+    morphing = false;
+    if(typeof onDone === 'function') onDone();
+  };
+  morphRAF = requestAnimationFrame(step);
+  return true;
+}
+// Where the hero photo will COME TO REST once the card has finished rising and the preview
+// text has collapsed. Must be called while the card is still in its peek state — it works
+// by taking the hero's current offset inside the card and subtracting the preview block
+// that is about to disappear from above it.
+// How much lower the card sits when peeking than when fully open. The peek transform is
+// translateY(100% - peekH), and that 100% is the card's own height — so this one number
+// converts between the two resting positions in either direction. Deriving it this way
+// (rather than from window.innerHeight) sidesteps iOS, where `vh` is measured against the
+// large viewport and so doesn't agree with innerHeight while the URL bar is showing.
+function peekDrop(){
+  const artEl = document.getElementById('article');
+  if(!artEl) return 0;
+  const peekH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--peekH')) || 230;
+  return Math.max(0, artEl.offsetHeight - peekH);
+}
+function heroRestingRect(){
+  const artEl = document.getElementById('article');
+  const hero = document.getElementById('artHeroImg');
+  const peekEl = document.getElementById('artPeek');
+  // A not-yet-loaded <img> still reports a few pixels of border box, which would make the
+  // photo fly into a sliver. Insist on a real, laid-out picture before aiming at it.
+  if(!artEl || !hero || hero.offsetHeight < 40) return null;
+  const r = hero.getBoundingClientRect();
+  if(!r.width || !r.height) return null;
+  const card = artEl.getBoundingClientRect();
+  // Offset of the photo inside the card's own content, at scroll 0...
+  let offset = r.top - card.top;
+  // ...minus the preview block above it, which is on its way out of the flow.
+  if(peekEl && !peekEl.classList.contains('collapsed')) offset -= peekEl.offsetHeight;
+  // Called while still peeking, so the card is currently sitting peekDrop() px too low.
+  return {left:r.left, top:(card.top - peekDrop()) + offset, width:r.width, height:r.height};
+}
+// The mirror image: where the corner badge will come to rest once the card has dropped back
+// to its peek height. Same idea — predicted, not measured mid-drop.
+function peekFlyRestingRect(){
+  const artEl = document.getElementById('article');
+  const box = peekFlyBox();
+  if(!artEl || !box) return null;
+  // Called while fully open, so the card is about to move peekDrop() px down.
+  const peekTop = artEl.getBoundingClientRect().top + peekDrop();
+  return {
+    left: box.left,
+    top: Math.max(8, peekTop - FLY_OVERHANG),
+    width: box.width,
+    height: box.height
+  };
+}
+
 // Expands a peeking card to the full story in place: the card itself rises the rest of the
-// way (a slower, deliberate transition — see .expanding), while the peek preview collapses
-// out of flow and the hero photo (already sitting in the same spot at opacity:0) fades in
-// to take its place. No slide-from-bottom on the photo — just the two crossfading.
+// way (a slower, deliberate transition — see .expanding), the peek preview collapses out of
+// flow, and the corner photo flies down and grows into the hero slot it leaves behind.
 function expandArticle(){
   if(!article.classList.contains('peek')) return;
+  // Work out where the photo is going BEFORE anything starts moving — see heroRestingRect().
+  const destination = heroRestingRect();
   article.classList.add('expanding');
   article.classList.remove('peek');
   document.getElementById('peekFade').classList.remove('show');
   const peekEl = document.getElementById('artPeek');
   if(peekEl) peekEl.classList.add('collapsed');
+  article.scrollTop = 0;
   const hero = document.getElementById('artHeroImg');
-  if(hero){
-    hero.style.transition = 'opacity .55s ease .15s';
+  const morphed = !!(hero && destination && runFlyMorph(() => destination, () => {
+    if(document.getElementById('article').classList.contains('peek')) return; // collapsed again mid-flight
+    document.getElementById('flyPortrait').style.transition = '';
+    syncStickyBackdrops();
+    measureFly();   // hands the photo back to the scroll-driven flight
+  }));
+  if(morphed && hero){
+    // The flying copy is the photo the reader can see; the inline <img> stays invisible and
+    // exists only to hold the space and report where the flight should end.
+    hero.style.transition = 'none';
+    hero.style.opacity = '0';
+  } else if(hero){
+    // No photo on this entry (or it hasn't loaded yet) — fall back to the old plain fade.
+    hero.style.transition = 'opacity .6s ease .18s';
     hero.style.opacity = '1';
   }
-  article.scrollTop = 0;
   const done = () => {
     article.classList.remove('expanding');
-    if(hero) hero.style.transition = ''; // hand back to the short CSS rule the fly-photo handoff relies on
+    if(hero && !morphing) hero.style.transition = ''; // hand back to the short CSS rule the fly-photo handoff relies on
     syncStickyBackdrops();
-    measureFly();
+    if(!morphing) measureFly();
   };
   article.addEventListener('transitionend', function once(ev){
     if(ev.target !== article || ev.propertyName !== 'transform') return;
     article.removeEventListener('transitionend', once);
     done();
   });
-  setTimeout(done, 750); // safety net matching the .expanding transition duration
+  setTimeout(done, 900); // safety net matching the .expanding transition duration
+}
+// The exact reverse: full story back down to the peek card. The hero photo shrinks and
+// rises into the corner badge, the preview text fades back in, and the card drops to its
+// peek height. Only available when the card was opened as a peek in the first place (i.e.
+// the preview element still exists) — a story opened straight to full has nothing to
+// return to, so those simply close.
+let lastCollapseAt = -1e9;   // guards against a synthesised tap re-expanding what we just closed
+function canCollapseToPeek(){
+  return article.classList.contains('open') &&
+         !article.classList.contains('peek') &&
+         !!document.getElementById('artPeek');
+}
+function collapseArticle(){
+  if(!canCollapseToPeek()) return false;
+  lastCollapseAt = performance.now();
+  const peekEl = document.getElementById('artPeek');
+  const hero = document.getElementById('artHeroImg');
+  const fly = document.getElementById('flyPortrait');
+  const taper = document.getElementById('ahTaper');
+  // Pin the flying photo to exactly where it is on screen RIGHT NOW, before the scroll reset
+  // moves anything. It's position:fixed, so once pinned it stays put while the card resets
+  // underneath it — which is what lets the morph start from the picture the reader is
+  // actually looking at, whether that's the full hero or a half-flown corner badge.
+  if(fly && fly.classList.contains('on')){
+    const r0 = fly.getBoundingClientRect();
+    fly.style.transition = 'none';
+    fly.style.width = r0.width + 'px';
+    fly.style.height = r0.height + 'px';
+    fly.style.left = r0.left + 'px';
+    fly.style.top = r0.top + 'px';
+    fly.style.transform = 'none';
+  }
+  const destination = peekFlyRestingRect();
+  article.scrollTop = 0;
+  flyGeo = null;
+  article.classList.add('expanding');
+  article.classList.add('peek');
+  document.getElementById('peekFade').classList.add('show');
+  if(peekEl) peekEl.classList.remove('collapsed');
+  if(hero){ hero.style.transition = 'none'; hero.style.opacity = '0'; }
+  if(taper) taper.style.opacity = '0';   // the taper rule belongs to the scrolled-up full view
+  if(destination){
+    runFlyMorph(() => destination, () => {
+      if(!article.classList.contains('peek')) return; // expanded again mid-flight
+      placePeekFlyNow();
+    });
+  }
+  const done = () => {
+    article.classList.remove('expanding');
+    syncStickyBackdrops();
+    if(!morphing && article.classList.contains('peek')) placePeekFlyNow();
+  };
+  article.addEventListener('transitionend', function once(ev){
+    if(ev.target !== article || ev.propertyName !== 'transform') return;
+    article.removeEventListener('transitionend', once);
+    done();
+  });
+  setTimeout(done, 900);
+  return true;
 }
 // Every route out of a story funnels through here so the audio, the flying photo and the
-// monstrance are always left in a consistent state. There is no "back to peek" — closing
-// always closes completely, whichever state the card was in.
+// monstrance are always left in a consistent state. This is the LAST step out: swiping down
+// from the full story steps back to the preview first (collapseArticle), and it's a second
+// swipe from there — or a tap outside, or the back button — that lands here and closes for good.
 function closeArticle(){
   stopAudio();
+  cancelMorph();   // a half-finished flight must never outlive the card it belongs to
   article.classList.remove('open', 'peek', 'expanding');
   document.body.classList.remove('artOpen');
   flyGeo = null;
@@ -2623,6 +2891,7 @@ function slideArticleTo(d, direction){
   // while it is still translated a full screen-width off to the side, so measuring against
   // it here would strand the photo at the edge. The inline photo simply slides in with the
   // rest of the content, and the flying copy takes over once everything has settled.
+  cancelMorph();
   flySuspended = true;
   flyGeo = null;
   document.getElementById('flyPortrait').classList.remove('on');
@@ -2755,6 +3024,10 @@ function measureFly(){
   const hero = document.getElementById('artHeroImg');
   const sticky = document.getElementById('artSticky');
   if(!fly) return;
+  // A peek⇄hero morph owns the photo outright while it's in flight. Without this guard the
+  // resize/settle/transitionend passes that fire during those ~720ms would re-lay the
+  // element out mid-flight (or, worse, hit the flySuspended branch below and remove it).
+  if(morphing) return;
   // While peeking, the corner portrait is owned by placePeekFly() and is deliberately parked
   // in its landed position — bail out without touching it, or the settle/transitionend passes
   // that run just after a card opens would strip it straight back off.
@@ -2817,6 +3090,10 @@ function updateFly(){
   const fly = document.getElementById('flyPortrait');
   const taper = document.getElementById('ahTaper');
   if(!fly) return;
+  // Same reasoning as in measureFly: while the morph is flying the photo, flyGeo is null,
+  // and the !flyGeo branch below would pull it off the screen on the very next scroll tick
+  // (setting article.scrollTop = 0 during an expand/collapse fires exactly such a tick).
+  if(morphing) return;
   // While peeking the corner portrait is owned by placePeekFly() and flyGeo is deliberately
   // null — without this guard the very next scroll/rAF tick would hit the !flyGeo branch
   // below and pull the portrait straight back off the screen.
@@ -2851,9 +3128,13 @@ function updateFly(){
   fly.style.transform = 'translate(' + (curLeft - flyGeo.endLeft) + 'px,' + (curTop - flyGeo.endTop) + 'px) scale(' + sx + ',' + sy + ')';
   // Border, radius and shadow are all magnified by the transform, so they are written in
   // pre-scale units to keep their on-screen thickness matching the design at both ends.
-  fly.style.borderWidth = ((1 + 0.5 * t) / sx) + 'px';
-  fly.style.borderColor = 'rgba(201,165,66,' + (0.5 + 0.5 * t) + ')';
-  fly.style.borderRadius = ((8 + 6 * t) / sx) + 'px';
+  // Border and radius no longer ramp: the hero photo now wears the SAME 1.5px gold hairline
+  // and 14px radius as the corner badge (and as .artimg), so they're constant all the way
+  // through. Only the drop shadow ramps — it belongs to the floating badge, not to a
+  // full-width photo sitting in the text.
+  fly.style.borderWidth = (1.5 / sx) + 'px';
+  fly.style.borderColor = 'rgba(201,165,66,1)';
+  fly.style.borderRadius = (14 / sx) + 'px';
   fly.style.boxShadow = t > 0.01
     ? '0 ' + (14 * t / sx) + 'px ' + (28 * t / sx) + 'px rgba(0,0,0,' + (0.5 * t) + ')'
     : 'none';
@@ -2878,7 +3159,33 @@ function queueFly(){
   sync();
 })();
 document.getElementById('article').addEventListener('scroll', queueFly, {passive:true});
-window.addEventListener('resize', () => { syncStickyBackdrops(); measureFly(); });
+
+// ---- Viewport changes (above all: an iPhone rotating) ------------------------------
+// The flying photo is position:fixed and driven by numbers measured ONCE per entry, so any
+// change to the viewport invalidates every one of them. The old handler called measureFly()
+// bare, which broke two ways on a rotate-and-rotate-back:
+//   • in the peek state measureFly() deliberately bails out, so the corner badge kept the
+//     left/top it was given for the OLD screen width and ended up parked out in space; and
+//   • on iOS the resize event fires BEFORE the new layout has settled, so even the full
+//     state re-measured against stale geometry.
+// Hence: debounce, then re-place whichever state the card is actually in, then do it once
+// more a beat later to catch iOS finishing its rotation (and any morph that was in flight,
+// since measureFly/placePeekFlyNow both no-op while morphing).
+let viewportSettleTimer = null;
+function handleViewportChange(){
+  clearTimeout(viewportSettleTimer);
+  const settle = () => {
+    syncStickyBackdrops();
+    const artEl = document.getElementById('article');
+    if(!artEl || !artEl.classList.contains('open')) return;
+    if(artEl.classList.contains('peek')) placePeekFlyNow();
+    else measureFly();
+  };
+  viewportSettleTimer = setTimeout(() => { settle(); setTimeout(settle, 320); }, 160);
+}
+window.addEventListener('resize', handleViewportChange);
+window.addEventListener('orientationchange', handleViewportChange);
+if(window.visualViewport) window.visualViewport.addEventListener('resize', handleViewportChange);
 
 // ---- Tap anywhere in the story to pause the audio, with a fading pause glyph as feedback ----
 const ICON_PAUSE_GLYPH = '<i></i><i></i>'; // two large frosted bars, styled by .pauseIndicator i
