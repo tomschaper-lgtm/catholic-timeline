@@ -1,10 +1,22 @@
-<!-- Catholic Timeline — v91 — generated 2026-08-04 05:55 UTC
-     v91 changes:
-       • Cross-reference Back now returns you to WHERE you were in the previous story, not
-         to its top. The back stack carries {id, scroll} instead of a bare id.
-       • The restore re-applies as the layout settles (the hero photo has no height until it
-         loads, so a single assignment would silently clamp short), and stands down the
-         moment the reader scrolls themselves.
+<!-- Catholic Timeline — v92 — generated 2026-08-04 18:20 UTC
+     v92 changes:
+       • SEARCH REBUILT. Two passes: (A) name + alt/aka, always run; (B) the new `tags`
+         field, falling back to the short description until tags are authored. B is only
+         consulted when A returns fewer than 8 hits, and 8 is a cap on the COMBINED list.
+       • Multi-word queries: the text is split on spaces and EVERY fragment must match
+         within a pass's fields, so extra words narrow rather than widen the results.
+       • Results are grouped by category (Saint, Council, Persecution, Marian, Eucharistic,
+         Event) then by year, in a three-column icon / name / year grid. A category's icon
+         is drawn once and blanked on repeat rows; a bold gold rule opens each new group.
+       • Only entries actually listed in the dropdown light up on the timeline.
+       • Recent searches: picking a result resolves each typed fragment back to the whole
+         word it matched ("pet fish" → "Peter fish") and stores it. The last five terms
+         appear when the box is focused and empty; picking one re-runs it as if typed.
+         Persisted in localStorage, most recent first, re-picking promotes rather than dupes.
+       • New `tags` array on entries — editor field, export column, import + Claude-op
+         support. Empty for now; search B switches to it automatically once populated.
+       • Monstrance graphic permanently removed (markup, CSS, animation, artOpen fade) and
+         the search box widened to 320px and given a taller, roomier field.
 
      v90 changes:
        • Audio scrubber is opaque again. Its backdrop now re-samples the card's own gradient
@@ -199,10 +211,10 @@
   .ev.ecu .ic{box-shadow:0 0 8px rgba(242,201,76,.7), 0 0 2px rgba(242,201,76,.9); border-width:2px;}
   .ev.ecu:hover .ic{box-shadow:0 0 12px var(--council-ecu);}
   /* Timeline search */
-  .searchwrap{position:relative; flex:0 0 220px; width:220px;}
+  .searchwrap{position:relative; flex:0 0 320px; width:320px; max-width:min(320px, calc(100vw - 32px));}
   /* NOTE: 16px is the minimum font-size that prevents iOS Safari from auto-zooming
      when an input receives focus. Do not lower these below 16px. */
-  #tlSearch{width:100%; box-sizing:border-box; background:var(--navy-deep); border:1px solid var(--gold); color:var(--parchment); border-radius:16px; padding:6px 32px 6px 12px; font-family:'EB Garamond',Georgia,serif; font-size:16px;}
+  #tlSearch{width:100%; box-sizing:border-box; background:var(--navy-deep); border:1px solid var(--gold); color:var(--parchment); border-radius:18px; padding:10px 34px 10px 15px; font-family:'EB Garamond',Georgia,serif; font-size:16px; line-height:1.25;}
   #tlSearch:focus{outline:none; box-shadow:0 0 0 2px rgba(201,165,66,.35);}
   .searchClear{
     position:absolute; right:6px; top:50%; transform:translateY(-50%); z-index:2;
@@ -211,23 +223,32 @@
   }
   .searchClear.show{display:flex;}
   .searchClear:hover{color:var(--gold-bright);}
-  .monstranceWrap{flex:1 1 auto; position:relative; height:0; overflow:visible; pointer-events:none;}
-  .monstranceWrap svg{
-    position:absolute; top:-70px; left:50%; transform:translateX(-50%); z-index:90;
-    width:88px; height:112px; animation:monstranceGlow 3.5s ease-in-out infinite;
-  }
-  @keyframes monstranceGlow{
-    0%,100%{filter:drop-shadow(0 0 2px rgba(232,205,126,.45));}
-    50%{filter:drop-shadow(0 0 9px rgba(232,205,126,.9));}
-  }
-  .sresults{position:absolute; left:0; top:calc(100% + 4px); z-index:40; display:none; width:max-content; max-width:min(560px, 92vw); background:linear-gradient(180deg,#14224A,#0C1735); border:1px solid var(--gold); border-radius:10px; overflow:hidden auto; box-shadow:0 8px 30px rgba(0,0,0,.6); max-height:50vh;}
-  .sresult{display:flex; align-items:center; gap:8px; padding:8px 16px; cursor:pointer; border-bottom:1px solid rgba(201,165,66,.14); font-size:14px; white-space:nowrap;}
+  .sresults{position:absolute; left:0; top:calc(100% + 5px); z-index:40; display:none; min-width:100%; width:max-content; max-width:min(560px, 92vw); background:linear-gradient(180deg,#14224A,#0C1735); border:1px solid var(--gold); border-radius:10px; overflow:hidden auto; box-shadow:0 8px 30px rgba(0,0,0,.6); max-height:50vh;}
+  /* Three columns: icon | name | year. The icon cell is blank on repeat rows, so one
+     glyph stands for the whole category group beneath it. */
+  .sresult{display:grid; grid-template-columns:26px 1fr auto; align-items:center; gap:0 10px;
+    padding:7px 16px; cursor:pointer; border-bottom:1px solid rgba(201,165,66,.10);
+    font-size:14px; white-space:nowrap;}
   .sresult:last-child{border-bottom:none;}
   .sresult:hover{background:rgba(201,165,66,.12);}
-  .sresult .sdot{font-size:11px; line-height:1; flex:0 0 auto;}
-  .sresult .sname{flex:0 0 auto;}
-  .sresult .syr{margin-left:6px; flex:0 0 auto; color:var(--muted); font-style:italic; font-size:12.5px;}
-  .sresult.sempty{color:var(--muted); cursor:default; font-style:italic;}
+  /* A bold gold rule opens each new category block (except the first). */
+  .sresult.groupStart{border-top:2px solid rgba(201,165,66,.55);}
+  .sresult.groupStart:first-child{border-top:none;}
+  .sresult .sicon{display:flex; align-items:center; justify-content:center; width:22px; height:22px;}
+  .sresult .sicon svg{width:20px; height:20px;}
+  .sresult .sicon.blank svg{display:none;}
+  .sresult .sname{overflow:hidden; text-overflow:ellipsis;}
+  .sresult .syr{color:var(--muted); font-style:italic; font-size:12.5px;}
+  .sresult.sempty{display:block; color:var(--muted); cursor:default; font-style:italic;}
+  /* Recent searches, shown when the box is focused and empty. */
+  .srecentHead{padding:7px 16px 5px; font-size:11.5px; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--muted); border-bottom:1px solid rgba(201,165,66,.18);}
+  .srecent{display:grid; grid-template-columns:22px 1fr; align-items:center; gap:0 10px;
+    padding:8px 16px; cursor:pointer; border-bottom:1px solid rgba(201,165,66,.10);
+    font-size:14px; white-space:nowrap;}
+  .srecent:last-child{border-bottom:none;}
+  .srecent:hover{background:rgba(201,165,66,.12);}
+  .srecent .sclock{color:var(--muted); font-size:13px; line-height:1;}
   /* Search glow + zoom fade */
   .ev.hit .ic{border-color:var(--gold-bright); animation:pulseHit 1.1s ease-in-out infinite;}
   .ev.focus .ic{transform:scale(1.35); border-color:var(--gold-bright); box-shadow:0 0 20px 6px var(--gold-bright); transition:transform .25s ease, box-shadow .25s ease;}
@@ -454,10 +475,6 @@
   /* A drag anywhere on the sticky header is a dismiss gesture, not a scroll, so the
      header keeps its swipe-down-to-close behaviour at any scroll position. */
   .artSticky{touch-action:none;}
-  /* The monstrance sits exactly where the corner photo comes to rest, so it steps aside
-     while a story is open. */
-  .monstranceWrap svg{transition:opacity .25s ease;}
-  body.artOpen .monstranceWrap svg{opacity:0;}
   /* The audio scrubber sits with the article text, directly above it, and pins itself
      just below the sticky header once it reaches the top. */
   .artPlayerWrap{
@@ -825,53 +842,6 @@
       <button class="searchClear" id="searchClear" aria-label="Clear search" type="button">×</button>
       <div class="sresults" id="sResults"></div>
     </div>
-    <div class="monstranceWrap" aria-hidden="true">
-      <svg viewBox="0 0 100 128">
-        <!-- rays -->
-        <g stroke="#C9A542" stroke-linecap="round">
-          <line x1="50" y1="56" x2="94" y2="56" stroke-width="3"/>
-          <line x1="50" y1="56" x2="79.6" y2="68.2" stroke-width="2"/>
-          <line x1="50" y1="56" x2="81.1" y2="87.1" stroke-width="3"/>
-          <line x1="50" y1="56" x2="62.2" y2="85.6" stroke-width="2"/>
-          <line x1="50" y1="56" x2="50" y2="100" stroke-width="3"/>
-          <line x1="50" y1="56" x2="37.8" y2="85.6" stroke-width="2"/>
-          <line x1="50" y1="56" x2="18.9" y2="87.1" stroke-width="3"/>
-          <line x1="50" y1="56" x2="20.4" y2="68.2" stroke-width="2"/>
-          <line x1="50" y1="56" x2="6" y2="56" stroke-width="3"/>
-          <line x1="50" y1="56" x2="20.4" y2="43.8" stroke-width="2"/>
-          <line x1="50" y1="56" x2="18.9" y2="24.9" stroke-width="3"/>
-          <line x1="50" y1="56" x2="37.8" y2="26.4" stroke-width="2"/>
-          <line x1="50" y1="56" x2="50" y2="12" stroke-width="3"/>
-          <line x1="50" y1="56" x2="62.2" y2="26.4" stroke-width="2"/>
-          <line x1="50" y1="56" x2="81.1" y2="24.9" stroke-width="3"/>
-          <line x1="50" y1="56" x2="79.6" y2="43.8" stroke-width="2"/>
-        </g>
-        <!-- jeweled ring around the host -->
-        <circle cx="50" cy="56" r="19" fill="none" stroke="#2E4A7D" stroke-width="2.5"/>
-        <circle cx="50" cy="56" r="15.5" fill="none" stroke="#C9A542" stroke-width="1.2"/>
-        <circle cx="50" cy="39" r="2" fill="#2E4A7D"/>
-        <circle cx="67" cy="56" r="2" fill="#2E4A7D"/>
-        <circle cx="50" cy="73" r="2" fill="#2E4A7D"/>
-        <circle cx="33" cy="56" r="2" fill="#2E4A7D"/>
-        <!-- host -->
-        <circle cx="50" cy="56" r="13" fill="#F3ECD8" stroke="#C9A542" stroke-width="1.3"/>
-        <text x="50" y="60" text-anchor="middle" font-family="Georgia,serif" font-size="10" fill="#0B1630">IHS</text>
-        <!-- cross on top -->
-        <g fill="#C9A542">
-          <rect x="47.3" y="1" width="5.4" height="15" rx="1.2"/>
-          <rect x="41" y="6" width="18" height="5.2" rx="1.2"/>
-          <circle cx="50" cy="1.5" r="2.6"/>
-          <circle cx="41" cy="8.6" r="2.4"/>
-          <circle cx="59" cy="8.6" r="2.4"/>
-        </g>
-        <!-- stem, knop, and base -->
-        <path d="M46,75 L54,75 L53,90 L47,90 Z" fill="#C9A542"/>
-        <ellipse cx="50" cy="96" rx="7.5" ry="9" fill="#C9A542"/>
-        <rect x="48" y="104" width="4" height="10" fill="#C9A542"/>
-        <ellipse cx="50" cy="118" rx="21" ry="6.5" fill="#C9A542"/>
-        <ellipse cx="50" cy="115.5" rx="15" ry="2.6" fill="#2E4A7D"/>
-      </svg>
-    </div>
   </div>
 </div>
 
@@ -1014,6 +984,7 @@
             </select>
           </div>
           <div class="mfield"><label>Alternate names for search (comma-separated)</label><input type="text" id="fAlt" placeholder="e.g. JPII, Karol Wojtyła"></div>
+          <div class="mfield"><label>Search tags (comma-separated)</label><input type="text" id="fTags" placeholder="e.g. fish, keys, boat, nets"></div>
         </div>
         <div class="mfield"><label>Short Description (detail card)</label><textarea id="fDesc"></textarea></div>
         <div class="mfield"><label>Article — "## Heading" starts a section; blank lines between paragraphs; simple HTML allowed (&lt;b&gt; &lt;i&gt; &lt;u&gt; &lt;ul&gt; &lt;ol&gt; &lt;li&gt; &lt;br&gt; &lt;blockquote&gt; &lt;a href&gt;)</label><textarea class="tall" id="fArt"></textarea></div>
@@ -1431,7 +1402,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v91';
+const APP_VERSION = 'v92';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2152,6 +2123,18 @@ function tierVisible(d){
 }
 
 // ---- Search ----
+// Two passes, merged only when the first comes up short:
+//   A. name + alt (the "aka" list)  — always run
+//   B. search tags, falling back to the short description while tags are still being
+//      authored — only consulted if A returned fewer than MAX_RESULTS
+// Within a pass the query is split on spaces and EVERY fragment must match somewhere in
+// that pass's fields, so extra words narrow the result set rather than widening it.
+const MAX_RESULTS = 8;
+const RECENT_KEY = 'ct-recent-searches';
+const RECENT_MAX = 5;
+// Results are grouped by category in this fixed order, then by year inside each group.
+const SEARCH_TYPE_ORDER = ['s','c','p','m','u','e'];
+
 let searchHits = new Set();
 let searchFocusId = null;
 // Drops a leading title/prefix from names on the crowded timeline display only —
@@ -2163,25 +2146,126 @@ function shortName(n, t){
   return s;
 }
 function fold(s){ return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+
+// The haystacks each pass searches. Kept as arrays of raw strings so a matched fragment
+// can later be resolved back to the whole word it landed inside.
+function fieldsA(d){
+  return [String(d.n || '')].concat(Array.isArray(d.alt) ? d.alt.map(String) : []);
+}
+function fieldsB(d){
+  const tags = Array.isArray(d.tags) ? d.tags.map(String) : [];
+  // Tags are the intended source; until entries carry them, the short description stands in.
+  return tags.length ? tags : [String(d.d || '')];
+}
+// Every fragment must appear in at least one of the given fields.
+function matchesAll(fields, frags){
+  const folded = fields.map(fold);
+  return frags.every(f => folded.some(h => h.includes(f)));
+}
+// Given a fragment, find the complete word it matched inside — "pet" → "Peter".
+// Used to turn a typed fragment into a sensible recent-search term.
+function resolveWord(fields, frag){
+  for(const raw of fields){
+    for(const word of String(raw).split(/[^A-Za-zÀ-ÿ0-9'’-]+/)){
+      if(word && fold(word).includes(frag)) return word;
+    }
+  }
+  return null;
+}
+
+function sortResults(list){
+  return list.sort((a, b) => {
+    const ai = SEARCH_TYPE_ORDER.indexOf(a.t), bi = SEARCH_TYPE_ORDER.indexOf(b.t);
+    if(ai !== bi) return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+    return a.y - b.y;
+  });
+}
+
+// ---- Recent search terms (most recent first, persisted) ----
+function getRecent(){
+  try{ const a = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); return Array.isArray(a) ? a.slice(0, RECENT_MAX) : []; }
+  catch(e){ return []; }
+}
+function pushRecent(term){
+  term = String(term || '').trim();
+  if(!term) return;
+  const list = getRecent().filter(t => fold(t) !== fold(term)); // re-picking promotes, never duplicates
+  list.unshift(term);
+  try{ localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, RECENT_MAX))); }catch(e){}
+}
+// Turn the fragments the user actually typed into the full words they matched on the
+// entry they chose, joined back into one term: "pet fish" → "Peter fish".
+function recentTermFor(d, frags){
+  const fA = fieldsA(d), fB = fieldsB(d);
+  const words = frags.map(f => resolveWord(fA, f) || resolveWord(fB, f) || f);
+  return words.join(' ');
+}
+function renderRecent(box){
+  const list = getRecent();
+  box.innerHTML = '';
+  if(!list.length){ box.style.display = 'none'; return; }
+  const head = document.createElement('div');
+  head.className = 'srecentHead';
+  head.textContent = 'Recent searches';
+  box.appendChild(head);
+  list.forEach(term => {
+    const r = document.createElement('div');
+    r.className = 'srecent';
+    r.innerHTML = '<span class="sclock">\u21BA</span><span class="sname">' + esc(term) + '</span>';
+    r.addEventListener('click', () => {
+      const input = document.getElementById('tlSearch');
+      input.value = term;       // exactly as if it had been typed
+      runSearch();
+      input.focus();
+    });
+    box.appendChild(r);
+  });
+  box.style.display = 'block';
+}
+
 function runSearch(){
   const raw = document.getElementById('tlSearch').value;
   document.getElementById('searchClear').classList.toggle('show', raw.length > 0);
-  const q = fold(raw.trim());
   const box = document.getElementById('sResults');
-  if(q.length < 3){ searchHits = new Set(); searchFocusId = null; box.style.display = 'none'; box.innerHTML = ''; render(); return; }
+  const frags = fold(raw.trim()).split(/\s+/).filter(Boolean);
+  const qLen = frags.join('').length;
+
+  // Empty box → offer the recent terms instead of results.
+  if(!raw.trim()){
+    searchHits = new Set(); searchFocusId = null;
+    renderRecent(box);
+    render();
+    return;
+  }
+  if(qLen < 3){ searchHits = new Set(); searchFocusId = null; box.style.display = 'none'; box.innerHTML = ''; render(); return; }
+
   const pool = filtered();
-  const nameHit = d => fold(d.n).includes(q) || (Array.isArray(d.alt) && d.alt.some(a => fold(a).includes(q)));
-  const matches = pool.filter(d => nameHit(d) || fold(d.d).includes(q));
-  matches.sort((a,b) => { const an = nameHit(a), bn = nameHit(b); if(an !== bn) return an ? -1 : 1; return a.y - b.y; });
-  searchHits = new Set(matches.map(d => d.id));
+  const hitsA = pool.filter(d => matchesAll(fieldsA(d), frags));
+  let results = sortResults(hitsA.slice());
+  // Only reach for the secondary pass when the primary didn't fill the list.
+  if(hitsA.length < MAX_RESULTS){
+    const seen = new Set(hitsA.map(d => d.id));
+    const hitsB = pool.filter(d => !seen.has(d.id) && matchesAll(fieldsB(d), frags));
+    results = sortResults(hitsA.concat(hitsB));
+  }
+  const shown = results.slice(0, MAX_RESULTS); // 8 is a cap on the COMBINED list
+  // Only what's actually listed lights up on the timeline.
+  searchHits = new Set(shown.map(d => d.id));
+
   box.innerHTML = '';
-  if(!matches.length){ box.innerHTML = '<div class="sresult sempty">No matches</div>'; }
-  matches.slice(0, 8).forEach(d => {
+  if(!shown.length){ box.innerHTML = '<div class="sresult sempty">No matches</div>'; }
+  let prevType = null;
+  shown.forEach(d => {
+    const newGroup = d.t !== prevType;
     const r = document.createElement('div');
-    r.className = 'sresult';
-    r.innerHTML = '<span class="sdot t-'+d.t+'">\u25CF</span><span class="sname">'+esc(d.n)+'</span><span class="syr">AD '+d.y+'</span>';
-    r.addEventListener('click', () => focusEntry(d));
+    r.className = 'sresult' + (newGroup && prevType !== null ? ' groupStart' : '');
+    r.innerHTML =
+      '<span class="sicon t-' + d.t + (newGroup ? '' : ' blank') + '">' + (ICONS[d.t] || '') + '</span>' +
+      '<span class="sname">' + esc(d.n) + '</span>' +
+      '<span class="syr">AD ' + d.y + '</span>';
+    r.addEventListener('click', () => { pushRecent(recentTermFor(d, frags)); focusEntry(d); });
     box.appendChild(r);
+    prevType = d.t;
   });
   box.style.display = 'block';
   render();
@@ -2919,8 +3003,8 @@ function collapseArticle(){
   setTimeout(done, 900);
   return true;
 }
-// Every route out of a story funnels through here so the audio, the flying photo and the
-// monstrance are always left in a consistent state. This is the LAST step out: swiping down
+// Every route out of a story funnels through here so the audio and the flying photo are
+// always left in a consistent state. This is the LAST step out: swiping down
 // from the full story steps back to the preview first (collapseArticle), and it's a second
 // swipe from there — or a tap outside, or the back button — that lands here and closes for good.
 function closeArticle(){
@@ -3463,6 +3547,7 @@ const EX_FIELDS = [
   {key:'facts', label:'Quick Facts'},
   {key:'tier', label:'Tier'},
   {key:'alt', label:'Alt Names'},
+  {key:'tags', label:'Search Tags'},
   {key:'img', label:'Image URL'},
   {key:'imgCap', label:'Image Caption'},
   {key:'audio', label:'Audio Narration URL (long)'}
@@ -3656,6 +3741,7 @@ function openEditor(id){
   document.getElementById('fFacts').value = e ? serializeFacts(e.facts) : '';
   document.getElementById('fTier').value = e ? String(e.tier || 1) : '1';
   document.getElementById('fAlt').value = e && Array.isArray(e.alt) ? e.alt.join(', ') : '';
+  document.getElementById('fTags').value = e && Array.isArray(e.tags) ? e.tags.join(', ') : '';
   document.getElementById('fImg').value = e ? (e.img || '') : '';
   document.getElementById('fImgCap').value = e ? (e.imgCap || '') : '';
   document.getElementById('fAudio').value = e ? (e.audio || '') : '';
@@ -3686,7 +3772,8 @@ document.getElementById('fSave').addEventListener('click', async () => {
     audio: document.getElementById('fAudio').value.trim(),
     facts: parseFacts(document.getElementById('fFacts').value),
     tier: parseInt(document.getElementById('fTier').value, 10) || 1,
-    alt: document.getElementById('fAlt').value.split(/[\n,]/).map(s => s.trim()).filter(Boolean)
+    alt: document.getElementById('fAlt').value.split(/[\n,]/).map(s => s.trim()).filter(Boolean),
+    tags: document.getElementById('fTags').value.split(/[\n,]/).map(s => s.trim()).filter(Boolean)
   };
   const idx = db.entries.findIndex(e => e.id === obj.id);
   if(idx >= 0) db.entries[idx] = obj; else db.entries.push(obj);
@@ -4020,15 +4107,15 @@ document.getElementById('aiRun').addEventListener('click', async () => {
 "USER INSTRUCTION: " + cmd + "\n\n" +
 "Respond ONLY with raw JSON, no fences:\n" +
 "{\"summary\":\"one sentence describing what you did\",\"ops\":[\n" +
-"{\"op\":\"add\",\"entry\":{\"y\":0,\"n\":\"\",\"t\":\"s\",\"r\":\"rome\",\"country\":\"\",\"d\":\"short description\",\"art\":{\"sections\":[{\"h\":\"\",\"b\":\"\"}],\"quotes\":[],\"links\":[]},\"facts\":[{\"label\":\"\",\"value\":\"\"}],\"tier\":1,\"alt\":[]}},\n" +
+"{\"op\":\"add\",\"entry\":{\"y\":0,\"n\":\"\",\"t\":\"s\",\"r\":\"rome\",\"country\":\"\",\"d\":\"short description\",\"art\":{\"sections\":[{\"h\":\"\",\"b\":\"\"}],\"quotes\":[],\"links\":[]},\"facts\":[{\"label\":\"\",\"value\":\"\"}],\"tier\":1,\"alt\":[],\"tags\":[]}},\n" +
 "{\"op\":\"update\",\"id\":\"existing-id\",\"fields\":{\"d\":\"...\"}},\n" +
 "{\"op\":\"delete\",\"id\":\"existing-id\"}\n" +
 "]}\n" +
 "country: the single modern country name only (e.g. \"Italy\", \"Poland\") for the place most associated with the entry — for people who moved around, the country they lived in most, or where they died if unclear. Include it on adds when placeable; include it on updates only when the instruction concerns it.\n" +
 "Article section bodies (art.sections[].b) may use simple HTML for readability: <b>, <i>, <u>, <ul>/<ol> with <li>, <br>. Use sparingly. When writing a full article, aim for depth: roughly 5-8 sections, ~900-1400 words, with only authentic quotations.\n" +
 "facts is an optional Quick Facts list ([{label,value} or {label,value,url}]) shown as a panel on the article. Use labels suited to the type — Saint: Feast day, Born, Died, Title, Canonized, Patronage, Order, Major works. Council: Ecumenical number, Convoked by, Location, Defined, Key documents. Persecution: Ruler/regime, Region, Span, Notable martyrs, Ended by. Marian: Seer(s), Location, Date(s), Approval status, Feast day. Eucharistic: Location, Date, Findings, Approval. Event: Date, Location, Key figures, Significance. Keep values short; omit unverifiable facts.\n" +
-"tier (1-3) sets zoom prominence: 1 = always visible (major figures/events), 2 = appears when zoomed in, 3 = appears only at deep zoom (minor). Default 1. alt is an array of alternate names/nicknames for search (e.g. [\"JPII\",\"Karol Wojtyła\"]).\n" +
-"Use only the ops needed. For updates, include only changed fields (y, n, t, r, country, d, art, facts, tier, alt, img, imgCap, audio). Keep it focused — handle one coherent change per instruction.", 4000);
+"tier (1-3) sets zoom prominence: 1 = always visible (major figures/events), 2 = appears when zoomed in, 3 = appears only at deep zoom (minor). Default 1. alt is an array of alternate names/nicknames for search (e.g. [\"JPII\",\"Karol Wojtyła\"]). tags is an array of short associated search terms/symbols for the entry (e.g. for St. Peter: [\"fish\",\"keys\",\"boat\",\"nets\",\"pope\"]).\n" +
+"Use only the ops needed. For updates, include only changed fields (y, n, t, r, country, d, art, facts, tier, alt, tags, img, imgCap, audio). Keep it focused — handle one coherent change per instruction.", 4000);
     const parsed = extractJson(text);
     const done = [];
     (parsed.ops || []).forEach(op => {
@@ -4036,7 +4123,7 @@ document.getElementById('aiRun').addEventListener('click', async () => {
         const en = op.entry;
         en.id = slug(en.n, en.y);
         en.art = en.art || {sections:[{h:'Overview', b: en.d || ''}], quotes:[], links:[]};
-        en.country = en.country || ''; en.img = en.img || ''; en.imgCap = en.imgCap || ''; en.audio = en.audio || ''; en.facts = en.facts || []; en.tier = en.tier || 1; en.alt = en.alt || [];
+        en.country = en.country || ''; en.img = en.img || ''; en.imgCap = en.imgCap || ''; en.audio = en.audio || ''; en.facts = en.facts || []; en.tier = en.tier || 1; en.alt = en.alt || []; en.tags = en.tags || [];
         const idx = db.entries.findIndex(x => x.id === en.id);
         if(idx >= 0) db.entries[idx] = en; else db.entries.push(en);
         done.push('Added: ' + en.n + ' (' + en.y + ')');
@@ -4152,6 +4239,7 @@ function buildExportTable(entries, fields){
   if(fields.d) headers.push('description');
   if(fields.tier) headers.push('tier');
   if(fields.alt) headers.push('altNames');
+  if(fields.tags) headers.push('searchTags');
   if(fields.img) headers.push('imageUrl');
   if(fields.imgCap) headers.push('imageCaption');
   if(fields.audio) headers.push('audioUrl');
@@ -4175,6 +4263,7 @@ function buildExportTable(entries, fields){
     if(fields.d) row.push(e.d || '');
     if(fields.tier) row.push(e.tier || 1);
     if(fields.alt) row.push((e.alt || []).join('; '));
+    if(fields.tags) row.push((e.tags || []).join('; '));
     if(fields.img) row.push(e.img || '');
     if(fields.imgCap) row.push(e.imgCap || '');
     if(fields.audio) row.push(e.audio || '');
@@ -4259,7 +4348,7 @@ function mergeEntries(list){
         t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, displayLabel: inc.displayLabel || '', d: inc.d || '',
         art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
         img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
-        tier: inc.tier || 1, alt: inc.alt || []
+        tier: inc.tier || 1, alt: inc.alt || [], tags: inc.tags || []
       });
       added++; notes.push('Added: ' + inc.n + ' (' + inc.y + ')');
     }
