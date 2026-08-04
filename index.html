@@ -1,4 +1,12 @@
-<!-- Catholic Timeline — v94 — generated 2026-08-04 19:06 UTC
+<!-- Catholic Timeline — v95 — generated 2026-08-04 19:24 UTC
+     v95 changes:
+       • Search results now distinguish the two passes. A hit on the name/aka pass renders
+         brighter and bolder with a soft gold glow; a hit found only via tags/description
+         renders normally and appends, in parentheses, the whole word that actually matched
+         — "St. Peter (fisherman)" — so a result never looks unexplained.
+       • Multi-word queries list each distinct matched word, in the order typed.
+
+     Catholic Timeline — v94 — generated 2026-08-04 19:06 UTC
      v94 changes:
        • Choosing a search result now lights up ONLY that entry. focusEntry replaces the hit
          set instead of adding to it, so the other matches go dark along with the list.
@@ -251,6 +259,10 @@
   .sresult .sicon svg{width:20px; height:20px;}
   .sresult .sicon.blank svg{display:none;}
   .sresult .sname{overflow:hidden; text-overflow:ellipsis;}
+  /* A hit on the name/aka pass is the strong kind of match, so it reads brighter. */
+  .sresult.nameHit .sname{color:var(--gold-bright); font-weight:600; text-shadow:0 0 7px rgba(232,205,126,.55);}
+  /* A hit found only on tags/description shows WHY it matched, in parentheses. */
+  .sresult .smatch{color:var(--muted); font-style:italic; font-size:12.5px; margin-left:5px;}
   .sresult .syr{color:var(--muted); font-style:italic; font-size:12.5px;}
   .sresult.sempty{display:block; color:var(--muted); cursor:default; font-style:italic;}
   /* Recent searches, shown when the box is focused and empty. */
@@ -1420,7 +1432,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v94';
+const APP_VERSION = 'v95';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2271,11 +2283,11 @@ function runSearch(){
 
   const pool = filtered();
   const hitsA = pool.filter(d => matchesAll(fieldsA(d), frags));
+  const nameHitIds = new Set(hitsA.map(d => d.id)); // drives the brighter styling below
   let results = sortResults(hitsA.slice());
   // Only reach for the secondary pass when the primary didn't fill the list.
   if(hitsA.length < MAX_RESULTS){
-    const seen = new Set(hitsA.map(d => d.id));
-    const hitsB = pool.filter(d => !seen.has(d.id) && matchesAll(fieldsB(d), frags));
+    const hitsB = pool.filter(d => !nameHitIds.has(d.id) && matchesAll(fieldsB(d), frags));
     results = sortResults(hitsA.concat(hitsB));
   }
   const shown = results.slice(0, MAX_RESULTS); // 8 is a cap on the COMBINED list
@@ -2287,11 +2299,23 @@ function runSearch(){
   let prevType = null;
   shown.forEach(d => {
     const newGroup = d.t !== prevType;
+    const isNameHit = nameHitIds.has(d.id);
+    // For a tag/description-only hit the name alone doesn't explain itself, so show the
+    // word that actually matched. Distinct words only, in the order they were typed.
+    let why = '';
+    if(!isNameHit){
+      const fB = fieldsB(d), seenW = new Set(), words = [];
+      frags.forEach(f => {
+        const w = resolveWord(fB, f);
+        if(w && !seenW.has(fold(w))){ seenW.add(fold(w)); words.push(w); }
+      });
+      if(words.length) why = '<span class="smatch">(' + esc(words.join(', ')) + ')</span>';
+    }
     const r = document.createElement('div');
-    r.className = 'sresult' + (newGroup && prevType !== null ? ' groupStart' : '');
+    r.className = 'sresult' + (newGroup && prevType !== null ? ' groupStart' : '') + (isNameHit ? ' nameHit' : '');
     r.innerHTML =
       '<span class="sicon t-' + d.t + (newGroup ? '' : ' blank') + '">' + (ICONS[d.t] || '') + '</span>' +
-      '<span class="sname">' + esc(d.n) + '</span>' +
+      '<span class="sname">' + esc(d.n) + why + '</span>' +
       '<span class="syr">AD ' + d.y + '</span>';
     r.addEventListener('click', () => {
       pushRecent(recentTermFor(d, frags));
