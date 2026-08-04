@@ -1,9 +1,19 @@
-<!-- Catholic Timeline — v89 — generated 2026-08-03 21:40 UTC
+<!-- Catholic Timeline — v90 — generated 2026-08-04 05:20 UTC
+     v90 changes:
+       • Audio scrubber is opaque again. Its backdrop now re-samples the card's own gradient
+         at the strip's ACTUAL offset every scroll frame, so it's seamless both while it
+         flows with the text and while it's pinned — which is what the old fixed-offset
+         version couldn't do, and why the backdrop had been switched off entirely.
+       • Cross-reference linker: whole names only. The old "last word of the name" rule was
+         turning Council / Persecution / Schism / Crusade / Reformation / Great into links.
+       • A capitalisation guard, so "an ecumenical council" is never mistaken for an entry.
+       • New Preview (dry run) and Remove All Links buttons in Manage → Export.
+
      v89 changes:
-       • Peek→full expand now MORPHS the small corner photo down into the big hero photo
+       • Peek→full expand MORPHS the small corner photo down into the big hero photo
          (and full→peek morphs it back up), instead of a crossfade. Slower, eased.
        • Swipe down from the full story returns to the peek card; swipe down again closes.
-       • Hero photo now carries the same 1.5px gold border / 14px radius as the corner badge.
+       • Hero photo carries the same 1.5px gold border / 14px radius as the corner badge.
        • Card is full-bleed to the screen edges with a deeper top-corner radius.
        • iPhone rotation no longer strands the photo: orientation/resize is debounced and
          re-places the corner badge (peek) or re-measures the flight (full).
@@ -453,9 +463,13 @@
   /* Generous tap area: the whole strip is live, so a thumb landing beside the triangle still
      works the transport instead of doing nothing (or, previously, dismissing the card). */
   .artPlayerWrap{cursor:pointer; -webkit-tap-highlight-color:transparent;}
-  /* Let the card's own background show through the scrubber strip instead of painting a
-     separate panel colour behind it. */
-  .artPlayerWrap{background-color:transparent !important; background-image:none !important;}
+  /* NOT transparent. This strip is sticky, so article text scrolls underneath it — it needs
+     a solid backdrop or the words show through the scrubber. It gets one in JS
+     (paintPlayerBackdrop), which paints the card's OWN gradient, sampled at exactly this
+     strip's current offset down the card. That's why it reads as part of the card rather
+     than as a panel sitting on top of it: it is pixel-identical to what's behind it.
+     The fallback colour below only matters for the frame before JS first runs. */
+  .artPlayerWrap{background-color:#101C40; background-repeat:no-repeat;}
   /* Share and close buttons hidden for now — swipe down to close. */
   .artShareBtn, .artX{display:none;}
   .artbadges{display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
@@ -1062,9 +1076,11 @@
 
       <div class="mgmtRowLabel">Auto-Link Cross-References <span style="font-weight:400; text-transform:none; letter-spacing:0;">(no AI &mdash; pattern matching only)</span></div>
       <div class="mtool" style="margin-top:0;">
-        <button class="mbtn" id="xrefRunBtn">Scan &amp; Link (Filtered Entries)</button>
+        <button class="mbtn" id="xrefPreviewBtn">Preview Links (Filtered)</button>
+        <button class="mbtn" id="xrefRunBtn">Apply Links (Filtered)</button>
+        <button class="mbtn" id="xrefRemoveBtn">Remove All Links (Filtered)</button>
       </div>
-      <div class="hint" style="margin-top:-4px;">Scans the entries matched by the filter above for plain-text mentions of <b>any</b> other entry's name (its display name or an alternate name, ≥6 characters, whole word only) and turns the <b>first</b> mention per article into a tappable <code>entry:</code> link. Only the filtered entries are edited; they can still link out to entries outside the filter. Never touches existing links, never links an entry to itself. Changes apply in this session only — review the report below, then Save to GitHub (Publish) as usual.</div>
+      <div class="hint" style="margin-top:-4px;">Links are created <b>only where an entry's whole name appears</b> &mdash; its display name, that name minus an honorific (&ldquo;Pope St. Leo the Great&rdquo; also matches &ldquo;Leo the Great&rdquo;), or an <b>alternate name</b> you gave it. Names are never chopped into pieces, and the mention must be capitalised, so a passing reference to &ldquo;an ecumenical council&rdquo; is left alone. Only the <b>first</b> mention per article becomes a link; existing links and self-references are never touched.<br><br><b>Want a short form to link?</b> Add it to that entry's <b>Alternate names</b> field &mdash; e.g. <code>Aquinas</code>, <code>Edith Stein</code>, <code>JPII</code>. That keeps the choice yours rather than the algorithm's.<br><br><b>Preview</b> reports what would change without touching anything. <b>Apply</b> writes it. <b>Remove All Links</b> strips every <code>entry:</code> link from the filtered entries, leaving the words in place &mdash; source links in the article body are not affected. All changes apply in this session only: review the report below, then Save to GitHub (Publish).</div>
       <div class="mlog" id="xrefLog"></div>
     </div>
 
@@ -1409,7 +1425,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v89';
+const APP_VERSION = 'v90';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2990,12 +3006,32 @@ function syncStickyBackdrops(){
   const headerH = sticky.offsetHeight;
   const wrap = document.querySelector('.artwrap');
   if(wrap) wrap.style.setProperty('--ahH', headerH + 'px');
+  paintPlayerBackdrop();
+}
+// The scrubber strip's backdrop, kept in step with wherever the strip currently sits.
+//
+// The sticky header is easy: it pins to top:0, so its slice of the card gradient is always
+// the one at offset 0. The player is not — it flows down the page with the text until it
+// reaches its sticky position under the header, and only then holds still. So a single
+// fixed background-position (what this used to do) was right in exactly one of those two
+// states and visibly banded in the other, which is why the whole backdrop ended up being
+// switched off with `background-image:none !important` — and that, in turn, is why article
+// text was scrolling straight through the scrubber.
+//
+// The fix is to stop guessing the offset and just measure it each frame: where the strip
+// actually is, relative to the card's own box, is exactly the slice of gradient that lies
+// behind it. Two getBoundingClientRect calls, called from the same rAF as the flying photo.
+function paintPlayerBackdrop(){
+  const artEl = document.getElementById('article');
   const player = document.getElementById('artPlayerWrap');
-  if(player){
-    player.style.backgroundImage = grad;
-    player.style.backgroundSize = '100% ' + sheetH + 'px';
-    player.style.backgroundPosition = '0 -' + headerH + 'px';
-  }
+  if(!artEl || !player) return;
+  const grad = getComputedStyle(artEl).backgroundImage;
+  if(!grad || grad === 'none') return;
+  const sheetTop = artEl.getBoundingClientRect().top;
+  const offset = Math.round(player.getBoundingClientRect().top - sheetTop);
+  player.style.backgroundImage = grad;
+  player.style.backgroundSize = '100% ' + artEl.clientHeight + 'px';
+  player.style.backgroundPosition = '0 -' + offset + 'px';
 }
 
 // ---- The flying photo -------------------------------------------------------------
@@ -3143,7 +3179,9 @@ function updateFly(){
 }
 function queueFly(){
   if(flyRAF) return;
-  flyRAF = requestAnimationFrame(updateFly);
+  // One rAF for both scroll-driven jobs: the flying photo and the scrubber's backdrop, which
+  // has to be re-sampled as the strip travels down the card toward its sticky position.
+  flyRAF = requestAnimationFrame(() => { updateFly(); paintPlayerBackdrop(); });
 }
 // The flying photo sits above the story sheet, so it must step aside whenever another
 // full-screen surface takes over. Watching their classes keeps this correct no matter
@@ -3708,49 +3746,67 @@ document.getElementById('fDraft').addEventListener('click', async () => {
 });
 
 // ---- Auto-Link Cross-References (deterministic, no AI — scans db.entries in memory) ----
+//
+// THE RULE: a link is created only where an entry's actual NAME appears — its display name,
+// that name minus an honorific, or an alternate name you gave it deliberately. Nothing is
+// ever derived by chopping a name into pieces.
+//
+// That last point is the whole lesson of the previous version, which took the final word of
+// any multi-word name as an extra "distinctive tail" candidate. For people that mostly
+// worked ("St. Thomas Aquinas" → "Aquinas"). For everything else it was a disaster, because
+// the final word of an event or council name is a common noun:
+//
+//     Fourth Lateran Council  → "Council"        Diocletian Persecution → "Persecution"
+//     The Great Schism        → "Schism"         First Crusade          → "Crusade"
+//     Protestant Reformation  → "Reformation"    Pope St. Leo the Great → "Great"
+//
+// So every bare mention of a council, a persecution or a crusade anywhere in the database
+// turned into a link to one arbitrary entry. Hence: whole names only. If you want "Aquinas"
+// on its own to link, add it to that entry's `alt` list — that keeps the decision yours
+// rather than the algorithm's.
 const XREF_MIN_NAME_LEN = 5; // shortest candidate eligible for auto-linking; very short words are the main false-positive risk
-// Words that must never become a link on their own — either too generic, or (like a bare
-// "Mary" or "Jesus") so frequent in this material that auto-linking every mention would be
-// noise rather than navigation.
-const XREF_STOPWORDS = new Set(['mary','jesus','christ','god','lord','saint','pope','john','paul','peter','james','anne','joseph','the','our lady','father','son','holy spirit','virgin','church','rome','israel']);
+// Names that must never become a link even when they ARE an entry's whole name — either too
+// generic, or (like a bare "Mary" or "Jesus") so frequent in this material that auto-linking
+// every mention would be noise rather than navigation.
+const XREF_STOPWORDS = new Set(['mary','jesus','christ','god','lord','saint','pope','john','paul','peter','james','anne','joseph','the','our lady','father','son','holy spirit','virgin','church','rome','israel',
+  // added after the fragment bug: common nouns that must never link on their own, in case
+  // one ever turns up as an entry's whole name or alt.
+  'council','persecution','schism','crusade','reformation','great','martyr','martyrs','mass','apparition','miracle','vatican','empire','bishop','doctor','abbey','order']);
 function xrefEscapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-// Builds the list of text forms that should link to an entry. Beyond the full display name
-// and any alt names, this derives the natural shorter forms writers actually use in prose —
-// dropping the "St."/"Pope"/"Bl." style prefix, and the distinctive multi-word tail of a
-// name like "Thomas Aquinas" out of "St. Thomas Aquinas" — which is what the first version
-// missed: it only ever matched the entry's exact full name, so ordinary mentions such as
-// "Aquinas" or "Augustine" were passed over.
+// The text forms that may link to an entry: the display name as written, and that name with
+// any stack of honorifics removed ("Pope St. Leo the Great" → "Leo the Great"). Alternate
+// names are added separately by the caller, verbatim — they're your explicit instruction.
 function xrefNameForms(name){
   const forms = [];
   const raw = String(name).trim();
   if(!raw) return forms;
   forms.push(raw);
-  // Strip an honorific prefix: "St. Thomas Aquinas" -> "Thomas Aquinas", "Pope St. Leo the Great" -> "Leo the Great"
-  const stripped = raw.replace(/^(St\.?|Ss\.?|Saint|Pope|Bl\.?|Blessed|Bishop|Fr\.?|Father|Mother|Sr\.?|Sister|Venerable)\s+/gi, '').trim();
-  if(stripped && stripped !== raw) forms.push(stripped);
-  // The distinctive tail of a two-or-more-word name: "Thomas Aquinas" -> "Aquinas",
-  // "Teresa of Avila" keeps its "of ..." qualifier rather than reducing to a bare first name.
-  const parts = stripped.split(/\s+/);
-  if(parts.length > 1 && !/^(of|the|de|di|da|von|van)$/i.test(parts[1])){
-    forms.push(parts[parts.length - 1]);
+  // Loop rather than one pass: a single anchored replace only ever strips the outermost
+  // title, which is why "Pope St. Leo the Great" used to keep its "St." forever.
+  let stripped = raw, guard = 0;
+  const HONORIFIC = /^(St\.?|Ss\.?|Saint|Saints|Pope|Bl\.?|Blessed|Bishop|Archbishop|Cardinal|Fr\.?|Father|Mother|Sr\.?|Sister|Br\.?|Brother|Venerable|The)\s+/i;
+  while(HONORIFIC.test(stripped) && guard++ < 6){
+    stripped = stripped.replace(HONORIFIC, '').trim();
   }
+  if(stripped && stripped !== raw) forms.push(stripped);
   return forms;
 }
 function xrefBuildCandidates(entry){
-  const names = [entry.n, ...((entry.alt) || [])].filter(Boolean);
   const seen = new Set();
   const out = [];
-  names.forEach(name => {
-    xrefNameForms(name).forEach(form => {
-      const trimmed = form.trim();
-      if(trimmed.length < XREF_MIN_NAME_LEN) return;
-      const key = trimmed.toLowerCase();
-      if(seen.has(key)) return;
-      if(XREF_STOPWORDS.has(key)) return;
-      seen.add(key);
-      out.push({ text: trimmed, re: new RegExp('\\b' + xrefEscapeRegex(trimmed) + '\\b', 'i') });
-    });
-  });
+  const add = (form) => {
+    const trimmed = String(form || '').trim();
+    if(trimmed.length < XREF_MIN_NAME_LEN) return;
+    const key = trimmed.toLowerCase();
+    if(seen.has(key)) return;
+    if(XREF_STOPWORDS.has(key)) return;
+    seen.add(key);
+    out.push({ text: trimmed, re: new RegExp('\\b' + xrefEscapeRegex(trimmed) + '\\b', 'i') });
+  };
+  xrefNameForms(entry.n).forEach(add);
+  // Alt names go in exactly as written — no honorific stripping, no splitting. This is the
+  // intended lever for short forms like "Aquinas", "JPII" or "Edith Stein".
+  ((entry.alt) || []).forEach(add);
   return out.sort((a, b) => b.text.length - a.text.length);
 }
 function xrefFindMatches(segment, targets, linkedSoFar){
@@ -3759,7 +3815,12 @@ function xrefFindMatches(segment, targets, linkedSoFar){
     if(linkedSoFar.has(t.id)) return;
     for(const c of t.candidates){
       const m = c.re.exec(segment);
-      if(m){ found.push({ start:m.index, end:m.index+m[0].length, id:t.id, text:m[0] }); break; }
+      if(!m) continue;
+      // A proper name is capitalised in prose. A lowercase hit is almost always the common
+      // noun rather than the entry — "an ecumenical council" is not the Fourth Lateran.
+      if(m[0][0] !== m[0][0].toUpperCase()) continue;
+      found.push({ start:m.index, end:m.index+m[0].length, id:t.id, text:m[0] });
+      break;
     }
   });
   found.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
@@ -3792,7 +3853,10 @@ function xrefLinkifyBody(body, targets, linkedSoFar){
     return xrefApplyMatches(tok, matches);
   }).join('');
 }
-function runAutoLinkEntries(){
+// Runs the scan. `apply` false = dry run: report exactly what WOULD change and touch
+// nothing. Given how badly the previous rule misfired, seeing the list before it is written
+// is the point — preview first, apply second.
+function runAutoLinkEntries(apply){
   const log = document.getElementById('xrefLog');
   log.textContent = 'Scanning…';
   // Targets (what can be linked TO) always come from the whole database — a filtered
@@ -3806,36 +3870,92 @@ function runAutoLinkEntries(){
     if(!entry.art || !Array.isArray(entry.art.sections) || !entry.art.sections.length) return;
     const targets = allCandidates.filter(t => t.id !== entry.id);
     const linkedSoFar = new Set();
+    const rewritten = [];
     let changed = false;
     entry.art.sections.forEach(sec => {
       const before = sec.b || '';
       const after = xrefLinkifyBody(before, targets, linkedSoFar);
-      if(after !== before){ sec.b = after; changed = true; }
+      rewritten.push(after);
+      if(after !== before) changed = true;
     });
     if(changed){
       entriesChanged++;
       linksAdded += linkedSoFar.size;
       const names = [...linkedSoFar].map(id => (getEntry(id) || {}).n || id).join(', ');
       lines.push(entry.n + '  →  ' + names);
+      if(apply) entry.art.sections.forEach((sec, i) => { sec.b = rewritten[i]; });
     }
   });
+  const scopeLabel = xrefScopeLabel(scope);
+  const verb = apply ? 'gained' : 'would gain';
+  log.textContent = scopeLabel + (entriesChanged
+    ? entriesChanged + ' entries ' + verb + ' ' + linksAdded + ' link(s):\n' + lines.join('\n') +
+      (apply ? '' : '\n\n(Preview only — nothing has been changed. Press “Apply Links” to write these.)')
+    : 'No new cross-reference links found among the filtered entries.');
+  if(!entriesChanged){ setStatus('No new links found in the current filter'); return; }
+  if(!apply){ setStatus('Preview: ' + linksAdded + ' link(s) proposed — nothing saved yet'); return; }
+  setStatus(entriesChanged + ' entries linked — review below, then Save to GitHub (Publish)');
+  saveDb();
+  renderMList();
+  render();
+}
+// Strips the auto-generated cross-reference links back to plain text, leaving the words in
+// place. Only `entry:` links are touched — real source links in the body survive untouched.
+const XREF_LINK_RE = /<a\b[^>]*href\s*=\s*["']entry:[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi;
+function xrefStripLinks(html){
+  return String(html || '').replace(XREF_LINK_RE, '$1');
+}
+function removeAutoLinkEntries(){
+  const scope = mExportFilteredEntries();
+  const count = scope.reduce((n, e) => n + xrefCountLinks(e), 0);
+  if(!count){
+    document.getElementById('xrefLog').textContent =
+      xrefScopeLabel(scope) + 'No cross-reference links found in the filtered entries.';
+    setStatus('No links to remove in the current filter');
+    return;
+  }
+  if(!confirm('Remove ' + count + ' cross-reference link(s) from ' + scope.length +
+              ' filtered entries?\n\nThe words stay — only the links are stripped. Source links are not affected.')) return;
+  const lines = [];
+  let entriesChanged = 0, removed = 0;
+  scope.forEach(entry => {
+    const had = xrefCountLinks(entry);
+    if(!had) return;
+    let changed = false;
+    if(entry.art && Array.isArray(entry.art.sections)){
+      entry.art.sections.forEach(sec => {
+        const after = xrefStripLinks(sec.b || '');
+        if(after !== (sec.b || '')){ sec.b = after; changed = true; }
+      });
+    }
+    // Belt and braces: strip the short description too, in case one ever found its way in.
+    const d2 = xrefStripLinks(entry.d || '');
+    if(d2 !== (entry.d || '')){ entry.d = d2; changed = true; }
+    if(changed){ entriesChanged++; removed += had; lines.push(entry.n + '  —  ' + had + ' link(s) removed'); }
+  });
+  document.getElementById('xrefLog').textContent = xrefScopeLabel(scope) +
+    removed + ' link(s) removed from ' + entriesChanged + ' entries:\n' + lines.join('\n');
+  setStatus(removed + ' links removed — then Save to GitHub (Publish)');
+  saveDb();
+  renderMList();
+  render();
+}
+function xrefCountLinks(entry){
+  let n = 0;
+  const tally = (s) => { const m = String(s || '').match(XREF_LINK_RE); if(m) n += m.length; };
+  if(entry.art && Array.isArray(entry.art.sections)) entry.art.sections.forEach(sec => tally(sec.b));
+  tally(entry.d);
+  return n;
+}
+function xrefScopeLabel(scope){
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const typeLabel = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
   const regionLabel = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
-  const scopeLabel = 'Scope: ' + typeLabel + ' · ' + regionLabel + ' · ' + scope.length + ' entries matched the filter\n\n';
-  log.textContent = scopeLabel + (entriesChanged
-    ? entriesChanged + ' entries gained ' + linksAdded + ' link(s):\n' + lines.join('\n')
-    : 'No new cross-reference links found among the filtered entries.');
-  if(entriesChanged){
-    setStatus(entriesChanged + ' entries linked — review below, then Save to GitHub (Publish)');
-    saveDb();
-    renderMList();
-    render();
-  } else {
-    setStatus('No new links found in the current filter');
-  }
+  return 'Scope: ' + typeLabel + ' · ' + regionLabel + ' · ' + scope.length + ' entries matched the filter\n\n';
 }
-document.getElementById('xrefRunBtn').addEventListener('click', runAutoLinkEntries);
+document.getElementById('xrefPreviewBtn').addEventListener('click', () => runAutoLinkEntries(false));
+document.getElementById('xrefRunBtn').addEventListener('click', () => runAutoLinkEntries(true));
+document.getElementById('xrefRemoveBtn').addEventListener('click', removeAutoLinkEntries);
 
 
 document.getElementById('aiRun').addEventListener('click', async () => {
