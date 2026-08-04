@@ -1,9 +1,15 @@
-<!-- Catholic Timeline — v90 — generated 2026-08-04 05:20 UTC
+<!-- Catholic Timeline — v91 — generated 2026-08-04 05:55 UTC
+     v91 changes:
+       • Cross-reference Back now returns you to WHERE you were in the previous story, not
+         to its top. The back stack carries {id, scroll} instead of a bare id.
+       • The restore re-applies as the layout settles (the hero photo has no height until it
+         loads, so a single assignment would silently clamp short), and stands down the
+         moment the reader scrolls themselves.
+
      v90 changes:
        • Audio scrubber is opaque again. Its backdrop now re-samples the card's own gradient
          at the strip's ACTUAL offset every scroll frame, so it's seamless both while it
-         flows with the text and while it's pinned — which is what the old fixed-offset
-         version couldn't do, and why the backdrop had been switched off entirely.
+         flows with the text and while it's pinned.
        • Cross-reference linker: whole names only. The old "last word of the name" rule was
          turning Council / Persecution / Schism / Crusade / Reformation / Great into links.
        • A capitalisation guard, so "an ecumenical council" is never mistaken for an entry.
@@ -1425,7 +1431,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v90';
+const APP_VERSION = 'v91';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -1503,20 +1509,54 @@ let ppy = 1.8;
 let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
 let activeRegion = "all";
 let currentEntry = null;
-// Cross-reference navigation history: entry ids visited via an in-article "entry:" link,
-// most-recent-last. Popped one at a time by the Back button; cleared whenever the article
-// is closed or a fresh entry is opened by any route other than a link/back tap.
+// Cross-reference navigation history: one frame per entry visited via an in-article "entry:"
+// link, most-recent-last. Each frame is {id, scroll} — the scroll position is how far down
+// THAT article the reader had got when they tapped the link, so Back returns them to the
+// paragraph they were reading rather than to the top of the page. Popped one at a time by
+// the Back button; cleared whenever the article is closed or a fresh entry is opened by any
+// route other than a link/back tap.
 let articleBackStack = [];
 function updateArticleBackBtn(){
   const btn = document.getElementById('artBackBtn');
   if(btn) btn.style.display = articleBackStack.length ? '' : 'none';
 }
 function goBackArticle(){
-  const id = articleBackStack.pop();
-  if(!id) return;
-  const entry = getEntry(id);
-  if(entry) openArticle(entry, {preserveStack:true});
+  const frame = articleBackStack.pop();
+  if(!frame) return;
+  const entry = getEntry(frame.id);
+  if(entry) openArticle(entry, {preserveStack:true, restoreScroll: frame.scroll || 0});
   else updateArticleBackBtn();
+}
+// Puts the reader back where they were. Deliberately not a one-shot assignment: an article's
+// full height isn't known the instant it renders, because the hero photo has no intrinsic
+// height until it loads. Setting scrollTop against a too-short page silently clamps to a
+// smaller number, so this re-applies as the layout settles — while standing down the moment
+// the reader scrolls themselves, or a newer navigation supersedes it.
+let scrollRestoreToken = 0;
+function restoreArticleScroll(y){
+  const artEl = document.getElementById('article');
+  if(!artEl || !(y > 0)) return;
+  const token = ++scrollRestoreToken;
+  let lastSet = -1;
+  const apply = () => {
+    if(token !== scrollRestoreToken) return;                 // a newer navigation owns the card
+    if(!artEl.classList.contains('open')) return;
+    if(artEl.classList.contains('peek')) return;             // nothing to scroll in a preview
+    if(lastSet >= 0 && Math.abs(artEl.scrollTop - lastSet) > 2) return;  // reader has taken over
+    const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
+    const want = Math.min(y, max);
+    if(Math.abs(artEl.scrollTop - want) > 1) artEl.scrollTop = want;
+    lastSet = artEl.scrollTop;
+    syncStickyBackdrops();
+    measureFly();   // the flying photo's geometry is measured per entry; re-derive it here
+    updateFly();    // ...and put it straight into its scrolled position, no visible flight
+  };
+  apply();
+  requestAnimationFrame(apply);
+  const hero = document.getElementById('artHeroImg');
+  if(hero && !hero.complete) hero.addEventListener('load', apply, {once:true});
+  setTimeout(apply, 120);
+  setTimeout(apply, 420);
 }
 let suppressArticleClick = false;
 // Set during the CAPTURE phase of any click that begins inside the article card, before any
@@ -2620,6 +2660,10 @@ function openArticle(d, opts){
   document.getElementById('peekFade').classList.toggle('show', !!opts.peek);
   prefetchImage(categoryNeighbor(d, -1));
   prefetchImage(categoryNeighbor(d, 1));
+  // Coming back via the Back button: return the reader to where they left off. Every other
+  // route (a fresh open, a forward link tap) has no saved position and stays at the top.
+  scrollRestoreToken++;   // invalidate any restore still in flight from a previous navigation
+  if(opts.restoreScroll > 0 && !opts.peek) restoreArticleScroll(opts.restoreScroll);
   // The sheet slides up on a transform, which a fixed-position element cannot ride along
   // with. So during the open animation the inline photo shows normally, and the flying
   // copy only takes over once the sheet has settled — the swap is invisible because at
@@ -3270,7 +3314,9 @@ function followEntryLink(id){
     }
     return;
   }
-  if(currentEntry) articleBackStack.push(currentEntry.id);
+  // Remember not just WHICH article we're leaving but WHERE in it — captured before
+  // openArticle() resets the scroll.
+  if(currentEntry) articleBackStack.push({ id: currentEntry.id, scroll: article.scrollTop || 0 });
   openArticle(target, {preserveStack:true});
 }
 document.getElementById('artBody').addEventListener('click', (e) => {
