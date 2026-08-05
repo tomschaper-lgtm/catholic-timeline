@@ -1,4 +1,11 @@
-<!-- Catholic Timeline — v95 — generated 2026-08-04 19:24 UTC
+<!-- Catholic Timeline — v96 — generated 2026-08-04 19:38 UTC
+     v96 changes:
+       • The secondary (tag/description) search pass is now a true fallback. It runs only
+         when the name/aka pass returns 0 or 1 hits; two or more name matches stand alone
+         and no tag/description results are mixed in. Previously it topped up any list
+         shorter than 8, which let weak description hits crowd good name matches.
+
+     Catholic Timeline — v95 — generated 2026-08-04 19:24 UTC
      v95 changes:
        • Search results now distinguish the two passes. A hit on the name/aka pass renders
          brighter and bolder with a soft gold glow; a hit found only via tags/description
@@ -1432,7 +1439,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v95';
+const APP_VERSION = 'v96';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2156,7 +2163,7 @@ function tierVisible(d){
 // Two passes, merged only when the first comes up short:
 //   A. name + alt (the "aka" list)  — always run
 //   B. search tags, falling back to the short description while tags are still being
-//      authored — only consulted if A returned fewer than MAX_RESULTS
+//      authored — only consulted when A returned 0 or 1 hits
 // Within a pass the query is split on spaces and EVERY fragment must match somewhere in
 // that pass's fields, so extra words narrow the result set rather than widening it.
 const MAX_RESULTS = 8;
@@ -2285,8 +2292,9 @@ function runSearch(){
   const hitsA = pool.filter(d => matchesAll(fieldsA(d), frags));
   const nameHitIds = new Set(hitsA.map(d => d.id)); // drives the brighter styling below
   let results = sortResults(hitsA.slice());
-  // Only reach for the secondary pass when the primary didn't fill the list.
-  if(hitsA.length < MAX_RESULTS){
+  // The secondary pass is a fallback, not a supplement: as soon as the name pass returns
+  // more than one entry it stands alone, and tag/description hits are left out entirely.
+  if(hitsA.length <= 1){
     const hitsB = pool.filter(d => !nameHitIds.has(d.id) && matchesAll(fieldsB(d), frags));
     results = sortResults(hitsA.concat(hitsB));
   }
