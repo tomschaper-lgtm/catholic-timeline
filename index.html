@@ -1,4 +1,38 @@
-<!-- Catholic Timeline — v104 — generated 2026-08-06 14:12 UTC
+<!-- Catholic Timeline — v107 — generated 2026-08-06 15:26 UTC
+       • The install row now reads "Make this into an App", and the iOS instructions are a
+         titled, numbered list — "iPhone App Instructions" — with the Safari share glyph and the
+         Add to Home Screen glyph drawn inline at text size. The reader is hunting for a shape
+         in a crowded share sheet, so showing it beats naming it. Step 2 says to scroll to the
+         bottom of the list, which is where the item actually sits.
+
+     Catholic Timeline — v106 — generated 2026-08-06 15:02 UTC
+     v106 changes:
+       • URL ROUTE TO OWNER TOOLS REMOVED. Any address containing the word "manage" used to
+         unlock the CMS, review drafts and the tuning HUD. That was the one entry a visitor
+         could find without knowing anything about the app — trying /#manage is a common
+         reflex — so it is gone, along with the hashchange listener that served it.
+         Owner tools are now reached only by tapping the masthead five times within three
+         seconds, and access lasts for the session: it is forgotten on reload, so a shared or
+         borrowed device does not stay unlocked.
+         NOTE: this is obscurity, not authentication. The source is public and describes the
+         tap sequence, and held-for-review entries still travel inside data.json. It stops
+         casual discovery; it does not keep unpublished content private.
+
+     Catholic Timeline — v105 — generated 2026-08-06 14:41 UTC
+     v105 changes:
+       • GESTURE VALUES ARE NO LONGER SCATTERED. Every number the card swipe depends on now
+         lives in one GESTURE_DEFAULTS object (search "Card gesture tuning"), each documented
+         with what it controls and what it must stay clear of.
+       • GESTURE TUNING HUD (owner tools). A switch in the settings panel opens a readout across
+         the bottom of the screen that sits ABOVE the article, so a story can be opened and
+         flicked while the numbers are watched — a feel-based threshold cannot be tuned if the
+         measurements are hidden behind the thing being tested. It reports each swipe's distance,
+         velocity, position and which branch it took, with live sliders for all seven values.
+         Changes take effect on the very next swipe and persist per browser; Defaults restores
+         the shipping set, and the box at the bottom holds the JSON to hand back for baking in.
+         The HUD closes with owner tools, so the visitor view stays clean.
+
+     Catholic Timeline — v104 — generated 2026-08-06 14:12 UTC
      v104 changes:
        • PANEL CLOSE NOW ANIMATES. visibility:hidden was landing the moment .open was removed,
          hiding the panel before the slide could run — which is why opening looked animated and
@@ -255,6 +289,43 @@
   .hamBtn:hover{background:rgba(201,165,66,.15);}
   .hamBtn:active{background:rgba(201,165,66,.25);}
   .hamBtn.hidden{opacity:0; pointer-events:none;}
+  /* ---- Gesture tuning HUD (owner tools) ----------------------------------
+     Sits above the article overlay so a card can be opened and flicked while the
+     readout is watched — tuning a feel-based threshold is impossible if the
+     numbers are hidden behind the thing being tested. */
+  .gtHud{
+    position:fixed; left:0; right:0; bottom:0; z-index:160;
+    background:rgba(8,14,30,.94); color:#E8ECF6;
+    border-top:1px solid rgba(201,165,66,.5);
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12.5px;
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    display:none; max-height:64vh; overflow-y:auto;
+    box-shadow:0 -10px 30px rgba(0,0,0,.45);
+  }
+  .gtHud.show{display:block;}
+  .gtTop{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .gtTitle{font-family:'Cinzel',serif; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); flex:1;}
+  .gtBtn{
+    background:rgba(255,255,255,.09); color:#E8ECF6; border:1px solid rgba(255,255,255,.22);
+    border-radius:7px; padding:5px 10px; font-size:11.5px; cursor:pointer;
+  }
+  .gtBtn:hover{background:rgba(201,165,66,.22);}
+  .gtRead{
+    background:rgba(255,255,255,.06); border-radius:8px; padding:8px 10px; margin-bottom:10px;
+    font-variant-numeric:tabular-nums; line-height:1.7;
+  }
+  .gtRead b{color:var(--gold-bright); font-weight:600;}
+  .gtRead .gtAction{display:block; color:#9FE8B0;}
+  .gtRow{display:flex; align-items:center; gap:10px; margin:7px 0;}
+  .gtRow label{flex:0 0 88px; color:#AFB8CC;}
+  .gtRow input[type=range]{flex:1; accent-color:var(--gold);}
+  .gtRow .gtVal{flex:0 0 58px; text-align:right; font-variant-numeric:tabular-nums; color:var(--gold-bright);}
+  .gtOut{
+    width:100%; box-sizing:border-box; margin-top:8px; padding:8px;
+    background:#060C1C; color:#CBD5EA; border:1px solid rgba(255,255,255,.16);
+    border-radius:7px; font-family:ui-monospace,Menlo,monospace; font-size:11px; resize:vertical;
+  }
+
   /* ---- Settings panel ----------------------------------------------------
      A white card hinged on the right edge: rounded on the left where it meets
      the page, square on the right where it meets the screen. Height follows its
@@ -331,10 +402,37 @@
   .pMeta{flex:0 0 auto; color:#9AA1B0; font-size:15px;}
   .pNote{
     margin:0; padding:0 22px 14px 76px;
+    /* When the note holds the instruction list, the list supplies its own padding. */
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
     font-size:13.5px; line-height:1.55; color:#7C8598;
   }
   .pNote:empty{display:none;}
+  .pNote:has(.pSteps){padding:0;}
+  /* Instruction steps. The icons are drawn inline at text size so the reader is looking for
+     the same shape they will see in Safari, rather than a description of it. */
+  .pSteps{margin:0; padding:0 22px 16px 76px; list-style:none;}
+  .pStepsTitle{
+    margin:0; padding:2px 22px 10px 76px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:14px; font-weight:600; color:#111827;
+  }
+  .pSteps li{
+    display:flex; align-items:flex-start; gap:9px; margin-bottom:9px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:14px; line-height:1.5; color:#4B5563;
+  }
+  .pSteps li:last-child{margin-bottom:0;}
+  .pSteps .n{
+    flex:0 0 auto; width:19px; height:19px; border-radius:50%;
+    background:var(--panelBlue); color:#fff;
+    font-size:11px; font-weight:600; line-height:19px; text-align:center; margin-top:2px;
+  }
+  .iconInline{
+    display:inline-block; width:1.2em; height:1.2em; vertical-align:-.26em;
+    margin:0 .12em; color:#111827;
+  }
+  .iconInline svg{width:100%; height:100%; display:block;}
+
 
   /* The name is also the specimen: set in the article's face, scaling with the
      chosen size, so the reader sees the size instead of reading a percentage. */
@@ -691,7 +789,7 @@
   .overlay.open.peek{transform:translateY(calc(100% - var(--peekH))); overflow:hidden;}
   .overlay.expanding{transition:transform .78s cubic-bezier(.22,.61,.36,1);}
   /* Flick dismissal: fast, decelerating exit that matches the force of the gesture. */
-  .overlay.flick{transition:transform .19s cubic-bezier(.3,.8,.4,1);}
+  .overlay.flick{transition:transform var(--flickMs, 190ms) cubic-bezier(.3,.8,.4,1);}
   .artwrap{max-width:720px; margin:0 auto; padding:18px 20px 70px; position:relative;}
   .artBodyClone{position:absolute; top:0; left:0; width:100%; pointer-events:none;}
   .artBodyClone .artSticky, .artBodyClone .artPlayerWrap{position:static;}
@@ -1096,6 +1194,16 @@
        "hidden until you pull down" placement could never actually be seen on an iPhone. -->
   <h1><span class="t1">Catholic</span><span class="t2">Timeline</span><span id="versionStamp" aria-hidden="true"></span></h1>
   <button class="hamBtn" id="hamBtn" aria-label="Settings" aria-expanded="false">&#9776;</button>
+<div class="gtHud" id="gtHud">
+  <div class="gtTop">
+    <span class="gtTitle">Gesture Tuning</span>
+    <button class="gtBtn" id="gtDefaults">Defaults</button>
+    <button class="gtBtn" id="gtHide">Hide</button>
+  </div>
+  <div class="gtRead" id="gtRead">Open a story and swipe. The last swipe appears here.</div>
+  <div id="gtSliders"></div>
+  <textarea class="gtOut" id="gtOut" rows="3" readonly></textarea>
+</div>
   <div class="hamScrim" id="hamScrim"></div>
   <div class="hamMenu" id="hamMenu">
     <!-- Filter rows are hidden from the menu but left in the DOM: every button still carries its
@@ -1149,7 +1257,7 @@
 
     <button class="pRow" id="installBtn">
       <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 5.5h2"/></svg></span>
-      <span class="pName">Save as App</span>
+      <span class="pName">Make this into an App</span>
       <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
     </button>
     <p class="pNote" id="installNote"></p>
@@ -1172,6 +1280,11 @@
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
         <span class="pName">Edit Controls</span>
         <input type="checkbox" id="showEditControls" autocomplete="off" checked><i class="sw"></i>
+      </label>
+      <label class="pRow pSwitch" id="gtRow">
+        <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></svg></span>
+        <span class="pName">Gesture Tuning</span>
+        <input type="checkbox" id="gtEnabled" autocomplete="off"><i class="sw"></i>
       </label>
       <button class="pRow" id="manageBtn">
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="2" fill="currentColor" stroke="none"/></svg></span>
@@ -1764,7 +1877,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v104';
+const APP_VERSION = 'v107';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -1970,6 +2083,39 @@ function animateScroll(toLeft, toTop, done){
 // If the user grabs the timeline mid-flight, stop travelling and hand control back.
 ['pointerdown','wheel','touchstart'].forEach(ev =>
   viewport.addEventListener(ev, cancelScrollAnim, {passive:true}));
+
+// ---- Card gesture tuning ------------------------------------------------------------
+// Every number the swipe gesture depends on, in one place. Defaults are the shipping values;
+// the Gesture Tuning panel (owner tools) writes overrides to localStorage so they can be felt
+// on a real device before being baked in here.
+//
+//   vFling    px/ms. At or above this, a downward swipe dismisses the card outright from
+//             anywhere in the text. Must sit clear of a comfortable fling-scroll (~0.5-0.6)
+//             or ordinary fast reading will throw the card away.
+//   vIntent   px/ms. Floor for a drag at the top of the story to count as a gesture at all,
+//             rather than a slow settle.
+//   dyFling   px. Minimum travel before a fast flick counts — stops a hard tap registering.
+//   dyStep    px. Minimum travel for the measured full -> preview -> gone step.
+//   dyExpand  px. Minimum upward travel to expand the preview card into the full story.
+//   sampleMs  ms. Window at the END of the gesture that velocity is measured over, so a slow
+//             drag finishing in a flick reads as a flick.
+//   exitMs    ms. Length of the dismissal slide after a flick.
+const GESTURE_DEFAULTS = {
+  vFling: 1.15, vIntent: 0.22, dyFling: 40, dyStep: 55, dyExpand: 40, sampleMs: 90, exitMs: 190
+};
+const GEST = Object.assign({}, GESTURE_DEFAULTS);
+try{
+  const saved = JSON.parse(localStorage.getItem('gesture-tuning') || '{}');
+  Object.keys(GESTURE_DEFAULTS).forEach(k => {
+    if(typeof saved[k] === 'number' && isFinite(saved[k])) GEST[k] = saved[k];
+  });
+}catch(e){}
+function applyGestureTuning(){
+  document.documentElement.style.setProperty('--flickMs', GEST.exitMs + 'ms');
+  try{ localStorage.setItem('gesture-tuning', JSON.stringify(GEST)); }catch(e){}
+}
+// The most recent swipe, for the tuning readout. Filled by the gesture handler.
+let lastGesture = null;
 
 // ---- Review mode ----
 // An entry with review:true is a draft: it is kept out of the public timeline, out of search,
@@ -2347,15 +2493,9 @@ function navigateStory(direction){
 }
 (function(){
   const artEl = document.getElementById('article');
-  // Gesture thresholds. Distance alone cannot tell "put this away" from "read further up":
-  // both are a downward drag. Speed can, so the card reads velocity as well as distance.
-  //
-  //   V_FLING (1.15 px/ms ≈ 1150 px/s) — a hard, deliberate flick. Dismisses the card
-  //     outright from anywhere in the text, skipping the preview step. Set well above a
-  //     comfortable fling-scroll so ordinary fast reading never trips it.
-  //   V_INTENT (0.22 px/ms) — the floor for a drag at the top of the article to count as a
-  //     gesture rather than a slow settle.
-  const V_FLING = 1.15, V_INTENT = 0.22;
+  // Distance alone cannot tell "put this away" from "read further up": both are a downward
+  // drag. Speed can, so the card reads velocity as well as distance. Every threshold lives
+  // in GEST (see "Card gesture tuning" above) so it can be adjusted on a real device.
   let startY = null, startX = null, fromHeader = false, samples = [];
 
   artEl.addEventListener('touchstart', (e) => {
@@ -2388,7 +2528,7 @@ function navigateStory(direction){
     let ref = samples[0];
     for(let i = samples.length - 2; i >= 0; i--){
       ref = samples[i];
-      if(last.t - ref.t >= 90) break;
+      if(last.t - ref.t >= GEST.sampleMs) break;
     }
     const dt = last.t - ref.t;
     if(dt <= 0) return 0;
@@ -2408,7 +2548,11 @@ function navigateStory(direction){
 
     // Flick up out of the peek card expands it to the full story — slower/smoother than a
     // snap, handled entirely by the .expanding CSS transition (see expandArticle()).
-    if(article.classList.contains('peek') && dy < -40 && Math.abs(dx) < Math.abs(dy)){
+    // Record every completed swipe so the tuning readout can show what was actually measured.
+    const recordGesture = (action) => { lastGesture = {dy, dx, v, action, atTop, fromHeader: wasHeader};
+      if(typeof renderGestureReadout === 'function') renderGestureReadout(); };
+    if(article.classList.contains('peek') && dy < -GEST.dyExpand && Math.abs(dx) < Math.abs(dy)){
+      recordGesture('expand to full');
       expandArticle();
       return;
     }
@@ -2417,23 +2561,28 @@ function navigateStory(direction){
     // A hard downward fling means "get this out of my way": the card goes, wherever the
     // reader happens to be in the text and without pausing at the preview. Dismissed fast,
     // to match the force of the gesture.
-    if(vertical && dy > 40 && v >= V_FLING){
+    if(vertical && dy > GEST.dyFling && v >= GEST.vFling){
+      recordGesture('dismiss (flick)');
       closeArticle({fast: true});
       return;
     }
     // A measured drag at the top of the story unwinds one step: full → preview → gone.
     // Below the top, this same drag is just the reader scrolling back up, so it is left
     // to the browser.
-    if(vertical && dy > 55 && v >= V_INTENT && (wasHeader || atTop)){
-      if(collapseArticle()) return;
+    if(vertical && dy > GEST.dyStep && v >= GEST.vIntent && (wasHeader || atTop)){
+      if(collapseArticle()){ recordGesture('step to preview'); return; }
+      recordGesture('dismiss (step)');
       closeArticle();
       return;
     }
     if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)*1.5){
+      recordGesture('navigate story');
       suppressArticleClick = true;
       setTimeout(() => { suppressArticleClick = false; }, 400);
       navigateStory(dx < 0 ? 1 : -1);
+      return;
     }
+    recordGesture('none (native scroll)');
   }, {passive:true});
 })();
 // Tapping the peek card (not just swiping up) also expands it — the only way desktop
@@ -3467,7 +3616,7 @@ function closeArticle(opts){
   // open/close timing is unaffected next time.
   if(opts && opts.fast){
     article.classList.add('flick');
-    setTimeout(() => article.classList.remove('flick'), 320);
+    setTimeout(() => article.classList.remove('flick'), GEST.exitMs + 130);
   }
   article.classList.remove('open', 'peek', 'expanding');
   document.body.classList.remove('artOpen');
@@ -5051,11 +5200,14 @@ document.getElementById('mReset').addEventListener('click', async () => {
 // Fallback for the artifact viewer (where the URL can't be edited): tap the title 5 times quickly.
 let tapUnlocked = false, titleTaps = [];
 // Whether this browser has owner access at all: #manage in the URL, or five quick title taps.
+// Owner tools are reached ONLY by tapping the masthead five times inside three seconds.
+// The old URL route (any address containing "manage") was removed in v106: it was the one
+// way in that a visitor could find without knowing anything about the app, since trying
+// /#manage is a common reflex. The tap sequence is not a security control either — the
+// source is public and describes it — but it is not something anyone arrives at by accident.
+// Access is per session by design: it is forgotten on reload, so a shared or borrowed device
+// does not stay unlocked.
 function manageAccess(){
-  try{
-    const u = (location.hash + ' ' + location.search + ' ' + location.pathname).toLowerCase();
-    if(u.indexOf('manage') !== -1) return true;
-  }catch(e){}
   return tapUnlocked;
 }
 // A separate, remembered preference that suppresses the owner tools even when access is granted.
@@ -5070,6 +5222,13 @@ function updateManageVisibility(){
   // '' restores each element's stylesheet display (flex rows), rather than forcing block.
   document.getElementById('ownerGroup').style.display = access ? '' : 'none';
   document.getElementById('manageBtn').style.display = unlocked ? '' : 'none';
+  const gtRow = document.getElementById('gtRow');
+  if(gtRow) gtRow.style.display = unlocked ? '' : 'none';
+  // The HUD is an owner tool; switching owner tools off must take it off screen too,
+  // otherwise the "visitor view" test still has a debug panel across the bottom.
+  if(!unlocked && typeof setGestureTuner === 'function' && gtHud && gtHud.classList.contains('show')){
+    setGestureTuner(false);
+  }
   document.getElementById('editControlsRow').style.display = unlocked ? '' : 'none';
   // The switch itself follows access, not the preference — otherwise turning the CMS off would
   // hide the only control that turns it back on.
@@ -5091,7 +5250,6 @@ document.getElementById('cmsEnabled').addEventListener('change', (e) => {
   updateManageVisibility();
   render();
 });
-window.addEventListener('hashchange', updateManageVisibility);
 document.querySelector('h1').addEventListener('click', () => {
   const now = Date.now();
   titleTaps = titleTaps.filter(t => now - t < 3000);
@@ -5190,13 +5348,13 @@ function refreshInstallUI(){
   }
   installBtn.style.display = '';
   if(deferredInstall){
-    installBtn.querySelector('.pName').textContent = 'Save as App';
+    installBtn.querySelector('.pName').textContent = 'Make this into an App';
     installNote.textContent = '';
   } else if(isIOS()){
-    installBtn.querySelector('.pName').textContent = 'Save as App';
+    installBtn.querySelector('.pName').textContent = 'Make this into an App';
     installNote.textContent = '';
   } else {
-    installBtn.querySelector('.pName').textContent = 'Save as App';
+    installBtn.querySelector('.pName').textContent = 'Make this into an App';
     installNote.textContent = '';
   }
 }
@@ -5220,17 +5378,32 @@ installBtn.addEventListener('click', async (e) => {
   if(installExpanded){
     installNote.textContent = '';
     installExpanded = false;
-    installBtn.querySelector('.pName').textContent = 'Save as App';
+    installBtn.querySelector('.pName').textContent = 'Make this into an App';
     return;
   }
   installExpanded = true;
-  installBtn.querySelector('.pName').textContent = 'Save as App';
+  installBtn.querySelector('.pName').textContent = 'Make this into an App';
   // No install API available — explain the manual route for this browser.
   if(isIOS()){
-    installNote.innerHTML = 'iOS requires this step to be manual.' +
-      '<br><br>1&nbsp;&nbsp;Tap Share, below.' +
-      '<br>2&nbsp;&nbsp;Tap Add to Home Screen.' +
-      '<br>3&nbsp;&nbsp;Tap Add.';
+    // Drawn rather than named: the reader is hunting for a shape in a crowded share sheet,
+    // so showing the actual glyph at text size is worth more than any description of it.
+    const shareIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M12 3v11"/><path d="M8.4 6.6L12 3l3.6 3.6"/>' +
+      '<path d="M7.5 10H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1.5"/>' +
+      '</svg></span>';
+    const addIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="3.4" y="3.4" width="17.2" height="17.2" rx="4.6"/>' +
+      '<path d="M12 8.4v7.2M8.4 12h7.2"/></svg></span>';
+    installNote.innerHTML =
+      '<p class="pStepsTitle">iPhone App Instructions</p>' +
+      '<ul class="pSteps">' +
+      '<li><span class="n">1</span><span>Find the share icon ' + shareIcon + '</span></li>' +
+      '<li><span class="n">2</span><span>Scroll to the bottom of the list and find ' +
+        addIcon + ' Add to Home Screen</span></li>' +
+      '<li><span class="n">3</span><span>Press the Add button.</span></li>' +
+      '</ul>';
   } else {
     installNote.innerHTML = 'No install prompt offered. Look for Install or Add to Home screen ' +
       'in the browser menu.';
@@ -5299,6 +5472,89 @@ updateBtn.addEventListener('click', (e) => {
   if(pendingReload){ location.reload(); return; }
   checkVersion(false);
 });
+
+// ---- Gesture tuning HUD -------------------------------------------------------------
+// Owner-only. Sliders write straight into GEST and persist, so a change is felt on the very
+// next swipe with no reload. The readout reports what the last swipe actually measured and
+// which branch it took, which is the part that makes tuning possible rather than guesswork.
+const GT_FIELDS = [
+  {k:'vFling',   label:'Fling v',  min:0.4,  max:2.5,  step:0.05, unit:' px/ms'},
+  {k:'vIntent',  label:'Intent v', min:0.05, max:1,    step:0.01, unit:' px/ms'},
+  {k:'dyFling',  label:'Fling dy', min:10,   max:150,  step:5,    unit:' px'},
+  {k:'dyStep',   label:'Step dy',  min:20,   max:200,  step:5,    unit:' px'},
+  {k:'dyExpand', label:'Expand dy',min:10,   max:150,  step:5,    unit:' px'},
+  {k:'sampleMs', label:'Sample',   min:40,   max:250,  step:10,   unit:' ms'},
+  {k:'exitMs',   label:'Exit',     min:80,   max:500,  step:10,   unit:' ms'}
+];
+const gtHud = document.getElementById('gtHud');
+function gtFmt(v){ return (Math.round(v * 100) / 100).toString(); }
+function renderGestureReadout(){
+  const el = document.getElementById('gtRead');
+  if(!el) return;
+  if(!lastGesture){ el.textContent = 'Open a story and swipe. The last swipe appears here.'; return; }
+  const g = lastGesture;
+  const dir = g.dy > 0 ? 'down' : 'up';
+  el.innerHTML =
+    'swipe <b>' + dir + '</b> &nbsp; dy <b>' + Math.round(g.dy) + '</b>px &nbsp; dx <b>' +
+    Math.round(g.dx) + '</b>px<br>' +
+    'velocity <b>' + gtFmt(g.v) + '</b> px/ms &nbsp; ' +
+    (g.atTop ? 'at top' : 'mid-text') + (g.fromHeader ? ' &middot; header' : '') +
+    '<span class="gtAction">&rarr; ' + g.action + '</span>';
+}
+function gtWriteOut(){
+  const out = document.getElementById('gtOut');
+  if(out) out.value = JSON.stringify(GEST);
+}
+function gtBuild(){
+  const box = document.getElementById('gtSliders');
+  if(!box || box.childElementCount) return;
+  GT_FIELDS.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'gtRow';
+    row.innerHTML = '<label for="gt-' + f.k + '">' + f.label + '</label>' +
+      '<input type="range" id="gt-' + f.k + '" min="' + f.min + '" max="' + f.max +
+      '" step="' + f.step + '" value="' + GEST[f.k] + '">' +
+      '<span class="gtVal" id="gtv-' + f.k + '">' + gtFmt(GEST[f.k]) + f.unit + '</span>';
+    box.appendChild(row);
+    row.querySelector('input').addEventListener('input', (e) => {
+      GEST[f.k] = parseFloat(e.target.value);
+      document.getElementById('gtv-' + f.k).textContent = gtFmt(GEST[f.k]) + f.unit;
+      applyGestureTuning();
+      gtWriteOut();
+    });
+  });
+  gtWriteOut();
+}
+function gtSync(){
+  GT_FIELDS.forEach(f => {
+    const inp = document.getElementById('gt-' + f.k);
+    const val = document.getElementById('gtv-' + f.k);
+    if(inp) inp.value = GEST[f.k];
+    if(val) val.textContent = gtFmt(GEST[f.k]) + f.unit;
+  });
+  gtWriteOut();
+}
+function setGestureTuner(on){
+  gtHud.classList.toggle('show', on);
+  const box = document.getElementById('gtEnabled');
+  if(box) box.checked = on;
+  try{ localStorage.setItem('gesture-tuner-open', on ? '1' : '0'); }catch(e){}
+  if(on){ gtBuild(); gtSync(); renderGestureReadout(); }
+}
+document.getElementById('gtEnabled').addEventListener('change', (e) => {
+  setGestureTuner(e.target.checked);
+  if(e.target.checked) closeHamMenu();
+});
+document.getElementById('gtHide').addEventListener('click', () => setGestureTuner(false));
+document.getElementById('gtDefaults').addEventListener('click', () => {
+  Object.assign(GEST, GESTURE_DEFAULTS);
+  applyGestureTuning();
+  gtSync();
+});
+applyGestureTuning();
+try{
+  if(localStorage.getItem('gesture-tuner-open') === '1' && manageAccess()) setGestureTuner(true);
+}catch(e){}
 
 // ---- App icon override hook ----
 // The icons embedded above are the fallback and always work. To use your own artwork, drop the
