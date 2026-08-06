@@ -1,4 +1,10 @@
-<!-- Catholic Timeline — v107 — generated 2026-08-06 15:26 UTC
+<!-- Catholic Timeline — v108 — generated 2026-08-06 15:44 UTC
+       • Install step 1 now points at the ••• button in the bottom right, drawn inline, since
+         current Safari puts the share sheet behind it rather than on the toolbar. The share
+         glyph is kept as a named alternative because older iOS versions, and Safari with the
+         separate tab bar, still show it directly.
+
+     Catholic Timeline — v107 — generated 2026-08-06 15:26 UTC
        • The install row now reads "Make this into an App", and the iOS instructions are a
          titled, numbered list — "iPhone App Instructions" — with the Safari share glyph and the
          Add to Home Screen glyph drawn inline at text size. The reader is hunting for a shape
@@ -1877,7 +1883,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v107';
+const APP_VERSION = 'v108';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5396,10 +5402,19 @@ installBtn.addEventListener('click', async (e) => {
       'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
       '<rect x="3.4" y="3.4" width="17.2" height="17.2" rx="4.6"/>' +
       '<path d="M12 8.4v7.2M8.4 12h7.2"/></svg></span>';
+    const dotsIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9.2"/>' +
+      '<circle cx="7.6" cy="12" r="1.25" fill="currentColor" stroke="none"/>' +
+      '<circle cx="12" cy="12" r="1.25" fill="currentColor" stroke="none"/>' +
+      '<circle cx="16.4" cy="12" r="1.25" fill="currentColor" stroke="none"/></svg></span>';
+    // Safari's toolbar differs by iOS version and by the tab-bar preference: newer layouts put
+    // everything behind the ••• button, older ones show the share glyph directly. Naming both
+    // costs one clause and saves the reader hunting for a control their phone does not have.
     installNote.innerHTML =
       '<p class="pStepsTitle">iPhone App Instructions</p>' +
       '<ul class="pSteps">' +
-      '<li><span class="n">1</span><span>Find the share icon ' + shareIcon + '</span></li>' +
+      '<li><span class="n">1</span><span>Press ' + dotsIcon + ' in the bottom right corner ' +
+        '&mdash; or the share icon ' + shareIcon + ' if your Safari shows one.</span></li>' +
       '<li><span class="n">2</span><span>Scroll to the bottom of the list and find ' +
         addIcon + ' Add to Home Screen</span></li>' +
       '<li><span class="n">3</span><span>Press the Add button.</span></li>' +
