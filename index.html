@@ -1,4 +1,22 @@
-<!-- Catholic Timeline — v103 — generated 2026-08-06 13:44 UTC
+<!-- Catholic Timeline — v104 — generated 2026-08-06 14:12 UTC
+     v104 changes:
+       • PANEL CLOSE NOW ANIMATES. visibility:hidden was landing the moment .open was removed,
+         hiding the panel before the slide could run — which is why opening looked animated and
+         closing looked instant. visibility is now delayed by the length of the transition.
+       • TEXT SIZE REACHES FURTHER. Quick Facts scale fully with the reader's choice; the search
+         field follows at half (--txtMed) and the timeline pins and their labels at just over a
+         third (--txtSoft), so the app stays coherent without pins colliding or the search box
+         outgrowing the header.
+       • VERSION CHECK IS AUTOMATIC. Opening the panel checks in the background (throttled to
+         once a minute), so the row already reads "Up to Date" or "New Version Available" with
+         the new number beside it before anything is pressed. Pressing then only acts on the
+         answer. A silent check stays quiet about a flaky network; a requested one reports it.
+       • On an installed iOS app, an available update explains that the app must be swiped away
+         from the app switcher, since iOS restores it from memory and a reload alone often is
+         not enough.
+       • The Save as App instructions now collapse again on a second press.
+
+     Catholic Timeline — v103 — generated 2026-08-06 13:44 UTC
      v103 changes:
        • Settings panel now hangs just below the hamburger (top ≈ 84px + safe area) instead of
          sitting centred, so it reads as belonging to the control that opened it. Height still
@@ -200,6 +218,12 @@
     --txt: 1;
     /* Settings panel accent: the one saturated colour in an otherwise white sheet. */
     --panelBlue: #1E4FA6;
+    /* Damped versions of --txt. The reader is choosing an article reading size; chrome and
+       the timeline follow part of the way so the app stays coherent, but not so far that
+       pins collide or the search field outgrows the header. Half for the search box, just
+       over a third for the timeline. */
+    --txtMed: calc(1 + (var(--txt) - 1) * 0.5);
+    --txtSoft: calc(1 + (var(--txt) - 1) * 0.38);
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   html,body{height:100%;}
@@ -256,10 +280,17 @@
     box-shadow:-16px 0 46px rgba(7,15,34,.28);
     padding:22px 0 10px;
     transform:translateX(100%);
-    transition:transform .48s cubic-bezier(.32,.72,.28,1);
+    /* visibility is what makes the panel unreachable when closed, but switching it at the
+       start of the close would hide the panel before the slide could run — which is why the
+       close looked instant while the open looked animated. Delaying it by the length of the
+       transition lets the panel slide out and only then go away. */
+    transition:transform .48s cubic-bezier(.32,.72,.28,1), visibility 0s linear .48s;
     visibility:hidden;
   }
-  .hamMenu.open{transform:translateX(0); visibility:visible;}
+  .hamMenu.open{
+    transform:translateX(0); visibility:visible;
+    transition:transform .48s cubic-bezier(.32,.72,.28,1), visibility 0s linear 0s;
+  }
   @media (prefers-reduced-motion: reduce){
     .hamMenu, .hamScrim, .hamBtn{transition:none;}
   }
@@ -423,7 +454,7 @@
   }
   .ev{position:absolute; display:flex; flex-direction:column; align-items:center; cursor:pointer; transform:translateX(-50%); z-index:2;}
   .ev .ic{
-    width:22px; height:22px; border-radius:50%; position:relative;
+    width:calc(22px * var(--txtSoft)); height:calc(22px * var(--txtSoft)); border-radius:50%; position:relative;
     display:flex; align-items:center; justify-content:center;
     background:var(--navy-deep); border:1.5px solid currentColor;
     box-shadow:0 0 6px rgba(0,0,0,.5); transition:transform .12s, box-shadow .12s;
@@ -431,7 +462,7 @@
   .ev:hover .ic{transform:scale(1.25); box-shadow:0 0 10px currentColor;}
   .ev svg{width:12px; height:12px;}
   .ev .nm{
-    margin-top:0; font-size:14.5px; line-height:1.08; text-align:center; max-width:96px;
+    margin-top:0; font-size:calc(14.5px * var(--txtSoft)); line-height:1.08; text-align:center; max-width:calc(96px * var(--txtSoft));
     color:var(--parchment); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
     overflow:hidden; text-shadow:0 1px 3px rgba(0,0,0,.9);
   }
@@ -444,7 +475,7 @@
   .searchwrap{position:relative; flex:0 0 320px; width:320px; max-width:min(320px, calc(100vw - 32px));}
   /* NOTE: 16px is the minimum font-size that prevents iOS Safari from auto-zooming
      when an input receives focus. Do not lower these below 16px. */
-  #tlSearch{width:100%; box-sizing:border-box; background:var(--navy-deep); border:1px solid var(--gold); color:var(--parchment); border-radius:18px; padding:10px 34px 10px 15px; font-family:'EB Garamond',Georgia,serif; font-size:16px; line-height:1.25;}
+  #tlSearch{width:100%; box-sizing:border-box; background:var(--navy-deep); border:1px solid var(--gold); color:var(--parchment); border-radius:18px; padding:10px 34px 10px 15px; font-family:'EB Garamond',Georgia,serif; font-size:calc(16px * var(--txtMed)); line-height:1.25;}
   #tlSearch:focus{outline:none; box-shadow:0 0 0 2px rgba(201,165,66,.35);}
   .searchClear{
     position:absolute; right:6px; top:50%; transform:translateY(-50%); z-index:2;
@@ -808,9 +839,9 @@
   .artcap{text-align:center; font-style:italic; color:var(--muted); font-size:13.5px; margin-top:6px;}
   /* Quick Facts panel */
   .factbox{border:1px solid rgba(201,165,66,.4); border-radius:10px; background:rgba(201,165,66,.05); padding:14px 18px; margin:22px 0;}
-  .factrow{display:flex; gap:14px; padding:7px 0; border-bottom:1px solid rgba(201,165,66,.14); font-size:17.5px; line-height:1.5;}
+  .factrow{display:flex; gap:14px; padding:7px 0; border-bottom:1px solid rgba(201,165,66,.14); font-size:calc(17.5px * var(--txt)); line-height:1.5;}
   .factrow:last-child{border-bottom:none;}
-  .factlabel{flex:0 0 38%; max-width:38%; font-family:'Cinzel',serif; font-size:14px; letter-spacing:.05em; text-transform:uppercase; color:#BFC9EA; padding-top:2px;}
+  .factlabel{flex:0 0 38%; max-width:38%; font-family:'Cinzel',serif; font-size:calc(14px * var(--txt)); letter-spacing:.05em; text-transform:uppercase; color:#BFC9EA; padding-top:2px;}
   .factval{flex:1;}
   .factval a{color:var(--gold-bright);}
   /* Audio player */
@@ -1733,7 +1764,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v103';
+const APP_VERSION = 'v104';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5080,6 +5111,11 @@ function setHamMenu(open){
   hamScrim.classList.toggle('open', open);
   hamBtn.classList.toggle('hidden', open);
   hamBtn.setAttribute('aria-expanded', String(open));
+  // Check on open so the row already carries its answer, throttled to once a minute so
+  // opening and closing the panel repeatedly does not re-fetch the file each time.
+  if(open && typeof checkVersion === 'function' && !pendingReload && Date.now() - lastCheckAt > 60000){
+    checkVersion(true);
+  }
 }
 function closeHamMenu(){
   if(!hamMenu.classList.contains('open')) return;
@@ -5157,10 +5193,10 @@ function refreshInstallUI(){
     installBtn.querySelector('.pName').textContent = 'Save as App';
     installNote.textContent = '';
   } else if(isIOS()){
-    installBtn.querySelector('.pName').textContent = 'How to Save as App';
+    installBtn.querySelector('.pName').textContent = 'Save as App';
     installNote.textContent = '';
   } else {
-    installBtn.querySelector('.pName').textContent = 'How to Save as App';
+    installBtn.querySelector('.pName').textContent = 'Save as App';
     installNote.textContent = '';
   }
 }
@@ -5170,6 +5206,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
   refreshInstallUI();
 });
 window.addEventListener('appinstalled', () => { deferredInstall = null; refreshInstallUI(); });
+let installExpanded = false;
 installBtn.addEventListener('click', async (e) => {
   e.stopPropagation();
   if(deferredInstall){
@@ -5179,6 +5216,15 @@ installBtn.addEventListener('click', async (e) => {
     refreshInstallUI();
     return;
   }
+  // The instructions are a disclosure, not a one-way door: pressing again puts them away.
+  if(installExpanded){
+    installNote.textContent = '';
+    installExpanded = false;
+    installBtn.querySelector('.pName').textContent = 'Save as App';
+    return;
+  }
+  installExpanded = true;
+  installBtn.querySelector('.pName').textContent = 'Save as App';
   // No install API available — explain the manual route for this browser.
   if(isIOS()){
     installNote.innerHTML = 'iOS requires this step to be manual.' +
@@ -5196,55 +5242,62 @@ refreshInstallUI();
 // A home-screen web app is not reloaded every time it is opened: iOS in particular suspends and
 // restores it from memory, so someone who never fully closes it can sit on an old build for
 // weeks. A page cannot close or restart its own app, but location.reload() re-requests the file,
-// and since Pages serves must-revalidate the request goes to the network — which is all the
-// reload actually needs to do.
+// and since Pages serves must-revalidate the request goes to the network.
 //
-// Rather than reloading blind, this fetches the live file and reads the APP_VERSION out of it,
-// so the answer is either a definite "you are current" or a definite "vNN is available". The
-// fetch is no-store so it cannot be answered from the very cache we are trying to see past.
+// The check runs by itself whenever the panel is opened, so the row already reads "Up to Date"
+// or "New Version Available" before anything is pressed; pressing is only ever needed to act on
+// the answer. The fetch is no-store so it cannot be answered from the very cache we are trying
+// to see past.
 const updateBtn = document.getElementById('updateBtn');
 const updateNote = document.getElementById('updateNote');
 const updateCur = document.getElementById('updateCur');
 const updateLabel = updateBtn.querySelector('.pName');
 if(updateCur) updateCur.textContent = APP_VERSION;
-let pendingReload = false;
-function setUpdateNote(html){ updateNote.innerHTML = html; }
-updateBtn.addEventListener('click', async (e) => {
-  e.stopPropagation();
-  if(pendingReload){
-    // Second press: the user has been told what will happen and is confirming.
-    location.reload();
-    return;
-  }
-  updateBtn.disabled = true;
-  const wasLabel = updateLabel.textContent;
-  updateLabel.textContent = 'Checking…';
+let pendingReload = false, checking = false, lastCheckAt = 0;
+function setUpdateNote(html){ updateNote.innerHTML = html || ''; }
+
+async function checkVersion(auto){
+  if(checking) return;
+  checking = true;
+  if(!auto){ updateLabel.textContent = 'Checking…'; updateBtn.disabled = true; }
   try{
     const url = location.href.split('#')[0].split('?')[0];
     const res = await fetch(url + '?cachebust=' + Date.now(), {cache: 'no-store'});
     if(!res.ok) throw new Error('HTTP ' + res.status);
-    const text = await res.text();
-    const m = text.match(/const APP_VERSION = '([^']+)'/);
+    const m = (await res.text()).match(/const APP_VERSION = '([^']+)'/);
+    lastCheckAt = Date.now();
     if(!m){
       // Served something unexpected — offer the reload rather than claiming to know.
-      setUpdateNote('Version unreadable. Reload to be certain.');
       updateLabel.textContent = 'Reload Anyway';
+      setUpdateNote(auto ? '' : 'Version unreadable. Reload to be certain.');
       pendingReload = true;
     } else if(m[1] === APP_VERSION){
-      setUpdateNote('You have the latest version.');
       updateLabel.textContent = 'Up to Date';
-      setTimeout(() => { updateLabel.textContent = 'Check for Updates'; }, 4000);
+      pendingReload = false;
+      setUpdateNote('');
     } else {
-      setUpdateNote(m[1] + ' is available. Reloading restarts the timeline &mdash; ' +
-        'unsaved Manage edits will be lost.');
-      updateLabel.textContent = 'Reload to Update';
+      updateLabel.textContent = 'New Version Available';
+      if(updateCur) updateCur.textContent = m[1];
       pendingReload = true;
+      // In an installed iOS app a reload alone is often not enough: iOS restores the app from
+      // memory, so the reliable route is to close it from the app switcher.
+      setUpdateNote(isStandalone() && isIOS()
+        ? 'Swipe up from the bottom of the screen, then swipe this app away to close it fully. Reopening loads ' + m[1] + '.'
+        : 'Tap to reload. Unsaved Manage edits will be lost.');
     }
   }catch(err){
-    setUpdateNote('Could not reach the server. You may be offline.');
-    updateLabel.textContent = wasLabel;
+    // A silent background check should not shout about a flaky network; a requested one should.
+    if(!auto) setUpdateNote('Could not reach the server. You may be offline.');
+    updateLabel.textContent = pendingReload ? updateLabel.textContent : 'Check for Updates';
   }
+  checking = false;
   updateBtn.disabled = false;
+}
+
+updateBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if(pendingReload){ location.reload(); return; }
+  checkVersion(false);
 });
 
 // ---- App icon override hook ----
