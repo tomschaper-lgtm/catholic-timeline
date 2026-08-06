@@ -1,4 +1,21 @@
-<!-- Catholic Timeline — v96 — generated 2026-08-04 19:38 UTC
+<!-- Catholic Timeline — v97 — generated 2026-08-05 00:00 UTC
+     v97 changes:
+       • DELETE VIA JSON. Paste JSON (and Import File) now accept a "deletions" array of ids
+         — {"deletions":["old-id","another-id"],"entries":[...]} — and also honour entries
+         marked {"id":"x","op":"delete"}. Deletions run BEFORE adds/updates, so one paste can
+         retire a stub and add its replacement. Ids that don't exist are reported, not silently
+         dropped. The status line now reads "N added, N updated, N deleted".
+       • REVIEW FLAG (hidden entries). Entries can carry "review": true. They are excluded from
+         the public timeline, search, and counts. Turning on Review Mode (button at the top of
+         Manage → Entries, remembered per browser) reveals them on the timeline with a dashed
+         amber outline and a "PENDING" badge in the Manage list, so drafts can be checked in
+         place before release. Clearing the checkbox in the editor (or sending "review": false
+         via JSON) approves an entry and makes it public.
+         NOTE: this is display-side only. It keeps unfinished work off the timeline for ordinary
+         visitors; it is not a security control, since anyone who opens Manage can toggle it and
+         the data still ships inside data.json.
+
+     Catholic Timeline — v96 — generated 2026-08-04 19:38 UTC
      v96 changes:
        • The secondary (tag/description) search pass is now a true fallback. It runs only
          when the name/aka pass returns 0 or 1 hits; two or more name matches stand alone
@@ -292,6 +309,25 @@
   @keyframes pulseHit{0%,100%{box-shadow:0 0 8px 1px var(--gold-bright);}50%{box-shadow:0 0 15px 4px var(--gold-bright);}}
   .ev{animation:evin .22s ease;}
   @keyframes evin{from{opacity:.25;}to{opacity:1;}}
+  /* Draft entries, visible only in Review Mode: dashed amber ring + dimmed label so they
+     never read as finished content sitting on the public timeline. */
+  .ev.review .ic{border-style:dashed; border-color:#e0a33a; box-shadow:0 0 0 2px rgba(224,163,58,.18);}
+  .ev.review .nm{color:#e0a33a; font-style:italic; opacity:.9;}
+  .reviewBanner{
+    position:sticky; top:0; z-index:60; display:none;
+    background:rgba(224,163,58,.16); border-bottom:1px solid rgba(224,163,58,.5);
+    color:#e0a33a; font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+    padding:6px 12px; text-align:center;
+  }
+  .reviewBanner.show{display:block;}
+  .mPending{
+    display:inline-block; margin-left:6px; padding:1px 6px; border-radius:999px;
+    background:rgba(224,163,58,.18); border:1px solid rgba(224,163,58,.55);
+    color:#b57d16; font-size:10px; letter-spacing:.08em; text-transform:uppercase; vertical-align:middle;
+  }
+  .mReviewBar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;}
+  .mReviewBar .rcount{font-size:12px; color:var(--m-dim);}
+  .mbtn.reviewOn{background:rgba(224,163,58,.18); border-color:rgba(224,163,58,.7); color:#8a5f0d;}
   /* GitHub publish box */
   .ghbox{border:1px solid rgba(201,165,66,.4); border-radius:10px; padding:12px 14px; margin:14px 0; background:rgba(201,165,66,.04);}
   .ghbox summary{cursor:pointer; font-family:'Cinzel',serif; font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold-bright);}
@@ -882,6 +918,8 @@
   </div>
 </div>
 
+<div class="reviewBanner" id="reviewBanner">Review Mode — drafts held for review are visible. Visitors do not see them.</div>
+
 <div class="viewport" id="viewport">
   <div class="canvas" id="canvas"><div style="padding:40px 20px; font-style:italic; color:var(--muted);">Loading timeline&hellip;</div></div>
 </div>
@@ -979,6 +1017,11 @@
 
     <!-- ===== TAB: Entries (list + editor, always in sync with the timeline's current card) ===== -->
     <div class="mgmtPanel active" id="panel-entries">
+      <div class="mReviewBar">
+        <button class="mbtn" id="reviewToggle">Review Mode: Off</button>
+        <span class="rcount" id="reviewCount"></span>
+      </div>
+      <div class="hint" style="margin-top:-4px;">Entries marked <b>Hold for review</b> are hidden from the timeline, from search, and from visitor-facing counts. Review Mode shows them to you here and on the timeline (dashed amber ring) so you can check them in place; clear the checkbox in the editor to approve one and make it public. This setting is remembered in this browser only. It keeps unfinished drafts off the timeline — it is not a password, since the entries still travel inside <code>data.json</code>.</div>
       <div class="mgmtEntriesTop">
         <input type="text" id="mSearch" placeholder="Search entries…">
         <button class="mbtn" id="mNew">+ New</button>
@@ -1011,6 +1054,10 @@
         </div>
         <div class="mgrid2">
           <div class="mfield"><label>Country (modern name — for country-shape display; for people who moved, use where they lived most)</label><input type="text" id="fCountry" placeholder="e.g. Italy, Spain, Algeria"></div>
+        </div>
+        <div class="mfield" style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="fReview" style="width:auto; margin:0;">
+          <label for="fReview" style="margin:0; cursor:pointer;">Hold for review — hide this entry from the public timeline until approved</label>
         </div>
         <div class="mgrid2">
           <div class="mfield"><label>Prominence (when it appears as you zoom)</label>
@@ -1103,23 +1150,27 @@
       <div class="mbox">
         <h3>Import File</h3>
         <div class="mtool">
-          <button class="mbtn" id="mImportBtn">Import File (Add/Update)</button>
+          <button class="mbtn" id="mImportBtn">Import File (Add/Update/Delete)</button>
           <input type="file" id="mImportFile" accept=".json,.txt" style="display:none;">
         </div>
-        <div class="hint">Adds new entries and updates matching ids; never deletes anything.</div>
+        <div class="hint">Adds new entries and updates matching ids. It removes entries only if the file carries an explicit <code>"deletions"</code> list of ids — a plain entries file never deletes anything.</div>
         <div class="mImportStatus" id="mImportFileStatus"></div>
       </div>
 
       <div class="mbox">
-        <h3>Paste JSON (Add / Update Only)</h3>
+        <h3>Paste JSON (Add / Update / Delete)</h3>
         <div class="mfield">
-          <textarea id="pasteJson" placeholder='Paste entries JSON here: a single entry {...}, an array [...], or {"entries":[...]}. Matching ids are updated, new ones are added; nothing else in the database is touched.'></textarea>
+          <textarea id="pasteJson" placeholder='Paste entries JSON here: a single entry {...}, an array [...], {"entries":[...]}, or {"deletions":["id-to-remove"],"entries":[...]}. Matching ids are updated, new ones added, listed ids deleted.'></textarea>
         </div>
         <div class="mtool">
-          <button class="mbtn" id="pasteApply">Apply (Add/Update)</button>
+          <button class="mbtn" id="pasteApply">Apply</button>
           <button class="mbtn" id="pasteClear">Clear</button>
         </div>
-        <div class="hint">This is the safe way to bring in entries drafted by Claude in a chat: copy Claude's JSON, paste it here, Apply. It never replaces the whole database.</div>
+        <div class="hint">This is the safe way to bring in entries drafted by Claude in a chat: copy Claude's JSON, paste it here, Apply. It never replaces the whole database — only the ids named are touched.<br><br>
+        <b>Deleting.</b> Add a <code>"deletions"</code> list of ids alongside (or instead of) <code>"entries"</code>:<br>
+        <code>{"deletions":["em-ferrara-1171"],"entries":[…]}</code><br>
+        An entry object written as <code>{"id":"old-id","op":"delete"}</code> works too. Deletions run <b>before</b> adds, so a paste can retire an old stub and add its replacement in one step. Ids that don't exist are reported rather than silently ignored. <b>This cannot be undone</b> — take an Export backup first.<br><br>
+        <b>Holding for review.</b> Add <code>"review": true</code> to any entry to keep it off the public timeline until you approve it; send <code>"review": false</code> (or clear the checkbox in the editor) to publish it.</div>
         <div class="mImportStatus" id="pasteJsonStatus"></div>
       </div>
 
@@ -1439,7 +1490,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v96';
+const APP_VERSION = 'v97';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -1646,8 +1697,18 @@ function animateScroll(toLeft, toTop, done){
 ['pointerdown','wheel','touchstart'].forEach(ev =>
   viewport.addEventListener(ev, cancelScrollAnim, {passive:true}));
 
+// ---- Review mode ----
+// An entry with review:true is a draft: it is kept out of the public timeline, out of search,
+// and out of the visible counts. Review Mode (a per-browser toggle in Manage) puts them back
+// on screen, marked, so they can be judged in context before being approved.
+// This is a display filter, not a security boundary — the data still travels in data.json.
+let reviewMode = false;
+try{ reviewMode = localStorage.getItem('review-mode') === '1'; }catch(e){}
+function isReview(d){ return !!(d && d.review); }
+function reviewCount(){ return db ? db.entries.filter(isReview).length : 0; }
+
 function filtered(){
-  return db.entries.filter(d => activeTypes[d.t] && (activeRegion === "all" || d.r === activeRegion))
+  return db.entries.filter(d => (reviewMode || !isReview(d)) && activeTypes[d.t] && (activeRegion === "all" || d.r === activeRegion))
     .slice().sort((a,b) => a.y - b.y);
 }
 
@@ -1801,7 +1862,7 @@ function render(){
     placed.forEach(pl => {
       const d = pl.d;
       const el = document.createElement('div');
-      el.className = 'ev t-' + d.t + (isEcumenical(d) ? ' ecu' : '') + (searchHits.has(d.id) ? ' hit' : '') + (searchFocusId === d.id ? ' focus' : '');
+      el.className = 'ev t-' + d.t + (isEcumenical(d) ? ' ecu' : '') + (searchHits.has(d.id) ? ' hit' : '') + (searchFocusId === d.id ? ' focus' : '') + (isReview(d) ? ' review' : '');
       el.style.left = pl.x + 'px';
       el.style.top = (yCursor + bandPad + 16 + pl.lane*rowH) + 'px';
       el.title = d.n + ' (AD ' + d.y + ')';
@@ -3743,16 +3804,48 @@ function renderMList(scrollToSelected){
     const isSelected = !!(currentEntry && currentEntry.id === e.id);
     const b = document.createElement('button');
     b.className = 'mitem' + (isSelected ? ' selected' : '');
-    b.innerHTML = '<span class="my">' + e.y + '</span><span>' + esc(e.n) + '</span><span class="mt">' + TYPE_NAMES[e.t] + '</span>';
+    b.innerHTML = '<span class="my">' + e.y + '</span><span>' + esc(e.n) +
+      (isReview(e) ? '<span class="mPending">Pending</span>' : '') +
+      '</span><span class="mt">' + TYPE_NAMES[e.t] + '</span>';
     b.addEventListener('click', () => selectEntryFromCms(e.id));
     list.appendChild(b);
     if(isSelected) selectedRow = b;
   });
   const countEl = document.getElementById('mListCount');
-  if(countEl) countEl.textContent = items.length + ' of ' + db.entries.length + ' entries shown';
+  const pend = reviewCount();
+  if(countEl) countEl.textContent = items.length + ' of ' + db.entries.length + ' entries shown' +
+    (pend ? ' · ' + pend + ' held for review (' + (db.entries.length - pend) + ' public)' : '');
+  updateReviewUI();
   if(scrollToSelected && selectedRow) selectedRow.scrollIntoView({block:'center', behavior:'smooth'});
 }
 document.getElementById('mSearch').addEventListener('input', () => renderMList(false));
+
+// ---- Review Mode toggle ----
+function updateReviewUI(){
+  const btn = document.getElementById('reviewToggle');
+  const cnt = document.getElementById('reviewCount');
+  const banner = document.getElementById('reviewBanner');
+  const pend = reviewCount();
+  if(btn){
+    btn.textContent = 'Review Mode: ' + (reviewMode ? 'On' : 'Off');
+    btn.classList.toggle('reviewOn', reviewMode);
+  }
+  if(cnt){
+    cnt.textContent = pend
+      ? pend + ' entr' + (pend === 1 ? 'y is' : 'ies are') + ' held for review' + (reviewMode ? ' — shown on the timeline now' : ' — hidden from the timeline')
+      : 'Nothing is currently held for review';
+  }
+  if(banner) banner.classList.toggle('show', reviewMode && pend > 0);
+}
+const reviewToggleBtn = document.getElementById('reviewToggle');
+if(reviewToggleBtn) reviewToggleBtn.addEventListener('click', () => {
+  reviewMode = !reviewMode;
+  try{ localStorage.setItem('review-mode', reviewMode ? '1' : '0'); }catch(e){}
+  updateReviewUI();
+  renderMList(false);
+  render();
+  setStatus(reviewMode ? 'Review Mode on — drafts are visible to you on the timeline' : 'Review Mode off — drafts hidden again');
+});
 
 function serializeArt(art){
   return (art.sections || []).map(s => (s.h ? '## ' + s.h + '\n' : '') + (s.b || '')).join('\n\n');
@@ -3811,6 +3904,7 @@ function openEditor(id){
   document.getElementById('fQuotes').value = e ? serializePairs((e.art||{}).quotes, 'text', 'source') : '';
   document.getElementById('fLinks').value = e ? serializePairs((e.art||{}).links, 'label', 'url') : '';
   document.getElementById('fFacts').value = e ? serializeFacts(e.facts) : '';
+  document.getElementById('fReview').checked = e ? !!e.review : false;
   document.getElementById('fTier').value = e ? String(e.tier || 1) : '1';
   document.getElementById('fAlt').value = e && Array.isArray(e.alt) ? e.alt.join(', ') : '';
   document.getElementById('fTags').value = e && Array.isArray(e.tags) ? e.tags.join(', ') : '';
@@ -3845,8 +3939,11 @@ document.getElementById('fSave').addEventListener('click', async () => {
     facts: parseFacts(document.getElementById('fFacts').value),
     tier: parseInt(document.getElementById('fTier').value, 10) || 1,
     alt: document.getElementById('fAlt').value.split(/[\n,]/).map(s => s.trim()).filter(Boolean),
-    tags: document.getElementById('fTags').value.split(/[\n,]/).map(s => s.trim()).filter(Boolean)
+    tags: document.getElementById('fTags').value.split(/[\n,]/).map(s => s.trim()).filter(Boolean),
+    review: document.getElementById('fReview').checked
   };
+  // Approved entries drop the flag entirely rather than carrying review:false around.
+  if(!obj.review) delete obj.review;
   const idx = db.entries.findIndex(e => e.id === obj.id);
   if(idx >= 0) db.entries[idx] = obj; else db.entries.push(obj);
   editingId = obj.id;
@@ -4394,12 +4491,43 @@ document.getElementById('mXlsxExport').addEventListener('click', () => {
   }
 });
 
-// Merge import: adds new entries, updates existing (matched by id, else by name+year slug). Never deletes.
+// Merge import: deletes, then adds new entries and updates existing (matched by id, else by
+// name+year slug).
+//
+// Deletions are accepted two ways, because a paste often needs to retire an old stub and add its
+// replacement in one go:
+//   {"deletions": ["old-id", "another-id"], "entries": [ ... ]}
+//   an entry object marked {"id":"old-id","op":"delete"} inside the entries array
+// They are applied FIRST, so an id can be deleted and a fresh entry with the same id added in the
+// same paste without the delete undoing the add.
 function normalizeIncoming(parsed){
-  if(Array.isArray(parsed)) return parsed;
-  if(parsed && Array.isArray(parsed.entries)) return parsed.entries;
-  if(parsed && (parsed.n != null || parsed.id)) return [parsed];
+  if(Array.isArray(parsed)) return {list: parsed, deletions: []};
+  if(parsed && typeof parsed === 'object'){
+    const dels = [];
+    if(Array.isArray(parsed.deletions)) parsed.deletions.forEach(d => {
+      if(typeof d === 'string') dels.push(d);
+      else if(d && typeof d === 'object' && d.id) dels.push(d.id);
+    });
+    if(Array.isArray(parsed.entries)) return {list: parsed.entries, deletions: dels};
+    if(dels.length) return {list: [], deletions: dels};
+    if(parsed.n != null || parsed.id) return {list: [parsed], deletions: dels};
+  }
   return null;
+}
+function deleteEntries(ids){
+  let deleted = 0, missing = 0;
+  const notes = [];
+  ids.forEach(id => {
+    const ex = getEntry(id);
+    if(!ex){ missing++; notes.push('Not found (nothing deleted): ' + id); return; }
+    const name = ex.n;
+    db.entries = db.entries.filter(x => x.id !== id);
+    // Keep the app coherent if the open card/editor was the thing just removed.
+    if(currentEntry && currentEntry.id === id){ currentEntry = null; detail.classList.remove('open'); closeArticle(); }
+    if(editingId === id){ editingId = null; openEditor(null); }
+    deleted++; notes.push('Deleted: ' + name + ' (' + id + ')');
+  });
+  return {deleted: deleted, missing: missing, notes: notes};
 }
 function mergeEntries(list){
   let added = 0, updated = 0, skipped = 0;
@@ -4411,18 +4539,22 @@ function mergeEntries(list){
     if(!id){ skipped++; return; }
     const ex = getEntry(id);
     if(ex){
-      Object.keys(inc).forEach(k => { if(k !== 'id') ex[k] = inc[k]; });
-      updated++; notes.push('Updated: ' + ex.n);
+      Object.keys(inc).forEach(k => { if(k !== 'id' && k !== 'op') ex[k] = inc[k]; });
+      // review:false is an explicit approval — drop the flag rather than storing a false.
+      if(ex.review === false || ex.review === 'false') delete ex.review;
+      updated++; notes.push('Updated: ' + ex.n + (isReview(ex) ? ' [held for review]' : ''));
     } else {
       if(inc.n == null || inc.y == null){ skipped++; return; }
-      db.entries.push({
+      const fresh = {
         id: id, y: parseInt(inc.y, 10), n: String(inc.n),
         t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, displayLabel: inc.displayLabel || '', d: inc.d || '',
         art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
         img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
         tier: inc.tier || 1, alt: inc.alt || [], tags: inc.tags || []
-      });
-      added++; notes.push('Added: ' + inc.n + ' (' + inc.y + ')');
+      };
+      if(inc.review === true || inc.review === 'true') fresh.review = true;
+      db.entries.push(fresh);
+      added++; notes.push('Added: ' + inc.n + ' (' + inc.y + ')' + (fresh.review ? ' [held for review]' : ''));
     }
   });
   return {added: added, updated: updated, skipped: skipped, notes: notes};
@@ -4444,17 +4576,27 @@ async function applyMerge(text, statusPrefix, localStatusElId){
     if(localStatusElId) showInlineStatus(localStatusElId, 'Not valid JSON — check for missing brackets or commas', true);
     return false;
   }
-  const list = normalizeIncoming(parsed);
-  if(!list){
-    setStatus('JSON must be an entry, an array of entries, or {"entries":[...]}');
-    if(localStatusElId) showInlineStatus(localStatusElId, 'JSON must be an entry, an array of entries, or {"entries":[...]}', true);
+  const norm = normalizeIncoming(parsed);
+  if(!norm){
+    const msg = 'JSON must be an entry, an array of entries, {"entries":[...]}, or {"deletions":["id",…]}';
+    setStatus(msg);
+    if(localStatusElId) showInlineStatus(localStatusElId, msg, true);
     return false;
   }
+  // Entries flagged op:"delete" are pulled out and handled with the deletions list.
+  const inlineDeletes = norm.list.filter(x => x && typeof x === 'object' && x.op === 'delete' && x.id).map(x => x.id);
+  const list = norm.list.filter(x => !(x && typeof x === 'object' && x.op === 'delete'));
+  const allDeletes = norm.deletions.concat(inlineDeletes);
+  const d = allDeletes.length ? deleteEntries(allDeletes) : {deleted: 0, missing: 0, notes: []};
   const r = mergeEntries(list);
   await saveDb();
   renderMList();
   render();
-  const summary = statusPrefix + ': ' + r.added + ' added, ' + r.updated + ' updated' + (r.skipped ? ', ' + r.skipped + ' skipped' : '');
+  const summary = statusPrefix + ': ' + r.added + ' added, ' + r.updated + ' updated'
+    + (d.deleted ? ', ' + d.deleted + ' deleted' : '')
+    + (r.skipped ? ', ' + r.skipped + ' skipped' : '')
+    + (d.missing ? ', ' + d.missing + ' delete id(s) not found' : '');
+  r.notes = d.notes.concat(r.notes);
   setStatus(summary);
   if(localStatusElId){
     const detail = r.notes && r.notes.length ? '<br>' + r.notes.map(esc).join('<br>') : '';
@@ -4632,9 +4774,13 @@ document.getElementById('showEditControls').addEventListener('change', (e) => {
 (async function(){
   updateManageVisibility();
   await loadDb();
+  updateReviewUI();
   render();
   const sharedId = location.hash ? location.hash.slice(1) : '';
-  const sharedEntry = sharedId ? getEntry(sharedId) : null;
+  let sharedEntry = sharedId ? getEntry(sharedId) : null;
+  // A deep link to an entry that is still held for review should not expose it; only Review Mode
+  // opens it. Otherwise the link falls through to the normal opening view.
+  if(sharedEntry && isReview(sharedEntry) && !reviewMode) sharedEntry = null;
   if(sharedEntry){
     scrollToYear(sharedEntry.y);
     showDetail(sharedEntry);
