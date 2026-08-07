@@ -1,4 +1,55 @@
-<!-- Catholic Timeline — v107 — generated 2026-08-06 15:26 UTC
+<!-- Catholic Timeline — v110 — generated 2026-08-07 18:30 UTC
+       • UPDATED-AT TIMESTAMPS. Every add or update to an entry or a location now auto-stamps
+         updatedAt with the save moment (ISO string) — set by the app itself, not something
+         Claude or a paste can set: any incoming updatedAt field is ignored in favor of the
+         real save time. Existing entries simply have no updatedAt until next touched.
+       • DOCUMENTS TABLE — STORAGE AND CMS IMPORT ONLY (no documents viewer yet). Added a
+         third flat top-level array, db.documents, for prayers and other written works
+         (encyclicals, conciliar documents, spiritual classics), each linked OPTIONALLY to a
+         single entry via entityId — a general prayer, for instance, can belong to no entry
+         at all. type is "prayer" (fullText + occasion, no page count/sample) or "work"
+         (pageCount + a brief sample + source/purchase links, no full text); type defaults to
+         "work" with a note if omitted or invalid. Required: title only — everything else
+         degrades gracefully rather than blocking the import.
+       • ONE PASTE BOX, NOW THREE TABLES. The same auto-detect-by-shape paste/import flow from
+         v109 now covers documents too: an item with type "prayer"/"work" is a document,
+         otherwise an item with entityId is a location, otherwise it's an entry — checked
+         first for documents specifically because a document's entityId is optional and can't
+         be used alone to rule out a location. New "documentDeletions" key alongside
+         "deletions"/"locationDeletions". New "JSON — All Documents" export/backup button.
+         classifyIncoming/applyUnifiedMerge extended in place; deleteDocuments/mergeDocuments
+         mirror the existing entries/locations pattern exactly.
+
+     Catholic Timeline — v109 — generated 2026-08-07 18:00 UTC
+       • ONE PASTE BOX FOR ENTRIES AND LOCATIONS. The separate "Paste JSON — Locations" box
+         from v108 is gone; Import File and Paste JSON now auto-detect what they're given,
+         per item, by shape alone — anything carrying an entityId field is routed to the
+         locations table, everything else to entries. Works for {"entries":[...],
+         "locations":[...]} together, either key alone, a bare array mixing both kinds, or a
+         single object. Deletions stay in two keys since a bare id string can't reveal which
+         table it belongs to: "deletions" for entries (unchanged), new "locationDeletions"
+         for locations; inline {"id":"...","op":"delete"} items are still routed the same
+         entityId-presence way. normalizeIncoming/applyMerge and their Locations-specific
+         twins (v108) are replaced by one classifyIncoming + applyUnifiedMerge pair — same
+         underlying mergeEntries/deleteEntries/mergeLocations/deleteLocations doing the work,
+         just one entry point instead of four. Status line now reports entries/locations
+         activity as separate clauses only when each was actually touched.
+
+     Catholic Timeline — v108 — generated 2026-08-07 17:42 UTC
+       • LOCATIONS TABLE — STORAGE AND CMS IMPORT ONLY (no map UI yet). Added a second,
+         separate top-level array, db.locations, holding geographic/temporal waypoints per
+         entry (id, entityId, seq, date, eventDesc, detail, locationName, lat, lng), matched
+         to entries by entityId. Manage → Import gets a new "Paste JSON — Locations
+         (Add / Update / Delete)" box mirroring the existing entries paste box: same
+         add/update-by-id/delete-by-id semantics, same inline {"id":"...","op":"delete"}
+         support, required fields (entityId, lat, lng) enforced with skip+note rather than
+         silent partial rows. Manage → Export gets a matching "JSON — All Locations" backup
+         button. db.locations rides along automatically in Save to GitHub / Export / Restore
+         Backup since those already serialize the whole db object; old backups predating this
+         field default it to [] on load/restore so nothing breaks. The map view itself is
+         still on the backlog — this is just the data plumbing to receive location JSON now.
+
+     Catholic Timeline — v107 — generated 2026-08-06 15:26 UTC
        • The install row now reads "Make this into an App", and the iOS instructions are a
          titled, numbered list — "iPhone App Instructions" — with the Safari share glyph and the
          Add to Home Screen glyph drawn inline at text size. The reader is hunting for a shape
@@ -1519,6 +1570,8 @@
       <div class="mtool">
         <button class="mbtn" id="mJsonAll">JSON &mdash; All</button>
         <button class="mbtn" id="mJsonFiltered">JSON &mdash; Filtered</button>
+        <button class="mbtn" id="mJsonAllLoc">JSON &mdash; All Locations</button>
+        <button class="mbtn" id="mJsonAllDoc">JSON &mdash; All Documents</button>
         <button class="mbtn" id="mXlsxExport">Export Excel (.xlsx)</button>
       </div>
 
@@ -1540,24 +1593,28 @@
           <button class="mbtn" id="mImportBtn">Import File (Add/Update/Delete)</button>
           <input type="file" id="mImportFile" accept=".json,.txt" style="display:none;">
         </div>
-        <div class="hint">Adds new entries and updates matching ids. It removes entries only if the file carries an explicit <code>"deletions"</code> list of ids — a plain entries file never deletes anything.</div>
+        <div class="hint">Adds new entries, locations, and/or documents and updates matching ids &mdash; auto-detected from the JSON shape, same as Paste JSON below. Deletes only what an explicit <code>"deletions"</code>/<code>"locationDeletions"</code>/<code>"documentDeletions"</code> list names — a plain file never deletes anything on its own.</div>
         <div class="mImportStatus" id="mImportFileStatus"></div>
       </div>
 
       <div class="mbox">
         <h3>Paste JSON (Add / Update / Delete)</h3>
         <div class="mfield">
-          <textarea id="pasteJson" placeholder='Paste entries JSON here: a single entry {...}, an array [...], {"entries":[...]}, or {"deletions":["id-to-remove"],"entries":[...]}. Matching ids are updated, new ones added, listed ids deleted.'></textarea>
+          <textarea id="pasteJson" placeholder='Paste entries, locations, and/or documents JSON here — one box, auto-detected: a single object {...}, an array [...] (can mix all three kinds together), {"entries":[...]}, {"locations":[...]}, {"documents":[...]}, or any combination. Add "deletions":[...] for entry ids, "locationDeletions":[...] for location ids, and/or "documentDeletions":[...] for document ids.'></textarea>
         </div>
         <div class="mtool">
           <button class="mbtn" id="pasteApply">Apply</button>
           <button class="mbtn" id="pasteClear">Clear</button>
         </div>
-        <div class="hint">This is the safe way to bring in entries drafted by Claude in a chat: copy Claude's JSON, paste it here, Apply. It never replaces the whole database — only the ids named are touched.<br><br>
-        <b>Deleting.</b> Add a <code>"deletions"</code> list of ids alongside (or instead of) <code>"entries"</code>:<br>
-        <code>{"deletions":["em-ferrara-1171"],"entries":[…]}</code><br>
-        An entry object written as <code>{"id":"old-id","op":"delete"}</code> works too. Deletions run <b>before</b> adds, so a paste can retire an old stub and add its replacement in one step. Ids that don't exist are reported rather than silently ignored. <b>This cannot be undone</b> — take an Export backup first.<br><br>
-        <b>Holding for review.</b> Add <code>"review": true</code> to any entry to keep it off the public timeline until you approve it; send <code>"review": false</code> (or clear the checkbox in the editor) to publish it.</div>
+        <div class="hint">The safe way to bring in content drafted by Claude in a chat: copy Claude's JSON, paste it here, Apply. It never replaces the whole database — only the ids named are touched.<br><br>
+        <b>Entries vs. locations vs. documents — auto-detected, no separate box needed.</b> An item with <code>"type":"prayer"</code> or <code>"type":"work"</code> is a document; otherwise, an item with an <code>entityId</code> field is a location; anything else is an entry. This works whether they arrive as separate keys, separate pastes, or even mixed together in one bare array — you never need to sort them yourself.<br><br>
+        <b>Deleting.</b> Entry ids go in <code>"deletions"</code>; location ids in <code>"locationDeletions"</code>; document ids in <code>"documentDeletions"</code> (kept separate since a bare id string alone can't reveal which table it belongs to):<br>
+        <code>{"deletions":["em-ferrara-1171"],"locationDeletions":["st-paul-67-loc3"],"documentDeletions":["doc-anima-christi"],"entries":[…],"locations":[…],"documents":[…]}</code><br>
+        An item written as <code>{"id":"old-id","op":"delete"}</code> works inline too (add <code>"entityId"</code> or <code>"type"</code> to mark which table it belongs to). Deletions run <b>before</b> adds, so a paste can retire an old stub and add its replacement in one step. Ids that don't exist are reported rather than silently ignored. <b>This cannot be undone</b> — take an Export backup first.<br><br>
+        <b>Holding for review.</b> Add <code>"review": true</code> to any entry to keep it off the public timeline until you approve it; send <code>"review": false</code> (or clear the checkbox in the editor) to publish it.<br><br>
+        <b>Locations.</b> Geographic/temporal waypoints, keyed by <code>entityId</code> (must match an existing entry's <code>id</code>). There's no map view yet; this stores the data so it's ready when the map is built. Required per row: <code>entityId</code>, <code>lat</code>, <code>lng</code> — rows missing these are skipped and listed below rather than stored incomplete. <code>id</code> is generated as <code>{entityId}-loc{seq}</code> if you don't supply one.<br><br>
+        <b>Documents.</b> Prayers and other written works, linked to an entry via an <b>optional</b> <code>entityId</code> — some documents (a general prayer, say) belong to no particular entry. <code>"type":"prayer"</code> stores the full text inline (<code>fullText</code>, plus <code>occasion</code>); <code>"type":"work"</code> stores <code>pageCount</code> and a brief <code>sample</code> instead, with source/purchase <code>links</code>. Required: <code>title</code> — everything else degrades gracefully (a missing/invalid <code>type</code> defaults to <code>"work"</code>, noted below). There's no documents viewer yet; this stores the data so it's ready when one is built. <code>id</code> is generated as <code>{entityId}-doc{seq}</code> when <code>entityId</code> is given, or a slug of the title otherwise.<br><br>
+        <b>Last updated.</b> Every add or update auto-stamps <code>updatedAt</code> with the current time — this isn't something you set yourself; any <code>updatedAt</code> in a paste is ignored in favor of the real save time.</div>
         <div class="mImportStatus" id="pasteJsonStatus"></div>
       </div>
 
@@ -1877,7 +1934,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v107';
+const APP_VERSION = 'v110';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -1897,7 +1954,18 @@ function seedDb(){
       id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, displayLabel: "", d: r[4],
       art: {sections: [{h: "Overview", b: r[4]}], quotes: [], links: []},
       img: "", imgCap: "", audio: ""
-    }))
+    })),
+    // Geographic/temporal waypoints per entry (id, entityId, seq, date, eventDesc, detail, locationName,
+    // lat, lng). Kept as a flat top-level array, separate from `entries`, so a future map view can list
+    // every waypoint across the whole catalog without walking each entry's article content. No UI reads
+    // this yet — only the Manage → Import/Export plumbing below.
+    locations: [],
+    // Prayers and other written works (encyclicals, conciliar documents, spiritual classics), linked
+    // optionally to a single entry via entityId — some documents (a general prayer, say) belong to no
+    // particular entry. `type` is "prayer" (short, full text stored inline) or "work" (page count +
+    // a brief sample + source/purchase links, no full text). No documents viewer exists yet (v110) —
+    // only the Manage → Import/Export plumbing below.
+    documents: []
   };
 }
 // Detect whether we're running inside a Claude artifact (persistent window.storage present)
@@ -1907,7 +1975,7 @@ async function loadDb(){
   if(IS_ARTIFACT){
     try{
       const res = await window.storage.get(DB_KEY);
-      if(res && res.value){ db = JSON.parse(res.value); db.settings = db.settings || {imageBase:"", audioBase:""}; return; }
+      if(res && res.value){ db = JSON.parse(res.value); db.settings = db.settings || {imageBase:"", audioBase:""}; db.locations = db.locations || []; db.documents = db.documents || []; return; }
     }catch(e){ /* not found */ }
     db = seedDb();
     await saveDb();
@@ -1923,7 +1991,7 @@ async function loadDb(){
   // cache, which forces a genuine round trip to the origin every load.
   try{
     const r = await fetch('data.json?t=' + Date.now(), {cache: 'no-store'});
-    if(r.ok){ db = await r.json(); db.settings = db.settings || {imageBase:"", audioBase:""}; return; }
+    if(r.ok){ db = await r.json(); db.settings = db.settings || {imageBase:"", audioBase:""}; db.locations = db.locations || []; db.documents = db.documents || []; return; }
   }catch(e){ /* opened as a local file, or data.json missing */ }
   // Last-resort fallback (double-clicked local file, or no data.json yet): embedded seed.
   db = seedDb();
@@ -1948,6 +2016,8 @@ function setStatus(msg){
   setStatus._t = setTimeout(() => el.textContent = '', 6000);
 }
 function getEntry(id){ return db.entries.find(e => e.id === id); }
+function getLocation(id){ return db.locations.find(l => l.id === id); }
+function getDocument(id){ return db.documents.find(d => d.id === id); }
 
 // ================= TIMELINE =================
 const START = 0, END = 2030, SPAN = END - START;
@@ -4933,6 +5003,16 @@ document.getElementById('mJsonAll').addEventListener('click', () => {
     db.entries.length + ' entries · full backup, ignores Export filters · re-import with Restore Backup or merge with Add/Update',
     db, 'catholic-timeline-all.json');
 });
+document.getElementById('mJsonAllLoc').addEventListener('click', () => {
+  openJsonView('Database JSON — All Locations',
+    db.locations.length + ' location(s) · full backup of the locations table · re-import via Paste JSON',
+    {v: db.v || 1, locations: db.locations}, 'catholic-timeline-locations.json');
+});
+document.getElementById('mJsonAllDoc').addEventListener('click', () => {
+  openJsonView('Database JSON — All Documents',
+    db.documents.length + ' document(s) · full backup of the documents table · re-import via Paste JSON',
+    {v: db.v || 1, documents: db.documents}, 'catholic-timeline-documents.json');
+});
 document.getElementById('mJsonFiltered').addEventListener('click', () => {
   const evs = buildExportPayload(mExportFilteredEntries(), mExportFieldState);
   const anyType = Object.values(mFilterTypes).some(Boolean);
@@ -4975,20 +5055,6 @@ document.getElementById('mXlsxExport').addEventListener('click', () => {
 //   an entry object marked {"id":"old-id","op":"delete"} inside the entries array
 // They are applied FIRST, so an id can be deleted and a fresh entry with the same id added in the
 // same paste without the delete undoing the add.
-function normalizeIncoming(parsed){
-  if(Array.isArray(parsed)) return {list: parsed, deletions: []};
-  if(parsed && typeof parsed === 'object'){
-    const dels = [];
-    if(Array.isArray(parsed.deletions)) parsed.deletions.forEach(d => {
-      if(typeof d === 'string') dels.push(d);
-      else if(d && typeof d === 'object' && d.id) dels.push(d.id);
-    });
-    if(Array.isArray(parsed.entries)) return {list: parsed.entries, deletions: dels};
-    if(dels.length) return {list: [], deletions: dels};
-    if(parsed.n != null || parsed.id) return {list: [parsed], deletions: dels};
-  }
-  return null;
-}
 function deleteEntries(ids){
   let deleted = 0, missing = 0;
   const notes = [];
@@ -5014,9 +5080,10 @@ function mergeEntries(list){
     if(!id){ skipped++; return; }
     const ex = getEntry(id);
     if(ex){
-      Object.keys(inc).forEach(k => { if(k !== 'id' && k !== 'op') ex[k] = inc[k]; });
+      Object.keys(inc).forEach(k => { if(k !== 'id' && k !== 'op' && k !== 'updatedAt') ex[k] = inc[k]; });
       // review:false is an explicit approval — drop the flag rather than storing a false.
       if(ex.review === false || ex.review === 'false') delete ex.review;
+      ex.updatedAt = new Date().toISOString();
       updated++; notes.push('Updated: ' + ex.n + (isReview(ex) ? ' [held for review]' : ''));
     } else {
       if(inc.n == null || inc.y == null){ skipped++; return; }
@@ -5025,11 +5092,142 @@ function mergeEntries(list){
         t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, displayLabel: inc.displayLabel || '', d: inc.d || '',
         art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
         img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
-        tier: inc.tier || 1, alt: inc.alt || [], tags: inc.tags || []
+        tier: inc.tier || 1, alt: inc.alt || [], tags: inc.tags || [],
+        updatedAt: new Date().toISOString()
       };
       if(inc.review === true || inc.review === 'true') fresh.review = true;
       db.entries.push(fresh);
       added++; notes.push('Added: ' + inc.n + ' (' + inc.y + ')' + (fresh.review ? ' [held for review]' : ''));
+    }
+  });
+  return {added: added, updated: updated, skipped: skipped, notes: notes};
+}
+// ---- Locations table: same add/update/delete-by-id merge pattern as entries above, but for the
+// separate `db.locations` array (geographic/temporal waypoints — see skill doc). No UI renders
+// this data yet; this is just the storage + Manage import/export plumbing so location JSON can be
+// pasted in now and used once the map view is built.
+function deleteLocations(ids){
+  let deleted = 0, missing = 0;
+  const notes = [];
+  ids.forEach(id => {
+    const ex = getLocation(id);
+    if(!ex){ missing++; notes.push('Not found (nothing deleted): ' + id); return; }
+    db.locations = db.locations.filter(x => x.id !== id);
+    deleted++; notes.push('Deleted location: ' + id);
+  });
+  return {deleted: deleted, missing: missing, notes: notes};
+}
+// Required fields: entityId, lat, lng — those are what make a row usable for a future map, so
+// rows missing them are skipped and noted rather than silently stored half-complete. `id` is
+// generated as `{entityId}-loc{seq}` when omitted. A entityId that doesn't match any current
+// entry id is NOT a skip reason (the entry may be added in a later batch) but is flagged in the
+// notes so a typo doesn't go unnoticed.
+function mergeLocations(list){
+  let added = 0, updated = 0, skipped = 0;
+  const notes = [];
+  list.forEach(inc => {
+    if(!inc || typeof inc !== 'object'){ skipped++; return; }
+    if(!inc.entityId){ skipped++; notes.push('Skipped (no entityId): ' + (inc.id || JSON.stringify(inc).slice(0,60))); return; }
+    if(inc.lat == null || inc.lng == null || isNaN(Number(inc.lat)) || isNaN(Number(inc.lng))){
+      skipped++; notes.push('Skipped (missing/invalid lat or lng): ' + (inc.id || inc.entityId)); return;
+    }
+    let id = inc.id;
+    if(!id){
+      const seq = inc.seq != null ? inc.seq : (db.locations.filter(l => l.entityId === inc.entityId).length + 1);
+      id = inc.entityId + '-loc' + seq;
+    }
+    const entityFound = !!getEntry(inc.entityId);
+    const flag = entityFound ? '' : ' [entityId not found among entries — check for a typo]';
+    const ex = getLocation(id);
+    if(ex){
+      Object.keys(inc).forEach(k => { if(k !== 'id' && k !== 'op' && k !== 'updatedAt') ex[k] = inc[k]; });
+      ex.updatedAt = new Date().toISOString();
+      updated++; notes.push('Updated location: ' + id + flag);
+    } else {
+      const fresh = {
+        id: id, entityId: String(inc.entityId),
+        seq: inc.seq != null ? parseInt(inc.seq, 10) : (db.locations.filter(l => l.entityId === inc.entityId).length + 1),
+        date: inc.date || '', eventDesc: inc.eventDesc || '', detail: inc.detail || '',
+        locationName: inc.locationName || '', lat: Number(inc.lat), lng: Number(inc.lng),
+        updatedAt: new Date().toISOString()
+      };
+      db.locations.push(fresh);
+      added++; notes.push('Added location: ' + id + flag);
+    }
+  });
+  return {added: added, updated: updated, skipped: skipped, notes: notes};
+}
+// ---- Documents table: prayers and other written works (encyclicals, conciliar documents,
+// spiritual classics), each linked OPTIONALLY to a single entry via entityId — some documents
+// (a general prayer, say) belong to no particular entry. `type` is "prayer" (short — fullText
+// stored inline) or "work" (pageCount + a brief sample + source/purchase links, no full text).
+// Same add/update/delete-by-id merge pattern as entries and locations. No documents viewer or
+// favoriting exists yet; this is just the storage + Manage import/export plumbing.
+function docSlug(title){
+  return 'doc-' + String(title).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60);
+}
+function deleteDocuments(ids){
+  let deleted = 0, missing = 0;
+  const notes = [];
+  ids.forEach(id => {
+    const ex = getDocument(id);
+    if(!ex){ missing++; notes.push('Not found (nothing deleted): ' + id); return; }
+    db.documents = db.documents.filter(x => x.id !== id);
+    deleted++; notes.push('Deleted document: ' + id);
+  });
+  return {deleted: deleted, missing: missing, notes: notes};
+}
+// Required: title (a document with no title is useless) — everything else degrades gracefully.
+// type defaults to "work" (with a note) if missing or not "prayer"/"work". entityId is optional
+// by design. id is generated as {entityId}-doc{seq} when entityId is present, or a slug of the
+// title (de-duplicated) when it isn't. A prayer stored with no fullText yet is still added/updated
+// (not skipped) but flagged in the notes, since the record may be filled in next.
+function mergeDocuments(list){
+  let added = 0, updated = 0, skipped = 0;
+  const notes = [];
+  list.forEach(inc => {
+    if(!inc || typeof inc !== 'object'){ skipped++; return; }
+    if(!inc.title){ skipped++; notes.push('Skipped (no title): ' + (inc.id || JSON.stringify(inc).slice(0,60))); return; }
+    let type = inc.type, typeNote = '';
+    if(type !== 'prayer' && type !== 'work'){ type = 'work'; typeNote = ' [type missing/invalid — defaulted to "work"]'; }
+    let id = inc.id;
+    if(!id){
+      if(inc.entityId){
+        const seq = db.documents.filter(d => d.entityId === inc.entityId).length + 1;
+        id = inc.entityId + '-doc' + seq;
+      } else {
+        const base = docSlug(inc.title);
+        let candidate = base, n = 2;
+        while(getDocument(candidate)){ candidate = base + '-' + n; n++; }
+        id = candidate;
+      }
+    }
+    const entityFlag = (inc.entityId && !getEntry(inc.entityId)) ? ' [entityId not found among entries — check for a typo]' : '';
+    const ex = getDocument(id);
+    if(ex){
+      Object.keys(inc).forEach(k => { if(k !== 'id' && k !== 'op' && k !== 'updatedAt') ex[k] = inc[k]; });
+      ex.type = type;
+      ex.updatedAt = new Date().toISOString();
+      const thinFlag = (ex.type === 'prayer' && !ex.fullText) ? ' [prayer has no fullText yet]' : '';
+      updated++; notes.push('Updated document: ' + id + typeNote + entityFlag + thinFlag);
+    } else {
+      const fresh = {
+        id: id, entityId: inc.entityId || '', type: type,
+        title: String(inc.title), author: inc.author || '',
+        difficulty: inc.difficulty != null ? parseInt(inc.difficulty, 10) : null,
+        genre: inc.genre || '', dateWritten: inc.dateWritten || '', links: inc.links || [],
+        updatedAt: new Date().toISOString()
+      };
+      if(type === 'prayer'){
+        fresh.fullText = inc.fullText || '';
+        fresh.occasion = inc.occasion || '';
+      } else {
+        fresh.pageCount = inc.pageCount != null ? parseInt(inc.pageCount, 10) : null;
+        fresh.sample = inc.sample || '';
+      }
+      db.documents.push(fresh);
+      const thinFlag = (type === 'prayer' && !fresh.fullText) ? ' [prayer has no fullText yet]' : '';
+      added++; notes.push('Added document: ' + id + typeNote + entityFlag + thinFlag);
     }
   });
   return {added: added, updated: updated, skipped: skipped, notes: notes};
@@ -5043,7 +5241,60 @@ function showInlineStatus(elId, msg, isError){
   el.classList.add('show');
   el.classList.toggle('err', !!isError);
 }
-async function applyMerge(text, statusPrefix, localStatusElId){
+// ---- Unified classifier: one paste/import box handles entries, locations, AND documents,
+// sorted purely by shape — no separate box, no "which table is this" question for the person
+// pasting. Checked per item, so a single paste can even mix all three kinds in one bare array:
+//   - type is "prayer" or "work"          → a document (checked first: unambiguous, since
+//                                            neither entries nor locations ever use `type`)
+//   - otherwise, entityId is present      → a location (unchanged rule from before documents
+//                                            existed — locations always require entityId; a
+//                                            document's entityId is optional, so this still
+//                                            resolves correctly even though both tables can
+//                                            carry the field)
+//   - otherwise                           → an entry
+//
+// Deletions are the one thing shape can't disambiguate (a bare id string carries no clue which
+// table it names), so each table gets its own deletions key: "deletions" for entries (unchanged
+// from before locations/documents existed), "locationDeletions" for locations, "documentDeletions"
+// for documents. An inline {"id":"...","op":"delete"} item is still routed by the same rule above.
+function classifyIncoming(parsed){
+  const entryList = [], entryDeletions = [], locList = [], locDeletions = [], docList = [], docDeletions = [];
+  function addDeletion(d, target){
+    if(typeof d === 'string') target.push(d);
+    else if(d && typeof d === 'object' && d.id) target.push(d.id);
+  }
+  function routeItem(item){
+    if(!item || typeof item !== 'object') return;
+    const isDoc = item.type === 'prayer' || item.type === 'work';
+    const isLoc = !isDoc && item.entityId != null;
+    if(item.op === 'delete' && item.id){
+      if(isDoc) docDeletions.push(item.id);
+      else if(isLoc) locDeletions.push(item.id);
+      else entryDeletions.push(item.id);
+      return;
+    }
+    if(isDoc) docList.push(item);
+    else if(isLoc) locList.push(item);
+    else entryList.push(item);
+  }
+  if(Array.isArray(parsed)){
+    parsed.forEach(routeItem);
+    return {entryList, entryDeletions, locList, locDeletions, docList, docDeletions, matched: true};
+  }
+  if(parsed && typeof parsed === 'object'){
+    let matched = false;
+    if(Array.isArray(parsed.deletions)){ parsed.deletions.forEach(d => addDeletion(d, entryDeletions)); matched = true; }
+    if(Array.isArray(parsed.locationDeletions)){ parsed.locationDeletions.forEach(d => addDeletion(d, locDeletions)); matched = true; }
+    if(Array.isArray(parsed.documentDeletions)){ parsed.documentDeletions.forEach(d => addDeletion(d, docDeletions)); matched = true; }
+    if(Array.isArray(parsed.entries)){ parsed.entries.forEach(routeItem); matched = true; }
+    if(Array.isArray(parsed.locations)){ parsed.locations.forEach(routeItem); matched = true; }
+    if(Array.isArray(parsed.documents)){ parsed.documents.forEach(routeItem); matched = true; }
+    if(!matched && (parsed.n != null || parsed.id || parsed.entityId != null || parsed.type === 'prayer' || parsed.type === 'work')){ routeItem(parsed); matched = true; }
+    if(matched) return {entryList, entryDeletions, locList, locDeletions, docList, docDeletions, matched: true};
+  }
+  return {matched: false};
+}
+async function applyUnifiedMerge(text, statusPrefix, localStatusElId){
   let parsed;
   try{ parsed = JSON.parse(text); }
   catch(e){
@@ -5051,30 +5302,46 @@ async function applyMerge(text, statusPrefix, localStatusElId){
     if(localStatusElId) showInlineStatus(localStatusElId, 'Not valid JSON — check for missing brackets or commas', true);
     return false;
   }
-  const norm = normalizeIncoming(parsed);
-  if(!norm){
-    const msg = 'JSON must be an entry, an array of entries, {"entries":[...]}, or {"deletions":["id",…]}';
+  const c = classifyIncoming(parsed);
+  if(!c.matched){
+    const msg = 'JSON must contain entries, locations, and/or documents — as {"entries":[...]}, {"locations":[...]}, {"documents":[...]}, a bare array or single object, or a deletions key ("deletions" / "locationDeletions" / "documentDeletions")';
     setStatus(msg);
     if(localStatusElId) showInlineStatus(localStatusElId, msg, true);
     return false;
   }
-  // Entries flagged op:"delete" are pulled out and handled with the deletions list.
-  const inlineDeletes = norm.list.filter(x => x && typeof x === 'object' && x.op === 'delete' && x.id).map(x => x.id);
-  const list = norm.list.filter(x => !(x && typeof x === 'object' && x.op === 'delete'));
-  const allDeletes = norm.deletions.concat(inlineDeletes);
-  const d = allDeletes.length ? deleteEntries(allDeletes) : {deleted: 0, missing: 0, notes: []};
-  const r = mergeEntries(list);
+  const dEntries = c.entryDeletions.length ? deleteEntries(c.entryDeletions) : {deleted: 0, missing: 0, notes: []};
+  const rEntries = mergeEntries(c.entryList);
+  const dLocs = c.locDeletions.length ? deleteLocations(c.locDeletions) : {deleted: 0, missing: 0, notes: []};
+  const rLocs = mergeLocations(c.locList);
+  const dDocs = c.docDeletions.length ? deleteDocuments(c.docDeletions) : {deleted: 0, missing: 0, notes: []};
+  const rDocs = mergeDocuments(c.docList);
   await saveDb();
   renderMList();
   render();
-  const summary = statusPrefix + ': ' + r.added + ' added, ' + r.updated + ' updated'
-    + (d.deleted ? ', ' + d.deleted + ' deleted' : '')
-    + (r.skipped ? ', ' + r.skipped + ' skipped' : '')
-    + (d.missing ? ', ' + d.missing + ' delete id(s) not found' : '');
-  r.notes = d.notes.concat(r.notes);
+  const parts = [];
+  if(rEntries.added || rEntries.updated || rEntries.skipped || dEntries.deleted || dEntries.missing){
+    parts.push('entries: ' + rEntries.added + ' added, ' + rEntries.updated + ' updated'
+      + (dEntries.deleted ? ', ' + dEntries.deleted + ' deleted' : '')
+      + (rEntries.skipped ? ', ' + rEntries.skipped + ' skipped' : '')
+      + (dEntries.missing ? ', ' + dEntries.missing + ' delete id(s) not found' : ''));
+  }
+  if(rLocs.added || rLocs.updated || rLocs.skipped || dLocs.deleted || dLocs.missing){
+    parts.push('locations: ' + rLocs.added + ' added, ' + rLocs.updated + ' updated'
+      + (dLocs.deleted ? ', ' + dLocs.deleted + ' deleted' : '')
+      + (rLocs.skipped ? ', ' + rLocs.skipped + ' skipped' : '')
+      + (dLocs.missing ? ', ' + dLocs.missing + ' delete id(s) not found' : ''));
+  }
+  if(rDocs.added || rDocs.updated || rDocs.skipped || dDocs.deleted || dDocs.missing){
+    parts.push('documents: ' + rDocs.added + ' added, ' + rDocs.updated + ' updated'
+      + (dDocs.deleted ? ', ' + dDocs.deleted + ' deleted' : '')
+      + (rDocs.skipped ? ', ' + rDocs.skipped + ' skipped' : '')
+      + (dDocs.missing ? ', ' + dDocs.missing + ' delete id(s) not found' : ''));
+  }
+  const summary = parts.length ? statusPrefix + ' — ' + parts.join(' · ') : statusPrefix + ': nothing recognized to add, update, or delete';
+  const allNotes = dEntries.notes.concat(rEntries.notes, dLocs.notes, rLocs.notes, dDocs.notes, rDocs.notes);
   setStatus(summary);
   if(localStatusElId){
-    const detail = r.notes && r.notes.length ? '<br>' + r.notes.map(esc).join('<br>') : '';
+    const detail = allNotes.length ? '<br>' + allNotes.map(esc).join('<br>') : '';
     document.getElementById(localStatusElId).innerHTML = summary + detail;
     document.getElementById(localStatusElId).classList.add('show');
     document.getElementById(localStatusElId).classList.remove('err');
@@ -5087,7 +5354,7 @@ document.getElementById('mImportFile').addEventListener('change', (ev) => {
   const f = ev.target.files[0];
   if(!f) return;
   const r = new FileReader();
-  r.onload = () => applyMerge(r.result, 'Import', 'mImportFileStatus');
+  r.onload = () => applyUnifiedMerge(r.result, 'Import', 'mImportFileStatus');
   r.readAsText(f);
   ev.target.value = '';
 });
@@ -5095,7 +5362,7 @@ document.getElementById('mImportFile').addEventListener('change', (ev) => {
 document.getElementById('pasteApply').addEventListener('click', async () => {
   const text = document.getElementById('pasteJson').value.trim();
   if(!text){ setStatus('Paste JSON first'); showInlineStatus('pasteJsonStatus', 'Paste JSON first', true); return; }
-  const ok = await applyMerge(text, 'Applied', 'pasteJsonStatus');
+  const ok = await applyUnifiedMerge(text, 'Applied', 'pasteJsonStatus');
   if(ok) document.getElementById('pasteJson').value = '';
 });
 document.getElementById('pasteClear').addEventListener('click', () => {
@@ -5177,6 +5444,8 @@ document.getElementById('mRestoreFile').addEventListener('change', (ev) => {
       const parsed = JSON.parse(r.result);
       if(!parsed.entries || !Array.isArray(parsed.entries)) throw new Error('bad format');
       db = parsed;
+      db.locations = db.locations || [];
+      db.documents = db.documents || [];
       await saveDb();
       renderMList();
       render();
