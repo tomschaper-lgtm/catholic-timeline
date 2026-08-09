@@ -1,4 +1,11 @@
 <!--
+VERSION: 119
+DATE: 2026-08-09T10:20:00-05:00
+CHANGES:
+- heroLogo shrunk to fit entirely within the header (56×74px, was 122×160px) — it was spilling past the header into the era-band row and crowding the "Age of Martyrs" label on a live screenshot. No new cropping of the source image; this is a pure CSS resize.
+- heroLogo's fade behavior reworked per owner feedback: it no longer fades just because a peek card or full article is open. It now only fades while the article's flying photo is actually moving through #heroLogo's own top-right corner — the scroll-driven shrink into the corner badge, and the collapse-to-peek flight (not the expand-away-from-the-corner flight, which is leaving that spot, not crossing it). A short idle debounce (220ms) brings it back once the photo has settled rather than the instant a single animation frame ends.
+-->
+<!--
 VERSION: 118
 DATE: 2026-08-09T09:54:00-05:00
 CHANGES:
@@ -670,15 +677,15 @@ CHANGES:
      Faded out via body.artOpen, the same convention the old (removed) monstrance graphic used,
      so it never competes with an open card or article for attention. */
   #heroLogo{
-    position:fixed; top:-8px; right:44px;
-    width:122px; height:160px; object-fit:cover; object-position:top;
+    position:fixed; top:6px; right:44px;
+    width:56px; height:74px; object-fit:cover; object-position:top;
     pointer-events:none; z-index:90;
     -webkit-mask-image:radial-gradient(ellipse 68% 80% at 50% 22%, black 52%, transparent 100%);
     mask-image:radial-gradient(ellipse 68% 80% at 50% 22%, black 52%, transparent 100%);
     opacity:.92; transition:opacity .3s ease;
   }
-  body.artOpen #heroLogo{opacity:0;}
-  @media (max-width:380px){ #heroLogo{width:102px; height:135px; right:34px;} }
+  body.heroFlying #heroLogo{opacity:0;}
+  @media (max-width:380px){ #heroLogo{width:46px; height:61px; right:38px;} }
   .searchClear{
     position:absolute; right:6px; top:50%; transform:translateY(-50%); z-index:2;
     display:none; width:24px; height:24px; align-items:center; justify-content:center;
@@ -2134,7 +2141,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v118';
+const APP_VERSION = 'v119';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3752,9 +3759,14 @@ function runFlyMorph(target, onDone){
   fly.style.transform = 'none';
   fly.style.pointerEvents = 'none';
   const t0 = performance.now();
+  // Only the shrink-toward-the-corner direction (collapseArticle, and the tail end of a
+  // scroll-driven settle) actually crosses #heroLogo's spot — the grow-away-from-the-corner
+  // direction (expandArticle) is leaving that area, so there's nothing to hide it from.
+  const shrinking = !!(first && from.width && first.width <= from.width);
   const step = (now) => {
     const raw = Math.min(1, (now - t0) / MORPH_MS);
     const t = morphEase(raw);
+    if(shrinking) heroLogoFlying();
     const to = target() || first;
     const curW = from.width  + (to.width  - from.width)  * t;
     const curH = from.height + (to.height - from.height) * t;
@@ -4119,6 +4131,18 @@ let flyGeo = null;
 let flyRAF = null;
 let flySuspended = false;   // true while a left/right slide is in flight
 
+// Hides the header hero graphic (#heroLogo) only while the article's flying photo is
+// actively moving through the same top-right corner it occupies — not for the whole time a
+// card or article is open (peek cards never reach that corner at all). Called repeatedly
+// while the photo is in motion (every morph frame while shrinking, every scroll tick while
+// the badge tracks scroll position); each call re-arms a short idle timer, so the graphic
+// only fades back in once the photo has actually settled, not the instant a single call ends.
+let heroLogoIdleTimer = null;
+function heroLogoFlying(){
+  document.body.classList.add('heroFlying');
+  clearTimeout(heroLogoIdleTimer);
+  heroLogoIdleTimer = setTimeout(() => document.body.classList.remove('heroFlying'), 220);
+}
 function measureFly(){
   const artEl = document.getElementById('article');
   const fly = document.getElementById('flyPortrait');
@@ -4243,6 +4267,11 @@ function updateFly(){
   if(taper) taper.style.opacity = String(t);
 }
 function queueFly(){
+  // The scroll-driven flight has no discrete start/end of its own — it's a direct function of
+  // scroll position — so it re-arms the same idle debounce on every tick instead. Only
+  // relevant once the full (non-peek) article is open; peek's own corner badge never reaches
+  // #heroLogo's spot.
+  if(article.classList.contains('open') && !article.classList.contains('peek')) heroLogoFlying();
   if(flyRAF) return;
   // One rAF for both scroll-driven jobs: the flying photo and the scrubber's backdrop, which
   // has to be re-sampled as the strip travels down the card toward its sticky position.
