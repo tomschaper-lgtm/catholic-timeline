@@ -1,4 +1,10 @@
 <!--
+VERSION: 113
+DATE: 2026-08-08T23:15:00-05:00
+CHANGES:
+- Redesigned the Logs tab to mimic the app's own Settings sheet rather than the rest of the Content Manager's serif/gold theme: sans-serif system font throughout, larger text, and flat full-height rows in place of the small boxed card. Change lists are now numbered (1, 2, 3…) instead of bulleted. The panel now cancels the surrounding padding so it runs edge-to-edge and fills the remaining screen height.
+-->
+<!--
 VERSION: 112
 DATE: 2026-08-08T22:50:00-05:00
 CHANGES:
@@ -1132,6 +1138,52 @@ CHANGES:
   .mHelp summary:hover::before{border-color:var(--m-accent); color:var(--m-accent);}
   .mHelp[open] summary{color:var(--m-accent); margin-bottom:4px;}
   .mHelp .hint{margin-top:0;}
+
+  /* ===== Logs tab: deliberately breaks from the rest of the Content Manager's serif/gold
+     theme to mimic the app's own Settings sheet — sans-serif, larger type, flat full-bleed
+     rows instead of a boxed card, so it reads as a plain, easy-to-scan list. ===== */
+  .logPanel{
+    margin:0 -20px -70px; /* cancel .mgmtBody's padding so this panel runs edge-to-edge and
+      fills the full remaining height instead of sitting in a padded, boxed-in card */
+    min-height:calc(100vh - 150px);
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  }
+  .logSearchRow{
+    display:flex; gap:10px; align-items:center; padding:14px 20px; background:#fff;
+    border-bottom:1px solid #E9EAEE;
+  }
+  .logSearchRow input{
+    flex:1 1 auto; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:17px;
+    color:#111827; background:#F5F4EE; border:1px solid #E9EAEE; border-radius:10px;
+    padding:11px 14px;
+  }
+  .logSearchRow input:focus{outline:none; border-color:var(--m-accent);}
+  .logSearchRow button{
+    flex:0 0 auto; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:15px;
+    font-weight:600; color:#fff; background:var(--m-ink); border:none; border-radius:10px;
+    padding:11px 18px; cursor:pointer;
+  }
+  .logCount{
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:14px; color:#7C8598;
+    padding:10px 20px 0;
+  }
+  #logList{padding-bottom:20px;}
+  .logEntry{padding:16px 20px; border-top:1px solid #E9EAEE; background:#fff;}
+  .logEntry .logVer{
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:19px; font-weight:700;
+    color:#111827; letter-spacing:-.01em;
+  }
+  .logEntry .logDate{
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:14px; color:#9AA1B0;
+    margin-left:8px;
+  }
+  .logEntry ol{
+    margin:10px 0 0; padding:0 0 0 22px; font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:16px; line-height:1.5; color:#2B2F3A;
+  }
+  .logEntry ol li{margin-bottom:6px;}
+  .logHelp{padding:14px 20px 4px;}
+  .logHelp summary{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;}
   #manage .artwrap{max-width:900px;}
   #versionStamp{
     font-family:'EB Garamond', Georgia, serif; font-size:11px; font-weight:400;
@@ -1745,19 +1797,16 @@ CHANGES:
     </div>
 
     <!-- ===== TAB: Logs (changelog.json, fetched privately via the GitHub API) ===== -->
-    <div class="mgmtPanel" id="panel-logs">
-      <div class="mbox">
-        <h3>Version Log</h3>
-        <div class="mgmtEntriesTop">
-          <input type="text" id="logSearch" placeholder="Search version, date, or change text…">
-          <button class="mbtn" id="logRefresh">Refresh</button>
-        </div>
-        <div class="mgmtFilterCount" id="logCount"></div>
-        <div class="mlist" id="logList"></div>
-        <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">Every build's header comment (VERSION / DATE / CHANGES) is logged automatically to <code>changelog.json</code> by a GitHub Action when you push a new <code>index.html</code> to <code>main</code>. This tab reads that file straight from GitHub using the same access token as Publish above — <code>changelog.json</code> itself is excluded from the public site via <code>.assetsignore</code>, so this log is only visible to you, here.</div>
-        </details>
+    <div class="mgmtPanel logPanel" id="panel-logs">
+      <div class="logSearchRow">
+        <input type="text" id="logSearch" placeholder="Search version, date, or change text…">
+        <button id="logRefresh">Refresh</button>
       </div>
+      <div class="logCount" id="logCount"></div>
+      <div id="logList"></div>
+      <details class="mHelp logHelp"><summary>What this does</summary>
+        <div class="hint">Every build's header comment (VERSION / DATE / CHANGES) is logged automatically to <code>changelog.json</code> by a GitHub Action when you push a new <code>index.html</code> to <code>main</code>. This tab reads that file straight from GitHub using the same access token as Publish above — <code>changelog.json</code> itself is excluded from the public site via <code>.assetsignore</code>, so this log is only visible to you, here.</div>
+      </details>
     </div>
 
   </div>
@@ -1998,7 +2047,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v112';
+const APP_VERSION = 'v113';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3128,11 +3177,11 @@ function renderLogList(){
     : '';
   list.innerHTML = filtered.map(e => {
     const changes = (e.changes || []).map(c => '<li>' + esc(c) + '</li>').join('');
-    return '<div class="mitem" style="cursor:default;">' +
-      '<div><span class="my">v' + esc(e.version || '?') + '</span> &nbsp; <span class="mt">' + esc(e.date || '') + '</span></div>' +
-      (changes ? '<ul style="margin:6px 0 0 18px; padding:0; font-size:13px; color:var(--m-ink);">' + changes + '</ul>' : '') +
+    return '<div class="logEntry">' +
+      '<span class="logVer">v' + esc(e.version || '?') + '</span><span class="logDate">' + esc(e.date || '') + '</span>' +
+      (changes ? '<ol>' + changes + '</ol>' : '') +
       '</div>';
-  }).join('') || '<div class="hint" style="margin:8px 0 0;">' + (logEntries.length ? 'No entries match that search.' : '') + '</div>';
+  }).join('') || '<div class="hint" style="margin:14px 20px 0;">' + (logEntries.length ? 'No entries match that search.' : '') + '</div>';
 }
 document.getElementById('logRefresh').addEventListener('click', loadChangelog);
 document.getElementById('logSearch').addEventListener('input', renderLogList);
