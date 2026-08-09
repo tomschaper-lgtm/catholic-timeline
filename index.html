@@ -1,4 +1,12 @@
 <!--
+VERSION: 121
+DATE: 2026-08-09T11:05:00-05:00
+CHANGES:
+- heroLogo nudged right (right:30px, was 46px) — it was overlapping the "v120" version stamp next to the title on a live screenshot.
+- heroLogo's fade reworked again: it's now driven directly by how close the article's flying photo actually is to heroLogo's own corner — 0 while it's elsewhere (peek, top of a freshly-opened article, closed), fading toward fully hidden only as the scroll-driven corner badge settles into that exact spot, and back the moment it leaves (article closes, collapses to peek, or the reader scrolls back up). The previous version faded it for a fixed ~220ms window and then always brought it back regardless of whether the badge was still sitting there — this fixes that: as long as the badge occupies the corner, the graphic now stays faded, with no timer to time out.
+- The fade transition slowed from .3s to 1.2s so it reads as a gradual dissolve rather than a noticeable pop, in both directions.
+-->
+<!--
 VERSION: 120
 DATE: 2026-08-09T10:45:00-05:00
 CHANGES:
@@ -681,18 +689,20 @@ CHANGES:
      or timeline pins beneath/around it. A soft mask fades its bottom and side edges rather
      than showing a hard rectangle — the source image's own dark navy is already close to the
      page's --navy-deep, so the fade reads as the graphic settling into the page, not a sticker.
-     Faded out via body.artOpen, the same convention the old (removed) monstrance graphic used,
-     so it never competes with an open card or article for attention. */
+     Opacity is driven directly from JS (see setHeroLogoFade), not a class toggle: it tracks
+     how close the article's flying photo currently is to this exact corner — scroll position
+     while a full article is open, mainly — rather than fading for the whole time any card is
+     open. A slow transition on top of that smooths every change, scroll-driven or not, into
+     a gradual fade rather than a noticeable pop. */
   #heroLogo{
-    position:fixed; top:-2px; right:46px;
+    position:fixed; top:-2px; right:30px;
     width:150px; height:130px; object-fit:cover; object-position:top;
     pointer-events:none; z-index:90;
     -webkit-mask-image:radial-gradient(ellipse 68% 80% at 50% 22%, black 52%, transparent 100%);
     mask-image:radial-gradient(ellipse 68% 80% at 50% 22%, black 52%, transparent 100%);
-    opacity:.92; transition:opacity .3s ease;
+    opacity:.92; transition:opacity 1.2s ease;
   }
-  body.heroFlying #heroLogo{opacity:0;}
-  @media (max-width:380px){ #heroLogo{width:112px; height:97px; right:36px;} }
+  @media (max-width:380px){ #heroLogo{width:112px; height:97px; right:22px;} }
   .searchClear{
     position:absolute; right:6px; top:50%; transform:translateY(-50%); z-index:2;
     display:none; width:24px; height:24px; align-items:center; justify-content:center;
@@ -2148,7 +2158,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v120';
+const APP_VERSION = 'v121';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3684,6 +3694,7 @@ function openArticle(d, opts){
   article.classList.add('open');
   document.body.classList.add('artOpen');
   article.scrollTop = 0;
+  setHeroLogoFade(0); // every fresh open starts at scroll 0 — nowhere near the corner badge
   fillArticleBody(d, !!opts.peek);
   document.getElementById('peekFade').classList.toggle('show', !!opts.peek);
   prefetchImage(categoryNeighbor(d, -1));
@@ -3766,14 +3777,9 @@ function runFlyMorph(target, onDone){
   fly.style.transform = 'none';
   fly.style.pointerEvents = 'none';
   const t0 = performance.now();
-  // Only the shrink-toward-the-corner direction (collapseArticle, and the tail end of a
-  // scroll-driven settle) actually crosses #heroLogo's spot — the grow-away-from-the-corner
-  // direction (expandArticle) is leaving that area, so there's nothing to hide it from.
-  const shrinking = !!(first && from.width && first.width <= from.width);
   const step = (now) => {
     const raw = Math.min(1, (now - t0) / MORPH_MS);
     const t = morphEase(raw);
-    if(shrinking) heroLogoFlying();
     const to = target() || first;
     const curW = from.width  + (to.width  - from.width)  * t;
     const curH = from.height + (to.height - from.height) * t;
@@ -3937,6 +3943,7 @@ function collapseArticle(){
     runFlyMorph(() => destination, () => {
       if(!article.classList.contains('peek')) return; // expanded again mid-flight
       placePeekFlyNow();
+      setHeroLogoFade(0); // badge now rests at the peek card's own corner, not heroLogo's
     });
   }
   const done = () => {
@@ -3974,6 +3981,7 @@ function closeArticle(opts){
   clearUrlEntry();
   const fly = document.getElementById('flyPortrait');
   if(fly) fly.classList.remove('on');
+  setHeroLogoFade(0);
 }
 // Swipe navigation between stories: the outgoing content is cloned and slid fully
 // off-screen while the new content (already live underneath, for correct height/
@@ -4138,17 +4146,16 @@ let flyGeo = null;
 let flyRAF = null;
 let flySuspended = false;   // true while a left/right slide is in flight
 
-// Hides the header hero graphic (#heroLogo) only while the article's flying photo is
-// actively moving through the same top-right corner it occupies — not for the whole time a
-// card or article is open (peek cards never reach that corner at all). Called repeatedly
-// while the photo is in motion (every morph frame while shrinking, every scroll tick while
-// the badge tracks scroll position); each call re-arms a short idle timer, so the graphic
-// only fades back in once the photo has actually settled, not the instant a single call ends.
-let heroLogoIdleTimer = null;
-function heroLogoFlying(){
-  document.body.classList.add('heroFlying');
-  clearTimeout(heroLogoIdleTimer);
-  heroLogoIdleTimer = setTimeout(() => document.body.classList.remove('heroFlying'), 220);
+// Fades #heroLogo based on how much of the article's flying photo currently overlaps its
+// exact corner — 0 = fully visible (photo is elsewhere: peek, top of a full article, closed),
+// 1 = fully hidden (photo is docked in the scroll-settled corner badge). Only the continuous
+// scroll-driven badge (updateFly, below) actually lands in #heroLogo's spot — the discrete
+// expand/collapse flights land at the full hero slot or the peek card's own corner instead,
+// neither of which is this corner, so they don't drive this. The CSS transition on #heroLogo
+// (see its rule) turns every call here into a slow fade rather than a snap, scroll-driven or not.
+function setHeroLogoFade(amount){
+  const el = document.getElementById('heroLogo');
+  if(el) el.style.opacity = String(0.92 * (1 - amount));
 }
 function measureFly(){
   const artEl = document.getElementById('article');
@@ -4230,17 +4237,19 @@ function updateFly(){
   // null — without this guard the very next scroll/rAF tick would hit the !flyGeo branch
   // below and pull the portrait straight back off the screen.
   const peekingNow = document.getElementById('article').classList.contains('peek');
-  if(peekingNow) return;
+  if(peekingNow){ setHeroLogoFade(0); return; }
   if(!flyGeo){
     fly.classList.remove('on');
     // No photo on this entry, so there is no flight to gate the taper rule on.
     if(taper) taper.style.opacity = document.getElementById('artHeroImg') ? '0' : '1';
+    setHeroLogoFade(0);
     return;
   }
   const artEl = document.getElementById('article');
   const s = Math.max(0, artEl.scrollTop);
   const raw = Math.min(1, Math.max(0, (s - FLY_DELAY) / flyGeo.dist));
   const t = raw * raw * (3 - 2 * raw); // smoothstep, so it eases in and out of the corner
+  setHeroLogoFade(t); // fully at rest in the corner (t=1) is fully hidden; away from it, visible
   // Where the photo would be if it had simply scrolled with the page. Once the flight is
   // under way the scroll term is damped, otherwise the photo races past the corner and has
   // to drop back down into it; damped, it moves 1:1 with the text at first and then eases
@@ -4274,11 +4283,6 @@ function updateFly(){
   if(taper) taper.style.opacity = String(t);
 }
 function queueFly(){
-  // The scroll-driven flight has no discrete start/end of its own — it's a direct function of
-  // scroll position — so it re-arms the same idle debounce on every tick instead. Only
-  // relevant once the full (non-peek) article is open; peek's own corner badge never reaches
-  // #heroLogo's spot.
-  if(article.classList.contains('open') && !article.classList.contains('peek')) heroLogoFlying();
   if(flyRAF) return;
   // One rAF for both scroll-driven jobs: the flying photo and the scrubber's backdrop, which
   // has to be re-sampled as the strip travels down the card toward its sticky position.
