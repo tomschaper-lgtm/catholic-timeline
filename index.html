@@ -1,4 +1,14 @@
 <!--
+VERSION: 122
+DATE: 2026-08-09T11:40:00-05:00
+CHANGES:
+- Era band (the "Apostolic Age" / "Age of Martyrs" row) redone as one continuous gold
+  surface — a top-to-bottom highlight/shadow gradient that looks like a single curved
+  gold bar running the whole width, rather than each era being its own alternating gold
+  tint. Text is now bold dark navy for contrast. A dark divider line (not a color change)
+  now marks where one era ends and the next begins.
+-->
+<!--
 VERSION: 121
 DATE: 2026-08-09T11:05:00-05:00
 CHANGES:
@@ -611,15 +621,20 @@ CHANGES:
   .canvas{position:relative; min-height:100%;}
   .viewport.dragging{cursor:grabbing; user-select:none;}
   .viewport.dragging .ev{pointer-events:none;}
+  /* Era band: one continuous gold "surface" (a vertical highlight-to-shadow gradient
+     that doesn't vary with horizontal position, so it reads as one seamless curved bar
+     no matter where the timeline is scrolled to) rather than each era being its own
+     tinted block. Only a dark divider line marks where one era ends and the next begins. */
   .era{
     position:absolute; top:0; height:30px;
     display:flex; align-items:center; justify-content:center;
-    font-family:'Cinzel',serif; font-size:10.5px; letter-spacing:.18em;
-    text-transform:uppercase; color:rgba(232,205,126,.85);
-    border-right:1px solid rgba(201,165,66,.25); overflow:hidden; white-space:nowrap;
+    font-family:'Cinzel',serif; font-weight:700; font-size:10.5px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--navy-deep); text-shadow:0 1px 0 rgba(255,255,255,.4);
+    background:linear-gradient(180deg, #F6E8BC 0%, #E8CD7E 16%, #C9A542 52%, #9C7B32 82%, #7A611F 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -3px 5px rgba(0,0,0,.35);
+    border-right:3px solid var(--navy-deep);
+    overflow:hidden; white-space:nowrap;
   }
-  .era:nth-child(odd){background:rgba(201,165,66,.07);}
-  .era:nth-child(even){background:rgba(201,165,66,.03);}
   .era span{position:sticky; left:8px; right:8px; padding:0 8px;}
   .axis{position:absolute; top:30px; height:28px; left:0; right:0; border-bottom:1px solid var(--gold); box-shadow:0 1px 0 rgba(232,205,126,.25);}
   .tick{position:absolute; bottom:0; height:8px; width:1px; background:var(--gold);}
@@ -2158,7 +2173,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v121';
+const APP_VERSION = 'v122';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
