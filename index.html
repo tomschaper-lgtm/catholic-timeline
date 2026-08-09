@@ -1,4 +1,12 @@
 <!--
+VERSION: 115
+DATE: 2026-08-09T00:10:00-05:00
+CHANGES:
+- Content Manager fully reskinned to match the app's own Settings sheet throughout, not just the Logs tab: sans-serif system font, larger text, and flat white rows on a light gray page background in place of the gold-tinted, Cinzel/EB Garamond serif card look used everywhere else in the CMS (Entries, Export, Import, Settings, the exit-confirmation dialog).
+- The tab menu moved from a scrolling row under the header to a fixed bottom tab bar — icon over label, five equal-width thumb-reachable targets, matching standard iOS tab-bar placement. The Content Manager top bar now holds only the title and Exit.
+- The public-facing timeline and article view are untouched — this redesign is scoped entirely to the owner-only Content Manager chrome.
+-->
+<!--
 VERSION: 114
 DATE: 2026-08-08T23:35:00-05:00
 CHANGES:
@@ -1116,8 +1124,8 @@ CHANGES:
 
   /* ===================== Content Manager: white theme + tabs ===================== */
   #manage{
-    --m-bg:#FFFFFF; --m-panel:#F1EFE6; --m-ink:#12141F; --m-sub:#4B5266;
-    --m-border:#B9B196; --m-accent:#6E5714; --m-accent-bright:#8A6D1C;
+    --m-bg:#F5F4EE; --m-row:#FFFFFF; --m-panel:#F1EFE6; --m-ink:#12141F; --m-sub:#4B5266; --m-sub2:#8A90A0;
+    --m-border:#E3E1D8; --m-accent:#6E5714; --m-accent-bright:#8A6D1C;
     --m-danger:#96291A; --m-danger-bg:#FDEDEA;
     background:var(--m-bg); color:var(--m-ink);
     overflow:hidden; /* the overlay itself no longer scrolls — see .mgmtScroll below */
@@ -1129,6 +1137,7 @@ CHANGES:
      value as tried before. */
   .mgmtScroll{
     height:100%; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;
+    padding-bottom:78px; /* clears the fixed bottom tab bar so the last row is never hidden */
   }
   /* Collapsed-by-default explanatory text. Same <details>/<summary> pattern already used for
      Publish to GitHub / Media Base Paths, applied to every plain hint paragraph so the CMS reads
@@ -1147,14 +1156,12 @@ CHANGES:
   .mHelp[open] summary{color:var(--m-accent); margin-bottom:4px;}
   .mHelp .hint{margin-top:0;}
 
-  /* ===== Logs tab: deliberately breaks from the rest of the Content Manager's serif/gold
-     theme to mimic the app's own Settings sheet — sans-serif, larger type, flat full-bleed
-     rows instead of a boxed card, so it reads as a plain, easy-to-scan list. ===== */
+  /* Logs tab runs full-bleed (no boxed card) since it's a scrolling list, same treatment
+     Entries uses. Everything else in the Content Manager now shares this same sans-serif,
+     flat-row Settings-sheet look. */
   .logPanel{
-    margin:0 -20px -70px; /* cancel .mgmtBody's padding so this panel runs edge-to-edge and
-      fills the full remaining height instead of sitting in a padded, boxed-in card */
-    min-height:calc(100vh - 150px);
-    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    margin:0 -16px -8px; /* cancel .mgmtBody's padding so this panel runs edge-to-edge */
+    min-height:calc(100vh - 220px);
   }
   .logSearchRow{
     display:flex; gap:10px; align-items:center; padding:14px 20px; background:#fff;
@@ -1201,81 +1208,92 @@ CHANGES:
     pointer-events:none; -webkit-user-select:none; user-select:none;
   }
   .mgmtHeaderSticky{
-    position:sticky; top:0; z-index:20; background:var(--m-bg);
+    position:sticky; top:0; z-index:20; background:var(--m-row); border-bottom:1px solid var(--m-border);
   }
   .mgmtTopBar{
     display:flex; align-items:center; justify-content:space-between;
-    gap:10px; padding:14px 66px 14px 20px; background:var(--m-bg); border-bottom:1px solid var(--m-border);
+    gap:10px; padding:16px 66px 16px 20px; background:var(--m-row);
   }
-  .mgmtTitle{font-family:'Cinzel',serif; font-weight:700; font-size:19px; letter-spacing:.04em; color:var(--m-ink);}
+  .mgmtTitle{font-size:21px; font-weight:700; letter-spacing:-.01em; color:var(--m-ink);}
   .mgmtExitBtn{
-    font-family:'Cinzel',serif; font-size:11.5px; letter-spacing:.07em; text-transform:uppercase;
-    background:var(--m-ink); color:#fff; border:none; border-radius:8px; padding:9px 22px; cursor:pointer;
-    flex:none;
+    font-size:15px; font-weight:600; background:var(--m-ink); color:#fff;
+    border:none; border-radius:10px; padding:9px 20px; cursor:pointer; flex:none;
   }
   .mgmtExitBtn:hover{background:#3a4266;}
-  .mgmtTabs{
-    display:flex; gap:2px; overflow-x:auto;
-    background:var(--m-panel); border-bottom:1px solid var(--m-border); padding:0 12px;
-  }
-  .mgmtTab{
-    flex:0 0 auto; font-family:'Cinzel',serif; font-size:12px; letter-spacing:.06em; text-transform:uppercase;
-    background:none; color:var(--m-sub); border:none; border-bottom:3px solid transparent;
-    padding:13px 14px 10px; cursor:pointer; white-space:nowrap;
-  }
-  .mgmtTab:hover{color:var(--m-ink);}
-  .mgmtTab.active{color:var(--m-accent); border-bottom-color:var(--m-accent);}
-  .mgmtBody{padding-top:18px;}
+  .mgmtBody{padding:16px 16px 8px;}
   .mgmtPanel{display:none;}
   .mgmtPanel.active{display:block;}
 
-  /* Re-skin the shared .mbox/.mbtn/.mfield components specifically inside #manage */
-  #manage .mbox{background:var(--m-panel); border:1px solid var(--m-border);}
-  #manage h3{font-family:'Cinzel',serif; font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--m-accent); margin-bottom:8px;}
-  #manage .mbtn{background:#fff; color:var(--m-accent); border:1px solid var(--m-border);}
-  #manage .mbtn:hover{background:var(--m-accent); color:#fff; border-color:var(--m-accent);}
-  #manage .mbtn.danger{color:var(--m-danger); border-color:#E3B7AC;}
-  #manage .mbtn.danger:hover{background:var(--m-danger); color:#fff;}
+  /* Fixed bottom tab bar — thumb-reachable, icon over label, matches iOS tab-bar conventions.
+     Sits as a sibling of .mgmtScroll (not inside it) so it never scrolls away. */
+  .mgmtTabBar{
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    display:flex; background:#fff; border-top:1px solid var(--m-border);
+    padding:6px 4px calc(4px + env(safe-area-inset-bottom));
+  }
+  .mgmtTab{
+    flex:1 1 0; display:flex; flex-direction:column; align-items:center; gap:3px;
+    background:none; border:none; color:var(--m-sub2); font-size:10.5px; font-weight:500;
+    padding:6px 2px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+  }
+  .mgmtTab svg{width:23px; height:23px;}
+  .mgmtTab.active{color:var(--m-accent);}
+
+  /* Re-skin the shared .mbox/.mbtn/.mfield components specifically inside #manage to match
+     the app's own Settings sheet: sans-serif, flat white rows, no gold-tinted card look. */
+  #manage, #manage input, #manage select, #manage textarea, #manage button{
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  }
+  #manage .mbox{background:var(--m-row); border:1px solid var(--m-border); border-radius:12px; padding:16px; margin-top:16px;}
+  #manage h3{font-size:13px; letter-spacing:.02em; text-transform:uppercase; font-weight:700; color:var(--m-sub); margin-bottom:10px;}
+  #manage .mbtn{
+    font-size:15px; font-weight:600; letter-spacing:normal; text-transform:none;
+    background:var(--m-bg); color:var(--m-ink); border:1px solid var(--m-border); border-radius:10px;
+    padding:10px 16px;
+  }
+  #manage .mbtn:hover{background:var(--m-border);}
+  #manage .mbtn.danger{color:var(--m-danger); background:var(--m-danger-bg); border-color:#F0C9C0;}
+  #manage .mbtn.danger:hover{background:#F8D9D2;}
+  #manage .mbtn.sm{padding:7px 12px; font-size:13px;}
   #manage .mstatus{color:var(--m-sub);}
   #manage .hint{
-    color:var(--m-sub); font-family:system-ui,-apple-system,sans-serif; font-style:normal;
-    font-size:12.5px; line-height:1.5; background:var(--m-panel); border:1px solid var(--m-border);
-    border-radius:6px; padding:8px 10px;
+    color:var(--m-sub); font-style:normal; font-size:13px; line-height:1.5;
+    background:var(--m-bg); border:1px solid var(--m-border); border-radius:8px; padding:10px 12px;
   }
-  #manage .mfield label{color:var(--m-sub);}
+  #manage .mfield label{color:var(--m-sub); font-size:13px; font-weight:600; letter-spacing:normal; text-transform:none; margin-bottom:5px;}
   #manage .mfield input[type=text], #manage .mfield input[type=number],
   #manage .mfield select, #manage .mfield textarea{
-    background:#fff; color:var(--m-ink); border:1px solid var(--m-border);
+    background:var(--m-bg); color:var(--m-ink); border:1px solid var(--m-border); font-size:16px; border-radius:10px; padding:10px 12px;
   }
   #manage .mfield input:focus, #manage .mfield select:focus, #manage .mfield textarea:focus{
-    outline:none; box-shadow:0 0 0 2px rgba(138,109,28,.25);
+    outline:none; border-color:var(--m-accent);
   }
-  #manage .mlist{border:1px solid var(--m-border); background:#fff;}
-  #manage .mitem{color:var(--m-ink); border-bottom:1px solid var(--m-border);}
-  #manage .mitem:hover{background:var(--m-panel);}
-  #manage .mitem.selected{background:#F1E8C8; border-left:4px solid var(--m-accent); padding-left:6px;}
-  #manage .mitem .my{color:var(--m-accent);}
-  #manage .mitem .mt{color:var(--m-sub);}
+  #manage .mlist{border:1px solid var(--m-border); border-radius:10px; background:var(--m-row);}
+  #manage .mitem{color:var(--m-ink); font-size:16px; border-bottom:1px solid var(--m-border); padding:12px 10px;}
+  #manage .mitem:hover{background:var(--m-bg);}
+  #manage .mitem.selected{background:#FBF3DC; border-left:4px solid var(--m-accent); padding-left:8px;}
+  #manage .mitem .my{color:var(--m-sub); font-weight:600; font-size:13px;}
+  #manage .mitem .mt{color:var(--m-sub2);}
   #manage .mlog{color:var(--m-ink);}
-  #manage .ghbox{background:var(--m-panel); border:1px solid var(--m-border);}
+  #manage .ghbox{background:var(--m-row); border:1px solid var(--m-border); border-radius:12px;}
   #manage .ghbox summary{color:var(--m-accent);}
   #manage .arttitle, #manage .artback{display:none;} /* replaced by mgmtTopBar */
 
   /* Filters tab: toggle chips + year range */
   .mgmtFilterRow{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
   .mfChip{
-    font-family:'Cinzel',serif; font-size:11.5px; letter-spacing:.03em;
-    background:#fff; color:var(--m-ink); border:1px solid var(--m-border); border-radius:16px;
+    font-size:13px; font-weight:500; letter-spacing:normal;
+    background:var(--m-row); color:var(--m-ink); border:1px solid var(--m-border); border-radius:16px;
     padding:6px 12px; cursor:pointer;
   }
   .mfChip:hover{border-color:var(--m-accent-bright);}
   .mfChip.on{background:var(--m-accent); color:#fff; border-color:var(--m-accent); font-weight:600;}
   .mgmtYearRow{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
   .mgmtYearRow .mfield{max-width:140px; margin-bottom:0;}
-  .mgmtFilterCount{font-size:12.5px; color:var(--m-sub); font-style:italic; margin:6px 0 10px;}
-  .mgmtRowLabel{font-family:'Cinzel',serif; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--m-sub); margin:0 0 6px;}
-  .mgmtYearInput{width:84px; background:#fff; color:var(--m-ink); border:1px solid var(--m-border); border-radius:6px; padding:7px 8px; font-family:'EB Garamond',serif; font-size:16px;}
-  #manage .mbtn.sm{padding:6px 10px; font-size:11px;}
+  .mgmtFilterCount{font-size:13px; color:var(--m-sub); font-style:normal; margin:6px 0 10px;}
+  .mgmtRowLabel{font-size:12px; letter-spacing:.03em; text-transform:uppercase; font-weight:700; color:var(--m-sub); margin:0 0 6px;}
+  .mgmtYearInput{width:84px; background:var(--m-row); color:var(--m-ink); border:1px solid var(--m-border); border-radius:8px; padding:8px; font-size:16px;}
+  #manage .mbtn.sm{padding:6px 10px; font-size:13px;}
 
   /* Export tab: per-field checkbox grid + stat summary box */
   .mExFieldsGrid{
@@ -1283,26 +1301,26 @@ CHANGES:
     gap:6px 10px; margin-bottom:10px;
   }
   .mExFieldChk{
-    display:flex; align-items:center; gap:6px; font-size:13.5px; color:var(--m-ink); cursor:pointer;
+    display:flex; align-items:center; gap:6px; font-size:14px; color:var(--m-ink); cursor:pointer;
   }
-  .mExFieldChk input{accent-color:var(--m-accent); width:15px; height:15px; cursor:pointer;}
+  .mExFieldChk input{accent-color:var(--m-accent); width:16px; height:16px; cursor:pointer;}
   .mExStatBox{
-    background:rgba(138,109,28,.08); border:1px solid var(--m-border); border-radius:8px;
-    padding:10px 12px; margin:8px 0 12px; font-size:13px; color:var(--m-ink); line-height:1.5;
+    background:var(--m-bg); border:1px solid var(--m-border); border-radius:10px;
+    padding:10px 12px; margin:8px 0 12px; font-size:14px; color:var(--m-ink); line-height:1.5;
   }
   .mExStatBox b{color:var(--m-accent);}
   /* Import tab: inline status feedback right at the point of action, not just the top bar */
   .mImportStatus{
-    font-size:13px; color:var(--m-ink); background:rgba(138,109,28,.08);
-    border:1px solid var(--m-border); border-radius:8px; padding:8px 10px; margin-top:8px;
+    font-size:14px; color:var(--m-ink); background:var(--m-bg);
+    border:1px solid var(--m-border); border-radius:10px; padding:9px 11px; margin-top:8px;
     display:none; line-height:1.45;
   }
   .mImportStatus.show{display:block;}
-  .mImportStatus.err{background:rgba(200,60,50,.08); border-color:#E3B7AC; color:var(--m-danger);}
+  .mImportStatus.err{background:var(--m-danger-bg); border-color:#F0C9C0; color:var(--m-danger);}
   .mgmtEntriesTop{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
   .mgmtEntriesTop input[type=text]{
-    flex:1 1 auto; background:#fff; color:var(--m-ink); border:1px solid var(--m-border);
-    border-radius:6px; padding:8px 10px; font-family:'EB Garamond',serif; font-size:16px;
+    flex:1 1 auto; background:var(--m-bg); color:var(--m-ink); border:1px solid var(--m-border);
+    border-radius:10px; padding:10px 12px; font-size:16px;
   }
   .mgmtEditorDivider{border-top:1px solid var(--m-border); margin:14px 0;}
 
@@ -1315,11 +1333,11 @@ CHANGES:
     background:#fff; border-radius:14px; max-width:380px; width:100%;
     padding:22px 22px 18px; box-shadow:0 20px 60px rgba(0,0,0,.35);
   }
-  .mgmtExitMsg{font-family:'Cinzel',serif; font-size:15px; color:var(--m-ink); margin-bottom:16px; letter-spacing:.02em;}
+  .mgmtExitMsg{font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:16px; color:var(--m-ink); margin-bottom:16px; letter-spacing:normal;}
   .mgmtExitBtns{display:flex; flex-direction:column; gap:9px;}
-  .mgmtExitBtns .mbtn{width:100%; text-align:center; padding:11px 12px; font-size:12.5px;}
+  .mgmtExitBtns .mbtn{width:100%; text-align:center; padding:11px 12px; font-size:14px;}
   @media (max-width:640px){
-    .mgmtTitle{font-size:16px;}
+    .mgmtTitle{font-size:17px;}
   }
 </style>
 </head>
@@ -1529,16 +1547,9 @@ CHANGES:
  <div class="mgmtScroll">
   <div class="mgmtHeaderSticky">
    <div class="mgmtTopBar">
-    <div class="mgmtTitle">Content Manager <span id="mgmtVersion" style="display:inline-block; font-family:'Cinzel',serif; font-weight:700; font-size:13px; letter-spacing:.06em; color:#6b5a1f; background:rgba(201,165,66,.22); border:1px solid rgba(201,165,66,.55); border-radius:10px; padding:2px 9px; vertical-align:middle; margin-left:8px;"></span></div>
+    <div class="mgmtTitle">Content Manager <span id="mgmtVersion" style="display:inline-block; font-weight:600; font-size:13px; letter-spacing:.02em; color:#6b5a1f; background:rgba(201,165,66,.22); border:1px solid rgba(201,165,66,.55); border-radius:10px; padding:2px 9px; vertical-align:middle; margin-left:8px;"></span></div>
     <span class="mstatus" id="mStatus"></span>
     <button class="mgmtExitBtn" id="mgmtExitBtn">Exit</button>
-   </div>
-   <div class="mgmtTabs" role="tablist">
-    <button class="mgmtTab active" data-tab="entries">Entries</button>
-    <button class="mgmtTab" data-tab="export">Export</button>
-    <button class="mgmtTab" data-tab="import">Import</button>
-    <button class="mgmtTab" data-tab="settings">Settings</button>
-    <button class="mgmtTab" data-tab="logs">Logs</button>
    </div>
   </div>
 
@@ -1820,6 +1831,29 @@ CHANGES:
 
   </div>
  </div>
+
+ <div class="mgmtTabBar" role="tablist">
+  <button class="mgmtTab active" data-tab="entries">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>
+   <span>Entries</span>
+  </button>
+  <button class="mgmtTab" data-tab="export">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10m0 0l-3.5-3.5M12 14l3.5-3.5M5 16.5V19a1 1 0 001 1h12a1 1 0 001-1v-2.5"/></svg>
+   <span>Export</span>
+  </button>
+  <button class="mgmtTab" data-tab="import">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V6m0 0l-3.5 3.5M12 6l3.5 3.5M5 16.5V19a1 1 0 001 1h12a1 1 0 001-1v-2.5"/></svg>
+   <span>Import</span>
+  </button>
+  <button class="mgmtTab" data-tab="settings">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.09a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+   <span>Settings</span>
+  </button>
+  <button class="mgmtTab" data-tab="logs">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+   <span>Logs</span>
+  </button>
+ </div>
 </div>
 
 <div class="mgmtExitModal" id="mgmtExitModal" style="display:none;">
@@ -2056,7 +2090,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v114';
+const APP_VERSION = 'v115';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
