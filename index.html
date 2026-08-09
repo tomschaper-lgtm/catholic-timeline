@@ -1,4 +1,15 @@
 <!--
+VERSION: 125
+DATE: 2026-08-09T00:00:00-05:00
+CHANGES:
+- New: Feast of the Day welcome. On launch (when not opening a shared/deep link), the app
+  looks up today's date against each saint's "Feast day" fact, and if one matches, travels
+  there — starting from the usual overview, pausing briefly, then flying to the saint slowly
+  and deliberately (about 2.4x a normal search jump) before popping open their detail card.
+  Picks the most prominent (lowest-tier) saint if more than one shares the day. Silently does
+  nothing if no saint's feast falls on today or if facts/Feast day data is missing/unparsable.
+-->
+<!--
 VERSION: 124
 DATE: 2026-08-09T13:10:00-05:00
 CHANGES:
@@ -2230,7 +2241,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v124';
+const APP_VERSION = 'v125';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2406,7 +2417,8 @@ function cancelScrollAnim(){ if(scrollAnim){ cancelAnimationFrame(scrollAnim); s
 function prefersReducedMotion(){
   return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
-function animateScroll(toLeft, toTop, done){
+function animateScroll(toLeft, toTop, done, opts){
+  opts = opts || {};
   cancelScrollAnim();
   const maxL = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
   const maxT = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
@@ -2421,7 +2433,9 @@ function animateScroll(toLeft, toTop, done){
     return;
   }
   // Longer journeys take a little longer, but never crawl.
-  const dur = Math.min(1150, Math.max(420, 300 + dist * 0.32));
+  // durationScale lets special "guided" journeys (e.g. the feast-of-the-day welcome
+  // flight) travel more slowly/deliberately than an ordinary search jump.
+  const dur = Math.min(1150, Math.max(420, 300 + dist * 0.32)) * (opts.durationScale || 1);
   const t0 = (window.performance && performance.now) ? performance.now() : Date.now();
   const ease = p => (p < 0.5) ? 4*p*p*p : 1 - Math.pow(-2*p + 2, 3)/2;
   function step(now){
@@ -3244,6 +3258,49 @@ function focusEntry(d){
     : viewport.scrollTop;
   animateScroll(left, top, () => showDetail(d));
 }
+
+// ---- Feast of the day: on launch, find today's saint and travel to them ----
+const MONTH_NAMES = ['January','February','March','April','May','June','July',
+  'August','September','October','November','December'];
+function parseFeastDate(value){
+  if(!value) return null;
+  const m = String(value).match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})/i);
+  if(!m) return null;
+  const month = MONTH_NAMES.findIndex(x => x.toLowerCase() === m[1].toLowerCase());
+  const day = parseInt(m[2], 10);
+  if(month < 0 || !day) return null;
+  return {month, day};
+}
+function findTodaysSaint(){
+  const now = new Date();
+  const month = now.getMonth(), day = now.getDate();
+  let best = null;
+  for(const e of db.entries){
+    if(e.t !== 's' || isReview(e) || !Array.isArray(e.facts)) continue;
+    const f = e.facts.find(x => x && x.label === 'Feast day');
+    if(!f) continue;
+    const parsed = parseFeastDate(f.value);
+    if(!parsed || parsed.month !== month || parsed.day !== day) continue;
+    // Several saints can share a feast day — prefer the most prominent one (lowest tier).
+    if(!best || (e.tier || 1) < (best.tier || 1)) best = e;
+  }
+  return best;
+}
+function goToFeastOfDay(d){
+  searchFocusId = d.id;
+  searchHits = new Set([d.id]);
+  if(ppy < 1.8){ ppy = Math.min(8, Math.max(fitPpy(), 1.8)); }
+  render();
+  const left = yearToX(d.y) - viewport.clientWidth / 2;
+  const el = canvas.querySelector('.ev.focus');
+  const top = el
+    ? (el.offsetTop - (viewport.clientHeight - HEAD_H) / 2 - HEAD_H/2)
+    : viewport.scrollTop;
+  // Slower, more deliberate than a search jump — this is a "here's who we celebrate
+  // today" welcome moment, not a quick lookup.
+  animateScroll(left, top, () => showDetail(d), {durationScale: 2.4});
+}
+
 document.getElementById('tlSearch').addEventListener('input', runSearch);
 document.getElementById('tlSearch').addEventListener('focus', runSearch);
 document.getElementById('tlSearch').addEventListener('keydown', (e) => {
@@ -6159,6 +6216,13 @@ document.getElementById('showEditControls').addEventListener('change', (e) => {
     showDetail(sharedEntry);
   } else {
     scrollToYear(120);
+    const todaysSaint = findTodaysSaint();
+    if(todaysSaint){
+      // Start from the familiar overview, then travel to today's saint after a brief
+      // beat, so the journey reads as a deliberate "here's who we celebrate today"
+      // moment rather than an instant jump straight to their card.
+      setTimeout(() => goToFeastOfDay(todaysSaint), 600);
+    }
   }
 })();
 </script>
