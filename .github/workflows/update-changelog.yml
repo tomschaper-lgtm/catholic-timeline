@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+  workflow_dispatch: {}
 
 # Avoid two runs racing to commit changelog.json if pushes land close together
 concurrency:
@@ -93,7 +94,11 @@ jobs:
         run: |
           git config user.name "changelog-bot"
           git config user.email "actions@github.com"
-          if git diff --quiet changelog.json; then
+          # git diff --quiet does NOT detect a brand-new untracked file as a change — it only
+          # compares content git already tracks — which is why the first two runs of this Action
+          # parsed and wrote changelog.json correctly but never actually committed it.
+          # git status --porcelain catches untracked and modified files alike.
+          if [ -z "$(git status --porcelain changelog.json)" ]; then
             echo "No changes to commit."
           else
             git add changelog.json
