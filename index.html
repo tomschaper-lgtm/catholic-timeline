@@ -1,4 +1,11 @@
 <!--
+VERSION: 112
+DATE: 2026-08-08T22:50:00-05:00
+CHANGES:
+- Replaced the header's gear/hamburger icon (was the ⚙/☰ unicode characters, which iOS renders as a glossy 3D emoji-style glyph) with a flat, simple, single-color SVG gear/lines icon that follows the site's gold color exactly.
+- Fixed the gear icon overlapping the Content Manager's Exit button: the gear sits at a fixed top-right position with a high z-index (so it stays reachable from any screen, including Manage), which the new sticky Content Manager header didn't leave room for. The header now reserves space on the right for it, and Exit is wider with more breathing room.
+-->
+<!--
 VERSION: 111
 DATE: 2026-08-08T22:35:00-05:00
 CHANGES:
@@ -1137,12 +1144,13 @@ CHANGES:
   }
   .mgmtTopBar{
     display:flex; align-items:center; justify-content:space-between;
-    gap:10px; padding:14px 20px; background:var(--m-bg); border-bottom:1px solid var(--m-border);
+    gap:10px; padding:14px 66px 14px 20px; background:var(--m-bg); border-bottom:1px solid var(--m-border);
   }
   .mgmtTitle{font-family:'Cinzel',serif; font-weight:700; font-size:19px; letter-spacing:.04em; color:var(--m-ink);}
   .mgmtExitBtn{
     font-family:'Cinzel',serif; font-size:11.5px; letter-spacing:.07em; text-transform:uppercase;
-    background:var(--m-ink); color:#fff; border:none; border-radius:8px; padding:9px 16px; cursor:pointer;
+    background:var(--m-ink); color:#fff; border:none; border-radius:8px; padding:9px 22px; cursor:pointer;
+    flex:none;
   }
   .mgmtExitBtn:hover{background:#3a4266;}
   .mgmtTabs{
@@ -1262,7 +1270,7 @@ CHANGES:
        overscroll (fixed elements stay pinned while the page bounces), so the earlier
        "hidden until you pull down" placement could never actually be seen on an iPhone. -->
   <h1><span class="t1">Catholic</span><span class="t2">Timeline</span><span id="versionStamp" aria-hidden="true"></span></h1>
-  <button class="hamBtn" id="hamBtn" aria-label="Settings" aria-expanded="false">&#9776;</button>
+  <button class="hamBtn" id="hamBtn" aria-label="Settings" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
 <div class="gtHud" id="gtHud">
   <div class="gtTop">
     <span class="gtTitle">Gesture Tuning</span>
@@ -1990,7 +1998,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v111';
+const APP_VERSION = 'v112';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5401,7 +5409,9 @@ function updateManageVisibility(){
   const cmsBox = document.getElementById('cmsEnabled');
   if(cmsBox) cmsBox.checked = cmsEnabled;
   const hb = document.getElementById('hamBtn');
-  if(hb) hb.innerHTML = unlocked ? '&#9881;' : '&#9776;';
+  if(hb) hb.innerHTML = unlocked
+    ? '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.09a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
 }
 document.getElementById('cmsEnabled').addEventListener('change', (e) => {
   cmsEnabled = e.target.checked;
