@@ -1,4 +1,12 @@
 <!--
+VERSION: 114
+DATE: 2026-08-08T23:35:00-05:00
+CHANGES:
+- Logs tab: dates now display as "Monday 8/8  12:45 PM" instead of the raw ISO timestamp.
+- The button beside search now reads "Search" and explicitly re-runs the filter, instead of "Refresh" (data still reloads automatically every time the Logs tab is opened, so nothing was lost by dropping the separate refresh action).
+- Search matches are now highlighted in yellow across version, date, and change text.
+-->
+<!--
 VERSION: 113
 DATE: 2026-08-08T23:15:00-05:00
 CHANGES:
@@ -1182,6 +1190,7 @@ CHANGES:
     font-size:16px; line-height:1.5; color:#2B2F3A;
   }
   .logEntry ol li{margin-bottom:6px;}
+  .logHi{background:#FFEB3B; color:#111827; border-radius:2px; padding:0 1px;}
   .logHelp{padding:14px 20px 4px;}
   .logHelp summary{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;}
   #manage .artwrap{max-width:900px;}
@@ -1800,7 +1809,7 @@ CHANGES:
     <div class="mgmtPanel logPanel" id="panel-logs">
       <div class="logSearchRow">
         <input type="text" id="logSearch" placeholder="Search version, date, or change text…">
-        <button id="logRefresh">Refresh</button>
+        <button id="logRefresh">Search</button>
       </div>
       <div class="logCount" id="logCount"></div>
       <div id="logList"></div>
@@ -2047,7 +2056,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v113';
+const APP_VERSION = 'v114';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3163,27 +3172,47 @@ async function loadChangelog(){
     countEl.textContent = 'Could not load changelog: ' + err.message;
   }
 }
+// Formats an ISO date string as "Monday 8/8 12:45 PM" — day name, no-leading-zero M/D, 12hr time.
+function formatLogDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d)) return iso;
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  let h = d.getHours();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if(h === 0) h = 12;
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return days[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + '  ' + h + ':' + min + ' ' + ampm;
+}
+// Escapes text for HTML, then wraps any case-insensitive match of the search query in a
+// yellow <mark>. Escaping happens first so the query itself is never treated as markup.
+function highlightLog(raw, q){
+  const safe = esc(raw);
+  if(!q) return safe;
+  const qEsc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return safe.replace(new RegExp('(' + qEsc + ')', 'gi'), '<mark class="logHi">$1</mark>');
+}
 function renderLogList(){
   const list = document.getElementById('logList');
   const countEl = document.getElementById('logCount');
   const q = (document.getElementById('logSearch').value || '').trim().toLowerCase();
   const filtered = !q ? logEntries : logEntries.filter(e =>
     (e.version || '').toLowerCase().includes(q) ||
-    (e.date || '').toLowerCase().includes(q) ||
+    formatLogDate(e.date).toLowerCase().includes(q) ||
     (e.changes || []).some(c => c.toLowerCase().includes(q))
   );
   countEl.textContent = logEntries.length
     ? filtered.length + ' of ' + logEntries.length + ' version' + (logEntries.length === 1 ? '' : 's')
     : '';
   list.innerHTML = filtered.map(e => {
-    const changes = (e.changes || []).map(c => '<li>' + esc(c) + '</li>').join('');
+    const changes = (e.changes || []).map(c => '<li>' + highlightLog(c, q) + '</li>').join('');
     return '<div class="logEntry">' +
-      '<span class="logVer">v' + esc(e.version || '?') + '</span><span class="logDate">' + esc(e.date || '') + '</span>' +
+      '<span class="logVer">v' + highlightLog(e.version || '?', q) + '</span><span class="logDate">' + highlightLog(formatLogDate(e.date), q) + '</span>' +
       (changes ? '<ol>' + changes + '</ol>' : '') +
       '</div>';
   }).join('') || '<div class="hint" style="margin:14px 20px 0;">' + (logEntries.length ? 'No entries match that search.' : '') + '</div>';
 }
-document.getElementById('logRefresh').addEventListener('click', loadChangelog);
+document.getElementById('logRefresh').addEventListener('click', renderLogList);
 document.getElementById('logSearch').addEventListener('input', renderLogList);
 
 // ---- Run a GitHub Actions workflow directly from the app (no need to navigate GitHub's UI) ----
@@ -4296,7 +4325,7 @@ function switchMgmtTab(tab){
   document.querySelectorAll('.mgmtTab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.mgmtPanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
   document.querySelector('.mgmtBody').scrollIntoView({block:'start'});
-  if(tab === 'logs' && !logEntries.length) loadChangelog();
+  if(tab === 'logs') loadChangelog();
 }
 document.querySelectorAll('.mgmtTab').forEach(t => t.addEventListener('click', () => switchMgmtTab(t.dataset.tab)));
 
