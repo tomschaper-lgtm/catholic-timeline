@@ -1,4 +1,20 @@
 <!--
+VERSION: 124
+DATE: 2026-08-09T13:10:00-05:00
+CHANGES:
+- Apostolic Age's 25/50/75 tick labels now match the full century-mark styling (bright gold,
+  13px) instead of the dimmer/smaller "minor" tick style — they were being treated as lesser
+  ticks even though they're this zoomed-in era's equivalent of a century mark.
+- Era band font size up another notch (11.5px → 12.5px), letter-spacing eased slightly further.
+- Closing an article now leaves a clue on the timeline: the icon you were just reading lights up
+  (the same gold glow search uses for a match) and the timeline recentres on it, instead of
+  dropping you back with no trace of where you'd been.
+- Left/right swipe between chronological neighbors now shares the same back-stack as following
+  an in-article link — Back can undo a swipe too, landing you back at the same scroll position.
+  A swipe that lands exactly back where a previous swipe came from pops that frame instead of
+  pushing a new one, so casual back-and-forth swiping doesn't grow the stack without bound.
+-->
+<!--
 VERSION: 123
 DATE: 2026-08-09T12:15:00-05:00
 CHANGES:
@@ -664,7 +680,7 @@ CHANGES:
   .era{
     position:absolute; top:0; height:30px;
     display:flex; align-items:center; justify-content:center;
-    font-family:'Cinzel',serif; font-weight:700; font-size:11.5px; letter-spacing:.15em;
+    font-family:'Cinzel',serif; font-weight:700; font-size:12.5px; letter-spacing:.14em;
     text-transform:uppercase; color:var(--navy-deep); text-shadow:0 1px 0 rgba(255,255,255,.4);
     background:linear-gradient(180deg, #F6E8BC 0%, #E8CD7E 16%, #C9A542 52%, #9C7B32 82%, #7A611F 100%);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -3px 5px rgba(0,0,0,.35);
@@ -2214,7 +2230,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v123';
+const APP_VERSION = 'v124';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2293,11 +2309,13 @@ let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
 let activeRegion = "all";
 let currentEntry = null;
 // Cross-reference navigation history: one frame per entry visited via an in-article "entry:"
-// link, most-recent-last. Each frame is {id, scroll} — the scroll position is how far down
-// THAT article the reader had got when they tapped the link, so Back returns them to the
-// paragraph they were reading rather than to the top of the page. Popped one at a time by
-// the Back button; cleared whenever the article is closed or a fresh entry is opened by any
-// route other than a link/back tap.
+// link OR a left/right swipe to a chronological neighbor, most-recent-last. Each frame is
+// {id, scroll} — the scroll position is how far down THAT article the reader had got when they
+// navigated away — so Back returns them to the paragraph they were reading rather than to the
+// top of the page. Popped one at a time by the Back button; cleared whenever the article is
+// closed or a fresh entry is opened by any route other than a link/swipe/back. A swipe that
+// lands exactly back on the top-of-stack entry pops it instead of pushing a new frame, so idle
+// back-and-forth swiping doesn't grow the stack forever (see slideArticleTo).
 let articleBackStack = [];
 function updateArticleBackBtn(){
   const btn = document.getElementById('artBackBtn');
@@ -2558,7 +2576,10 @@ function render(){
     axis.appendChild(t);
     if(y !== 0 && (y % 100 === 0 || (inDistortZone && y % 25 === 0))){
       const l = document.createElement('div');
-      l.className = 'ticklbl' + (y % 100 !== 0 ? ' minor' : '');
+      // Inside the Apostolic Age's widened 25-year ticks are just as prominent as any other
+      // century mark, not a lesser "minor" tier — so they only get the dim/small treatment
+      // outside that zone (a genuinely-in-between tick between two century marks elsewhere).
+      l.className = 'ticklbl' + (y % 100 !== 0 && !inDistortZone ? ' minor' : '');
       l.style.left = x + 'px';
       l.textContent = y;
       axis.appendChild(l);
@@ -4038,13 +4059,41 @@ function closeArticle(opts){
   const fly = document.getElementById('flyPortrait');
   if(fly) fly.classList.remove('on');
   setHeroLogoFade(0);
+  // Leave a clue to where the reader just was: the icon they came from lights up and the
+  // timeline recentres on it — the same "here it is" glow search already uses for a match —
+  // rather than dropping them back onto the timeline with no trace of what they'd been reading.
+  if(currentEntry){
+    const d = currentEntry;
+    searchFocusId = d.id;
+    searchHits = new Set([d.id]);
+    render();
+    const el = canvas.querySelector('.ev.focus');
+    const left = yearToX(d.y) - viewport.clientWidth / 2;
+    const top = el
+      ? (el.offsetTop - (viewport.clientHeight - HEAD_H) / 2 - HEAD_H/2)
+      : viewport.scrollTop;
+    animateScroll(left, top);
+  }
 }
 // Swipe navigation between stories: the outgoing content is cloned and slid fully
 // off-screen while the new content (already live underneath, for correct height/
 // scroll) slides in from the opposite side. Whatever peek/full state the card was already
 // in carries over to the new entry unchanged.
 function slideArticleTo(d, direction){
-  articleBackStack = []; // chronological prev/next swipe is an unrelated navigation path — not part of the link trail
+  // Swiping between chronological neighbors now shares the same back-stack as following an
+  // in-article link, so the Back button can undo either kind of navigation and land the reader
+  // back at the exact scroll position they left. But a swipe is reversible in a way a link tap
+  // isn't — swipe forward then immediately swipe back and you're just retracing your steps, not
+  // branching off somewhere new — so a swipe that lands exactly on the entry the stack would
+  // already send Back to just pops that frame instead of pushing a fresh one. Without this,
+  // idle back-and-forth swiping would grow the stack forever even though the reader never
+  // actually went anywhere new.
+  const backTop = articleBackStack[articleBackStack.length - 1];
+  if(backTop && backTop.id === d.id){
+    articleBackStack.pop();
+  } else if(currentEntry){
+    articleBackStack.push({ id: currentEntry.id, scroll: article.scrollTop || 0 });
+  }
   const peek = article.classList.contains('peek');
   const wrap = document.querySelector('.artwrap');
   const body = document.getElementById('artBody');
