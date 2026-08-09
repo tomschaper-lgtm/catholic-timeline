@@ -2,6 +2,15 @@
   "v": 1,
   "entries": [
     {
+      "version": "119",
+      "date": "2026-08-09T10:20:00-05:00",
+      "changes": [
+        "heroLogo shrunk to fit entirely within the header (56×74px, was 122×160px) — it was spilling past the header into the era-band row and crowding the \"Age of Martyrs\" label on a live screenshot. No new cropping of the source image; this is a pure CSS resize.",
+        "heroLogo's fade behavior reworked per owner feedback: it no longer fades just because a peek card or full article is open. It now only fades while the article's flying photo is actually moving through #heroLogo's own top-right corner — the scroll-driven shrink into the corner badge, and the collapse-to-peek flight (not the expand-away-from-the-corner flight, which is leaving that spot, not crossing it). A short idle debounce (220ms) brings it back once the photo has settled rather than the instant a single animation frame ends."
+      ],
+      "loggedAt": "2026-08-09T15:20:20.019162+00:00"
+    },
+    {
       "version": "118",
       "date": "2026-08-09T09:54:00-05:00",
       "changes": [
