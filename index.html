@@ -1,4 +1,12 @@
 <!--
+VERSION: 118
+DATE: 2026-08-09T09:54:00-05:00
+CHANGES:
+- Header graphic replaced with a new dome-and-cross image, re-cropped to trim the dead space above the cross so it sits closer to the image's own top edge.
+- heroLogo repositioned: shifted up (top:-8px) and further left (right:44px, was right:8px) to give the hamburger menu clear breathing room, per the live-screenshot check showing the two crowding each other.
+- Header's top background color changed from #0A1430 to #030B20 — sampled directly from the new image's own corner/edge pixels — so the graphic's rectangular edge blends into the page instead of showing a visible seam.
+-->
+<!--
 VERSION: 117
 DATE: 2026-08-09T14:20:00-05:00
 CHANGES:
@@ -346,7 +354,7 @@ CHANGES:
   }
   header{
     padding:16px 14px 10px;
-    background:linear-gradient(180deg, #0A1430 0%, var(--navy-deep) 100%);
+    background:linear-gradient(180deg, #030B20 0%, var(--navy-deep) 100%);
     flex:0 0 auto; position:relative;
   }
   h1{
@@ -662,15 +670,15 @@ CHANGES:
      Faded out via body.artOpen, the same convention the old (removed) monstrance graphic used,
      so it never competes with an open card or article for attention. */
   #heroLogo{
-    position:fixed; top:0; right:8px;
-    width:105px; height:160px; object-fit:cover; object-position:top;
+    position:fixed; top:-8px; right:44px;
+    width:122px; height:160px; object-fit:cover; object-position:top;
     pointer-events:none; z-index:90;
     -webkit-mask-image:radial-gradient(ellipse 68% 80% at 50% 22%, black 52%, transparent 100%);
     mask-image:radial-gradient(ellipse 68% 80% at 50% 22%, black 52%, transparent 100%);
     opacity:.92; transition:opacity .3s ease;
   }
   body.artOpen #heroLogo{opacity:0;}
-  @media (max-width:380px){ #heroLogo{width:88px; height:138px;} }
+  @media (max-width:380px){ #heroLogo{width:102px; height:135px; right:34px;} }
   .searchClear{
     position:absolute; right:6px; top:50%; transform:translateY(-50%); z-index:2;
     display:none; width:24px; height:24px; align-items:center; justify-content:center;
@@ -2126,7 +2134,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v117';
+const APP_VERSION = 'v118';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
