@@ -1,4 +1,24 @@
 <!--
+VERSION: 123
+DATE: 2026-08-09T12:15:00-05:00
+CHANGES:
+- Era band font size up a notch (10.5px → 11.5px), letter-spacing eased slightly to compensate.
+- Hamburger menu reordered: "Make this into an App" (with its expand-to-see install steps) now
+  sits first, above Font Size — previously it was lower in the list. Combined with the panel
+  moving higher (top offset 84px → 58px, more usable height), those steps now sit near the top
+  of the screen instead of getting hidden behind iOS's own share sheet when you actually follow
+  them.
+- Added a 4th install step: "Press the circle in the bottom right," after Tom found the
+  3-step version left one step out on his device.
+- New: update-available glow. The hamburger pulses gold a few times, once, the first time a
+  newer version is detected — queued for the moment the panel is next closed, since the icon is
+  hidden while the panel is open. The "New Version Available" row itself gets the same brief
+  glow the next time the panel is opened. Neither glows continuously; each fires once per newly
+  seen version.
+- Added "Test Update Glow" under Owner Tools — previews both glows on demand (fake "vTEST"
+  label, auto-reverts after 16s) without needing an actual version mismatch to test against.
+-->
+<!--
 VERSION: 122
 DATE: 2026-08-09T11:40:00-05:00
 CHANGES:
@@ -407,6 +427,20 @@ CHANGES:
   .hamBtn:hover{background:rgba(201,165,66,.15);}
   .hamBtn:active{background:rgba(201,165,66,.25);}
   .hamBtn.hidden{opacity:0; pointer-events:none;}
+  /* A few slow gold breaths to catch the eye when a new version is first detected, then it
+     stops on its own — never a permanent glow, which would just become wallpaper. */
+  @keyframes hamGlowPulse{
+    0%,100%{ box-shadow:0 0 0 0 rgba(232,205,126,0); }
+    50%{ box-shadow:0 0 13px 5px rgba(232,205,126,.85); }
+  }
+  .hamBtn.glowPulse{ animation:hamGlowPulse 1.1s ease-in-out 4; }
+  /* Once the reader actually opens the menu, the same idea is echoed on the row itself so
+     the eye lands right on "New Version Available" instead of having to hunt for it. */
+  @keyframes rowGlowPulse{
+    0%,100%{ background:transparent; }
+    50%{ background:rgba(232,205,126,.22); }
+  }
+  #updateBtn.glowPulse{ animation:rowGlowPulse 1s ease-in-out 3; }
   /* ---- Gesture tuning HUD (owner tools) ----------------------------------
      Sits above the article overlay so a card can be opened and flicked while the
      readout is watched — tuning a feel-based threshold is impossible if the
@@ -458,11 +492,13 @@ CHANGES:
   .hamScrim.open{opacity:1; pointer-events:auto;}
   .hamMenu{
     /* Hung just below the hamburger rather than centred, so the panel reads as belonging to
-       the control that opened it. Height still follows content; the max-height only guards
-       against a long owner list on a short screen. */
-    position:fixed; top:calc(84px + env(safe-area-inset-top)); right:0; z-index:140;
+       the control that opened it. Raised closer to the top (was 84px) and given more height
+       (was -120px) so the first couple of rows — Install instructions especially — sit above
+       where a native iOS share sheet covers the screen when the reader follows those very
+       instructions, instead of disappearing behind it. */
+    position:fixed; top:calc(58px + env(safe-area-inset-top)); right:0; z-index:140;
     width:min(360px, 88vw);
-    max-height:calc(100vh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height:calc(100vh - 78px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     overflow-y:auto; -webkit-overflow-scrolling:touch;
     background:#fff;
     border-radius:26px 0 0 26px;
@@ -628,7 +664,7 @@ CHANGES:
   .era{
     position:absolute; top:0; height:30px;
     display:flex; align-items:center; justify-content:center;
-    font-family:'Cinzel',serif; font-weight:700; font-size:10.5px; letter-spacing:.16em;
+    font-family:'Cinzel',serif; font-weight:700; font-size:11.5px; letter-spacing:.15em;
     text-transform:uppercase; color:var(--navy-deep); text-shadow:0 1px 0 rgba(255,255,255,.4);
     background:linear-gradient(180deg, #F6E8BC 0%, #E8CD7E 16%, #C9A542 52%, #9C7B32 82%, #7A611F 100%);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -3px 5px rgba(0,0,0,.35);
@@ -1475,6 +1511,13 @@ CHANGES:
       </button>
     </div>
 
+    <button class="pRow" id="installBtn">
+      <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 5.5h2"/></svg></span>
+      <span class="pName">Make this into an App</span>
+      <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+    </button>
+    <p class="pNote" id="installNote"></p>
+
     <div class="pRow">
       <span class="pTile"><span class="aa">Aa</span></span>
       <span class="pName pSpecimen">Font Size</span>
@@ -1491,13 +1534,6 @@ CHANGES:
       </span>
       <span class="srOnly" id="fontVal" aria-live="polite">100%</span>
     </div>
-
-    <button class="pRow" id="installBtn">
-      <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 5.5h2"/></svg></span>
-      <span class="pName">Make this into an App</span>
-      <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
-    </button>
-    <p class="pNote" id="installNote"></p>
 
     <button class="pRow" id="updateBtn">
       <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4.5h-4.5"/></svg></span>
@@ -1528,6 +1564,11 @@ CHANGES:
         <span class="pName">Manage</span>
         <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
       </button>
+      <button class="pRow" id="testGlowBtn">
+        <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2.5M12 18.5V21M4.2 4.2l1.8 1.8M18 18l1.8 1.8M3 12h2.5M18.5 12H21M4.2 19.8L6 18M18 6l1.8-1.8"/><circle cx="12" cy="12" r="4"/></svg></span>
+        <span class="pName">Test Update Glow</span>
+      </button>
+      <p class="pNote">Previews the hamburger pulse and the update-row glow — not a real check.</p>
     </div>
   </div>
 </header>
@@ -2173,7 +2214,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v122';
+const APP_VERSION = 'v123';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5651,6 +5692,23 @@ document.querySelector('h1').addEventListener('click', () => {
 const hamBtn = document.getElementById('hamBtn');
 const hamMenu = document.getElementById('hamMenu');
 const hamScrim = document.getElementById('hamScrim');
+// Update-available glow: a few gold pulses on the hamburger once a new version is first seen,
+// and an echo on the "New Version Available" row the next time the panel is actually opened —
+// each fires once per newly-detected version, never a standing glow. See checkVersion() and
+// testUpdateGlow() for where these get armed.
+let hamPulseDue = false, rowGlowDue = false;
+function pulseHamburger(){
+  hamBtn.classList.remove('glowPulse'); void hamBtn.offsetWidth; // restart the animation if it's already mid-run
+  hamBtn.classList.add('glowPulse');
+  setTimeout(() => hamBtn.classList.remove('glowPulse'), 4500);
+}
+function glowUpdateRow(){
+  const btn = document.getElementById('updateBtn');
+  if(!btn) return;
+  btn.classList.remove('glowPulse'); void btn.offsetWidth;
+  btn.classList.add('glowPulse');
+  setTimeout(() => btn.classList.remove('glowPulse'), 3100);
+}
 function setHamMenu(open){
   hamMenu.classList.toggle('open', open);
   hamScrim.classList.toggle('open', open);
@@ -5660,6 +5718,18 @@ function setHamMenu(open){
   // opening and closing the panel repeatedly does not re-fetch the file each time.
   if(open && typeof checkVersion === 'function' && !pendingReload && Date.now() - lastCheckAt > 60000){
     checkVersion(true);
+  }
+  // The hamburger only pulses once it's actually visible again — while the panel is open it's
+  // hidden entirely, so the glow is queued for the moment the panel closes, not fired blindly.
+  if(!open && hamPulseDue){
+    hamPulseDue = false;
+    setTimeout(pulseHamburger, 520);
+  }
+  // Mirror of the above: the row glow only makes sense once the panel is actually open and
+  // settled, so it's queued for just after the slide-in finishes rather than fired instantly.
+  if(open && rowGlowDue){
+    rowGlowDue = false;
+    setTimeout(glowUpdateRow, 260);
   }
 }
 function closeHamMenu(){
@@ -5681,6 +5751,29 @@ document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeHamMen
 document.getElementById('manageBtn').addEventListener('click', closeHamMenu);
 const tlSearchEl = document.getElementById('tlSearch');
 if(tlSearchEl) tlSearchEl.addEventListener('focus', closeHamMenu);
+
+// Owner-only preview of the update-glow behaviour: closes the panel, pulses the hamburger
+// once it's visible again, then fakes the row's text just long enough to show the row glow
+// on the next open — and quietly restores whatever the row actually said before, so nothing
+// misleading is left behind once the preview is over.
+document.getElementById('testGlowBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const btn = document.getElementById('updateBtn');
+  const label = btn.querySelector('.pName');
+  const note = document.getElementById('updateNote');
+  const meta = document.getElementById('updateCur');
+  const prev = { label: label.textContent, note: note.innerHTML, meta: meta ? meta.textContent : '' };
+  label.textContent = 'New Version Available';
+  meta && (meta.textContent = 'vTEST');
+  note.innerHTML = 'Tap to reload. Unsaved Manage edits will be lost. (Test preview — not a real update.)';
+  rowGlowDue = true;
+  hamPulseDue = false; // suppress any already-queued real pulse so this doesn't double up with it
+  closeHamMenu();
+  setTimeout(pulseHamburger, 420);
+  setTimeout(() => {
+    label.textContent = prev.label; note.innerHTML = prev.note; meta && (meta.textContent = prev.meta);
+  }, 16000);
+});
 
 // ---- Reader text size ----
 // Steps rather than free zoom: five sizes covering 85%–150%, which is the useful range before
@@ -5783,6 +5876,9 @@ installBtn.addEventListener('click', async (e) => {
       'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
       '<rect x="3.4" y="3.4" width="17.2" height="17.2" rx="4.6"/>' +
       '<path d="M12 8.4v7.2M8.4 12h7.2"/></svg></span>';
+    const doneIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<circle cx="12" cy="12" r="9"/></svg></span>';
     installNote.innerHTML =
       '<p class="pStepsTitle">iPhone App Instructions</p>' +
       '<ul class="pSteps">' +
@@ -5790,6 +5886,7 @@ installBtn.addEventListener('click', async (e) => {
       '<li><span class="n">2</span><span>Scroll to the bottom of the list and find ' +
         addIcon + ' Add to Home Screen</span></li>' +
       '<li><span class="n">3</span><span>Press the Add button.</span></li>' +
+      '<li><span class="n">4</span><span>Press the circle ' + doneIcon + ' in the bottom right.</span></li>' +
       '</ul>';
   } else {
     installNote.innerHTML = 'No install prompt offered. Look for Install or Add to Home screen ' +
@@ -5814,6 +5911,7 @@ const updateCur = document.getElementById('updateCur');
 const updateLabel = updateBtn.querySelector('.pName');
 if(updateCur) updateCur.textContent = APP_VERSION;
 let pendingReload = false, checking = false, lastCheckAt = 0;
+let announcedVersion = null; // the version string we've already glowed for, so a repeat check on the same pending version doesn't re-trigger it
 function setUpdateNote(html){ updateNote.innerHTML = html || ''; }
 
 async function checkVersion(auto){
@@ -5839,6 +5937,11 @@ async function checkVersion(auto){
       updateLabel.textContent = 'New Version Available';
       if(updateCur) updateCur.textContent = m[1];
       pendingReload = true;
+      if(announcedVersion !== m[1]){
+        announcedVersion = m[1];
+        hamPulseDue = true;
+        rowGlowDue = true;
+      }
       // In an installed iOS app a reload alone is often not enough: iOS restores the app from
       // memory, so the reliable route is to close it from the app switcher.
       setUpdateNote(isStandalone() && isIOS()
