@@ -1,4 +1,17 @@
 <!--
+VERSION: 111
+DATE: 2026-08-08T22:35:00-05:00
+CHANGES:
+- Content Manager header simplified: Exit button now just reads "Exit" instead of "Exit Content Manager", and the version badge now matches the "Content Manager" title's font (Cinzel) instead of a different serif.
+-->
+<!--
+VERSION: 110
+DATE: 2026-08-08T22:20:00-05:00
+CHANGES:
+- Fixed the Content Manager header and tab bar overlapping after v109's sticky fix. That fix correctly made both elements sticky, but the tab bar's sticky offset was hardcoded assuming a fixed header height — which broke on narrower phones where "Exit Content Manager" wraps to two lines, making the header taller than assumed and hiding the tab labels behind it. The header and tab bar are now wrapped in a single sticky container instead of positioning independently, so there's no height to guess regardless of how the header wraps.
+- Fixed the GitHub Action that logs each build to changelog.json: it was correctly parsing the version comment but never actually committing the result, because `git diff --quiet` doesn't recognize a brand-new untracked file as a change. Now uses `git status --porcelain`, which catches new and modified files alike. Also added a manual `workflow_dispatch` trigger so the Action can be re-run on demand from the Actions tab, without needing a new index.html push just to test it.
+-->
+<!--
 VERSION: 109
 DATE: 2026-08-08T21:55:00-05:00
 CHANGES:
@@ -1119,8 +1132,11 @@ CHANGES:
     color:rgba(201,165,66,.62); margin-left:9px; vertical-align:super;
     pointer-events:none; -webkit-user-select:none; user-select:none;
   }
+  .mgmtHeaderSticky{
+    position:sticky; top:0; z-index:20; background:var(--m-bg);
+  }
   .mgmtTopBar{
-    position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between;
+    display:flex; align-items:center; justify-content:space-between;
     gap:10px; padding:14px 20px; background:var(--m-bg); border-bottom:1px solid var(--m-border);
   }
   .mgmtTitle{font-family:'Cinzel',serif; font-weight:700; font-size:19px; letter-spacing:.04em; color:var(--m-ink);}
@@ -1130,7 +1146,7 @@ CHANGES:
   }
   .mgmtExitBtn:hover{background:#3a4266;}
   .mgmtTabs{
-    position:sticky; top:57px; z-index:19; display:flex; gap:2px; overflow-x:auto;
+    display:flex; gap:2px; overflow-x:auto;
     background:var(--m-panel); border-bottom:1px solid var(--m-border); padding:0 12px;
   }
   .mgmtTab{
@@ -1235,7 +1251,6 @@ CHANGES:
   .mgmtExitBtns .mbtn{width:100%; text-align:center; padding:11px 12px; font-size:12.5px;}
   @media (max-width:640px){
     .mgmtTitle{font-size:16px;}
-    .mgmtTabs{top:52px;}
   }
 </style>
 </head>
@@ -1443,17 +1458,19 @@ CHANGES:
 
 <div class="overlay" id="manage">
  <div class="mgmtScroll">
-  <div class="mgmtTopBar">
-    <div class="mgmtTitle">Content Manager <span id="mgmtVersion" style="display:inline-block; font-family:'EB Garamond',Georgia,serif; font-weight:700; font-size:13px; letter-spacing:.06em; color:#6b5a1f; background:rgba(201,165,66,.22); border:1px solid rgba(201,165,66,.55); border-radius:10px; padding:2px 9px; vertical-align:middle; margin-left:8px;"></span></div>
+  <div class="mgmtHeaderSticky">
+   <div class="mgmtTopBar">
+    <div class="mgmtTitle">Content Manager <span id="mgmtVersion" style="display:inline-block; font-family:'Cinzel',serif; font-weight:700; font-size:13px; letter-spacing:.06em; color:#6b5a1f; background:rgba(201,165,66,.22); border:1px solid rgba(201,165,66,.55); border-radius:10px; padding:2px 9px; vertical-align:middle; margin-left:8px;"></span></div>
     <span class="mstatus" id="mStatus"></span>
-    <button class="mgmtExitBtn" id="mgmtExitBtn">Exit Content Manager</button>
-  </div>
-  <div class="mgmtTabs" role="tablist">
+    <button class="mgmtExitBtn" id="mgmtExitBtn">Exit</button>
+   </div>
+   <div class="mgmtTabs" role="tablist">
     <button class="mgmtTab active" data-tab="entries">Entries</button>
     <button class="mgmtTab" data-tab="export">Export</button>
     <button class="mgmtTab" data-tab="import">Import</button>
     <button class="mgmtTab" data-tab="settings">Settings</button>
     <button class="mgmtTab" data-tab="logs">Logs</button>
+   </div>
   </div>
 
   <div class="artwrap mgmtBody">
@@ -1973,7 +1990,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v109';
+const APP_VERSION = 'v111';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
