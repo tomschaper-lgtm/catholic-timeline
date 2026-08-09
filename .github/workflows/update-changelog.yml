@@ -1,0 +1,102 @@
+name: Update Changelog
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+
+# Avoid two runs racing to commit changelog.json if pushes land close together
+concurrency:
+  group: changelog-update
+  cancel-in-progress: false
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse version comment and update changelog.json
+        run: |
+          python3 - <<'PYEOF'
+          import json
+          import re
+          import sys
+          from datetime import datetime, timezone
+
+          with open('index.html', 'r', encoding='utf-8') as f:
+              # Only need the top of the file - the version comment is always near the top
+              head = f.read(4000)
+
+          # Expected format near the top of index.html:
+          # <!--
+          # VERSION: 108
+          # DATE: 2026-08-08T21:15:00-05:00
+          # CHANGES:
+          # - Added location schema retrofit for EM entries
+          # - Fixed sticky positioning bug in .artwrap
+          # -->
+          m = re.search(r'<!--\s*VERSION:\s*(\S+)\s*DATE:\s*(\S+)\s*CHANGES:\s*(.*?)-->', head, re.DOTALL)
+
+          if not m:
+              print("No VERSION/DATE/CHANGES comment block found at the top of index.html — skipping changelog update.")
+              sys.exit(0)
+
+          version = m.group(1).strip()
+          date = m.group(2).strip()
+          changes_block = m.group(3).strip()
+
+          changes = []
+          for line in changes_block.splitlines():
+              line = line.strip()
+              if line.startswith('-'):
+                  changes.append(line[1:].strip())
+              elif line:
+                  changes.append(line)
+
+          try:
+              with open('changelog.json', 'r', encoding='utf-8') as f:
+                  log = json.load(f)
+          except (FileNotFoundError, json.JSONDecodeError):
+              log = {"v": 1, "entries": []}
+
+          entries = log.get("entries", [])
+
+          # Avoid duplicate entries if this version was already logged
+          if any(e.get("version") == version for e in entries):
+              print(f"Version {version} already logged — skipping.")
+              sys.exit(0)
+
+          entries.insert(0, {
+              "version": version,
+              "date": date,
+              "changes": changes,
+              "loggedAt": datetime.now(timezone.utc).isoformat()
+          })
+
+          log["entries"] = entries
+
+          with open('changelog.json', 'w', encoding='utf-8') as f:
+              json.dump(log, f, indent=2, ensure_ascii=False)
+              f.write('\n')
+
+          print(f"Logged version {version} with {len(changes)} change(s).")
+          PYEOF
+
+      - name: Commit changelog.json
+        run: |
+          git config user.name "changelog-bot"
+          git config user.email "actions@github.com"
+          if git diff --quiet changelog.json; then
+            echo "No changes to commit."
+          else
+            git add changelog.json
+            git commit -m "Update changelog for latest index.html version"
+            git push
+          fi
