@@ -1,4 +1,12 @@
 <!--
+VERSION: 116
+DATE: 2026-08-09T07:51:00-05:00
+CHANGES:
+- Wired up the true installable-PWA icon path that was already scaffolded in the file: the APP_ICON constant now points at real hosted icon files (Images/icons/apple-touch-icon.png, icon-192.png, icon-512.png) instead of null, so Add to Home Screen picks up the new gold-domed cross artwork instead of the old embedded placeholder.
+- Runtime web manifest's background_color changed to a gold/cream tone to match the new icon's launch/splash feel; theme_color and app name unchanged.
+- No changes to the timeline, article view, or Content Manager in this build.
+-->
+<!--
 VERSION: 115
 DATE: 2026-08-09T00:10:00-05:00
 CHANGES:
@@ -2090,7 +2098,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v115';
+const APP_VERSION = 'v116';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5854,7 +5862,9 @@ try{
 //                small: 'images/app-icon-192.png',   // browser tab / Android, 192x192
 //                large: 'images/app-icon-512.png' }; // splash + store-quality, 512x512
 // Set to null to stay on the embedded default.
-const APP_ICON = null;
+const APP_ICON = { touch: 'Images/icons/apple-touch-icon.png',
+                    small: 'Images/icons/icon-192.png',
+                    large: 'Images/icons/icon-512.png' };
 (function applyAppIcon(){
   if(!APP_ICON || !APP_ICON.touch) return;
   const abs = (p) => new URL(p, location.href).href;
@@ -5870,7 +5880,7 @@ const APP_ICON = null;
       const manifest = {
         name: 'Catholic Timeline', short_name: 'Timeline',
         start_url: abs('.'), scope: abs('.'), display: 'standalone',
-        background_color: '#070F22', theme_color: '#0B1630',
+        background_color: '#F4E2B4', theme_color: '#0B1630',
         icons: [
           {src: abs(APP_ICON.small || APP_ICON.touch), sizes: '192x192', type: 'image/png'},
           {src: abs(APP_ICON.large || APP_ICON.touch), sizes: '512x512', type: 'image/png'}
