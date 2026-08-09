@@ -1,3 +1,11 @@
+<!--
+VERSION: 108
+DATE: 2026-08-08T21:15:00-05:00
+CHANGES:
+- Added a Logs tab to the Content Manager that reads changelog.json via the authenticated GitHub API (stays private, not served on the public site) and lets you search past versions and their change notes
+- Fixed the Content Manager header and tab bar losing their sticky position on iOS Safari — the overlay's transform (used for its slide-in animation) was creating a new containing block that broke position:sticky for its children; the overlay now resolves to transform:none once fully open
+- Reworked Content Manager contrast and decluttered its always-visible explanatory text: most "hint" paragraphs are now collapsed behind a small "What this does" toggle instead of sitting open by default
+-->
 <!-- Catholic Timeline — v107.1 — generated 2026-08-08 23:25 UTC
        • Content-identical to v107 — no feature changes. Version bumped only to force a fresh
          file hash, since Cloudflare's asset deploy step was skipping upload of byte-identical
@@ -791,7 +799,11 @@
     background:linear-gradient(180deg,#0A1430 0%, #070F22 40%);
     overflow-y:auto; overflow-x:hidden; transform:translateY(100%); transition:transform .3s ease;
   }
-  .overlay.open{transform:translateY(0);}
+  .overlay.open{transform:none;} /* was translateY(0) — an explicit transform value here, even
+    identity, makes this element a new containing block in WebKit, which silently breaks
+    position:sticky on its children (the Content Manager's header/tabs). transform:none avoids
+    that once the slide-in transition finishes. #article keeps its own translateY(0) below, since
+    it does not use sticky children the same way and its fly-portrait math already accounts for it. */
   .overlay.open.peek{transform:translateY(calc(100% - var(--peekH))); overflow:hidden;}
   .overlay.expanding{transition:transform .78s cubic-bezier(.22,.61,.36,1);}
   /* Flick dismissal: fast, decelerating exit that matches the force of the gesture. */
@@ -1064,11 +1076,27 @@
 
   /* ===================== Content Manager: white theme + tabs ===================== */
   #manage{
-    --m-bg:#FFFFFF; --m-panel:#F7F5EE; --m-ink:#20263B; --m-sub:#6B7288;
-    --m-border:#DCD5BE; --m-accent:#8A6D1C; --m-accent-bright:#B08F2C;
-    --m-danger:#B4402E; --m-danger-bg:#FDEDEA;
+    --m-bg:#FFFFFF; --m-panel:#F1EFE6; --m-ink:#12141F; --m-sub:#4B5266;
+    --m-border:#B9B196; --m-accent:#6E5714; --m-accent-bright:#8A6D1C;
+    --m-danger:#96291A; --m-danger-bg:#FDEDEA;
     background:var(--m-bg); color:var(--m-ink);
   }
+  /* Collapsed-by-default explanatory text. Same <details>/<summary> pattern already used for
+     Publish to GitHub / Media Base Paths, applied to every plain hint paragraph so the CMS reads
+     as controls-first, with the "why"/"how" one tap away instead of always on screen. */
+  .mHelp{border:none; background:none; margin:6px 0 0;}
+  .mHelp summary{
+    list-style:none; cursor:pointer; display:inline-flex; align-items:center; gap:5px;
+    font-family:system-ui,-apple-system,sans-serif; font-size:12px; font-weight:600;
+    color:var(--m-sub); padding:2px 0; -webkit-user-select:none; user-select:none;
+  }
+  .mHelp summary::-webkit-details-marker{display:none;}
+  .mHelp summary::before{content:'?'; display:inline-flex; align-items:center; justify-content:center;
+    width:15px; height:15px; border-radius:50%; border:1px solid var(--m-sub); font-size:10px; flex:none;}
+  .mHelp summary:hover{color:var(--m-accent);}
+  .mHelp summary:hover::before{border-color:var(--m-accent); color:var(--m-accent);}
+  .mHelp[open] summary{color:var(--m-accent); margin-bottom:4px;}
+  .mHelp .hint{margin-top:0;}
   #manage .artwrap{max-width:900px;}
   #versionStamp{
     font-family:'EB Garamond', Georgia, serif; font-size:11px; font-weight:400;
@@ -1108,7 +1136,12 @@
   #manage .mbtn:hover{background:var(--m-accent); color:#fff; border-color:var(--m-accent);}
   #manage .mbtn.danger{color:var(--m-danger); border-color:#E3B7AC;}
   #manage .mbtn.danger:hover{background:var(--m-danger); color:#fff;}
-  #manage .mstatus, #manage .hint{color:var(--m-sub);}
+  #manage .mstatus{color:var(--m-sub);}
+  #manage .hint{
+    color:var(--m-sub); font-family:system-ui,-apple-system,sans-serif; font-style:normal;
+    font-size:12.5px; line-height:1.5; background:var(--m-panel); border:1px solid var(--m-border);
+    border-radius:6px; padding:8px 10px;
+  }
   #manage .mfield label{color:var(--m-sub);}
   #manage .mfield input[type=text], #manage .mfield input[type=number],
   #manage .mfield select, #manage .mfield textarea{
@@ -1404,6 +1437,7 @@
     <button class="mgmtTab" data-tab="export">Export</button>
     <button class="mgmtTab" data-tab="import">Import</button>
     <button class="mgmtTab" data-tab="settings">Settings</button>
+    <button class="mgmtTab" data-tab="logs">Logs</button>
   </div>
 
   <div class="artwrap mgmtBody">
@@ -1414,7 +1448,9 @@
         <button class="mbtn" id="reviewToggle">Review Mode: Off</button>
         <span class="rcount" id="reviewCount"></span>
       </div>
-      <div class="hint" style="margin-top:-4px;">Entries marked <b>Hold for review</b> are hidden from the timeline, from search, and from visitor-facing counts. Review Mode shows them to you here and on the timeline (dashed amber ring) so you can check them in place; clear the checkbox in the editor to approve one and make it public. This setting is remembered in this browser only. It keeps unfinished drafts off the timeline — it is not a password, since the entries still travel inside <code>data.json</code>.</div>
+      <details class="mHelp"><summary>What this does</summary>
+        <div class="hint" style="margin-top:-4px;">Entries marked <b>Hold for review</b> are hidden from the timeline, from search, and from visitor-facing counts. Review Mode shows them to you here and on the timeline (dashed amber ring) so you can check them in place; clear the checkbox in the editor to approve one and make it public. This setting is remembered in this browser only. It keeps unfinished drafts off the timeline — it is not a password, since the entries still travel inside <code>data.json</code>.</div>
+      </details>
       <div class="mgmtEntriesTop">
         <input type="text" id="mSearch" placeholder="Search entries…">
         <button class="mbtn" id="mNew">+ New</button>
@@ -1518,7 +1554,9 @@
         <button class="mbtn sm" id="mExClearAll">Clear All</button>
       </div>
       <div class="mExFieldsGrid" id="mExFieldsGrid"></div>
-      <div class="hint" style="margin-top:-4px; margin-bottom:10px;">Story text and audio narration URL are long fields and default to off &mdash; check them to include full articles or narration links in the export.</div>
+      <details class="mHelp"><summary>What this does</summary>
+        <div class="hint" style="margin-top:-4px; margin-bottom:10px;">Story text and audio narration URL are long fields and default to off &mdash; check them to include full articles or narration links in the export.</div>
+      </details>
 
       <div class="mgmtFilterCount" id="mfSummary"></div>
       <div class="mExStatBox" id="mExStatBox"></div>
@@ -1534,7 +1572,9 @@
         <button class="mbtn" id="xrefRunBtn">Apply Links (Filtered)</button>
         <button class="mbtn" id="xrefRemoveBtn">Remove All Links (Filtered)</button>
       </div>
-      <div class="hint" style="margin-top:-4px;">Links are created <b>only where an entry's whole name appears</b> &mdash; its display name, that name minus an honorific (&ldquo;Pope St. Leo the Great&rdquo; also matches &ldquo;Leo the Great&rdquo;), or an <b>alternate name</b> you gave it. Names are never chopped into pieces, and the mention must be capitalised, so a passing reference to &ldquo;an ecumenical council&rdquo; is left alone. Only the <b>first</b> mention per article becomes a link; existing links and self-references are never touched.<br><br><b>Want a short form to link?</b> Add it to that entry's <b>Alternate names</b> field &mdash; e.g. <code>Aquinas</code>, <code>Edith Stein</code>, <code>JPII</code>. That keeps the choice yours rather than the algorithm's.<br><br><b>Preview</b> reports what would change without touching anything. <b>Apply</b> writes it. <b>Remove All Links</b> strips every <code>entry:</code> link from the filtered entries, leaving the words in place &mdash; source links in the article body are not affected. All changes apply in this session only: review the report below, then Save to GitHub (Publish).</div>
+      <details class="mHelp"><summary>What this does</summary>
+        <div class="hint" style="margin-top:-4px;">Links are created <b>only where an entry's whole name appears</b> &mdash; its display name, that name minus an honorific (&ldquo;Pope St. Leo the Great&rdquo; also matches &ldquo;Leo the Great&rdquo;), or an <b>alternate name</b> you gave it. Names are never chopped into pieces, and the mention must be capitalised, so a passing reference to &ldquo;an ecumenical council&rdquo; is left alone. Only the <b>first</b> mention per article becomes a link; existing links and self-references are never touched.<br><br><b>Want a short form to link?</b> Add it to that entry's <b>Alternate names</b> field &mdash; e.g. <code>Aquinas</code>, <code>Edith Stein</code>, <code>JPII</code>. That keeps the choice yours rather than the algorithm's.<br><br><b>Preview</b> reports what would change without touching anything. <b>Apply</b> writes it. <b>Remove All Links</b> strips every <code>entry:</code> link from the filtered entries, leaving the words in place &mdash; source links in the article body are not affected. All changes apply in this session only: review the report below, then Save to GitHub (Publish).</div>
+      </details>
       <div class="mlog" id="xrefLog"></div>
     </div>
 
@@ -1546,7 +1586,9 @@
           <button class="mbtn" id="mImportBtn">Import File (Add/Update/Delete)</button>
           <input type="file" id="mImportFile" accept=".json,.txt" style="display:none;">
         </div>
-        <div class="hint">Adds new entries and updates matching ids. It removes entries only if the file carries an explicit <code>"deletions"</code> list of ids — a plain entries file never deletes anything.</div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Adds new entries and updates matching ids. It removes entries only if the file carries an explicit <code>"deletions"</code> list of ids — a plain entries file never deletes anything.</div>
+        </details>
         <div class="mImportStatus" id="mImportFileStatus"></div>
       </div>
 
@@ -1559,11 +1601,13 @@
           <button class="mbtn" id="pasteApply">Apply</button>
           <button class="mbtn" id="pasteClear">Clear</button>
         </div>
-        <div class="hint">This is the safe way to bring in entries drafted by Claude in a chat: copy Claude's JSON, paste it here, Apply. It never replaces the whole database — only the ids named are touched.<br><br>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">This is the safe way to bring in entries drafted by Claude in a chat: copy Claude's JSON, paste it here, Apply. It never replaces the whole database — only the ids named are touched.<br><br>
         <b>Deleting.</b> Add a <code>"deletions"</code> list of ids alongside (or instead of) <code>"entries"</code>:<br>
         <code>{"deletions":["em-ferrara-1171"],"entries":[…]}</code><br>
         An entry object written as <code>{"id":"old-id","op":"delete"}</code> works too. Deletions run <b>before</b> adds, so a paste can retire an old stub and add its replacement in one step. Ids that don't exist are reported rather than silently ignored. <b>This cannot be undone</b> — take an Export backup first.<br><br>
         <b>Holding for review.</b> Add <code>"review": true</code> to any entry to keep it off the public timeline until you approve it; send <code>"review": false</code> (or clear the checkbox in the editor) to publish it.</div>
+        </details>
         <div class="mImportStatus" id="pasteJsonStatus"></div>
       </div>
 
@@ -1582,7 +1626,9 @@
           <button class="mbtn" id="ghPublish">Save to GitHub (Publish)</button>
           <span class="mstatus" id="ghStatus"></span>
         </div>
-        <div class="hint">The repository details are pre-filled &mdash; you only need to paste an <b>access token</b>. Create one at <b>github.com/settings/tokens?type=beta</b> (fine-grained &rarr; only <i>catholic-timeline</i> &rarr; Contents: Read and write). If you also want the "Run GitHub Action" buttons below, add <b>Actions: Read and write</b> to the same token. Your token is stored only in this browser, never in the file or the repo, and is used to commit the current database to <b>data.json</b>. After publishing, your live site updates in about a minute. This only works on your hosted site, not inside the Claude artifact.</div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">The repository details are pre-filled &mdash; you only need to paste an <b>access token</b>. Create one at <b>github.com/settings/tokens?type=beta</b> (fine-grained &rarr; only <i>catholic-timeline</i> &rarr; Contents: Read and write). If you also want the "Run GitHub Action" buttons below, add <b>Actions: Read and write</b> to the same token. Your token is stored only in this browser, never in the file or the repo, and is used to commit the current database to <b>data.json</b>. After publishing, your live site updates in about a minute. This only works on your hosted site, not inside the Claude artifact.</div>
+        </details>
       </details>
 
       <div class="mbox">
@@ -1591,7 +1637,9 @@
           <button class="mbtn" id="runResizeWorkflow">&#9654; Resize Images</button>
           <button class="mbtn" id="runConvertWorkflow">&#9654; Convert Photo PNGs</button>
         </div>
-        <div class="hint">Runs the workflow on GitHub directly &mdash; no need to hunt through the Actions tab. Uses the same username/repo/branch/token as Publish above (add <b>Actions: Read and write</b> to the token if you haven't). Takes 10&ndash;20 seconds; this button waits and reports success or failure below.</div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Runs the workflow on GitHub directly &mdash; no need to hunt through the Actions tab. Uses the same username/repo/branch/token as Publish above (add <b>Actions: Read and write</b> to the token if you haven't). Takes 10&ndash;20 seconds; this button waits and reports success or failure below.</div>
+        </details>
         <div class="mlog" id="runWorkflowLog"></div>
       </div>
 
@@ -1600,7 +1648,9 @@
         <div class="mtool">
           <button class="mbtn" id="fixImgExtBtn">Check &amp; Fix Every Entry's Image Field</button>
         </div>
-        <div class="hint">The runtime fallback (added in v79) means a stale <code>.png</code>/<code>.jpg</code> reference still displays fine, but it's still wrong in the data \u2014 this actually corrects it. For every entry with a photo, tries loading the exact file data.json points to; if that fails but the other extension works, updates that entry's <code>img</code> field to match. Nothing is guessed \u2014 both files are actually checked. Session-only until you Save to GitHub (Publish) above.</div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">The runtime fallback (added in v79) means a stale <code>.png</code>/<code>.jpg</code> reference still displays fine, but it's still wrong in the data \u2014 this actually corrects it. For every entry with a photo, tries loading the exact file data.json points to; if that fails but the other extension works, updates that entry's <code>img</code> field to match. Nothing is guessed \u2014 both files are actually checked. Session-only until you Save to GitHub (Publish) above.</div>
+        </details>
         <div class="mlog" id="fixImgExtLog"></div>
       </div>
 
@@ -1611,7 +1661,9 @@
           <input type="file" id="mRestoreFile" accept=".json,.txt" style="display:none;">
           <button class="mbtn danger" id="mReset">Reset to Seed</button>
         </div>
-        <div class="hint">Both of these replace the entire database. Take a JSON &mdash; All Entries backup first if you're not sure.</div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Both of these replace the entire database. Take a JSON &mdash; All Entries backup first if you're not sure.</div>
+        </details>
       </div>
     </div>
 
@@ -1621,7 +1673,9 @@
         <h3>Suggest Next Batch to Work On</h3>
         <div class="mfield"><input type="text" id="batchHint" placeholder="Optional: e.g. &quot;Eucharistic miracles&quot;, &quot;saints&quot;, &quot;missing quotes&quot; — leave blank to let the site decide"></div>
         <button class="mbtn" id="batchSuggest">What Should I Work On?</button>
-        <div class="hint">Finds up to 5 entries with the most missing content (full article, quotes, links, facts, country) and produces a copyable list. Paste it into a Claude chat along with the timeline JSON skill and say &ldquo;work on my website content&rdquo; — then bring Claude's reply back here via Paste JSON.</div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Finds up to 5 entries with the most missing content (full article, quotes, links, facts, country) and produces a copyable list. Paste it into a Claude chat along with the timeline JSON skill and say &ldquo;work on my website content&rdquo; — then bring Claude's reply back here via Paste JSON.</div>
+        </details>
       </div>
 
       <div class="mbox">
@@ -1631,7 +1685,9 @@
         </div>
         <button class="mbtn" id="aiRun">Run Instruction</button>
         <div class="mlog" id="aiLog"></div>
-        <div class="hint">Claude can search the web, then add, update, or delete entries — including writing full articles into the database. Changes save automatically; keep backups with Export.</div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Claude can search the web, then add, update, or delete entries — including writing full articles into the database. Changes save automatically; keep backups with Export.</div>
+        </details>
       </div>
 
       <details class="ghbox">
@@ -1641,10 +1697,27 @@
           <div class="mfield"><label>Audio folder</label><input type="text" id="audioBase" placeholder="e.g. audio/ or https://yoursite.com/audio/"></div>
         </div>
         <button class="mbtn" id="assetBaseSave">Save Base Paths</button>
-        <div class="hint">Set these once, then in an entry's Image and Audio fields you only need to type the file name (e.g. <b>augustine.jpg</b>) instead of the whole path. A value that already starts with <b>http://</b>, <b>https://</b>, or <b>/</b> is left exactly as typed, so existing full-URL entries keep working unchanged.</div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Set these once, then in an entry's Image and Audio fields you only need to type the file name (e.g. <b>augustine.jpg</b>) instead of the whole path. A value that already starts with <b>http://</b>, <b>https://</b>, or <b>/</b> is left exactly as typed, so existing full-URL entries keep working unchanged.</div>
+        </details>
       </details>
     </div>
 
+    <!-- ===== TAB: Logs (changelog.json, fetched privately via the GitHub API) ===== -->
+    <div class="mgmtPanel" id="panel-logs">
+      <div class="mbox">
+        <h3>Version Log</h3>
+        <div class="mgmtEntriesTop">
+          <input type="text" id="logSearch" placeholder="Search version, date, or change text…">
+          <button class="mbtn" id="logRefresh">Refresh</button>
+        </div>
+        <div class="mgmtFilterCount" id="logCount"></div>
+        <div class="mlist" id="logList"></div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Every build's header comment (VERSION / DATE / CHANGES) is logged automatically to <code>changelog.json</code> by a GitHub Action when you push a new <code>index.html</code> to <code>main</code>. This tab reads that file straight from GitHub using the same access token as Publish above — <code>changelog.json</code> itself is excluded from the public site via <code>.assetsignore</code>, so this log is only visible to you, here.</div>
+        </details>
+      </div>
+    </div>
 
   </div>
 </div>
@@ -1883,7 +1956,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v107.1';
+const APP_VERSION = 'v108';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2969,6 +3042,58 @@ function ghConfigured(){
   return !!(v('ghOwner') && v('ghRepo') && v('ghToken'));
 }
 document.getElementById('ghPublish').addEventListener('click', publishToGitHub);
+
+// ---- Logs tab: reads changelog.json straight from GitHub (not the deployed site, since the
+// file is deliberately excluded from public serving via .assetsignore). Reuses the same
+// owner/repo/branch/token fields as Publish, so nothing new has to be entered. ----
+let logEntries = [];
+async function loadChangelog(){
+  const v = id => document.getElementById(id).value.trim();
+  const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', token = v('ghToken');
+  const countEl = document.getElementById('logCount');
+  if(!owner || !repo || !token){
+    countEl.textContent = 'Enter your GitHub token under Import → Publish to GitHub first — the Logs tab reads changelog.json using the same credentials.';
+    return;
+  }
+  countEl.textContent = 'Loading…';
+  const api = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/changelog.json?ref=' + encodeURIComponent(branch);
+  const hdr = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' };
+  try{
+    const res = await fetch(api, { headers: hdr, cache: 'no-store' });
+    if(res.status === 404){ logEntries = []; countEl.textContent = 'No changelog.json yet — it is created the first time a version-comment build is pushed to ' + branch + '.'; renderLogList(); return; }
+    if(res.status === 401 || res.status === 403) throw new Error('token rejected (check permissions)');
+    if(!res.ok) throw new Error('fetch failed (' + res.status + ')');
+    const meta = await res.json();
+    const json = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
+    const parsed = JSON.parse(json);
+    logEntries = parsed.entries || [];
+    renderLogList();
+  }catch(err){
+    countEl.textContent = 'Could not load changelog: ' + err.message;
+  }
+}
+function renderLogList(){
+  const list = document.getElementById('logList');
+  const countEl = document.getElementById('logCount');
+  const q = (document.getElementById('logSearch').value || '').trim().toLowerCase();
+  const filtered = !q ? logEntries : logEntries.filter(e =>
+    (e.version || '').toLowerCase().includes(q) ||
+    (e.date || '').toLowerCase().includes(q) ||
+    (e.changes || []).some(c => c.toLowerCase().includes(q))
+  );
+  countEl.textContent = logEntries.length
+    ? filtered.length + ' of ' + logEntries.length + ' version' + (logEntries.length === 1 ? '' : 's')
+    : '';
+  list.innerHTML = filtered.map(e => {
+    const changes = (e.changes || []).map(c => '<li>' + esc(c) + '</li>').join('');
+    return '<div class="mitem" style="cursor:default;">' +
+      '<div><span class="my">v' + esc(e.version || '?') + '</span> &nbsp; <span class="mt">' + esc(e.date || '') + '</span></div>' +
+      (changes ? '<ul style="margin:6px 0 0 18px; padding:0; font-size:13px; color:var(--m-ink);">' + changes + '</ul>' : '') +
+      '</div>';
+  }).join('') || '<div class="hint" style="margin:8px 0 0;">' + (logEntries.length ? 'No entries match that search.' : '') + '</div>';
+}
+document.getElementById('logRefresh').addEventListener('click', loadChangelog);
+document.getElementById('logSearch').addEventListener('input', renderLogList);
 
 // ---- Run a GitHub Actions workflow directly from the app (no need to navigate GitHub's UI) ----
 // Reuses the same owner/repo/branch/token fields as Publish above. workflow_dispatch itself
@@ -4080,6 +4205,7 @@ function switchMgmtTab(tab){
   document.querySelectorAll('.mgmtTab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.mgmtPanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
   document.querySelector('.mgmtBody').scrollIntoView({block:'start'});
+  if(tab === 'logs' && !logEntries.length) loadChangelog();
 }
 document.querySelectorAll('.mgmtTab').forEach(t => t.addEventListener('click', () => switchMgmtTab(t.dataset.tab)));
 
