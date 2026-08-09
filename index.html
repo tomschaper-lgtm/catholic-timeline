@@ -1,4 +1,12 @@
 <!--
+VERSION: 117
+DATE: 2026-08-09T14:20:00-05:00
+CHANGES:
+- Timeline search box narrowed from 320px to 224px (about 70% of its former width) and its text enlarged, staying above the 16px floor that keeps iOS Safari from auto-zooming on focus.
+- New fixed header graphic (Images/heroLogo.png, a cropped dome-and-cross image) fills the gap the narrower search box opened up next to the hamburger menu, reaching from the top of the screen down through the header and controls bar to the edge of the timeline. Edges are softened with a CSS mask rather than a hard rectangle. It is decorative and non-interactive (pointer-events:none) so it never blocks taps on the hamburger, search box, or timeline pins.
+- The graphic fades out via body.artOpen whenever a card (peek) or full article opens, so it never competes with open content — the same convention the earlier, since-removed monstrance graphic used.
+-->
+<!--
 VERSION: 116
 DATE: 2026-08-09T07:51:00-05:00
 CHANGES:
@@ -640,11 +648,29 @@ CHANGES:
   .ev.ecu .ic{box-shadow:0 0 8px rgba(242,201,76,.7), 0 0 2px rgba(242,201,76,.9); border-width:2px;}
   .ev.ecu:hover .ic{box-shadow:0 0 12px var(--council-ecu);}
   /* Timeline search */
-  .searchwrap{position:relative; flex:0 0 320px; width:320px; max-width:min(320px, calc(100vw - 32px));}
+  .searchwrap{position:relative; flex:0 0 224px; width:224px; max-width:min(224px, calc(100vw - 32px));}
   /* NOTE: 16px is the minimum font-size that prevents iOS Safari from auto-zooming
      when an input receives focus. Do not lower these below 16px. */
-  #tlSearch{width:100%; box-sizing:border-box; background:var(--navy-deep); border:1px solid var(--gold); color:var(--parchment); border-radius:18px; padding:10px 34px 10px 15px; font-family:'EB Garamond',Georgia,serif; font-size:calc(16px * var(--txtMed)); line-height:1.25;}
+  #tlSearch{width:100%; box-sizing:border-box; background:var(--navy-deep); border:1px solid var(--gold); color:var(--parchment); border-radius:18px; padding:10px 34px 10px 15px; font-family:'EB Garamond',Georgia,serif; font-size:calc(19px * var(--txtMed)); line-height:1.25;}
   #tlSearch:focus{outline:none; box-shadow:0 0 0 2px rgba(201,165,66,.35);}
+  /* Header hero graphic — sits fixed in the gap the narrower search box opened up, reaching
+     from the very top of the screen down through the header and controls bar to the edge of
+     the timeline. pointer-events:none so it never intercepts taps on the hamburger, search,
+     or timeline pins beneath/around it. A soft mask fades its bottom and side edges rather
+     than showing a hard rectangle — the source image's own dark navy is already close to the
+     page's --navy-deep, so the fade reads as the graphic settling into the page, not a sticker.
+     Faded out via body.artOpen, the same convention the old (removed) monstrance graphic used,
+     so it never competes with an open card or article for attention. */
+  #heroLogo{
+    position:fixed; top:0; right:8px;
+    width:105px; height:160px; object-fit:cover; object-position:top;
+    pointer-events:none; z-index:90;
+    -webkit-mask-image:radial-gradient(ellipse 68% 80% at 50% 22%, black 52%, transparent 100%);
+    mask-image:radial-gradient(ellipse 68% 80% at 50% 22%, black 52%, transparent 100%);
+    opacity:.92; transition:opacity .3s ease;
+  }
+  body.artOpen #heroLogo{opacity:0;}
+  @media (max-width:380px){ #heroLogo{width:88px; height:138px;} }
   .searchClear{
     position:absolute; right:6px; top:50%; transform:translateY(-50%); z-index:2;
     display:none; width:24px; height:24px; align-items:center; justify-content:center;
@@ -1459,6 +1485,8 @@ CHANGES:
   </div>
 </header>
 
+<img id="heroLogo" src="Images/heroLogo.png" alt="" aria-hidden="true">
+
 <div class="controls">
   <div class="row" id="searchRow">
     <div class="searchwrap">
@@ -2098,7 +2126,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v116';
+const APP_VERSION = 'v117';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
