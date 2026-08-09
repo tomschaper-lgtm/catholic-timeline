@@ -2,6 +2,16 @@
   "v": 1,
   "entries": [
     {
+      "version": "121",
+      "date": "2026-08-09T11:05:00-05:00",
+      "changes": [
+        "heroLogo nudged right (right:30px, was 46px) — it was overlapping the \"v120\" version stamp next to the title on a live screenshot.",
+        "heroLogo's fade reworked again: it's now driven directly by how close the article's flying photo actually is to heroLogo's own corner — 0 while it's elsewhere (peek, top of a freshly-opened article, closed), fading toward fully hidden only as the scroll-driven corner badge settles into that exact spot, and back the moment it leaves (article closes, collapses to peek, or the reader scrolls back up). The previous version faded it for a fixed ~220ms window and then always brought it back regardless of whether the badge was still sitting there — this fixes that: as long as the badge occupies the corner, the graphic now stays faded, with no timer to time out.",
+        "The fade transition slowed from .3s to 1.2s so it reads as a gradual dissolve rather than a noticeable pop, in both directions."
+      ],
+      "loggedAt": "2026-08-09T15:51:46.807908+00:00"
+    },
+    {
       "version": "120",
       "date": "2026-08-09T10:45:00-05:00",
       "changes": [
