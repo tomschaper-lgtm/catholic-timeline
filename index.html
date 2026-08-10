@@ -1,4 +1,24 @@
 <!--
+VERSION: 127
+DATE: 2026-08-09T00:00:00-05:00
+CHANGES:
+- Added dedicated Android manual-install instructions (three-dot overflow menu → Add to Home
+  screen/Install app → Add/Install), shown when a phone is detected as Android and the browser
+  didn't offer a one-tap beforeinstallprompt (e.g. Firefox or Samsung Internet). Chrome/Edge on
+  Android still get the genuine one-tap install button as before — this is only the fallback
+  path, styled to match the iPhone instructions (bold key words, drawn icons).
+-->
+<!--
+VERSION: 126
+DATE: 2026-08-09T00:00:00-05:00
+CHANGES:
+- Fixed the "Make this into an App" iPhone instructions — they described the old iOS Safari
+  share-sheet flow. Now correctly reads: 1) press the circle with three dots (bottom right),
+  2) find and press the Share button, 3) press View More (bottom right), 4) press
+  "Add to Home Screen" then press Add. Each step keeps its own drawn icon (three-dot circle,
+  share arrow, ellipsis, add square), with the key action words bolded.
+-->
+<!--
 VERSION: 125
 DATE: 2026-08-09T00:00:00-05:00
 CHANGES:
@@ -2241,7 +2261,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v125';
+const APP_VERSION = 'v127';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5926,6 +5946,9 @@ function isIOS(){
   return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
+function isAndroid(){
+  return /Android/.test(navigator.userAgent);
+}
 function refreshInstallUI(){
   if(isStandalone()){
     installBtn.style.display = 'none';
@@ -5973,26 +5996,55 @@ installBtn.addEventListener('click', async (e) => {
   if(isIOS()){
     // Drawn rather than named: the reader is hunting for a shape in a crowded share sheet,
     // so showing the actual glyph at text size is worth more than any description of it.
+    const dotsIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<circle cx="12" cy="12" r="9"/>' +
+      '<circle cx="8" cy="12" r="1.1" fill="currentColor" stroke="none"/>' +
+      '<circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/>' +
+      '<circle cx="16" cy="12" r="1.1" fill="currentColor" stroke="none"/>' +
+      '</svg></span>';
     const shareIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
       'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
       '<path d="M12 3v11"/><path d="M8.4 6.6L12 3l3.6 3.6"/>' +
       '<path d="M7.5 10H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1.5"/>' +
       '</svg></span>';
+    const moreIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/>' +
+      '<circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>' +
+      '<circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/>' +
+      '</svg></span>';
     const addIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
       'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
       '<rect x="3.4" y="3.4" width="17.2" height="17.2" rx="4.6"/>' +
       '<path d="M12 8.4v7.2M8.4 12h7.2"/></svg></span>';
-    const doneIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
-      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
-      '<circle cx="12" cy="12" r="9"/></svg></span>';
     installNote.innerHTML =
       '<p class="pStepsTitle">iPhone App Instructions</p>' +
       '<ul class="pSteps">' +
-      '<li><span class="n">1</span><span>Find the share icon ' + shareIcon + '</span></li>' +
-      '<li><span class="n">2</span><span>Scroll to the bottom of the list and find ' +
-        addIcon + ' Add to Home Screen</span></li>' +
-      '<li><span class="n">3</span><span>Press the Add button.</span></li>' +
-      '<li><span class="n">4</span><span>Press the circle ' + doneIcon + ' in the bottom right.</span></li>' +
+      '<li><span class="n">1</span><span>Press the circle with three dots ' + dotsIcon + ' <b>(bottom right)</b></span></li>' +
+      '<li><span class="n">2</span><span>Find and press the <b>Share</b> button ' + shareIcon + '</span></li>' +
+      '<li><span class="n">3</span><span>Press <b>View More</b> ' + moreIcon + ' <b>(bottom right)</b></span></li>' +
+      '<li><span class="n">4</span><span>Press <b>Add to Home Screen</b>, then press <b>Add</b> ' + addIcon + '</span></li>' +
+      '</ul>';
+  } else if(isAndroid()){
+    // Reached only when the browser didn't offer a one-tap beforeinstallprompt (e.g. Firefox
+    // or Samsung Internet on Android) — walk through the manual overflow-menu route instead.
+    const menuIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<circle cx="12" cy="5" r="1.3" fill="currentColor" stroke="none"/>' +
+      '<circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>' +
+      '<circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none"/>' +
+      '</svg></span>';
+    const addIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="3.4" y="3.4" width="17.2" height="17.2" rx="4.6"/>' +
+      '<path d="M12 8.4v7.2M8.4 12h7.2"/></svg></span>';
+    installNote.innerHTML =
+      '<p class="pStepsTitle">Android Instructions</p>' +
+      '<ul class="pSteps">' +
+      '<li><span class="n">1</span><span>Press the three-dot menu ' + menuIcon + ' <b>(top right)</b></span></li>' +
+      '<li><span class="n">2</span><span>Find and press <b>Add to Home screen</b> (or <b>Install app</b>)</span></li>' +
+      '<li><span class="n">3</span><span>Press <b>Add</b> ' + addIcon + ' <b>(or Install)</b></span></li>' +
       '</ul>';
   } else {
     installNote.innerHTML = 'No install prompt offered. Look for Install or Add to Home screen ' +
