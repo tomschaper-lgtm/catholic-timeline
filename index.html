@@ -1,4 +1,14 @@
 <!--
+VERSION: 129
+DATE: 2026-08-09T00:00:00-05:00
+CHANGES:
+- iPhone instructions now 5 steps instead of 4, matching the real share-sheet flow: 1) press
+  the three-dot circle, 2) press Share, 3) find "Add to Home Screen", 4) try View More (bottom
+  right) if it isn't there, 5) press Add.
+- View More icon corrected — it's a soft circle with a downward chevron, not three dots (Tom
+  sent a screenshot of the actual glyph).
+-->
+<!--
 VERSION: 128
 DATE: 2026-08-09T00:00:00-05:00
 CHANGES:
@@ -2274,7 +2284,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v128';
+const APP_VERSION = 'v129';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6015,11 +6025,11 @@ installBtn.addEventListener('click', async (e) => {
       '<path d="M12 3v11"/><path d="M8.4 6.6L12 3l3.6 3.6"/>' +
       '<path d="M7.5 10H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1.5"/>' +
       '</svg></span>';
+    // Matches the real glyph: a soft circle with a downward chevron, not three dots.
     const moreIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
-      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
-      '<circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/>' +
-      '<circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>' +
-      '<circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/>' +
+      'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '<circle cx="12" cy="12" r="9"/>' +
+      '<path d="M8.3 10.3L12 14l3.7-3.7"/>' +
       '</svg></span>';
     const addIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
       'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
@@ -6029,8 +6039,9 @@ installBtn.addEventListener('click', async (e) => {
       '<ul class="pSteps">' +
       '<li><span class="n">1</span><span>Press the circle with three dots ' + dotsIcon + ' <b>(bottom right)</b></span></li>' +
       '<li><span class="n">2</span><span>Find and press the <b>Share</b> button ' + shareIcon + '</span></li>' +
-      '<li><span class="n">3</span><span>Press <b>View More</b> ' + moreIcon + '</span></li>' +
-      '<li><span class="n">4</span><span>Press <b>Add to Home Screen</b>, then press <b>Add</b> ' + addIcon + '</span></li>' +
+      '<li><span class="n">3</span><span>Find <b>Add to Home Screen</b></span></li>' +
+      '<li><span class="n">4</span><span>Try <b>View More</b> ' + moreIcon + ' <b>(bottom right)</b></span></li>' +
+      '<li><span class="n">5</span><span>Press <b>Add</b> ' + addIcon + '</span></li>' +
       '</ul>';
   } else if(isAndroid()){
     installBtn.querySelector('.pName').textContent = 'Android Instructions';
