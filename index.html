@@ -1,4 +1,17 @@
 <!--
+VERSION: 128
+DATE: 2026-08-09T00:00:00-05:00
+CHANGES:
+- Install-instructions row no longer shows two headings. The row's own label now becomes
+  "iPhone App Instructions" / "Android Instructions" / "Install Instructions" when expanded,
+  and reverts to "Make this into an App" when collapsed — the separate title line under it is
+  gone.
+- iPhone step 3 shortened to "Press View More ⋯" (dropped the trailing "(bottom right)") so it
+  fits on one line instead of wrapping.
+- Settings panel top offset nudged up (58px → 46px) now that removing the duplicate heading
+  frees a bit more vertical room.
+-->
+<!--
 VERSION: 127
 DATE: 2026-08-09T00:00:00-05:00
 CHANGES:
@@ -539,11 +552,11 @@ CHANGES:
   .hamScrim.open{opacity:1; pointer-events:auto;}
   .hamMenu{
     /* Hung just below the hamburger rather than centred, so the panel reads as belonging to
-       the control that opened it. Raised closer to the top (was 84px) and given more height
-       (was -120px) so the first couple of rows — Install instructions especially — sit above
-       where a native iOS share sheet covers the screen when the reader follows those very
-       instructions, instead of disappearing behind it. */
-    position:fixed; top:calc(58px + env(safe-area-inset-top)); right:0; z-index:140;
+       the control that opened it. Raised closer to the top (was 84px, then 58px) now that the
+       install-instructions row no longer needs a second title line, freeing a bit more room —
+       raised again slightly so more sits above where a native iOS share sheet would cover the
+       screen when the reader follows those very instructions. */
+    position:fixed; top:calc(46px + env(safe-area-inset-top)); right:0; z-index:140;
     width:min(360px, 88vw);
     max-height:calc(100vh - 78px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     overflow-y:auto; -webkit-overflow-scrolling:touch;
@@ -2261,7 +2274,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v127';
+const APP_VERSION = 'v128';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5956,16 +5969,8 @@ function refreshInstallUI(){
     return;
   }
   installBtn.style.display = '';
-  if(deferredInstall){
-    installBtn.querySelector('.pName').textContent = 'Make this into an App';
-    installNote.textContent = '';
-  } else if(isIOS()){
-    installBtn.querySelector('.pName').textContent = 'Make this into an App';
-    installNote.textContent = '';
-  } else {
-    installBtn.querySelector('.pName').textContent = 'Make this into an App';
-    installNote.textContent = '';
-  }
+  installBtn.querySelector('.pName').textContent = 'Make this into an App';
+  installNote.textContent = '';
 }
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -5991,9 +5996,11 @@ installBtn.addEventListener('click', async (e) => {
     return;
   }
   installExpanded = true;
-  installBtn.querySelector('.pName').textContent = 'Make this into an App';
-  // No install API available — explain the manual route for this browser.
+  // No install API available — explain the manual route for this browser. The row's own
+  // label becomes the instructions title (rather than adding a second title line below),
+  // so there's exactly one heading either way — it just changes what it says.
   if(isIOS()){
+    installBtn.querySelector('.pName').textContent = 'iPhone App Instructions';
     // Drawn rather than named: the reader is hunting for a shape in a crowded share sheet,
     // so showing the actual glyph at text size is worth more than any description of it.
     const dotsIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
@@ -6019,14 +6026,14 @@ installBtn.addEventListener('click', async (e) => {
       '<rect x="3.4" y="3.4" width="17.2" height="17.2" rx="4.6"/>' +
       '<path d="M12 8.4v7.2M8.4 12h7.2"/></svg></span>';
     installNote.innerHTML =
-      '<p class="pStepsTitle">iPhone App Instructions</p>' +
       '<ul class="pSteps">' +
       '<li><span class="n">1</span><span>Press the circle with three dots ' + dotsIcon + ' <b>(bottom right)</b></span></li>' +
       '<li><span class="n">2</span><span>Find and press the <b>Share</b> button ' + shareIcon + '</span></li>' +
-      '<li><span class="n">3</span><span>Press <b>View More</b> ' + moreIcon + ' <b>(bottom right)</b></span></li>' +
+      '<li><span class="n">3</span><span>Press <b>View More</b> ' + moreIcon + '</span></li>' +
       '<li><span class="n">4</span><span>Press <b>Add to Home Screen</b>, then press <b>Add</b> ' + addIcon + '</span></li>' +
       '</ul>';
   } else if(isAndroid()){
+    installBtn.querySelector('.pName').textContent = 'Android Instructions';
     // Reached only when the browser didn't offer a one-tap beforeinstallprompt (e.g. Firefox
     // or Samsung Internet on Android) — walk through the manual overflow-menu route instead.
     const menuIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
@@ -6040,13 +6047,13 @@ installBtn.addEventListener('click', async (e) => {
       '<rect x="3.4" y="3.4" width="17.2" height="17.2" rx="4.6"/>' +
       '<path d="M12 8.4v7.2M8.4 12h7.2"/></svg></span>';
     installNote.innerHTML =
-      '<p class="pStepsTitle">Android Instructions</p>' +
       '<ul class="pSteps">' +
       '<li><span class="n">1</span><span>Press the three-dot menu ' + menuIcon + ' <b>(top right)</b></span></li>' +
       '<li><span class="n">2</span><span>Find and press <b>Add to Home screen</b> (or <b>Install app</b>)</span></li>' +
       '<li><span class="n">3</span><span>Press <b>Add</b> ' + addIcon + ' <b>(or Install)</b></span></li>' +
       '</ul>';
   } else {
+    installBtn.querySelector('.pName').textContent = 'Install Instructions';
     installNote.innerHTML = 'No install prompt offered. Look for Install or Add to Home screen ' +
       'in the browser menu.';
   }
