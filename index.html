@@ -1,4 +1,18 @@
 <!--
+VERSION: 130
+DATE: 2026-08-09T00:00:00-05:00
+CHANGES:
+- New: Manual Cross-Links tool in Manage → Export tab, right under Auto-Link Cross-References.
+  For curated links the name-matcher can't make safely — a different name for the same person
+  ("Saul" -> St. Paul), a title instead of a name ("the beloved disciple" -> St. John), or a
+  bare "Mary" meant specifically as the Blessed Virgin. Format: one link per line, entryId ::
+  exact text :: targetId, with an optional 4th field to pick which occurrence of that text
+  (default: first). Reuses the same tag-aware scanning as Auto-Link so it never breaks existing
+  HTML or double-links inside an anchor that's already there. Preview/Apply, same pattern as
+  Auto-Link. Built so link instructions can be handed over as a short list instead of re-pasting
+  full article bodies for every cross-link.
+-->
+<!--
 VERSION: 129
 DATE: 2026-08-09T00:00:00-05:00
 CHANGES:
@@ -1883,6 +1897,20 @@ CHANGES:
         <div class="hint" style="margin-top:-4px;">Links are created <b>only where an entry's whole name appears</b> &mdash; its display name, that name minus an honorific (&ldquo;Pope St. Leo the Great&rdquo; also matches &ldquo;Leo the Great&rdquo;), or an <b>alternate name</b> you gave it. Names are never chopped into pieces, and the mention must be capitalised, so a passing reference to &ldquo;an ecumenical council&rdquo; is left alone. Only the <b>first</b> mention per article becomes a link; existing links and self-references are never touched.<br><br><b>Want a short form to link?</b> Add it to that entry's <b>Alternate names</b> field &mdash; e.g. <code>Aquinas</code>, <code>Edith Stein</code>, <code>JPII</code>. That keeps the choice yours rather than the algorithm's.<br><br><b>Preview</b> reports what would change without touching anything. <b>Apply</b> writes it. <b>Remove All Links</b> strips every <code>entry:</code> link from the filtered entries, leaving the words in place &mdash; source links in the article body are not affected. All changes apply in this session only: review the report below, then Save to GitHub (Publish).</div>
       </details>
       <div class="mlog" id="xrefLog"></div>
+
+      <div class="mgmtRowLabel">Manual Cross-Links <span style="font-weight:400; text-transform:none; letter-spacing:0;">(curated &mdash; for links the auto-matcher can't make safely)</span></div>
+      <div class="mfield">
+        <label>One link per line: <code>entryId :: exact text :: targetId</code> &mdash; optional 4th field picks which occurrence (default: first)</label>
+        <textarea id="manualLinkInput" rows="6" placeholder="st-andrew-60 :: Philip :: st-philip-the-apostle-80&#10;st-stephen-34 :: Saul :: st-paul-67&#10;st-john-the-baptist-30 :: Gabriel :: sts-michael-gabriel-raphael-archangels-0"></textarea>
+      </div>
+      <div class="mtool" style="margin-top:0;">
+        <button class="mbtn" id="manualLinkPreviewBtn">Preview Manual Links</button>
+        <button class="mbtn" id="manualLinkApplyBtn">Apply Manual Links</button>
+      </div>
+      <details class="mHelp"><summary>What this does</summary>
+        <div class="hint" style="margin-top:-4px;">For links the name-matcher above can't safely make on its own &mdash; a different name for the same person (&ldquo;Saul&rdquo; &rarr; St. Paul), a title instead of a name (&ldquo;the beloved disciple&rdquo; &rarr; St. John), or a bare &ldquo;Mary&rdquo; you specifically mean as the Blessed Virgin. The <b>exact text</b> must appear verbatim in that entry's article body, including case &mdash; copy it straight from the text rather than retyping it. Each line makes <b>one</b> link; existing links and text inside them are skipped automatically, so re-running a list that already applied is harmless. Preview reports what would happen; Apply writes it.</div>
+      </details>
+      <div class="mlog" id="manualLinkLog"></div>
     </div>
 
     <!-- ===== TAB: Import ===== -->
@@ -2284,7 +2312,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v129';
+const APP_VERSION = 'v130';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5308,6 +5336,92 @@ function xrefScopeLabel(scope){
 document.getElementById('xrefPreviewBtn').addEventListener('click', () => runAutoLinkEntries(false));
 document.getElementById('xrefRunBtn').addEventListener('click', () => runAutoLinkEntries(true));
 document.getElementById('xrefRemoveBtn').addEventListener('click', removeAutoLinkEntries);
+
+// ---- Manual Cross-Links: curated, one link per line ----
+// Companion to the auto-matcher above, for links a name-scan can't make safely: a different
+// name for the same person ("Saul" -> St. Paul), a title instead of a name ("the beloved
+// disciple" -> St. John), or a bare "Mary" the owner specifically means as the Blessed Virgin.
+// Format per line: entryId :: exact text :: targetId :: occurrence(optional, default 1).
+// Reuses the same tag-aware tokenizing as the auto-linker so it never breaks existing HTML or
+// double-links inside an anchor that's already there.
+function manualLinkApplyToEntry(entry, text, occurrence, targetId){
+  let seen = 0, done = false;
+  const wrapInSegment = (tok) => {
+    if(done) return tok;
+    const re = new RegExp(xrefEscapeRegex(text), 'g');
+    let out = '', cursor = 0, m;
+    while((m = re.exec(tok))){
+      seen++;
+      if(seen === occurrence){
+        out += tok.slice(cursor, m.index);
+        out += '<a href="entry:' + targetId + '">' + m[0] + '</a>';
+        cursor = m.index + m[0].length;
+        done = true;
+        break; // one insertion total, ever, for this line
+      }
+    }
+    out += tok.slice(cursor);
+    return out;
+  };
+  const newSections = entry.art.sections.map(sec => {
+    if(done) return sec;
+    const tokens = String(sec.b || '').split(/(<[^>]+>)/g);
+    let insideAnchor = 0;
+    const rebuilt = tokens.map(tok => {
+      if(/^<a\b/i.test(tok)){ insideAnchor++; return tok; }
+      if(/^<\/a>/i.test(tok)){ insideAnchor = Math.max(0, insideAnchor - 1); return tok; }
+      if(/^<[^>]+>$/.test(tok)) return tok;
+      if(insideAnchor > 0) return tok;
+      return wrapInSegment(tok);
+    }).join('');
+    return { h: sec.h, b: rebuilt };
+  });
+  return { changed: done, sections: newSections, totalSeen: seen };
+}
+function runManualLinks(apply){
+  const raw = document.getElementById('manualLinkInput').value;
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const results = [];
+  let appliedCount = 0;
+  lines.forEach((line, idx) => {
+    const parts = line.split('::').map(s => s.trim());
+    if(parts.length < 3){ results.push('Line ' + (idx + 1) + ': malformed — need entryId :: exact text :: targetId'); return; }
+    const [sourceId, text, targetId, occStr] = parts;
+    const occurrence = occStr ? (parseInt(occStr, 10) || 1) : 1;
+    const entry = getEntry(sourceId);
+    if(!entry){ results.push(sourceId + ': entry not found'); return; }
+    if(sourceId === targetId){ results.push(sourceId + ': cannot link to itself'); return; }
+    const target = getEntry(targetId);
+    if(!target){ results.push(sourceId + ' → ' + targetId + ': target entry not found'); return; }
+    if(!text){ results.push(sourceId + ': empty text field'); return; }
+    if(!entry.art || !Array.isArray(entry.art.sections) || !entry.art.sections.length){
+      results.push(sourceId + ': has no article sections'); return;
+    }
+    const { changed, sections, totalSeen } = manualLinkApplyToEntry(entry, text, occurrence, targetId);
+    if(!changed){
+      results.push(sourceId + ': "' + text + '" occurrence ' + occurrence + ' not found (only ' + totalSeen + ' seen)');
+      return;
+    }
+    results.push(sourceId + ' → ' + targetId + ': linked "' + text + '"' + (occurrence > 1 ? ' (occurrence ' + occurrence + ')' : ''));
+    appliedCount++;
+    if(apply) entry.art.sections = sections;
+  });
+  const log = document.getElementById('manualLinkLog');
+  log.textContent = (results.length ? results.join('\n') : 'Nothing to do — paste one or more lines above.') +
+    (!apply && results.length ? '\n\n(Preview only — nothing has been changed. Press "Apply Manual Links" to write these.)' : '');
+  if(apply && appliedCount){
+    setStatus(appliedCount + ' manual link(s) applied — then Save to GitHub (Publish)');
+    saveDb();
+    renderMList();
+    render();
+  } else if(!apply){
+    setStatus('Preview: ' + appliedCount + ' link(s) would be applied');
+  } else {
+    setStatus('No links applied');
+  }
+}
+document.getElementById('manualLinkPreviewBtn').addEventListener('click', () => runManualLinks(false));
+document.getElementById('manualLinkApplyBtn').addEventListener('click', () => runManualLinks(true));
 
 
 document.getElementById('aiRun').addEventListener('click', async () => {
