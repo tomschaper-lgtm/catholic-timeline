@@ -1,4 +1,17 @@
 <!--
+VERSION: 133
+DATE: 2026-08-11T12:30:00-05:00
+CHANGES:
+- Reworked the v132 band-label icon: it's no longer inside the fading label bar (which was
+  blocking the in-band century numbers as it scrolled right). The label bar is back to
+  text-only, sticky left, fading out to the right exactly as before.
+- The category icon is now its own sticky-left element, stuck just below the label, in a
+  larger framed box (56x56) with its own background — sized and positioned like a small
+  mosaic/artwork tile rather than a small glyph.
+- Added TYPE_BAND_IMG (near the ICONS constant) so hosted artwork/mosaic images can be
+  dropped in per category later — falls back to the existing SVG glyph when empty.
+-->
+<!--
 VERSION: 132
 DATE: 2026-08-11T12:00:00-05:00
 CHANGES:
@@ -795,20 +808,22 @@ CHANGES:
   .band-e{background:rgba(126,156,201,.05);}
   .bandlblwrap{position:absolute; left:0; z-index:4; pointer-events:none;}
   .bandlbl{
-    position:sticky; left:0; top:58px; display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-width:230px;
+    position:sticky; left:0; top:58px; display:inline-block; min-width:230px;
     font-family:'Cinzel',serif; font-size:16px; font-weight:700; letter-spacing:.24em; text-transform:uppercase;
     opacity:.98; margin:0; pointer-events:none;
     text-shadow:0 1px 4px rgba(0,0,0,.9), 0 0 10px rgba(0,0,0,.75);
     background:linear-gradient(90deg, rgba(7,15,34,.92) 0%, rgba(7,15,34,.92) 44%, rgba(7,15,34,0) 100%);
     padding:6px 16px 8px 14px; border-radius:0 4px 4px 0;
   }
-  .bandlbl .bandlblIcon{
-    width:20px; height:20px; display:flex; align-items:center; justify-content:center;
-    border:1.5px solid currentColor; border-radius:50%; background:var(--navy-deep);
-    box-shadow:0 0 6px rgba(0,0,0,.5);
+  .bandIconWrap{position:sticky; left:0; top:96px; width:0; height:0; z-index:4; pointer-events:none;}
+  .bandIconFrame{
+    position:absolute; left:14px; top:6px; width:56px; height:56px; border-radius:12px; overflow:hidden;
+    background:radial-gradient(circle at 35% 30%, rgba(201,165,66,.16), rgba(7,15,34,.94) 72%);
+    border:1.5px solid currentColor; box-shadow:0 3px 12px rgba(0,0,0,.65), 0 0 10px rgba(0,0,0,.5);
+    display:flex; align-items:center; justify-content:center;
   }
-  .bandlbl .bandlblIcon svg{width:11px; height:11px;}
-  .bandlbl .bandlblText{line-height:1.15;}
+  .bandIconFrame svg{width:30px; height:30px;}
+  .bandIconFrame img{width:100%; height:100%; object-fit:cover; display:block;}
   .bandyearwrap{position:absolute; z-index:3; pointer-events:none;}
   .bandyear{
     position:sticky; top:60px; display:inline-block;
@@ -2318,13 +2333,17 @@ const ICONS = {
   m:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.4 5.4 5.9.5-4.5 3.9 1.4 5.7L12 15.6 6.8 18.5l1.4-5.7L3.7 8.9l5.9-.5z"/></svg>',
   u:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6.5" r="3.2"/><path d="M6.5 12h11M8 12c0 3 1.8 4.5 4 4.5s4-1.5 4-4.5M12 16.5V20M9.5 20h5"/></svg>'
 };
+// Optional per-category artwork for the sticky band icon frame (below each lane's label).
+// Fill in a hosted https image URL (or repo-relative path) per type to replace the plain SVG
+// glyph with real artwork/mosaic imagery. Leave "" to keep using the SVG icon from ICONS above.
+const TYPE_BAND_IMG = {s:'', c:'', p:'', e:'', m:'', u:''};
 
 // ================= DATABASE =================
 const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v132';
+const APP_VERSION = 'v133';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2723,7 +2742,12 @@ function render(){
     lblWrap.style.top = yCursor + 'px';
     lblWrap.style.height = bandH + 'px';
     lblWrap.style.width = totalWidth() + 'px';
-    lblWrap.innerHTML = '<span class="bandlbl t-'+t+'"><span class="bandlblText">'+TYPE_PLURALS[t]+'</span><span class="bandlblIcon">'+ICONS[t]+'</span></span>';
+    const bandIconContent = TYPE_BAND_IMG[t]
+      ? '<img src="'+TYPE_BAND_IMG[t]+'" alt="'+TYPE_PLURALS[t]+'">'
+      : ICONS[t];
+    lblWrap.innerHTML =
+      '<span class="bandlbl t-'+t+'">'+TYPE_PLURALS[t]+'</span>' +
+      '<div class="bandIconWrap"><div class="bandIconFrame t-'+t+'">'+bandIconContent+'</div></div>';
     canvas.appendChild(lblWrap);
     for(let y = 100; y <= END; y += 100){
       const yw = document.createElement('div');
