@@ -1,4 +1,40 @@
 <!--
+VERSION: 140
+DATE: 2026-08-11T16:00:00-05:00
+CHANGES:
+- Found the actual cause of the "too much coffee" jittery/flickering band icons (diagnosed from
+  a screen recording, frame-by-frame): an existing window 'resize' handler ran a full render()
+  (wipes and rebuilds the entire canvas) on every resize event, and iOS Safari fires 'resize'
+  repeatedly during ordinary scrolling as its address-bar toolbar shows/hides — not just on real
+  rotations. That caused the whole timeline, icons included, to briefly blank out and rebuild
+  mid-scroll. The resize handler is now debounced (220ms) so rapid-fire scroll-driven resizes
+  collapse into a single render once things settle; real resizes/rotations still work.
+- Also dropped the CSS opacity transition on the band icon — it was fighting the JS-driven
+  per-scroll-frame opacity updates (chasing a constantly-moving target), adding a second,
+  smaller layer of jitter on top of the render flash. Opacity now just tracks scroll directly.
+-->
+<!--
+VERSION: 139
+DATE: 2026-08-11T15:30:00-05:00
+CHANGES:
+- iPhone install instructions condensed from 5 steps to 4: step 2 now reads "Press the [share
+  icon] Share Sheet (Top)"; step 3 merges the old "Find Add to Home Screen" + "Try View More"
+  steps into one — "Press [+] Add to Home Screen under the [chevron] View More (bottom right)",
+  reusing the existing add-icon glyph since it already matches Apple's real Add to Home Screen
+  icon; old step 5 ("Press Add") is now step 4.
+-->
+<!--
+VERSION: 138
+DATE: 2026-08-11T15:00:00-05:00
+CHANGES:
+- Wrapped startup (loadDb + first render) in try/catch with a seed-data fallback, so a failure
+  during load never leaves the page stuck on "Loading timeline…" — this is specifically to
+  soften the "Uncaught Error: Script error." / stuck-loading behavior seen in Claude's own
+  in-chat file preview (which has no sibling data.json to fetch and isn't a persistent-storage
+  artifact context either — a sandbox quirk of the preview surface itself, confirmed NOT present
+  on the real hosted site). No behavior change for the live site or a real artifact context.
+-->
+<!--
 VERSION: 137
 DATE: 2026-08-11T14:30:00-05:00
 CHANGES:
@@ -874,7 +910,6 @@ CHANGES:
     border:1.5px solid currentColor;
     box-shadow:0 10px 16px rgba(0,0,0,.6), 0 3px 8px rgba(0,0,0,.5), 0 0 10px rgba(0,0,0,.4);
     display:flex; align-items:center; justify-content:center; opacity:1;
-    transition:opacity .15s linear;
   }
   .bandIconWrap svg{width:28px; height:28px;}
   .bandIconWrap img{width:100%; height:100%; object-fit:cover; display:block;}
@@ -2397,7 +2432,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v137';
+const APP_VERSION = 'v140';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3253,7 +3288,17 @@ document.querySelectorAll('#regionRow .chip').forEach(chip => {
     render();
   });
 });
-window.addEventListener('resize', () => { ppy = Math.max(ppy, fitPpy()); render(); });
+// Debounced: iOS Safari fires 'resize' repeatedly during ordinary scrolling as its address-bar
+// toolbar shows/hides, not just on real rotations/window resizes. Re-running the full render()
+// (which clears and rebuilds the entire canvas) on every one of those caused a brief but visible
+// blank flash mid-scroll. Collapsing rapid-fire resizes into one render after things settle
+// keeps real resizes/rotations working while eliminating that scroll-time flicker.
+let resizeRenderTimer = null;
+window.addEventListener('resize', () => {
+  ppy = Math.max(ppy, fitPpy());
+  clearTimeout(resizeRenderTimer);
+  resizeRenderTimer = setTimeout(render, 220);
+});
 
 // ---- Zoom tiers (level of detail) ----
 const TIER2_PPY = 1.0, TIER3_PPY = 2.2;
@@ -6293,10 +6338,9 @@ installBtn.addEventListener('click', async (e) => {
     installNote.innerHTML =
       '<ul class="pSteps">' +
       '<li><span class="n">1</span><span>Press the ' + dotsIcon + ' <b>(bottom right)</b></span></li>' +
-      '<li><span class="n">2</span><span>Find and press the <b>Share</b> button ' + shareIcon + '</span></li>' +
-      '<li><span class="n">3</span><span>Find <b>Add to Home Screen</b></span></li>' +
-      '<li><span class="n">4</span><span>Try <b>View More</b> ' + moreIcon + ' <b>(bottom right)</b></span></li>' +
-      '<li><span class="n">5</span><span>Press <b>Add</b> ' + addIcon + '</span></li>' +
+      '<li><span class="n">2</span><span>Press the ' + shareIcon + ' <b>Share Sheet</b> <b>(Top)</b></span></li>' +
+      '<li><span class="n">3</span><span>Press ' + addIcon + ' <b>Add to Home Screen</b> under the ' + moreIcon + ' <b>View More</b> <b>(bottom right)</b></span></li>' +
+      '<li><span class="n">4</span><span>Press <b>Add</b> ' + addIcon + '</span></li>' +
       '</ul>';
   } else if(isAndroid()){
     installBtn.querySelector('.pName').textContent = 'Android Instructions';
@@ -6527,27 +6571,42 @@ document.getElementById('showEditControls').addEventListener('change', (e) => {
 
 // ================= INIT =================
 (async function(){
-  updateManageVisibility();
-  await loadDb();
-  updateReviewUI();
-  render();
-  const sharedId = location.hash ? location.hash.slice(1) : '';
-  let sharedEntry = sharedId ? getEntry(sharedId) : null;
-  // A deep link to an entry that is still held for review should not expose it; only Review Mode
-  // opens it. Otherwise the link falls through to the normal opening view.
-  if(sharedEntry && isReview(sharedEntry) && !reviewMode) sharedEntry = null;
-  if(sharedEntry){
-    scrollToYear(sharedEntry.y);
-    showDetail(sharedEntry);
-  } else {
-    scrollToYear(120);
-    const todaysSaint = findTodaysSaint();
-    if(todaysSaint){
-      // Start from the familiar overview, then travel to today's saint after a brief
-      // beat, so the journey reads as a deliberate "here's who we celebrate today"
-      // moment rather than an instant jump straight to their card.
-      setTimeout(() => goToFeastOfDay(todaysSaint), 600);
+  try{
+    updateManageVisibility();
+    await loadDb();
+  }catch(e){
+    // Defensive fallback: a sandboxed preview context (e.g. Claude's own in-chat file preview,
+    // which has no sibling data.json to fetch and isn't a full persistent-storage artifact
+    // either) can throw here in ways a real deployment never will. Rather than leaving the
+    // page stuck on "Loading timeline…", fall back to the embedded seed so there's always
+    // something to look at.
+    console.warn('loadDb failed, falling back to embedded seed data:', e);
+    db = seedDb();
+  }
+  try{
+    updateReviewUI();
+    render();
+    const sharedId = location.hash ? location.hash.slice(1) : '';
+    let sharedEntry = sharedId ? getEntry(sharedId) : null;
+    // A deep link to an entry that is still held for review should not expose it; only Review Mode
+    // opens it. Otherwise the link falls through to the normal opening view.
+    if(sharedEntry && isReview(sharedEntry) && !reviewMode) sharedEntry = null;
+    if(sharedEntry){
+      scrollToYear(sharedEntry.y);
+      showDetail(sharedEntry);
+    } else {
+      scrollToYear(120);
+      const todaysSaint = findTodaysSaint();
+      if(todaysSaint){
+        // Start from the familiar overview, then travel to today's saint after a brief
+        // beat, so the journey reads as a deliberate "here's who we celebrate today"
+        // moment rather than an instant jump straight to their card.
+        setTimeout(() => goToFeastOfDay(todaysSaint), 600);
+      }
     }
+  }catch(e){
+    console.warn('Startup render failed:', e);
+    canvas.innerHTML = '<div style="padding:40px 20px; font-style:italic; color:var(--muted);">Could not load the timeline. Try reloading the page.</div>';
   }
 })();
 </script>
