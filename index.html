@@ -1,4 +1,20 @@
 <!--
+VERSION: 141
+DATE: 2026-08-11T16:30:00-05:00
+CHANGES:
+- iPhone install instructions: dropped "the" from steps 1 and 2; step 3 now reads "Press [+]
+  Add to Home Screen after [chevron] View More (bottom)" (was "under the ... (bottom right)") —
+  shorter, and now wraps to two lines instead of three.
+- Icon jitter, round 2 (diagnosed from a second screen recording): moving the icon's position to
+  JS (done in v137/v140 to fix the touching-the-next-band bug) traded one problem for another —
+  JS position only updates on 'scroll' events, which iOS coalesces to well under 60fps during a
+  fast fling, so the icon visibly stepped/lagged behind the smoothly-scrolling page around it.
+  Position is back to native CSS position:sticky (compositor-driven, perfectly smooth, matches
+  the label exactly) now that v140 already removed the real cause of the old touching bug (the
+  resize-triggered full re-render, not sticky itself). Opacity alone stays JS-driven for the
+  fade-before-touching behavior — a little lag there reads as a soft cross-fade, not a stutter.
+-->
+<!--
 VERSION: 140
 DATE: 2026-08-11T16:00:00-05:00
 CHANGES:
@@ -904,7 +920,7 @@ CHANGES:
     padding:5px 16px 6px 14px; border-radius:0 4px 4px 0;
   }
   .bandIconWrap{
-    position:absolute; left:14px; top:102px; z-index:4; pointer-events:none;
+    position:sticky; left:14px; top:102px; bottom:14px; z-index:4; pointer-events:none;
     width:52px; height:52px; border-radius:12px; overflow:hidden;
     background:linear-gradient(160deg, #202f52 0%, #0B1630 100%);
     border:1.5px solid currentColor;
@@ -2432,7 +2448,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v140';
+const APP_VERSION = 'v141';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2871,36 +2887,33 @@ function render(){
   updateBandIconFade();
 }
 
-// Positions and fades each band icon by direct computation on every scroll frame (rather than
-// relying on CSS position:sticky with combined top+bottom offsets, which is inconsistent on
-// mobile Safari inside a manually-scrolled container and was the source of icons sometimes not
-// fading correctly and sometimes visibly overlapping the next band). The icon's vertical slot
-// is clamped between a fixed gap below its own label and a fixed gap above the band's own
-// bottom edge, so the same padding is guaranteed for every band, and opacity is derived from
-// the same clamp so it reaches exactly 0 the instant the icon would otherwise touch/overlap the
-// band below it — never a residual few percent left. It has nothing to do with entries/icons on
-// the timeline itself.
-const ICON_STICK_TOP = 102, ICON_HEIGHT = 52;   // natural resting screen offset + icon size
-const ICON_TOP_GAP_MIN = 40;                    // never render closer to the label than this
-const ICON_FADE_ZONE = 50;                      // px of remaining clearance over which opacity ramps
+// Position is left to native CSS position:sticky (top:102px; bottom:14px) so the icon tracks
+// scroll on the compositor thread, in perfect lockstep with the (also sticky) label and the
+// rest of the page — completely smooth, even during a fast fling. Earlier this was computed in
+// JS instead (recalculated only on 'scroll' events, which iOS coalesces to well under 60fps
+// during momentum scrolling), and the icon visibly stepped/lagged behind the smoothly-scrolling
+// content around it — that mismatch, not the fade itself, was the "too much coffee" jitter.
+// Only opacity is still computed here: it fades to exactly 0 the instant sticky's own bottom
+// constraint would otherwise force the icon to touch/overlap the band below, using the same
+// 102/52/14 numbers as the CSS so the two agree. A slight lag on opacity alone (bound to the
+// same coalesced scroll events) reads as a soft cross-fade rather than a stutter, so it's fine
+// for opacity to stay JS-driven even though position no longer is.
+const ICON_STICK_TOP = 102, ICON_HEIGHT = 52, ICON_BOTTOM_GAP = 14; // must match .bandIconWrap CSS
+const ICON_FADE_ZONE = 50;   // px of remaining clearance over which opacity ramps
 let iconFadeRAF = null;
 function updateBandIconFade(){
-  const st = viewport.scrollTop, sl = viewport.scrollLeft;
+  const st = viewport.scrollTop;
   canvas.querySelectorAll('.bandIconWrap[data-type]').forEach(el => {
     const t = el.dataset.type;
     const info = bandVInfo[t];
     if(!info){ el.style.opacity = 1; return; }
-    const bandH = info.bottom - info.top;
-    const maxTop = Math.max(ICON_TOP_GAP_MIN, bandH - ICON_HEIGHT); // flush with band bottom
-    const rawTop = st + ICON_STICK_TOP - info.top;
-    const clampedTop = Math.min(Math.max(rawTop, ICON_TOP_GAP_MIN), maxTop);
-    const slack = maxTop - rawTop;
+    // Clearance remaining between the icon's natural (stuck) bottom edge and the band's own
+    // bottom edge (minus the CSS bottom-constraint gap) before the two would collide.
+    const slack = (info.bottom - ICON_BOTTOM_GAP) - (st + ICON_STICK_TOP + ICON_HEIGHT);
     let op;
     if(slack <= 0) op = 0;
     else if(slack >= ICON_FADE_ZONE) op = 1;
     else op = slack / ICON_FADE_ZONE;
-    el.style.top = clampedTop + 'px';
-    el.style.left = (sl + 14) + 'px';
     el.style.opacity = op;
   });
 }
@@ -6337,9 +6350,9 @@ installBtn.addEventListener('click', async (e) => {
       '<path d="M12 8.4v7.2M8.4 12h7.2"/></svg></span>';
     installNote.innerHTML =
       '<ul class="pSteps">' +
-      '<li><span class="n">1</span><span>Press the ' + dotsIcon + ' <b>(bottom right)</b></span></li>' +
-      '<li><span class="n">2</span><span>Press the ' + shareIcon + ' <b>Share Sheet</b> <b>(Top)</b></span></li>' +
-      '<li><span class="n">3</span><span>Press ' + addIcon + ' <b>Add to Home Screen</b> under the ' + moreIcon + ' <b>View More</b> <b>(bottom right)</b></span></li>' +
+      '<li><span class="n">1</span><span>Press ' + dotsIcon + ' <b>(bottom right)</b></span></li>' +
+      '<li><span class="n">2</span><span>Press ' + shareIcon + ' <b>Share Sheet</b> <b>(Top)</b></span></li>' +
+      '<li><span class="n">3</span><span>Press ' + addIcon + ' <b>Add to Home Screen</b> after ' + moreIcon + ' <b>View More</b> <b>(bottom)</b></span></li>' +
       '<li><span class="n">4</span><span>Press <b>Add</b> ' + addIcon + '</span></li>' +
       '</ul>';
   } else if(isAndroid()){
