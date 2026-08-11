@@ -1,4 +1,19 @@
 <!--
+VERSION: 134
+DATE: 2026-08-11T13:00:00-05:00
+CHANGES:
+- Band icon is now fully opaque at rest (solid two-tone background, no see-through to the
+  band or entries behind it).
+- Band icon now fades toward the leftmost visible entry in its own lane as you scroll right,
+  so the icon and an approaching entry row no longer sit visibly on top of each other; fades
+  back to full opacity once that entry scrolls away again.
+- Band label text sized down a notch (16px -> 13px) and the label bar made a touch thinner,
+  per feedback that it read too large.
+- Icon now sits a little lower below the label (top offset 96 -> 106) and is bottom-constrained
+  within its own band, so a band's icon no longer pokes up and tucks under the next band's
+  label as it scrolls out of view.
+-->
+<!--
 VERSION: 133
 DATE: 2026-08-11T12:30:00-05:00
 CHANGES:
@@ -809,21 +824,22 @@ CHANGES:
   .bandlblwrap{position:absolute; left:0; z-index:4; pointer-events:none;}
   .bandlbl{
     position:sticky; left:0; top:58px; display:inline-block; min-width:230px;
-    font-family:'Cinzel',serif; font-size:16px; font-weight:700; letter-spacing:.24em; text-transform:uppercase;
+    font-family:'Cinzel',serif; font-size:13px; font-weight:700; letter-spacing:.19em; text-transform:uppercase;
     opacity:.98; margin:0; pointer-events:none;
     text-shadow:0 1px 4px rgba(0,0,0,.9), 0 0 10px rgba(0,0,0,.75);
     background:linear-gradient(90deg, rgba(7,15,34,.92) 0%, rgba(7,15,34,.92) 44%, rgba(7,15,34,0) 100%);
-    padding:6px 16px 8px 14px; border-radius:0 4px 4px 0;
+    padding:5px 16px 6px 14px; border-radius:0 4px 4px 0;
   }
-  .bandIconWrap{position:sticky; left:0; top:96px; width:0; height:0; z-index:4; pointer-events:none;}
-  .bandIconFrame{
-    position:absolute; left:14px; top:6px; width:56px; height:56px; border-radius:12px; overflow:hidden;
-    background:radial-gradient(circle at 35% 30%, rgba(201,165,66,.16), rgba(7,15,34,.94) 72%);
+  .bandIconWrap{
+    position:sticky; left:14px; top:106px; bottom:12px; z-index:4; pointer-events:none;
+    width:52px; height:52px; border-radius:12px; overflow:hidden;
+    background:linear-gradient(160deg, #202f52 0%, #0B1630 100%);
     border:1.5px solid currentColor; box-shadow:0 3px 12px rgba(0,0,0,.65), 0 0 10px rgba(0,0,0,.5);
-    display:flex; align-items:center; justify-content:center;
+    display:flex; align-items:center; justify-content:center; opacity:1;
+    transition:opacity .15s linear;
   }
-  .bandIconFrame svg{width:30px; height:30px;}
-  .bandIconFrame img{width:100%; height:100%; object-fit:cover; display:block;}
+  .bandIconWrap svg{width:28px; height:28px;}
+  .bandIconWrap img{width:100%; height:100%; object-fit:cover; display:block;}
   .bandyearwrap{position:absolute; z-index:3; pointer-events:none;}
   .bandyear{
     position:sticky; top:60px; display:inline-block;
@@ -2343,11 +2359,12 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v133';
+const APP_VERSION = 'v134';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
+let bandLeftX = {}; // per-type leftmost entry x (canvas coords) — used to fade the sticky band icon as entries scroll close to it
 
 function isEcumenical(d){
   return d.t === 'c' && Array.isArray(d.facts) && d.facts.some(f => f && f.label === 'Ecumenical number');
@@ -2645,6 +2662,7 @@ function render(){
   const bandPad = 16;
   const M = labelMetrics();
   const PAD = 9;               // clear space required between neighbouring entries
+  bandLeftX = {};               // reset per-type leftmost-entry x (canvas coords), used to fade the sticky band icon as entries approach it
 
   canvas.innerHTML = "";
   canvas.style.width = totalWidth() + "px";
@@ -2728,8 +2746,11 @@ function render(){
       while(lane < lanes.length && x - half < lanes[lane]) lane++;
       lanes[lane] = x + half;
       maxLane = Math.max(maxLane, lane);
-      return {d: d, x: x, lane: lane, label: label};
+      return {d: d, x: x, lane: lane, half: half, label: label};
     });
+    if(placed.length){
+      bandLeftX[t] = Math.min.apply(null, placed.map(pl => pl.x - pl.half));
+    }
     const bandH = bandPad*2 + 16 + (maxLane+1)*rowH;
     const band = document.createElement('div');
     band.className = 'band band-' + t;
@@ -2747,7 +2768,7 @@ function render(){
       : ICONS[t];
     lblWrap.innerHTML =
       '<span class="bandlbl t-'+t+'">'+TYPE_PLURALS[t]+'</span>' +
-      '<div class="bandIconWrap"><div class="bandIconFrame t-'+t+'">'+bandIconContent+'</div></div>';
+      '<div class="bandIconWrap t-'+t+'" data-type="'+t+'">'+bandIconContent+'</div>';
     canvas.appendChild(lblWrap);
     for(let y = 100; y <= END; y += 100){
       const yw = document.createElement('div');
@@ -2776,7 +2797,35 @@ function render(){
   });
 
   canvas.style.height = (yCursor + 50) + 'px';
+  updateBandIconFade();
 }
+
+// Fades each sticky band icon down as the band's own nearest (leftmost-scrolled) entry
+// approaches it horizontally, so the icon and the entry row don't sit on top of one another.
+const ICON_LEFT_EDGE = 14, ICON_WIDTH = 52;
+const ICON_FADE_NEAR = ICON_LEFT_EDGE + ICON_WIDTH + 6;   // entry this close (or closer) -> minimum opacity
+const ICON_FADE_FAR  = ICON_LEFT_EDGE + ICON_WIDTH + 100; // entry this far (or farther) -> full opacity
+const ICON_FADE_MIN = 0.12;
+let iconFadeRAF = null;
+function updateBandIconFade(){
+  const sl = viewport.scrollLeft;
+  canvas.querySelectorAll('.bandIconWrap[data-type]').forEach(el => {
+    const t = el.dataset.type;
+    const leftX = bandLeftX[t];
+    if(leftX == null){ el.style.opacity = 1; return; }
+    const screenX = leftX - sl;
+    let op;
+    if(screenX <= ICON_FADE_NEAR) op = ICON_FADE_MIN;
+    else if(screenX >= ICON_FADE_FAR) op = 1;
+    else op = ICON_FADE_MIN + (1 - ICON_FADE_MIN) * (screenX - ICON_FADE_NEAR) / (ICON_FADE_FAR - ICON_FADE_NEAR);
+    el.style.opacity = op;
+  });
+}
+function scheduleBandIconFade(){
+  if(iconFadeRAF) return;
+  iconFadeRAF = requestAnimationFrame(() => { iconFadeRAF = null; updateBandIconFade(); });
+}
+viewport.addEventListener('scroll', scheduleBandIconFade, {passive:true});
 
 // The old separate teaser card is retired — this now just opens the one unified card in
 // its peek state. Kept as a thin wrapper (rather than rewriting every call site) since
