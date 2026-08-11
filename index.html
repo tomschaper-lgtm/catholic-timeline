@@ -1,4 +1,12 @@
 <!--
+VERSION: 136
+DATE: 2026-08-11T14:00:00-05:00
+CHANGES:
+- iPhone install instructions step 1 shortened to "Press the [dots icon] (bottom right)" —
+  dropped "circle with three dots" now that the icon itself is drawn inline, so the step fits
+  on one line instead of wrapping.
+-->
+<!--
 VERSION: 135
 DATE: 2026-08-11T13:30:00-05:00
 CHANGES:
@@ -2375,7 +2383,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v135';
+const APP_VERSION = 'v136';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6260,7 +6268,7 @@ installBtn.addEventListener('click', async (e) => {
       '<path d="M12 8.4v7.2M8.4 12h7.2"/></svg></span>';
     installNote.innerHTML =
       '<ul class="pSteps">' +
-      '<li><span class="n">1</span><span>Press the circle with three dots ' + dotsIcon + ' <b>(bottom right)</b></span></li>' +
+      '<li><span class="n">1</span><span>Press the ' + dotsIcon + ' <b>(bottom right)</b></span></li>' +
       '<li><span class="n">2</span><span>Find and press the <b>Share</b> button ' + shareIcon + '</span></li>' +
       '<li><span class="n">3</span><span>Find <b>Add to Home Screen</b></span></li>' +
       '<li><span class="n">4</span><span>Try <b>View More</b> ' + moreIcon + ' <b>(bottom right)</b></span></li>' +
