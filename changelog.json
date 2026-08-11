@@ -2,6 +2,22 @@
   "v": 1,
   "entries": [
     {
+      "version": "137",
+      "date": "2026-08-11T14:30:00-05:00",
+      "changes": [
+        "Band icon positioning/fade rewritten to be fully JS-computed on scroll instead of relying on",
+        "CSS position:sticky with combined top+bottom offsets, which behaved inconsistently inside a",
+        "manually-scrolled container on mobile Safari — this was the source of the occasional \"weird\"",
+        "fade behavior (icon not fading, or fading unpredictably) some entries showed.",
+        "Icon now fades to exactly 0% opacity the instant it would touch/overlap the band below it",
+        "(previously bottomed out around 5-10%, never fully gone).",
+        "Icon's vertical slot is now clamped the same way for every band (fixed gap below the label,",
+        "fixed floor above the band's own bottom edge), so the consistent padding that only the first",
+        "band used to get is now guaranteed for all of them."
+      ],
+      "loggedAt": "2026-08-11T18:10:51.933052+00:00"
+    },
+    {
       "version": "136",
       "date": "2026-08-11T14:00:00-05:00",
       "changes": [
