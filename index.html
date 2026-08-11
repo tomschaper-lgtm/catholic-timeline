@@ -1,4 +1,19 @@
 <!--
+VERSION: 142
+DATE: 2026-08-11T17:00:00-05:00
+CHANGES:
+- Timeline focus glow reworked: selecting a new entry (tap on the timeline, a search result,
+  today's feast, or closing an article) now always centers on it and makes it the one pulsing
+  glow, while whatever was previously the pulsing focus steps down to a steady (non-pulsing,
+  dimmer) glow instead of continuing to pulse alongside the new one. Only ever one entry pulses
+  and one shows the steady "you were just here" glow at a time.
+- Tapping any entry icon directly on the timeline now also centers the view on it (as close as
+  the scroll range allows) before opening its preview card, instead of just opening the card in
+  place — matters most for icons near a screen edge, but applied uniformly for consistency.
+- Added shared setTimelineFocus()/centerAndFocus() helpers so this bookkeeping is consistent
+  everywhere an entry gets focused, rather than four separate copies of the same logic.
+-->
+<!--
 VERSION: 141
 DATE: 2026-08-11T16:30:00-05:00
 CHANGES:
@@ -1026,6 +1041,10 @@ CHANGES:
   /* Search glow + zoom fade */
   .ev.hit .ic{border-color:var(--gold-bright); animation:pulseHit 1.1s ease-in-out infinite;}
   .ev.focus .ic{transform:scale(1.35); border-color:var(--gold-bright); box-shadow:0 0 20px 6px var(--gold-bright); transition:transform .25s ease, box-shadow .25s ease;}
+  /* The one entry just displaced from .focus by a newer selection — a steady "you were just
+     here" glow, dimmer than an active focus and with no pulse, so only one thing on screen is
+     ever animating for attention at a time. */
+  .ev.recentFocus .ic{border-color:var(--gold-bright); box-shadow:0 0 9px 2px rgba(232,205,126,.45); transition:box-shadow .3s ease, border-color .3s ease;}
   @keyframes pulseHit{0%,100%{box-shadow:0 0 8px 1px var(--gold-bright);}50%{box-shadow:0 0 15px 4px var(--gold-bright);}}
   .ev{animation:evin .22s ease;}
   @keyframes evin{from{opacity:.25;}to{opacity:1;}}
@@ -2448,7 +2467,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v141';
+const APP_VERSION = 'v142';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2869,14 +2888,14 @@ function render(){
     placed.forEach(pl => {
       const d = pl.d;
       const el = document.createElement('div');
-      el.className = 'ev t-' + d.t + (isEcumenical(d) ? ' ecu' : '') + (searchHits.has(d.id) ? ' hit' : '') + (searchFocusId === d.id ? ' focus' : '') + (isReview(d) ? ' review' : '');
+      el.className = 'ev t-' + d.t + (isEcumenical(d) ? ' ecu' : '') + (searchHits.has(d.id) ? ' hit' : '') + (searchFocusId === d.id ? ' focus' : '') + (previousFocusId === d.id ? ' recentFocus' : '') + (isReview(d) ? ' review' : '');
       el.style.left = pl.x + 'px';
       el.style.top = (yCursor + bandPad + 16 + pl.lane*rowH) + 'px';
       el.title = d.n + ' (AD ' + d.y + ')';
       el.dataset.id = d.id;
       el.innerHTML = '<div class="ic">'+ICONS[d.t]+'</div>' +
         (showLabels ? '<div class="nm">'+esc(pl.label)+'</div>' : '');
-      el.addEventListener('click', (e) => { e.stopPropagation(); if(dragMoved) return; showDetail(d); });
+      el.addEventListener('click', (e) => { e.stopPropagation(); if(dragMoved) return; centerAndFocus(d, {onDone: () => showDetail(d)}); });
       canvas.appendChild(el);
       shown++;
     });
@@ -3337,6 +3356,34 @@ const SEARCH_TYPE_ORDER = ['s','c','p','m','u','e'];
 
 let searchHits = new Set();
 let searchFocusId = null;
+// The single most recently displaced focus (if any) — gets a steady "you were just here too"
+// glow (no pulse) once a newer selection takes over the pulsing .focus spot. Only ever one: a
+// third selection displaces the second into oblivion, not into a growing trail of glows.
+let previousFocusId = null;
+// Shared by every "jump to and highlight this entry" flow (a direct tap on the timeline, a
+// search result, closing an article, today's feast) so the pulsing/steady glow bookkeeping is
+// consistent no matter which of those triggered the change. Re-selecting the entry that's
+// already pulsing is a no-op — it shouldn't demote itself into its own "previous" glow.
+function setTimelineFocus(id){
+  if(id === searchFocusId) return;
+  if(searchFocusId) previousFocusId = searchFocusId;
+  searchFocusId = id;
+  searchHits = new Set([id]);
+}
+// Centers the timeline on an entry (as close as the scroll range allows) and marks it as the
+// new pulsing focus, demoting whatever was previously focused to a steady glow. opts.onDone, if
+// given, runs once the scroll animation finishes (e.g. to open that entry's preview card).
+function centerAndFocus(d, opts){
+  opts = opts || {};
+  setTimelineFocus(d.id);
+  render();
+  const left = yearToX(d.y) - viewport.clientWidth / 2;
+  const el = canvas.querySelector('.ev.focus');
+  const top = el
+    ? (el.offsetTop - (viewport.clientHeight - HEAD_H) / 2 - HEAD_H/2)
+    : viewport.scrollTop;
+  animateScroll(left, top, opts.onDone, opts.scrollOpts);
+}
 // Drops a leading title/prefix from names on the crowded timeline display only —
 // full names are still used everywhere else: search, detail, article.
 function shortName(n, t){
@@ -3504,21 +3551,10 @@ function runSearch(){
   render();
 }
 function focusEntry(d){
-  searchFocusId = d.id;
-  // The list is dismissed the moment a choice is made, so only the chosen entry stays lit —
-  // a replacement, not an addition, or the other matches would glow with no list to explain them.
-  searchHits = new Set([d.id]);
   if(ppy < 1.8){ ppy = Math.min(8, Math.max(fitPpy(), 1.8)); }
-  render();
   document.getElementById('sResults').style.display = 'none';
   document.getElementById('tlSearch').blur();
-  const left = yearToX(d.y) - viewport.clientWidth / 2;
-  // Centre vertically on the icon's lane too, if it rendered.
-  const el = canvas.querySelector('.ev.focus');
-  const top = el
-    ? (el.offsetTop - (viewport.clientHeight - HEAD_H) / 2 - HEAD_H/2)
-    : viewport.scrollTop;
-  animateScroll(left, top, () => showDetail(d));
+  centerAndFocus(d, {onDone: () => showDetail(d)});
 }
 
 // ---- Feast of the day: on launch, find today's saint and travel to them ----
@@ -3549,18 +3585,10 @@ function findTodaysSaint(){
   return best;
 }
 function goToFeastOfDay(d){
-  searchFocusId = d.id;
-  searchHits = new Set([d.id]);
   if(ppy < 1.8){ ppy = Math.min(8, Math.max(fitPpy(), 1.8)); }
-  render();
-  const left = yearToX(d.y) - viewport.clientWidth / 2;
-  const el = canvas.querySelector('.ev.focus');
-  const top = el
-    ? (el.offsetTop - (viewport.clientHeight - HEAD_H) / 2 - HEAD_H/2)
-    : viewport.scrollTop;
   // Slower, more deliberate than a search jump — this is a "here's who we celebrate
   // today" welcome moment, not a quick lookup.
-  animateScroll(left, top, () => showDetail(d), {durationScale: 2.4});
+  centerAndFocus(d, {onDone: () => showDetail(d), scrollOpts: {durationScale: 2.4}});
 }
 
 document.getElementById('tlSearch').addEventListener('input', runSearch);
@@ -4382,16 +4410,7 @@ function closeArticle(opts){
   // timeline recentres on it — the same "here it is" glow search already uses for a match —
   // rather than dropping them back onto the timeline with no trace of what they'd been reading.
   if(currentEntry){
-    const d = currentEntry;
-    searchFocusId = d.id;
-    searchHits = new Set([d.id]);
-    render();
-    const el = canvas.querySelector('.ev.focus');
-    const left = yearToX(d.y) - viewport.clientWidth / 2;
-    const top = el
-      ? (el.offsetTop - (viewport.clientHeight - HEAD_H) / 2 - HEAD_H/2)
-      : viewport.scrollTop;
-    animateScroll(left, top);
+    centerAndFocus(currentEntry);
   }
 }
 // Swipe navigation between stories: the outgoing content is cloned and slid fully
