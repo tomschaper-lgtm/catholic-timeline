@@ -2,6 +2,24 @@
   "v": 1,
   "entries": [
     {
+      "version": "141",
+      "date": "2026-08-11T16:30:00-05:00",
+      "changes": [
+        "iPhone install instructions: dropped \"the\" from steps 1 and 2; step 3 now reads \"Press [+]",
+        "Add to Home Screen after [chevron] View More (bottom)\" (was \"under the ... (bottom right)\") —",
+        "shorter, and now wraps to two lines instead of three.",
+        "Icon jitter, round 2 (diagnosed from a second screen recording): moving the icon's position to",
+        "JS (done in v137/v140 to fix the touching-the-next-band bug) traded one problem for another —",
+        "JS position only updates on 'scroll' events, which iOS coalesces to well under 60fps during a",
+        "fast fling, so the icon visibly stepped/lagged behind the smoothly-scrolling page around it.",
+        "Position is back to native CSS position:sticky (compositor-driven, perfectly smooth, matches",
+        "the label exactly) now that v140 already removed the real cause of the old touching bug (the",
+        "resize-triggered full re-render, not sticky itself). Opacity alone stays JS-driven for the",
+        "fade-before-touching behavior — a little lag there reads as a soft cross-fade, not a stutter."
+      ],
+      "loggedAt": "2026-08-11T20:17:09.566487+00:00"
+    },
+    {
       "version": "140",
       "date": "2026-08-11T16:00:00-05:00",
       "changes": [
