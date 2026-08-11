@@ -1,4 +1,19 @@
 <!--
+VERSION: 135
+DATE: 2026-08-11T13:30:00-05:00
+CHANGES:
+- Replaced the v134 horizontal (entry-proximity) icon fade entirely — the band icon no longer
+  reacts to entries/icons scrolling by on the timeline at all.
+- New vertical fade: the band icon now stays at full opacity until its own band's bottom edge
+  (i.e. the next category's band) is about to scroll up and touch/overlap it, at which point it
+  fades down; it fades back to full opacity once there's clearance again.
+- Label text nudged back up to 14px (was 13px).
+- Icon now sits with a guaranteed padding gap below the label bar (top offset 106 -> 102,
+  tuned against the smaller label height so the gap stays consistent) so it never touches the
+  band/label above it.
+- Icon now casts a visible drop shadow beneath it.
+-->
+<!--
 VERSION: 134
 DATE: 2026-08-11T13:00:00-05:00
 CHANGES:
@@ -824,19 +839,20 @@ CHANGES:
   .bandlblwrap{position:absolute; left:0; z-index:4; pointer-events:none;}
   .bandlbl{
     position:sticky; left:0; top:58px; display:inline-block; min-width:230px;
-    font-family:'Cinzel',serif; font-size:13px; font-weight:700; letter-spacing:.19em; text-transform:uppercase;
+    font-family:'Cinzel',serif; font-size:14px; font-weight:700; letter-spacing:.19em; text-transform:uppercase;
     opacity:.98; margin:0; pointer-events:none;
     text-shadow:0 1px 4px rgba(0,0,0,.9), 0 0 10px rgba(0,0,0,.75);
     background:linear-gradient(90deg, rgba(7,15,34,.92) 0%, rgba(7,15,34,.92) 44%, rgba(7,15,34,0) 100%);
     padding:5px 16px 6px 14px; border-radius:0 4px 4px 0;
   }
   .bandIconWrap{
-    position:sticky; left:14px; top:106px; bottom:12px; z-index:4; pointer-events:none;
+    position:sticky; left:14px; top:102px; bottom:12px; z-index:4; pointer-events:none;
     width:52px; height:52px; border-radius:12px; overflow:hidden;
     background:linear-gradient(160deg, #202f52 0%, #0B1630 100%);
-    border:1.5px solid currentColor; box-shadow:0 3px 12px rgba(0,0,0,.65), 0 0 10px rgba(0,0,0,.5);
+    border:1.5px solid currentColor;
+    box-shadow:0 10px 16px rgba(0,0,0,.6), 0 3px 8px rgba(0,0,0,.5), 0 0 10px rgba(0,0,0,.4);
     display:flex; align-items:center; justify-content:center; opacity:1;
-    transition:opacity .15s linear;
+    transition:opacity .2s linear;
   }
   .bandIconWrap svg{width:28px; height:28px;}
   .bandIconWrap img{width:100%; height:100%; object-fit:cover; display:block;}
@@ -2359,12 +2375,12 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v134';
+const APP_VERSION = 'v135';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
-let bandLeftX = {}; // per-type leftmost entry x (canvas coords) — used to fade the sticky band icon as entries scroll close to it
+let bandVInfo = {}; // per-type {top, bottom} absolute band bounds (canvas coords) — used to fade the sticky band icon as the band's own bottom edge (i.e. the next category) approaches it
 
 function isEcumenical(d){
   return d.t === 'c' && Array.isArray(d.facts) && d.facts.some(f => f && f.label === 'Ecumenical number');
@@ -2662,7 +2678,7 @@ function render(){
   const bandPad = 16;
   const M = labelMetrics();
   const PAD = 9;               // clear space required between neighbouring entries
-  bandLeftX = {};               // reset per-type leftmost-entry x (canvas coords), used to fade the sticky band icon as entries approach it
+  bandVInfo = {};                // reset per-type band top/bottom (canvas coords), used to fade the sticky band icon as its own band's bottom edge approaches
 
   canvas.innerHTML = "";
   canvas.style.width = totalWidth() + "px";
@@ -2748,10 +2764,8 @@ function render(){
       maxLane = Math.max(maxLane, lane);
       return {d: d, x: x, lane: lane, half: half, label: label};
     });
-    if(placed.length){
-      bandLeftX[t] = Math.min.apply(null, placed.map(pl => pl.x - pl.half));
-    }
     const bandH = bandPad*2 + 16 + (maxLane+1)*rowH;
+    bandVInfo[t] = {top: yCursor, bottom: yCursor + bandH};
     const band = document.createElement('div');
     band.className = 'band band-' + t;
     band.style.top = yCursor + 'px';
@@ -2800,24 +2814,26 @@ function render(){
   updateBandIconFade();
 }
 
-// Fades each sticky band icon down as the band's own nearest (leftmost-scrolled) entry
-// approaches it horizontally, so the icon and the entry row don't sit on top of one another.
-const ICON_LEFT_EDGE = 14, ICON_WIDTH = 52;
-const ICON_FADE_NEAR = ICON_LEFT_EDGE + ICON_WIDTH + 6;   // entry this close (or closer) -> minimum opacity
-const ICON_FADE_FAR  = ICON_LEFT_EDGE + ICON_WIDTH + 100; // entry this far (or farther) -> full opacity
-const ICON_FADE_MIN = 0.12;
+// Fades each sticky band icon out as its own band's bottom edge (i.e. the next category
+// starting) scrolls up close enough to touch/overlap it, and fades it back in once there's
+// clear room again. Deliberately has nothing to do with entries/icons on the timeline itself.
+const ICON_STICK_TOP = 102, ICON_HEIGHT = 52, ICON_BOTTOM_GAP = 12; // must match .bandIconWrap CSS
+const ICON_FADE_ZONE = 50;  // px of remaining clearance over which opacity ramps
+const ICON_FADE_MIN = 0.1;
 let iconFadeRAF = null;
 function updateBandIconFade(){
-  const sl = viewport.scrollLeft;
+  const st = viewport.scrollTop;
   canvas.querySelectorAll('.bandIconWrap[data-type]').forEach(el => {
     const t = el.dataset.type;
-    const leftX = bandLeftX[t];
-    if(leftX == null){ el.style.opacity = 1; return; }
-    const screenX = leftX - sl;
+    const info = bandVInfo[t];
+    if(!info){ el.style.opacity = 1; return; }
+    // Clearance remaining between the icon's natural (stuck) bottom edge and the band's own
+    // bottom edge (minus the CSS bottom-constraint gap) before the two would collide.
+    const slack = (info.bottom - ICON_BOTTOM_GAP) - (st + ICON_STICK_TOP + ICON_HEIGHT);
     let op;
-    if(screenX <= ICON_FADE_NEAR) op = ICON_FADE_MIN;
-    else if(screenX >= ICON_FADE_FAR) op = 1;
-    else op = ICON_FADE_MIN + (1 - ICON_FADE_MIN) * (screenX - ICON_FADE_NEAR) / (ICON_FADE_FAR - ICON_FADE_NEAR);
+    if(slack <= 0) op = ICON_FADE_MIN;
+    else if(slack >= ICON_FADE_ZONE) op = 1;
+    else op = ICON_FADE_MIN + (1 - ICON_FADE_MIN) * (slack / ICON_FADE_ZONE);
     el.style.opacity = op;
   });
 }
