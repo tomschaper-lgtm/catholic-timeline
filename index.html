@@ -1,9 +1,19 @@
 <!--
+VERSION: 144
+DATE: 2026-08-12T10:15:00-05:00
+CHANGES:
+- Hero clock frames moved from Images/heroClock/heroClock_NNN.jpg to a flat
+  Images/heroClock_NNN.jpg — GitHub's mobile web uploader has no folder-creation control, so a
+  subfolder meant either a tedious per-file path edit or a device-level workaround. Flat
+  filenames mean the 40 frames upload the same way every other image already does: straight
+  into Images/, no extra step. No behavior change, path-only.
+-->
+<!--
 VERSION: 143
 DATE: 2026-08-12T09:30:00-05:00
 CHANGES:
 - Header hero graphic replaced: the static dome-and-cross image is out, and #heroLogo is now a
-  40-frame clock animation (Images/heroClock/heroClock_001.jpg … 040.jpg, preloaded on load).
+  40-frame clock animation (Images/heroClock_001.jpg … 040.jpg, preloaded on load).
   It no longer plays on a timer — it's scrubbed directly by horizontal timeline scrolling:
   dragging/scrolling the timeline left (moving forward through history) steps the clock's hands
   forward frame by frame; scrolling right (moving backward through history) steps them
@@ -1835,7 +1845,7 @@ CHANGES:
   </div>
 </header>
 
-<img id="heroLogo" src="Images/heroClock/heroClock_001.jpg" alt="" aria-hidden="true">
+<img id="heroLogo" src="Images/heroClock_001.jpg" alt="" aria-hidden="true">
 
 <div class="controls">
   <div class="row" id="searchRow">
@@ -2483,7 +2493,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v143';
+const APP_VERSION = 'v144';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4606,7 +4616,7 @@ let flyRAF = null;
 let flySuspended = false;   // true while a left/right slide is in flight
 
 // ---- #heroLogo clock scrub -------------------------------------------------------------
-// #heroLogo is a 40-frame clock animation (Images/heroClock/heroClock_001.jpg … 040.jpg)
+// #heroLogo is a 40-frame clock animation (Images/heroClock_001.jpg … 040.jpg)
 // scrubbed directly by horizontal timeline scrolling instead of autoplaying on a timer.
 // yearToX/xToYear increase left-to-right, so an increasing viewport.scrollLeft is the user
 // moving the timeline strip left (viewing later years, moving forward through history) —
@@ -4614,7 +4624,7 @@ let flySuspended = false;   // true while a left/right slide is in flight
 // steps it backward. All frames are preloaded once on load so scrubbing is just an <img>.src
 // swap (no video-seek latency, which is unreliable on iOS Safari for sparse-keyframe video).
 const HERO_CLOCK_FRAMES = 40;
-const HERO_CLOCK_PATH = (n) => 'Images/heroClock/heroClock_' + String(n).padStart(3, '0') + '.jpg';
+const HERO_CLOCK_PATH = (n) => 'Images/heroClock_' + String(n).padStart(3, '0') + '.jpg';
 const heroClockImgs = [];
 for(let i = 1; i <= HERO_CLOCK_FRAMES; i++){
   const im = new Image();
