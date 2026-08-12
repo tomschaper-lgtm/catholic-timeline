@@ -1,4 +1,20 @@
 <!--
+VERSION: 143
+DATE: 2026-08-12T09:30:00-05:00
+CHANGES:
+- Header hero graphic replaced: the static dome-and-cross image is out, and #heroLogo is now a
+  40-frame clock animation (Images/heroClock/heroClock_001.jpg … 040.jpg, preloaded on load).
+  It no longer plays on a timer — it's scrubbed directly by horizontal timeline scrolling:
+  dragging/scrolling the timeline left (moving forward through history) steps the clock's hands
+  forward frame by frame; scrolling right (moving backward through history) steps them
+  backward. Driven by scrollLeft delta on #viewport, throttled through requestAnimationFrame
+  the same way scheduleBandIconFade already is, so it costs at most one extra img.src swap per
+  frame. Clamped (not looped) at both ends, since the first and last source frames don't share
+  a hand position — continuing to scroll past either end just holds on that end frame rather
+  than jump-cutting. All existing #heroLogo CSS (size, mask, opacity fade, breakpoint) is
+  untouched; only the element's src now changes instead of staying fixed.
+-->
+<!--
 VERSION: 142
 DATE: 2026-08-11T17:00:00-05:00
 CHANGES:
@@ -1819,7 +1835,7 @@ CHANGES:
   </div>
 </header>
 
-<img id="heroLogo" src="Images/heroLogo.png" alt="" aria-hidden="true">
+<img id="heroLogo" src="Images/heroClock/heroClock_001.jpg" alt="" aria-hidden="true">
 
 <div class="controls">
   <div class="row" id="searchRow">
@@ -2467,7 +2483,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v142';
+const APP_VERSION = 'v143';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4588,6 +4604,50 @@ const FLY_DELAY = 48;             // scroll this far first, so a nudge doesn't s
 let flyGeo = null;
 let flyRAF = null;
 let flySuspended = false;   // true while a left/right slide is in flight
+
+// ---- #heroLogo clock scrub -------------------------------------------------------------
+// #heroLogo is a 40-frame clock animation (Images/heroClock/heroClock_001.jpg … 040.jpg)
+// scrubbed directly by horizontal timeline scrolling instead of autoplaying on a timer.
+// yearToX/xToYear increase left-to-right, so an increasing viewport.scrollLeft is the user
+// moving the timeline strip left (viewing later years, moving forward through history) —
+// that steps the clock forward; a decreasing scrollLeft (moving right, back through history)
+// steps it backward. All frames are preloaded once on load so scrubbing is just an <img>.src
+// swap (no video-seek latency, which is unreliable on iOS Safari for sparse-keyframe video).
+const HERO_CLOCK_FRAMES = 40;
+const HERO_CLOCK_PATH = (n) => 'Images/heroClock/heroClock_' + String(n).padStart(3, '0') + '.jpg';
+const heroClockImgs = [];
+for(let i = 1; i <= HERO_CLOCK_FRAMES; i++){
+  const im = new Image();
+  im.src = HERO_CLOCK_PATH(i);
+  heroClockImgs.push(im); // kept in this array so the browser cache can't evict them
+}
+const HERO_CLOCK_PX_PER_FRAME = 26; // px of timeline scroll that advances the clock by one frame — tune to taste
+let heroClockFrame = 1;             // 1-based, matches the filenames
+let heroClockScrollAcc = 0;         // fractional scroll accumulator between frame steps
+let heroClockLastScrollLeft = null;
+function updateHeroClockScrub(){
+  const el = document.getElementById('heroLogo');
+  if(!el || !viewport) return;
+  const sl = viewport.scrollLeft;
+  if(heroClockLastScrollLeft === null){ heroClockLastScrollLeft = sl; return; }
+  const dx = sl - heroClockLastScrollLeft;
+  heroClockLastScrollLeft = sl;
+  if(!dx) return;
+  heroClockScrollAcc += dx;
+  const steps = Math.trunc(heroClockScrollAcc / HERO_CLOCK_PX_PER_FRAME);
+  if(!steps) return;
+  heroClockScrollAcc -= steps * HERO_CLOCK_PX_PER_FRAME;
+  const next = Math.min(HERO_CLOCK_FRAMES, Math.max(1, heroClockFrame + steps));
+  if(next === heroClockFrame) return; // already clamped at an end — hold rather than jump-cut
+  heroClockFrame = next;
+  el.src = HERO_CLOCK_PATH(heroClockFrame);
+}
+let heroClockRAF = null;
+function scheduleHeroClockScrub(){
+  if(heroClockRAF) return;
+  heroClockRAF = requestAnimationFrame(() => { heroClockRAF = null; updateHeroClockScrub(); });
+}
+viewport.addEventListener('scroll', scheduleHeroClockScrub, {passive:true});
 
 // Fades #heroLogo based on how much of the article's flying photo currently overlaps its
 // exact corner — 0 = fully visible (photo is elsewhere: peek, top of a full article, closed),
