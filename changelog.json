@@ -2,6 +2,24 @@
   "v": 1,
   "entries": [
     {
+      "version": "143",
+      "date": "2026-08-12T09:30:00-05:00",
+      "changes": [
+        "Header hero graphic replaced: the static dome-and-cross image is out, and #heroLogo is now a",
+        "40-frame clock animation (Images/heroClock/heroClock_001.jpg … 040.jpg, preloaded on load).",
+        "It no longer plays on a timer — it's scrubbed directly by horizontal timeline scrolling:",
+        "dragging/scrolling the timeline left (moving forward through history) steps the clock's hands",
+        "forward frame by frame; scrolling right (moving backward through history) steps them",
+        "backward. Driven by scrollLeft delta on #viewport, throttled through requestAnimationFrame",
+        "the same way scheduleBandIconFade already is, so it costs at most one extra img.src swap per",
+        "frame. Clamped (not looped) at both ends, since the first and last source frames don't share",
+        "a hand position — continuing to scroll past either end just holds on that end frame rather",
+        "than jump-cutting. All existing #heroLogo CSS (size, mask, opacity fade, breakpoint) is",
+        "untouched; only the element's src now changes instead of staying fixed."
+      ],
+      "loggedAt": "2026-08-12T05:21:53.758568+00:00"
+    },
+    {
       "version": "142",
       "date": "2026-08-11T17:00:00-05:00",
       "changes": [
