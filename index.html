@@ -1,17 +1,41 @@
 <!--
-VERSION: 142
-DATE: 2026-08-11T17:00:00-05:00
+VERSION: 144
+DATE: 2026-08-14T13:00:00-05:00
 CHANGES:
-- Timeline focus glow reworked: selecting a new entry (tap on the timeline, a search result,
-  today's feast, or closing an article) now always centers on it and makes it the one pulsing
-  glow, while whatever was previously the pulsing focus steps down to a steady (non-pulsing,
-  dimmer) glow instead of continuing to pulse alongside the new one. Only ever one entry pulses
-  and one shows the steady "you were just here" glow at a time.
-- Tapping any entry icon directly on the timeline now also centers the view on it (as close as
-  the scroll range allows) before opening its preview card, instead of just opening the card in
-  place — matters most for icons near a screen edge, but applied uniformly for consistency.
-- Added shared setTimelineFocus()/centerAndFocus() helpers so this bookkeeping is consistent
-  everywhere an entry gets focused, rather than four separate copies of the same logic.
+- Exit-confirmation modal ("Save, Publish & Exit" / "Exit Without Saving" / "Cancel") was
+  rendering unreadable gold-on-white text: it sits as a direct child of <body>, not inside
+  #manage, so it never picked up #manage's light re-skin and fell back to the app's default
+  navy/gold button look against its own hardcoded white box. Colors are hardcoded onto
+  .mgmtExitBtns .mbtn now so it reads correctly regardless of where in the DOM it lives.
+- Fixed a real data-loss bug in the review workflow: unchecking "Hold for review" in the editor
+  and going straight to "Save, Publish & Exit" (without separately pressing "Save Entry" first)
+  silently published the entry's OLD state, flag still on. The save logic used by "Save Entry"
+  is now a shared function (saveCurrentEditorEntry) that "Save, Publish & Exit" also runs first,
+  so an edit sitting in an open editor can no longer be dropped this way.
+- Removed the "Edit Controls" setting and the Quick Edit panel it gated (pencil-icon toggle,
+  inline name/description/timeline-label editing, and the timeline-position nudger) — unused.
+  All related HTML, CSS, and JS removed rather than just hidden.
+- New "Notes to Reviewer" field on entries (reviewNote): a short note, editable in the manual
+  editor right under the review checkbox, carried through Paste-JSON add/update and cleared
+  automatically on approval. Displayed on the article itself, in an amber box right before the
+  story, whenever the entry is held for review and carries a note.
+- New Approve / Delete buttons at the bottom of the article view, visible only to an unlocked
+  owner looking at a held-for-review entry. Both save locally and publish to GitHub immediately
+  (rather than waiting for a CMS exit), with inline status feedback under the buttons.
+- Manage → Entries search box now doubles as a review filter: typing "review" (or "pending" /
+  "flagged" / "held") lists every entry currently held for review instead of doing a name/year
+  search.
+-->
+<!--
+VERSION: 143
+DATE: 2026-08-12T09:00:00-05:00
+CHANGES:
+- Article sheet drag handle (#artHandle) is now a full-width band pinned at the top of the
+  sticky header, instead of just the tiny 38x4px pill. Its hit/drag area previously didn't
+  cover the blank padding around the pill, so a swipe-to-dismiss started there could fall
+  through to normal scrolling. The whole top band — pill, padding above it, and the year/name
+  header below — now consistently drags/dismisses the card no matter where the story text
+  underneath is scrolled to.
 -->
 <!--
 VERSION: 141
@@ -1090,24 +1114,24 @@ CHANGES:
   .detail.open{transform:translateX(-50%) translateY(0);}
   .detail .close{position:absolute; top:8px; right:10px; z-index:7; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1;}
   .detail .close:hover{color:var(--gold-bright);}
-  .offsetCtrl{
-    position:absolute; top:8px; right:52px; z-index:7;
-    display:none; align-items:center; gap:6px;
-    background:var(--navy-band); border:1px solid rgba(201,165,66,.5); border-radius:16px;
-    padding:4px 8px;
-  }
-  .offsetCtrl.show{display:flex;}
-  .offsetCtrl button{
-    background:none; border:none; color:var(--gold-bright); font-size:19px; cursor:pointer;
-    width:30px; height:30px; display:flex; align-items:center; justify-content:center; line-height:1;
-    -webkit-user-select:none; user-select:none; touch-action:manipulation;
-  }
-  .offsetCtrl button:hover{color:#fff;}
-  .offsetCtrl button:active{color:#fff; transform:scale(0.9);}
-  .offsetCtrl span{font-size:14px; color:var(--muted); min-width:20px; text-align:center; font-variant-numeric:tabular-nums;}
   .draghandle{display:none; position:sticky; top:6px; z-index:20; width:38px; height:4px; border-radius:2px; background:rgba(201,165,66,.55); margin:0 auto 10px;}
+  /* #artHandle overrides the shared .draghandle box so its hit-test area is a full-width band
+     across the very top of the card, not just the tiny 38x4px pill. Previously only a touch
+     landing exactly on the pill, or on .artSticky itself just below it, counted as a header-drag
+     (see fromHeader in the touchstart handler below) — a touch on the blank padding around the
+     pill fell through to neither and could be read as a scroll instead. The pill is still drawn
+     the same size, via ::after; only the tappable/draggable box is enlarged. This band sits
+     flush at the top of the sticky header (top:0, same as .artSticky), so together the two cover
+     the whole header with no gap between them — and because both are position:sticky, that stays
+     true no matter how far the article text underneath has been scrolled. */
+  #artHandle{
+    top:0; left:0; width:100%; height:20px; margin:0; background:none;
+    display:flex; align-items:center; justify-content:center; touch-action:none;
+  }
+  #artHandle::after{content:''; width:38px; height:4px; border-radius:2px; background:rgba(201,165,66,.55);}
   @media (pointer:coarse){
     .draghandle{display:block;}
+    #artHandle{display:flex;}
     #dArtBtn, #detailClose{display:none;}
     /* Full-bleed to the screen edges — no side gutters. The only thing separating the card
        from the wallpaper is its own gold hairline and the deep rounding on the top corners,
@@ -1178,32 +1202,6 @@ CHANGES:
     75%{opacity:1;}
     100%{opacity:0;}
   }
-  .qeditToggle{
-    display:none; margin-top:8px; width:100%;
-    font-family:'Cinzel',serif; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
-    background:var(--navy-band); color:var(--gold-bright); border:1px solid rgba(201,165,66,.5);
-    border-radius:6px; padding:7px 12px; cursor:pointer;
-  }
-  .qeditToggle.show{display:block;}
-  .qeditToggle:hover{background:var(--gold); color:var(--navy-deep);}
-  .qeditPanel{display:none; margin-top:10px; padding-top:10px; border-top:1px solid rgba(201,165,66,.2);}
-  .qeditPanel.open{display:block;}
-  .qeditPanel label{display:block; font-size:11px; color:var(--muted); margin:8px 0 3px; letter-spacing:.03em;}
-  .qeditPanel .qeHint{font-style:italic; opacity:.8;}
-  .qeditPanel input[type=text], .qeditPanel textarea{
-    width:100%; box-sizing:border-box; background:var(--navy-deep); border:1px solid var(--gold);
-    color:var(--parchment); border-radius:8px; padding:7px 10px;
-    font-family:'EB Garamond',Georgia,serif; font-size:14px; resize:vertical;
-  }
-  .qeditPanel input[type=text]:focus, .qeditPanel textarea:focus{outline:none; box-shadow:0 0 0 2px rgba(201,165,66,.35);}
-  .qeditBtns{display:flex; gap:8px; margin-top:10px;}
-  .qeBtn{
-    flex:1 1 auto; font-family:'Cinzel',serif; font-size:11.5px; letter-spacing:.08em; text-transform:uppercase;
-    background:var(--gold); color:var(--navy-deep); border:none; border-radius:6px;
-    padding:8px 12px; cursor:pointer; font-weight:600;
-  }
-  .qeBtn:hover{background:var(--gold-bright);}
-  .qeBtn.sec{background:var(--navy-deep); color:var(--gold-bright); border:1px solid var(--gold);}
   /* Overlays: article & manage */
   .overlay{
     position:fixed; inset:0; z-index:100;
@@ -1366,6 +1364,29 @@ CHANGES:
   .artcap{text-align:center; font-style:italic; color:var(--muted); font-size:13.5px; margin-top:6px;}
   /* Quick Facts panel */
   .factbox{border:1px solid rgba(201,165,66,.4); border-radius:10px; background:rgba(201,165,66,.05); padding:14px 18px; margin:22px 0;}
+  /* The amber theme here echoes the review-hold styling used on the timeline dashed-ring icon
+     (.ev.review) and Manage list "Pending" tag, so a reviewer sees the same visual language
+     carried onto the article itself. */
+  .reviewNoteBox{
+    border:1.5px dashed #e0a33a; border-radius:10px; background:rgba(224,163,58,.08);
+    padding:14px 18px; margin:22px 0;
+  }
+  .reviewNoteLabel{
+    font-family:'Cinzel',serif; font-size:calc(13px * var(--txt)); letter-spacing:.12em; text-transform:uppercase;
+    color:#e0a33a; margin-bottom:8px; font-weight:600;
+  }
+  .reviewNoteBox p{color:var(--parchment); font-size:calc(16px * var(--txt)); line-height:1.55;}
+  .reviewNoteBox p + p{margin-top:10px;}
+  .reviewActionBar{display:flex; gap:12px; margin:32px 0 8px;}
+  .reviewActBtn{
+    flex:1 1 auto; font-family:'Cinzel',serif; font-size:13px; letter-spacing:.08em; text-transform:uppercase;
+    border-radius:8px; padding:12px 14px; cursor:pointer; font-weight:600; border:1px solid transparent;
+  }
+  .reviewActBtn.approve{background:#3d7a4d; color:#fff;}
+  .reviewActBtn.approve:hover{background:#458a56;}
+  .reviewActBtn.del{background:transparent; color:#E08876; border-color:rgba(212,91,69,.6);}
+  .reviewActBtn.del:hover{background:var(--persec); color:#fff;}
+  .reviewActionNote{font-size:13.5px; color:var(--muted); text-align:center; margin-top:10px; min-height:1.2em;}
   .factrow{display:flex; gap:14px; padding:7px 0; border-bottom:1px solid rgba(201,165,66,.14); font-size:calc(17.5px * var(--txt)); line-height:1.5;}
   .factrow:last-child{border-bottom:none;}
   .factlabel{flex:0 0 38%; max-width:38%; font-family:'Cinzel',serif; font-size:calc(14px * var(--txt)); letter-spacing:.05em; text-transform:uppercase; color:#BFC9EA; padding-top:2px;}
@@ -1696,9 +1717,21 @@ CHANGES:
     background:#fff; border-radius:14px; max-width:380px; width:100%;
     padding:22px 22px 18px; box-shadow:0 20px 60px rgba(0,0,0,.35);
   }
-  .mgmtExitMsg{font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:16px; color:var(--m-ink); margin-bottom:16px; letter-spacing:normal;}
+  .mgmtExitMsg{font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:16px; color:#12141F; margin-bottom:16px; letter-spacing:normal;}
   .mgmtExitBtns{display:flex; flex-direction:column; gap:9px;}
-  .mgmtExitBtns .mbtn{width:100%; text-align:center; padding:11px 12px; font-size:14px;}
+  /* This modal sits as a direct child of <body>, not inside #manage, so the light "manage"
+     re-skin (#manage .mbtn) never reaches it and it was falling back to the app's default
+     navy/gold button look — dark-on-dark text against this modal's own white box, which read
+     as barely-legible gold-on-white. Hardcoded here (not var(--m-*), which are only defined
+     under #manage and would be invalid/inherited-wrong out here) so it's readable regardless
+     of where in the DOM this modal happens to live. */
+  .mgmtExitBtns .mbtn{
+    width:100%; text-align:center; padding:11px 12px; font-size:14px;
+    background:#F5F4EE; color:#12141F; border-color:#E3E1D8;
+  }
+  .mgmtExitBtns .mbtn:hover{background:#E3E1D8;}
+  .mgmtExitBtns .mbtn.danger{color:#96291A; background:#FDEDEA; border-color:#F0C9C0;}
+  .mgmtExitBtns .mbtn.danger:hover{background:#F8D9D2;}
   @media (max-width:640px){
     .mgmtTitle{font-size:17px;}
   }
@@ -1795,11 +1828,6 @@ CHANGES:
         <span class="pName">Owner Tools</span>
         <input type="checkbox" id="cmsEnabled" autocomplete="off" checked><i class="sw"></i>
       </label>
-      <label class="pRow pSwitch" id="editControlsRow">
-        <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
-        <span class="pName">Edit Controls</span>
-        <input type="checkbox" id="showEditControls" autocomplete="off" checked><i class="sw"></i>
-      </label>
       <label class="pRow pSwitch" id="gtRow">
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></svg></span>
         <span class="pName">Gesture Tuning</span>
@@ -1863,25 +1891,6 @@ CHANGES:
   <div class="shareToast" id="shareToast"></div>
   <div class="pauseIndicator" id="pauseIndicator"></div>
   <div class="artwrap">
-    <button class="qeditToggle" id="qeditToggle">✎ Quick Edit</button>
-    <div class="qeditPanel" id="qeditPanel">
-      <div class="offsetCtrl" id="offsetCtrl">
-        <label style="display:inline; margin:0 8px 0 0;">Timeline position</label>
-        <button id="offsetLeft" aria-label="Nudge earlier">◀</button>
-        <span id="offsetVal">0</span>
-        <button id="offsetRight" aria-label="Nudge later">▶</button>
-      </div>
-      <label>Timeline Display Text <span class="qeHint">(blank = automatic)</span></label>
-      <input type="text" id="qeTlabel" placeholder="e.g. Guadalupe">
-      <label>Name</label>
-      <input type="text" id="qeName">
-      <label>Short Description</label>
-      <textarea id="qeDesc" rows="3"></textarea>
-      <div class="qeditBtns">
-        <button id="qeCancel" class="qeBtn sec">Cancel</button>
-        <button id="qeSave" class="qeBtn">Save</button>
-      </div>
-    </div>
     <div id="artBody"></div>
   </div>
 </div>
@@ -1935,7 +1944,7 @@ CHANGES:
         <div class="hint" style="margin-top:-4px;">Entries marked <b>Hold for review</b> are hidden from the timeline, from search, and from visitor-facing counts. Review Mode shows them to you here and on the timeline (dashed amber ring) so you can check them in place; clear the checkbox in the editor to approve one and make it public. This setting is remembered in this browser only. It keeps unfinished drafts off the timeline — it is not a password, since the entries still travel inside <code>data.json</code>.</div>
       </details>
       <div class="mgmtEntriesTop">
-        <input type="text" id="mSearch" placeholder="Search entries…">
+        <input type="text" id="mSearch" placeholder="Search entries… (type &quot;review&quot; to list held items)">
         <button class="mbtn" id="mNew">+ New</button>
       </div>
       <div class="mgmtFilterCount" id="mListCount"></div>
@@ -1971,6 +1980,7 @@ CHANGES:
           <input type="checkbox" id="fReview" style="width:auto; margin:0;">
           <label for="fReview" style="margin:0; cursor:pointer;">Hold for review — hide this entry from the public timeline until approved</label>
         </div>
+        <div class="mfield"><label>Notes to Reviewer <span style="font-weight:400; font-style:italic;">(shown on the article itself, right before the story, while held for review — e.g. thin sourcing, sensitive framing, anything you want the owner to weigh in on)</span></label><textarea id="fReviewNote" rows="3"></textarea></div>
         <div class="mgrid2">
           <div class="mfield"><label>Prominence (when it appears as you zoom)</label>
             <select id="fTier">
@@ -2467,7 +2477,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v142';
+const APP_VERSION = 'v144';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2606,7 +2616,7 @@ document.addEventListener('click', (e) => {
   const t = e.target;
   articleClickWasInside = !!(t && t.closest && t.closest('#article, #flyPortrait, #imgLightbox'));
 }, true); // true briefly after a swipe-navigation gesture, so the tap-to-pause handler ignores it
-let showEditControls = true;
+
 
 const viewport = document.getElementById('viewport');
 const canvas = document.getElementById('canvas');
@@ -2999,58 +3009,6 @@ window.addEventListener('popstate', () => {
     closeArticle();
   }
 });
-document.getElementById('qeditToggle').addEventListener('click', (e) => {
-  e.stopPropagation();
-  if(!currentEntry) return;
-  document.getElementById('qeTlabel').value = currentEntry.displayLabel || '';
-  document.getElementById('qeName').value = currentEntry.n || '';
-  document.getElementById('qeDesc').value = currentEntry.d || '';
-  document.getElementById('qeditPanel').classList.add('open');
-});
-document.getElementById('qeCancel').addEventListener('click', (e) => {
-  e.stopPropagation();
-  document.getElementById('qeditPanel').classList.remove('open');
-});
-document.getElementById('qeSave').addEventListener('click', async (e) => {
-  e.stopPropagation();
-  if(!currentEntry) return;
-  currentEntry.displayLabel = document.getElementById('qeTlabel').value.trim();
-  const newName = document.getElementById('qeName').value.trim();
-  if(newName) currentEntry.n = newName;
-  currentEntry.d = document.getElementById('qeDesc').value.trim();
-  const nameEl = document.querySelector('#artBody .ahName');
-  if(nameEl) nameEl.textContent = currentEntry.n;
-  document.getElementById('qeditPanel').classList.remove('open');
-  render();
-  await saveDb();
-});
-function nudgeOffset(delta, deferSave){
-  if(!currentEntry) return;
-  currentEntry.offset = (currentEntry.offset || 0) + delta;
-  document.getElementById('offsetVal').textContent = currentEntry.offset;
-  render();
-  if(!deferSave) saveDb();
-}
-let holdTimer = null, holdInterval = null;
-function startHold(delta){
-  nudgeOffset(delta);
-  clearTimeout(holdTimer); clearInterval(holdInterval);
-  holdTimer = setTimeout(() => {
-    holdInterval = setInterval(() => nudgeOffset(delta, true), 170);
-  }, 450);
-}
-function stopHold(){
-  clearTimeout(holdTimer); clearInterval(holdInterval);
-  holdTimer = null; holdInterval = null;
-  if(currentEntry) saveDb();
-}
-[['offsetLeft', -1], ['offsetRight', 1]].forEach(([id, delta]) => {
-  const btn = document.getElementById(id);
-  btn.addEventListener('pointerdown', (e) => { e.stopPropagation(); startHold(delta); });
-  ['pointerup','pointerleave','pointercancel'].forEach(ev =>
-    btn.addEventListener(ev, (e) => { e.stopPropagation(); stopHold(); }));
-});
-
 // ---- Swipe gestures (mobile): the teaser card is swiped up to expand into the full story,
 // swiped down to dismiss (mirroring the desktop "Open Full Article" button and × close button),
 // and swiped left/right to move to the next/previous entry — same as the full article view.
@@ -3059,8 +3017,6 @@ function attachVerticalSwipe(el, onSwipeUp, onSwipeDown, onSwipeLeft, onSwipeRig
   let startY = null, startX = null;
   el.addEventListener('touchstart', (e) => {
     if(e.touches.length !== 1) return;
-    const qp = document.getElementById('qeditPanel');
-    if(qp && qp.classList.contains('open')) return;
     startY = e.touches[0].clientY;
     startX = e.touches[0].clientX;
   }, {passive:true});
@@ -3151,9 +3107,13 @@ function navigateStory(direction){
     startY = e.touches[0].clientY;
     startX = e.touches[0].clientX;
     samples = [{y: startY, t: performance.now()}];
-    // A gesture begun on the sticky header is treated as a handle drag: the header
-    // doesn't scroll (touch-action:none), so swiping down there always dismisses.
-    fromHeader = !!(e.target.closest && e.target.closest('.artSticky'));
+    // A gesture begun anywhere in the sticky header band — the year/name area, the quick-facts
+    // strip, or the drag-handle pill and its padding above them — is treated as a handle drag:
+    // that whole band doesn't scroll (touch-action:none on both .artSticky and #artHandle), so
+    // swiping down anywhere in it always dismisses/steps the card, regardless of how far the
+    // story text beneath has been scrolled. #artHandle sits as a sibling just above .artSticky
+    // rather than nested inside it, so both are checked explicitly.
+    fromHeader = !!(e.target.closest && (e.target.closest('.artSticky') || e.target.closest('#artHandle')));
   }, {passive:true});
 
   // Passive sampling only — never preventDefault, so native scrolling is untouched.
@@ -3256,7 +3216,7 @@ document.addEventListener('click', (e) => {
   // The whole audio-player strip is a no-close zone: a tap anywhere near the play button —
   // on the button, beside it, on the scrubber row — is always a transport control, never a
   // "you clicked outside the card" dismissal.
-  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, #qeditPanel, .sresults, #hamMenu, .ev, .artPlayerWrap, .player')) return;
+  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, .sresults, #hamMenu, .ev, .artPlayerWrap, .player')) return;
   if(article.classList.contains('open')){
     if(!hit('#article')) closeArticle();
     return;
@@ -3970,6 +3930,10 @@ function fillArticleBody(d, peek){
       '<span class="ptime" id="apTime">0:00 / 0:00</span>' +
       '</div></div>';
   }
+  if(isReview(d) && d.reviewNote){
+    html += '<div class="reviewNoteBox"><div class="reviewNoteLabel">Notes to Reviewer</div>' +
+      renderBody(d.reviewNote) + '</div>';
+  }
   (art.sections || []).forEach(sec => {
     if(sec.h) html += '<div class="arth">' + esc(sec.h) + '</div>';
     html += renderBody(sec.b);
@@ -3988,7 +3952,22 @@ function fillArticleBody(d, peek){
     });
     html += '</ul>';
   }
+  // Owner-only review actions: only ever shown to an unlocked owner looking at a held entry,
+  // never to a visitor (a review-flagged entry excludes itself from the public timeline and
+  // search, but a direct link could still open it, so this is gated independently here too).
+  if(isReview(d) && manageUnlocked()){
+    html += '<div class="reviewActionBar">' +
+      '<button type="button" class="reviewActBtn approve" id="reviewApproveBtn">Approve</button>' +
+      '<button type="button" class="reviewActBtn del" id="reviewDeleteBtn">Delete</button>' +
+      '</div>' +
+      '<p class="reviewActionNote" id="reviewActionNote"></p>';
+  }
   document.getElementById('artBody').innerHTML = html;
+  if(isReview(d) && manageUnlocked()){
+    const noteEl = document.getElementById('reviewActionNote');
+    document.getElementById('reviewApproveBtn').addEventListener('click', () => approveReviewEntry(d.id, noteEl));
+    document.getElementById('reviewDeleteBtn').addEventListener('click', () => deleteReviewEntry(d.id, noteEl));
+  }
 
   // Hand the photo to the body-level flying element and cache the geometry the morph
   // needs, so the scroll handler never has to measure the DOM again.
@@ -4091,20 +4070,6 @@ function placePeekFly(hasImg){
   setTimeout(placePeekFlyNow, 260);
   setTimeout(placePeekFlyNow, 620);
 }
-// Shows/hides the Quick Edit toggle and offset nudger based on the owner-unlock state —
-// called both when a card opens and when the "show edit controls" setting is toggled live.
-function syncEditControls(d){
-  document.getElementById('qeditPanel').classList.remove('open');
-  const qb = document.getElementById('qeditToggle');
-  if(manageUnlocked() && showEditControls){
-    document.getElementById('offsetCtrl').classList.add('show');
-    document.getElementById('offsetVal').textContent = d.offset || 0;
-    qb.classList.add('show');
-  } else {
-    document.getElementById('offsetCtrl').classList.remove('show');
-    qb.classList.remove('show');
-  }
-}
 function openArticle(d, opts){
   opts = opts || {};
   cancelMorph();   // a flight belonging to the outgoing entry must not land on the new one
@@ -4112,7 +4077,6 @@ function openArticle(d, opts){
   currentEntry = d;
   stopAudio();
   updateUrlForEntry(d);
-  syncEditControls(d);
   const opening = !article.classList.contains('open');
   article.classList.toggle('peek', !!opts.peek);
   article.classList.add('open');
@@ -4736,7 +4700,7 @@ function queueFly(){
 // which button or gesture opened them.
 (function(){
   const fly = document.getElementById('flyPortrait');
-  const others = ['manage','jsonView','imgLightbox','qeditPanel']
+  const others = ['manage','jsonView','imgLightbox']
     .map(id => document.getElementById(id)).filter(Boolean);
   if(!fly || !others.length) return;
   const sync = () => fly.classList.toggle('masked', others.some(el => el.classList.contains('open')));
@@ -4897,6 +4861,10 @@ document.getElementById('mgmtCancelExit').addEventListener('click', () => { mgmt
 document.getElementById('mgmtSaveExit').addEventListener('click', async () => {
   const btn = document.getElementById('mgmtSaveExit');
   const msg = document.querySelector('#mgmtExitModal .mgmtExitMsg');
+  // Flush any entry currently sitting open in the editor (e.g. a review-flag checkbox just
+  // unchecked but never confirmed with its own "Save Entry" button) before saving/publishing,
+  // so exiting this way can never silently drop an edit. No-ops harmlessly if no entry is open.
+  await saveCurrentEditorEntry();
   await saveDb(); // always write locally first, so nothing is lost even if the network fails
   // Then push to GitHub, so "Save" means the live site is actually updated — previously this
   // only saved locally, which made changes look published when they hadn't left the browser.
@@ -5082,10 +5050,17 @@ function renderExportSummary(){
 // The Entries tab list is independent of the Export filters — it's a browsing/search list
 // that always tracks and highlights whichever entry is currently selected on the timeline.
 function renderMList(scrollToSelected){
-  const q = document.getElementById('mSearch').value.trim().toLowerCase();
+  const raw = document.getElementById('mSearch').value.trim().toLowerCase();
+  // A handful of whole-word keywords act as a quick filter to everything currently held for
+  // review, rather than a literal name/year search — this is what makes it possible to just
+  // type "review" in the entries search box and find every flagged draft at once.
+  const reviewQuery = /^(review|reviews|pending|flagged|held)$/.test(raw);
+  const q = reviewQuery ? '' : raw;
   const list = document.getElementById('mList');
   const items = db.entries.slice().sort((a,b) => a.y - b.y)
-    .filter(e => !q || e.n.toLowerCase().includes(q) || String(e.y).includes(q));
+    .filter(e => reviewQuery
+      ? isReview(e)
+      : (!q || e.n.toLowerCase().includes(q) || String(e.y).includes(q)));
   list.innerHTML = '';
   let selectedRow = null;
   items.forEach(e => {
@@ -5101,8 +5076,10 @@ function renderMList(scrollToSelected){
   });
   const countEl = document.getElementById('mListCount');
   const pend = reviewCount();
-  if(countEl) countEl.textContent = items.length + ' of ' + db.entries.length + ' entries shown' +
-    (pend ? ' · ' + pend + ' held for review (' + (db.entries.length - pend) + ' public)' : '');
+  if(countEl) countEl.textContent = reviewQuery
+    ? items.length + ' entr' + (items.length === 1 ? 'y' : 'ies') + ' held for review'
+    : items.length + ' of ' + db.entries.length + ' entries shown' +
+      (pend ? ' · ' + pend + ' held for review (' + (db.entries.length - pend) + ' public)' : '');
   updateReviewUI();
   if(scrollToSelected && selectedRow) selectedRow.scrollIntoView({block:'center', behavior:'smooth'});
 }
@@ -5193,6 +5170,7 @@ function openEditor(id){
   document.getElementById('fLinks').value = e ? serializePairs((e.art||{}).links, 'label', 'url') : '';
   document.getElementById('fFacts').value = e ? serializeFacts(e.facts) : '';
   document.getElementById('fReview').checked = e ? !!e.review : false;
+  document.getElementById('fReviewNote').value = e ? (e.reviewNote || '') : '';
   document.getElementById('fTier').value = e ? String(e.tier || 1) : '1';
   document.getElementById('fAlt').value = e && Array.isArray(e.alt) ? e.alt.join(', ') : '';
   document.getElementById('fTags').value = e && Array.isArray(e.tags) ? e.tags.join(', ') : '';
@@ -5205,10 +5183,59 @@ document.getElementById('mNew').addEventListener('click', () => {
   document.getElementById('mEditor').scrollIntoView({behavior:'smooth', block:'start'});
 });
 
-document.getElementById('fSave').addEventListener('click', async () => {
+// Writes whatever is currently in the entry-editor form (name/year/review checkbox/etc.) into
+// db.entries. Pulled out of the fSave click handler so the "Save, Publish & Exit" button can
+// call it too — previously that button only ran saveDb()/publishToGitHub() against whatever was
+// already in db.entries, so an edit sitting in the open editor (e.g. unchecking the review
+// flag) that hadn't separately been confirmed with "Save Entry" got silently left out of the
+// publish. Returns false (and touches nothing) when the form has no usable name/year in it,
+// which is the normal case when no entry is currently open in the editor.
+// Shared by the Approve/Delete buttons on a held-for-review article: writes the change locally,
+// then, if GitHub is configured, publishes right away — unlike the ordinary editor Save, which
+// only pushes when the owner exits the CMS, these two buttons exist specifically so a review
+// decision goes live immediately. Feedback goes into the small note under the buttons since
+// this view isn't inside Manage, so the usual #mStatus bar isn't on screen to show it in.
+async function publishReviewAction(noteEl, successMsg){
+  await saveDb();
+  if(!ghConfigured()){
+    if(noteEl) noteEl.textContent = 'Saved on this device. (No GitHub token set, so the live site was not updated \u2014 add one under Manage \u2192 Import.)';
+    return false;
+  }
+  if(noteEl) noteEl.textContent = 'Publishing\u2026';
+  const ok = await publishToGitHub();
+  if(noteEl) noteEl.textContent = ok ? successMsg : 'Saved on this device, but publishing failed \u2014 try again from Manage \u2192 Import.';
+  return ok;
+}
+async function approveReviewEntry(id, noteEl){
+  const ex = getEntry(id);
+  if(!ex) return;
+  delete ex.review;
+  delete ex.reviewNote;
+  const ok = await publishReviewAction(noteEl, 'Approved and published \u2713 \u2014 now live on the public timeline.');
+  render();
+  if(editingId === id) openEditor(id);
+  // Give the confirmation message a moment on screen before the article redraws into its
+  // now-approved state (which drops the review box and these buttons along with it).
+  setTimeout(() => {
+    if(currentEntry && currentEntry.id === id) showDetail(getEntry(id) || ex);
+  }, ok ? 1400 : 0);
+}
+async function deleteReviewEntry(id, noteEl){
+  const ex = getEntry(id);
+  if(!ex) return;
+  if(!confirm('Delete "' + ex.n + '" permanently? This cannot be undone.')) return;
+  db.entries = db.entries.filter(e => e.id !== id);
+  if(editingId === id){ editingId = null; openEditor(null); }
+  const ok = await publishReviewAction(noteEl, 'Deleted and published \u2713');
+  render();
+  setTimeout(() => {
+    if(currentEntry && currentEntry.id === id){ currentEntry = null; closeArticle(); }
+  }, ok ? 1400 : 0);
+}
+async function saveCurrentEditorEntry(){
   const n = document.getElementById('fName').value.trim();
   const y = parseInt(document.getElementById('fYear').value, 10);
-  if(!n || isNaN(y)){ setStatus('Name and year are required'); return; }
+  if(!n || isNaN(y)) return false;
   const obj = {
     id: editingId || slug(n, y),
     y: y, n: n,
@@ -5228,10 +5255,15 @@ document.getElementById('fSave').addEventListener('click', async () => {
     tier: parseInt(document.getElementById('fTier').value, 10) || 1,
     alt: document.getElementById('fAlt').value.split(/[\n,]/).map(s => s.trim()).filter(Boolean),
     tags: document.getElementById('fTags').value.split(/[\n,]/).map(s => s.trim()).filter(Boolean),
-    review: document.getElementById('fReview').checked
+    review: document.getElementById('fReview').checked,
+    reviewNote: document.getElementById('fReviewNote').value.trim()
   };
   // Approved entries drop the flag entirely rather than carrying review:false around.
   if(!obj.review) delete obj.review;
+  // The note only matters while an entry is actually held for review — once approved (or if
+  // it was never flagged) there's nothing for it to annotate, so don't carry an empty or
+  // orphaned note forward in the data.
+  if(!obj.reviewNote || !obj.review) delete obj.reviewNote;
   const idx = db.entries.findIndex(e => e.id === obj.id);
   if(idx >= 0) db.entries[idx] = obj; else db.entries.push(obj);
   editingId = obj.id;
@@ -5239,6 +5271,11 @@ document.getElementById('fSave').addEventListener('click', async () => {
   renderMList();
   render();
   if(currentEntry && currentEntry.id === obj.id){ currentEntry = obj; showDetail(obj); }
+  return true;
+}
+document.getElementById('fSave').addEventListener('click', async () => {
+  const saved = await saveCurrentEditorEntry();
+  if(!saved) setStatus('Name and year are required');
 });
 
 document.getElementById('fDelete').addEventListener('click', async () => {
@@ -5921,6 +5958,9 @@ function mergeEntries(list){
       Object.keys(inc).forEach(k => { if(k !== 'id' && k !== 'op') ex[k] = inc[k]; });
       // review:false is an explicit approval — drop the flag rather than storing a false.
       if(ex.review === false || ex.review === 'false') delete ex.review;
+      // A note only makes sense while an entry is actually held — clear it along with the
+      // flag on approval, and don't let one linger on an entry that was never flagged.
+      if(!ex.review) delete ex.reviewNote;
       updated++; notes.push('Updated: ' + ex.n + (isReview(ex) ? ' [held for review]' : ''));
     } else {
       if(inc.n == null || inc.y == null){ skipped++; return; }
@@ -5932,6 +5972,7 @@ function mergeEntries(list){
         tier: inc.tier || 1, alt: inc.alt || [], tags: inc.tags || []
       };
       if(inc.review === true || inc.review === 'true') fresh.review = true;
+      if(fresh.review && inc.reviewNote) fresh.reviewNote = String(inc.reviewNote);
       db.entries.push(fresh);
       added++; notes.push('Added: ' + inc.n + ' (' + inc.y + ')' + (fresh.review ? ' [held for review]' : ''));
     }
@@ -6136,7 +6177,6 @@ function updateManageVisibility(){
   if(!unlocked && typeof setGestureTuner === 'function' && gtHud && gtHud.classList.contains('show')){
     setGestureTuner(false);
   }
-  document.getElementById('editControlsRow').style.display = unlocked ? '' : 'none';
   // The switch itself follows access, not the preference — otherwise turning the CMS off would
   // hide the only control that turns it back on.
   const cmsBox = document.getElementById('cmsEnabled');
@@ -6596,10 +6636,6 @@ const APP_ICON = { touch: 'Images/icons/apple-touch-icon.png',
   probe.onerror = () => { console.warn('APP_ICON not found, keeping embedded icon:', APP_ICON.touch); };
   probe.src = abs(APP_ICON.touch);
 })();
-document.getElementById('showEditControls').addEventListener('change', (e) => {
-  showEditControls = e.target.checked;
-  if(article.classList.contains('open') && currentEntry) syncEditControls(currentEntry);
-});
 
 // ================= INIT =================
 (async function(){
