@@ -1,4 +1,13 @@
 <!--
+VERSION: 145
+DATE: 2026-08-14T15:00:00-05:00
+CHANGES:
+- Review Mode now has a direct switch in the hamburger settings menu, right next to Owner
+  Tools, showing the pending count right on the row — no more having to remember that it only
+  lived inside Manage → Entries. Both switches (hamburger and the one still in Manage) share
+  one setReviewMode() setter so flipping either always keeps the other in sync.
+-->
+<!--
 VERSION: 144
 DATE: 2026-08-14T13:00:00-05:00
 CHANGES:
@@ -1828,6 +1837,12 @@ CHANGES:
         <span class="pName">Owner Tools</span>
         <input type="checkbox" id="cmsEnabled" autocomplete="off" checked><i class="sw"></i>
       </label>
+      <label class="pRow pSwitch" id="reviewModeRow">
+        <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
+        <span class="pName">Review Mode</span>
+        <span class="pMeta" id="reviewModeMeta"></span>
+        <input type="checkbox" id="reviewModeToggle" autocomplete="off"><i class="sw"></i>
+      </label>
       <label class="pRow pSwitch" id="gtRow">
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></svg></span>
         <span class="pName">Gesture Tuning</span>
@@ -2477,7 +2492,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v144';
+const APP_VERSION = 'v145';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5086,10 +5101,22 @@ function renderMList(scrollToSelected){
 document.getElementById('mSearch').addEventListener('input', () => renderMList(false));
 
 // ---- Review Mode toggle ----
+// One shared setter so the Manage → Entries button and the hamburger-menu switch (added so the
+// owner doesn't have to remember to dig into Manage just to find held drafts) can never drift
+// out of sync with each other.
+function setReviewMode(on){
+  reviewMode = !!on;
+  try{ localStorage.setItem('review-mode', reviewMode ? '1' : '0'); }catch(e){}
+  updateReviewUI();
+  renderMList(false);
+  render();
+}
 function updateReviewUI(){
   const btn = document.getElementById('reviewToggle');
   const cnt = document.getElementById('reviewCount');
   const banner = document.getElementById('reviewBanner');
+  const hamBox = document.getElementById('reviewModeToggle');
+  const hamMeta = document.getElementById('reviewModeMeta');
   const pend = reviewCount();
   if(btn){
     btn.textContent = 'Review Mode: ' + (reviewMode ? 'On' : 'Off');
@@ -5100,16 +5127,17 @@ function updateReviewUI(){
       ? pend + ' entr' + (pend === 1 ? 'y is' : 'ies are') + ' held for review' + (reviewMode ? ' — shown on the timeline now' : ' — hidden from the timeline')
       : 'Nothing is currently held for review';
   }
+  if(hamBox) hamBox.checked = reviewMode;
+  if(hamMeta) hamMeta.textContent = pend ? pend + ' pending' : '';
   if(banner) banner.classList.toggle('show', reviewMode && pend > 0);
 }
 const reviewToggleBtn = document.getElementById('reviewToggle');
 if(reviewToggleBtn) reviewToggleBtn.addEventListener('click', () => {
-  reviewMode = !reviewMode;
-  try{ localStorage.setItem('review-mode', reviewMode ? '1' : '0'); }catch(e){}
-  updateReviewUI();
-  renderMList(false);
-  render();
+  setReviewMode(!reviewMode);
   setStatus(reviewMode ? 'Review Mode on — drafts are visible to you on the timeline' : 'Review Mode off — drafts hidden again');
+});
+document.getElementById('reviewModeToggle').addEventListener('change', (e) => {
+  setReviewMode(e.target.checked);
 });
 
 function serializeArt(art){
@@ -6172,6 +6200,8 @@ function updateManageVisibility(){
   document.getElementById('manageBtn').style.display = unlocked ? '' : 'none';
   const gtRow = document.getElementById('gtRow');
   if(gtRow) gtRow.style.display = unlocked ? '' : 'none';
+  const reviewModeRow = document.getElementById('reviewModeRow');
+  if(reviewModeRow) reviewModeRow.style.display = unlocked ? '' : 'none';
   // The HUD is an owner tool; switching owner tools off must take it off screen too,
   // otherwise the "visitor view" test still has a debug panel across the bottom.
   if(!unlocked && typeof setGestureTuner === 'function' && gtHud && gtHud.classList.contains('show')){
@@ -6191,11 +6221,7 @@ document.getElementById('cmsEnabled').addEventListener('change', (e) => {
   try{ localStorage.setItem('cms-off', cmsEnabled ? '0' : '1'); }catch(err){}
   // Leaving review drafts on screen after switching to the visitor's view would defeat the
   // point of the test, so review mode goes off with it.
-  if(!cmsEnabled && reviewMode){
-    reviewMode = false;
-    try{ localStorage.setItem('review-mode', '0'); }catch(err){}
-    updateReviewUI();
-  }
+  if(!cmsEnabled && reviewMode) setReviewMode(false);
   updateManageVisibility();
   render();
 });
