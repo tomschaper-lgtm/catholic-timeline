@@ -1,4 +1,21 @@
 <!--
+VERSION: 147
+DATE: 2026-08-14T17:00:00-05:00
+CHANGES:
+- New Carlo Acutis Links table (db.carloLinks), separate from an entry's regular art.links.
+  Eucharistic Miracle entries no longer carry their miracolieucaristici.org link inside
+  "Sources & Further Reading" — it now gets its own dedicated section on the article, styled
+  distinctly (violet accent, host-and-chalice icon) with a "See Carlo's Work" link, echoing the
+  exhibition's own site. Each row is {id, entityId, kind:"carloLink", status:"found"|"pending",
+  url, note}. status:"found" renders the section; status:"pending" (or a missing row entirely)
+  renders nothing to visitors, but shows the research note in an amber box when Review Mode is
+  on, so the gap is visible to the owner without leaking an unfinished state publicly.
+  Paste JSON now also accepts {"carloLinks":[...], "carloLinkDeletions":[...]}, alongside or
+  instead of entries/deletions in the same paste. New Export tab button, "JSON — Carlo Links",
+  dumps the whole table for review (which ones are still "pending" is visible directly from the
+  export — no separate tracking field needed).
+-->
+<!--
 VERSION: 146
 DATE: 2026-08-14T16:00:00-05:00
 CHANGES:
@@ -1404,6 +1421,29 @@ CHANGES:
   }
   .reviewNoteBox p{color:var(--parchment); font-size:calc(16px * var(--txt)); line-height:1.55;}
   .reviewNoteBox p + p{margin-top:10px;}
+  /* Carlo Acutis exhibition link: its own section, distinct from Sources & Further Reading,
+     in the violet accent used for the Eucharistic Miracle category elsewhere in the app. */
+  .carloLinkBox{
+    display:flex; align-items:center; gap:12px;
+    border:1px solid rgba(167,139,250,.4); border-radius:10px; background:rgba(167,139,250,.07);
+    padding:12px 16px; margin:22px 0;
+  }
+  .carloLinkIcon{flex:0 0 auto; width:26px; height:26px; color:#a78bfa;}
+  .carloLinkIcon svg{width:100%; height:100%;}
+  .carloLinkText{flex:1 1 auto; min-width:0;}
+  .carloLinkLabel{
+    font-family:'Cinzel',serif; font-size:calc(12.5px * var(--txt)); letter-spacing:.1em; text-transform:uppercase;
+    color:#a78bfa; margin-bottom:3px;
+  }
+  .carloLinkText a{color:var(--parchment); font-size:calc(16px * var(--txt)); text-decoration:underline; text-decoration-color:rgba(167,139,250,.5);}
+  /* Owner-only, shown while Review Mode is on: a pending/unresolved Carlo link is never shown
+     to visitors, but the research note travels with the entry so the concern isn't lost. */
+  .carloLinkPendingBox{
+    border:1.5px dashed #a78bfa; border-radius:10px; background:rgba(167,139,250,.06);
+    padding:12px 16px; margin:22px 0;
+  }
+  .carloLinkPendingBox .carloLinkLabel{margin-bottom:6px;}
+  .carloLinkPendingBox p{color:var(--muted); font-size:calc(14.5px * var(--txt)); line-height:1.5; margin:0;}
   .reviewActionBar{display:flex; gap:12px; margin:32px 0 8px;}
   .reviewActBtn{
     flex:1 1 auto; font-family:'Cinzel',serif; font-size:13px; letter-spacing:.08em; text-transform:uppercase;
@@ -2098,7 +2138,9 @@ CHANGES:
         <button class="mbtn" id="mJsonAll">JSON &mdash; All</button>
         <button class="mbtn" id="mJsonFiltered">JSON &mdash; Filtered</button>
         <button class="mbtn" id="mXlsxExport">Export Excel (.xlsx)</button>
+        <button class="mbtn" id="mJsonCarloLinks">JSON &mdash; Carlo Links</button>
       </div>
+      <div class="hint" style="margin-top:-4px;">The Carlo Links export dumps the whole table as-is &mdash; which ones are still <code>"pending"</code> is visible directly in the exported JSON, so there's no separate progress tracker to check.</div>
 
       <div class="mgmtRowLabel">Auto-Link Cross-References <span style="font-weight:400; text-transform:none; letter-spacing:0;">(no AI &mdash; pattern matching only)</span></div>
       <div class="mtool" style="margin-top:0;">
@@ -2131,6 +2173,8 @@ CHANGES:
         <div class="mfield">
           <textarea id="pasteJson" placeholder='Paste entries JSON here: a single entry {...}, an array [...], {"entries":[...]}, or {"deletions":["id-to-remove"],"entries":[...]}. Matching ids are updated, new ones added, listed ids deleted.
 
+Also accepts {"carloLinks":[...]} and/or {"carloLinkDeletions":["id",...]}, alone or alongside entries in the same paste.
+
 Or paste a cross-link list instead — one per line: entryId :: exact text :: targetId'></textarea>
         </div>
         <div class="mtool">
@@ -2143,7 +2187,8 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
         <code>{"deletions":["em-ferrara-1171"],"entries":[…]}</code><br>
         An entry object written as <code>{"id":"old-id","op":"delete"}</code> works too. Deletions run <b>before</b> adds, so a paste can retire an old stub and add its replacement in one step. Ids that don't exist are reported rather than silently ignored. <b>This cannot be undone</b> — take an Export backup first.<br><br>
         <b>Holding for review.</b> Add <code>"review": true</code> to any entry to keep it off the public timeline until you approve it; send <code>"review": false</code> (or clear the checkbox in the editor) to publish it.<br><br>
-        <b>Cross-links.</b> If what's pasted isn't valid JSON, this box also accepts a curated link list — one per line, <code>entryId :: exact text :: targetId</code>, with an optional 4th field to pick which occurrence of that text (default: first). Use this for links the Auto-Link Cross-References tool above can't make safely: a different name for the same person (&ldquo;Saul&rdquo; &rarr; St. Paul), a title instead of a name (&ldquo;the beloved disciple&rdquo; &rarr; St. John), or a bare &ldquo;Mary&rdquo; meant specifically as the Blessed Virgin. The exact text must appear verbatim in that entry's article body, including case. Existing links are skipped automatically, so re-running a list that already applied is harmless.</div>
+        <b>Cross-links.</b> If what's pasted isn't valid JSON, this box also accepts a curated link list — one per line, <code>entryId :: exact text :: targetId</code>, with an optional 4th field to pick which occurrence of that text (default: first). Use this for links the Auto-Link Cross-References tool above can't make safely: a different name for the same person (&ldquo;Saul&rdquo; &rarr; St. Paul), a title instead of a name (&ldquo;the beloved disciple&rdquo; &rarr; St. John), or a bare &ldquo;Mary&rdquo; meant specifically as the Blessed Virgin. The exact text must appear verbatim in that entry's article body, including case. Existing links are skipped automatically, so re-running a list that already applied is harmless.<br><br>
+        <b>Carlo Acutis links.</b> A separate table from <code>art.links</code>, one row per Eucharistic Miracle entry: <code>{"carloLinks":[{"entityId":"em-id","status":"found","url":"https://miracolieucaristici.org/…"}]}</code> for a located page, or <code>{"entityId":"em-id","status":"pending","note":"what was searched and why nothing turned up"}</code> while still researching. Delete a row with <code>{"carloLinkDeletions":["row-id"]}</code> (row id defaults to <code>{entityId}-carlo</code>). A <code>"found"</code> row renders its own dedicated section on the article; a <code>"pending"</code> row (or no row at all) shows nothing to visitors, and shows the note only when Review Mode is on.</div>
         </details>
         <div class="mImportStatus" id="pasteJsonStatus"></div>
       </div>
@@ -2518,7 +2563,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v146';
+const APP_VERSION = 'v147';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2539,7 +2584,11 @@ function seedDb(){
       id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, displayLabel: "", d: r[4],
       art: {sections: [{h: "Overview", b: r[4]}], quotes: [], links: []},
       img: "", imgCap: "", audio: ""
-    }))
+    })),
+    // Carlo Acutis exhibition link per Eucharistic Miracle entry, kept separate from an entry's
+    // own art.links so it can render in its own dedicated section rather than get lumped into
+    // "Sources & Further Reading". See mergeCarloLinks/deleteCarloLinks and renderArticle.
+    carloLinks: []
   };
 }
 // Detect whether we're running inside a Claude artifact (persistent window.storage present)
@@ -2549,7 +2598,7 @@ async function loadDb(){
   if(IS_ARTIFACT){
     try{
       const res = await window.storage.get(DB_KEY);
-      if(res && res.value){ db = JSON.parse(res.value); db.settings = db.settings || {imageBase:"", audioBase:""}; return; }
+      if(res && res.value){ db = JSON.parse(res.value); db.settings = db.settings || {imageBase:"", audioBase:""}; db.carloLinks = db.carloLinks || []; return; }
     }catch(e){ /* not found */ }
     db = seedDb();
     await saveDb();
@@ -2565,7 +2614,7 @@ async function loadDb(){
   // cache, which forces a genuine round trip to the origin every load.
   try{
     const r = await fetch('data.json?t=' + Date.now(), {cache: 'no-store'});
-    if(r.ok){ db = await r.json(); db.settings = db.settings || {imageBase:"", audioBase:""}; return; }
+    if(r.ok){ db = await r.json(); db.settings = db.settings || {imageBase:"", audioBase:""}; db.carloLinks = db.carloLinks || []; return; }
   }catch(e){ /* opened as a local file, or data.json missing */ }
   // Last-resort fallback (double-clicked local file, or no data.json yet): embedded seed.
   db = seedDb();
@@ -2590,6 +2639,7 @@ function setStatus(msg){
   setStatus._t = setTimeout(() => el.textContent = '', 6000);
 }
 function getEntry(id){ return db.entries.find(e => e.id === id); }
+function getCarloLink(entityId){ return (db.carloLinks || []).find(c => c.entityId === entityId); }
 
 // ================= TIMELINE =================
 const START = 0, END = 2030, SPAN = END - START;
@@ -3998,6 +4048,24 @@ function fillArticleBody(d, peek){
       if(l.url) html += '<li><a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.label || l.url) + '</a></li>';
     });
     html += '</ul>';
+  }
+  // Carlo Acutis exhibition link (Eucharistic Miracle entries only): its own section, kept
+  // separate from the Sources list above. A "pending" row (or no row at all) renders nothing
+  // to visitors — only Review Mode surfaces the research note, so an unresolved search stays
+  // an owner-facing concern rather than a public gap.
+  if(d.t === 'u'){
+    const cl = getCarloLink(d.id);
+    if(cl && cl.status === 'found' && cl.url){
+      html += '<div class="carloLinkBox">' +
+        '<div class="carloLinkIcon">' + ICONS.u + '</div>' +
+        '<div class="carloLinkText"><div class="carloLinkLabel">Carlo Acutis Exhibition</div>' +
+        '<a href="' + esc(cl.url) + '" target="_blank" rel="noopener">See Carlo\u2019s Work &rarr;</a></div>' +
+        '</div>';
+    } else if(reviewMode){
+      const note = (cl && cl.note) ? cl.note : 'No individual miracolieucaristici.org page located yet.';
+      html += '<div class="carloLinkPendingBox"><div class="carloLinkLabel">Carlo Acutis Link — Pending</div>' +
+        '<p>' + esc(note) + '</p></div>';
+    }
   }
   // Owner-only review actions: only ever shown to an unlocked owner looking at a held entry,
   // never to a visitor (a review-flagged entry excludes itself from the public timeline and
@@ -5968,6 +6036,14 @@ document.getElementById('mJsonFiltered').addEventListener('click', () => {
     evs.length + ' entries · ' + types + ' · ' + region + (mFilterReviewOnly ? ' · Held for review only' : '') + ' · fields: ' + (fieldsOn || 'none') + ' · edit and re-import via Paste JSON (Add/Update)',
     {v: db.v || 1, entries: evs}, 'catholic-timeline-filtered.json');
 });
+document.getElementById('mJsonCarloLinks').addEventListener('click', () => {
+  const rows = (db.carloLinks || []).slice().sort((a,b) => a.entityId.localeCompare(b.entityId));
+  const found = rows.filter(c => c.status === 'found').length;
+  const pending = rows.filter(c => c.status !== 'found').length;
+  openJsonView('Database JSON — Carlo Links',
+    rows.length + ' rows · ' + found + ' found, ' + pending + ' pending · edit and re-import via Paste JSON ({"carloLinks":[...]})',
+    {v: 1, carloLinks: rows}, 'catholic-timeline-carlo-links.json');
+});
 document.getElementById('mXlsxExport').addEventListener('click', () => {
   const evs = mExportFilteredEntries();
   const table = buildExportTable(evs, mExportFieldState);
@@ -6064,6 +6140,49 @@ function mergeEntries(list){
   });
   return {added: added, updated: updated, skipped: skipped, notes: notes};
 }
+// ---- Carlo Acutis Links table ----
+// A flat table, separate from entries.art.links, keyed by entityId (never more than one row per
+// entry). Auto-detected on paste by an explicit "carloLinks"/"carloLinkDeletions" key on the
+// parsed object — never inferred from a bare array, since arrays remain entries-only by
+// convention. Each row also carries kind:"carloLink" as a belt-and-suspenders discriminator in
+// case a future table (e.g. locations) is ever added and also keys off entityId.
+function mergeCarloLinks(list){
+  let added = 0, updated = 0, skipped = 0;
+  const notes = [];
+  db.carloLinks = db.carloLinks || [];
+  list.forEach(inc => {
+    if(!inc || typeof inc !== 'object' || !inc.entityId){ skipped++; notes.push('Carlo link skipped — missing entityId'); return; }
+    if(!getEntry(inc.entityId)){ skipped++; notes.push('Carlo link skipped — no matching entry id: ' + inc.entityId); return; }
+    const id = inc.id || (inc.entityId + '-carlo');
+    const status = inc.status === 'found' ? 'found' : (inc.url ? 'found' : 'pending');
+    const rec = {
+      id: id, entityId: inc.entityId, kind: 'carloLink', status: status,
+      url: status === 'found' ? String(inc.url || '') : '',
+      note: status === 'pending' ? String(inc.note || '') : ''
+    };
+    const ex = db.carloLinks.find(c => c.id === id) || db.carloLinks.find(c => c.entityId === inc.entityId);
+    if(ex){
+      Object.assign(ex, rec);
+      updated++; notes.push('Updated Carlo link: ' + inc.entityId + ' [' + status + ']');
+    } else {
+      db.carloLinks.push(rec);
+      added++; notes.push('Added Carlo link: ' + inc.entityId + ' [' + status + ']');
+    }
+  });
+  return {added: added, updated: updated, skipped: skipped, notes: notes};
+}
+function deleteCarloLinks(ids){
+  let deleted = 0, missing = 0;
+  const notes = [];
+  db.carloLinks = db.carloLinks || [];
+  ids.forEach(id => {
+    const ex = db.carloLinks.find(c => c.id === id);
+    if(!ex){ missing++; notes.push('Carlo link not found (nothing deleted): ' + id); return; }
+    db.carloLinks = db.carloLinks.filter(c => c.id !== id);
+    deleted++; notes.push('Deleted Carlo link: ' + id);
+  });
+  return {deleted: deleted, missing: missing, notes: notes};
+}
 // Shows a status message both in the sticky top bar (setStatus) and inline right next to the
 // control that was used, so it's visible without scrolling back up on a phone. `isError` reddens it.
 function showInlineStatus(elId, msg, isError){
@@ -6084,27 +6203,51 @@ async function applyMerge(text, statusPrefix, localStatusElId){
     if(localStatusElId) showInlineStatus(localStatusElId, 'Not valid JSON — check for missing brackets or commas', true);
     return false;
   }
+  // Carlo Acutis link table: detected by an explicit "carloLinks"/"carloLinkDeletions" key on
+  // the parsed object, checked before the entries normalization below so a paste can carry
+  // either table alone or both together in one JSON object.
+  let clResult = {added: 0, updated: 0, skipped: 0, notes: []};
+  let clDelResult = {deleted: 0, missing: 0, notes: []};
+  let touchedCarloLinks = false;
+  if(parsed && !Array.isArray(parsed) && typeof parsed === 'object'){
+    if(Array.isArray(parsed.carloLinkDeletions) && parsed.carloLinkDeletions.length){
+      touchedCarloLinks = true;
+      clDelResult = deleteCarloLinks(parsed.carloLinkDeletions.filter(x => typeof x === 'string'));
+    }
+    if(Array.isArray(parsed.carloLinks) && parsed.carloLinks.length){
+      touchedCarloLinks = true;
+      clResult = mergeCarloLinks(parsed.carloLinks);
+    }
+  }
+
   const norm = normalizeIncoming(parsed);
-  if(!norm){
-    const msg = 'JSON must be an entry, an array of entries, {"entries":[...]}, or {"deletions":["id",…]}';
+  const hasEntryWork = !!(norm && (norm.list.length || norm.deletions.length));
+  if(!norm && !touchedCarloLinks){
+    const msg = 'JSON must be an entry, an array of entries, {"entries":[...]}, {"carloLinks":[...]}, or a deletions object';
     setStatus(msg);
     if(localStatusElId) showInlineStatus(localStatusElId, msg, true);
     return false;
   }
   // Entries flagged op:"delete" are pulled out and handled with the deletions list.
-  const inlineDeletes = norm.list.filter(x => x && typeof x === 'object' && x.op === 'delete' && x.id).map(x => x.id);
-  const list = norm.list.filter(x => !(x && typeof x === 'object' && x.op === 'delete'));
-  const allDeletes = norm.deletions.concat(inlineDeletes);
+  const inlineDeletes = hasEntryWork ? norm.list.filter(x => x && typeof x === 'object' && x.op === 'delete' && x.id).map(x => x.id) : [];
+  const list = hasEntryWork ? norm.list.filter(x => !(x && typeof x === 'object' && x.op === 'delete')) : [];
+  const allDeletes = (hasEntryWork ? norm.deletions : []).concat(inlineDeletes);
   const d = allDeletes.length ? deleteEntries(allDeletes) : {deleted: 0, missing: 0, notes: []};
-  const r = mergeEntries(list);
+  const r = hasEntryWork ? mergeEntries(list) : {added: 0, updated: 0, skipped: 0, notes: []};
   await saveDb();
   renderMList();
   render();
+  const clSummary = touchedCarloLinks
+    ? ' · Carlo links: ' + clResult.added + ' added, ' + clResult.updated + ' updated'
+      + (clResult.skipped ? ', ' + clResult.skipped + ' skipped' : '')
+      + (clDelResult.deleted ? ', ' + clDelResult.deleted + ' deleted' : '')
+    : '';
   const summary = statusPrefix + ': ' + r.added + ' added, ' + r.updated + ' updated'
     + (d.deleted ? ', ' + d.deleted + ' deleted' : '')
     + (r.skipped ? ', ' + r.skipped + ' skipped' : '')
-    + (d.missing ? ', ' + d.missing + ' delete id(s) not found' : '');
-  r.notes = d.notes.concat(r.notes);
+    + (d.missing ? ', ' + d.missing + ' delete id(s) not found' : '')
+    + clSummary;
+  r.notes = d.notes.concat(r.notes).concat(clDelResult.notes).concat(clResult.notes);
   setStatus(summary);
   if(localStatusElId){
     const detail = r.notes && r.notes.length ? '<br>' + r.notes.map(esc).join('<br>') : '';
