@@ -2,6 +2,25 @@
   "v": 1,
   "entries": [
     {
+      "version": "147",
+      "date": "2026-08-14T17:00:00-05:00",
+      "changes": [
+        "New Carlo Acutis Links table (db.carloLinks), separate from an entry's regular art.links.",
+        "Eucharistic Miracle entries no longer carry their miracolieucaristici.org link inside",
+        "\"Sources & Further Reading\" — it now gets its own dedicated section on the article, styled",
+        "distinctly (violet accent, host-and-chalice icon) with a \"See Carlo's Work\" link, echoing the",
+        "exhibition's own site. Each row is {id, entityId, kind:\"carloLink\", status:\"found\"|\"pending\",",
+        "url, note}. status:\"found\" renders the section; status:\"pending\" (or a missing row entirely)",
+        "renders nothing to visitors, but shows the research note in an amber box when Review Mode is",
+        "on, so the gap is visible to the owner without leaking an unfinished state publicly.",
+        "Paste JSON now also accepts {\"carloLinks\":[...], \"carloLinkDeletions\":[...]}, alongside or",
+        "instead of entries/deletions in the same paste. New Export tab button, \"JSON — Carlo Links\",",
+        "dumps the whole table for review (which ones are still \"pending\" is visible directly from the",
+        "export — no separate tracking field needed)."
+      ],
+      "loggedAt": "2026-08-14T17:50:13.358147+00:00"
+    },
+    {
       "version": "146",
       "date": "2026-08-14T16:00:00-05:00",
       "changes": [
