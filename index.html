@@ -1,4 +1,15 @@
 <!--
+VERSION: 146
+DATE: 2026-08-14T16:00:00-05:00
+CHANGES:
+- Review Mode banner on the timeline now just says "Review Mode" and carries a "Show Only
+  Pending" button that narrows the whole canvas down to held-for-review entries only (ignoring
+  the category/region chips), so they're all visible at a glance instead of scattered among
+  everything else. Toggling Review Mode off always clears this back to the normal full view.
+- Export tab (Manage → Export) has a new "Held for Review Only" filter chip alongside category/
+  region/years, applied consistently across JSON — Filtered, Excel, and CSV-fallback export.
+-->
+<!--
 VERSION: 145
 DATE: 2026-08-14T15:00:00-05:00
 CHANGES:
@@ -1089,9 +1100,16 @@ CHANGES:
     position:sticky; top:0; z-index:60; display:none;
     background:rgba(224,163,58,.16); border-bottom:1px solid rgba(224,163,58,.5);
     color:#e0a33a; font-size:12px; letter-spacing:.06em; text-transform:uppercase;
-    padding:6px 12px; text-align:center;
+    padding:6px 12px; align-items:center; justify-content:center; gap:12px;
   }
-  .reviewBanner.show{display:block;}
+  .reviewBanner.show{display:flex;}
+  .reviewBannerBtn{
+    font-family:inherit; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+    background:transparent; color:#e0a33a; border:1px solid rgba(224,163,58,.55); border-radius:999px;
+    padding:3px 10px; cursor:pointer;
+  }
+  .reviewBannerBtn:hover{background:rgba(224,163,58,.15);}
+  .reviewBannerBtn.on{background:#e0a33a; color:#1a1200; border-color:#e0a33a; font-weight:700;}
   .mPending{
     display:inline-block; margin-left:6px; padding:1px 6px; border-radius:999px;
     background:rgba(224,163,58,.18); border:1px solid rgba(224,163,58,.55);
@@ -1874,7 +1892,10 @@ CHANGES:
   </div>
 </div>
 
-<div class="reviewBanner" id="reviewBanner">Review Mode — drafts held for review are visible. Visitors do not see them.</div>
+<div class="reviewBanner" id="reviewBanner">
+  <span>Review Mode</span>
+  <button type="button" class="reviewBannerBtn" id="reviewOnlyBtn">Show Only Pending</button>
+</div>
 
 <div class="viewport" id="viewport">
   <div class="canvas" id="canvas"><div style="padding:40px 20px; font-style:italic; color:var(--muted);">Loading timeline&hellip;</div></div>
@@ -2046,6 +2067,11 @@ CHANGES:
         <button class="mfChip" data-mregion="africa">Africa</button>
         <button class="mfChip" data-mregion="americas">Americas</button>
         <button class="mfChip" data-mregion="asia">Asia &amp; Oceania</button>
+      </div>
+
+      <div class="mgmtRowLabel">Status</div>
+      <div class="mgmtFilterRow" id="mfReviewRow">
+        <button class="mfChip" id="mfReviewOnlyChip">Held for Review Only</button>
       </div>
 
       <div class="mgmtRowLabel">Years</div>
@@ -2492,7 +2518,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v145';
+const APP_VERSION = 'v146';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2745,10 +2771,16 @@ let lastGesture = null;
 // This is a display filter, not a security boundary — the data still travels in data.json.
 let reviewMode = false;
 try{ reviewMode = localStorage.getItem('review-mode') === '1'; }catch(e){}
+// Narrows the timeline to held-for-review entries only, ignoring the category/region chips —
+// a quick way to lay eyes on everything pending at once. Only meaningful while reviewMode is
+// on; deliberately not persisted to localStorage, since it's a transient "just show me the
+// pending ones right now" view rather than a lasting preference.
+let reviewOnlyMode = false;
 function isReview(d){ return !!(d && d.review); }
 function reviewCount(){ return db ? db.entries.filter(isReview).length : 0; }
 
 function filtered(){
+  if(reviewOnlyMode) return db.entries.filter(isReview).slice().sort((a,b) => a.y - b.y);
   return db.entries.filter(d => (reviewMode || !isReview(d)) && activeTypes[d.t] && (activeRegion === "all" || d.r === activeRegion))
     .slice().sort((a,b) => a.y - b.y);
 }
@@ -4931,9 +4963,10 @@ function selectEntryFromCms(id){
   document.getElementById('mEditor').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
-// ---- Export tab state: category/region/date-range filters, default = nothing checked = everything ----
+// ---- Export tab state: category/region/status/date-range filters, default = nothing checked = everything ----
 let mFilterTypes = {s:false, c:false, p:false, m:false, u:false, e:false};
 let mFilterRegion = 'all'; // region chips are hidden in the UI; kept for future use, always "all" for now
+let mFilterReviewOnly = false;
 
 // ---- Export tab: per-field checkboxes (controls JSON — Filtered and Excel export columns) ----
 // Story text and audio narration URL are long fields, so they default OFF; everything else defaults ON.
@@ -5009,19 +5042,26 @@ document.querySelectorAll('#mfRegionRow .mfChip').forEach(chip => {
     renderExportSummary();
   });
 });
+document.getElementById('mfReviewOnlyChip').addEventListener('click', (e) => {
+  mFilterReviewOnly = !mFilterReviewOnly;
+  e.currentTarget.classList.toggle('on', mFilterReviewOnly);
+  renderExportSummary();
+});
 document.getElementById('mfYearFrom').addEventListener('input', renderExportSummary);
 document.getElementById('mfYearTo').addEventListener('input', renderExportSummary);
 document.getElementById('mfReset').addEventListener('click', () => {
   mFilterTypes = {s:false, c:false, p:false, m:false, u:false, e:false};
   mFilterRegion = 'all';
+  mFilterReviewOnly = false;
   document.querySelectorAll('#mfTypeRow .mfChip').forEach(c => c.classList.remove('on'));
   document.querySelectorAll('#mfRegionRow .mfChip').forEach(c => c.classList.toggle('on', c.dataset.mregion === 'all'));
+  document.getElementById('mfReviewOnlyChip').classList.remove('on');
   document.getElementById('mfYearFrom').value = '';
   document.getElementById('mfYearTo').value = '';
   renderExportSummary();
 });
 
-// Entries matching the Export tab's category/region/date-range filters (used for JSON — Filtered and CSV).
+// Entries matching the Export tab's category/region/status/date-range filters (used for JSON — Filtered and CSV).
 function mExportFilteredEntries(){
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const from = document.getElementById('mfYearFrom').value.trim();
@@ -5031,6 +5071,7 @@ function mExportFilteredEntries(){
   return db.entries.filter(e =>
     (!anyType || mFilterTypes[e.t]) &&
     (mFilterRegion === 'all' || e.r === mFilterRegion) &&
+    (!mFilterReviewOnly || isReview(e)) &&
     e.y >= fromY && e.y <= toY
   );
 }
@@ -5041,7 +5082,8 @@ function renderExportSummary(){
   const typeLabel = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
   const regionLabel = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
   const evs = mExportFilteredEntries();
-  sumEl.textContent = evs.length + ' entries match — ' + typeLabel + ' · ' + regionLabel;
+  sumEl.textContent = evs.length + ' entries match — ' + typeLabel + ' · ' + regionLabel +
+    (mFilterReviewOnly ? ' · Held for review only' : '');
 
   const statEl = document.getElementById('mExStatBox');
   if(statEl){
@@ -5106,6 +5148,10 @@ document.getElementById('mSearch').addEventListener('input', () => renderMList(f
 // out of sync with each other.
 function setReviewMode(on){
   reviewMode = !!on;
+  // The "only pending" narrowing only makes sense while review items are actually visible —
+  // clearing it here means turning Review Mode off always returns to the normal full timeline
+  // rather than leaving the owner on an empty, still-filtered canvas.
+  if(!reviewMode) reviewOnlyMode = false;
   try{ localStorage.setItem('review-mode', reviewMode ? '1' : '0'); }catch(e){}
   updateReviewUI();
   renderMList(false);
@@ -5117,6 +5163,7 @@ function updateReviewUI(){
   const banner = document.getElementById('reviewBanner');
   const hamBox = document.getElementById('reviewModeToggle');
   const hamMeta = document.getElementById('reviewModeMeta');
+  const onlyBtn = document.getElementById('reviewOnlyBtn');
   const pend = reviewCount();
   if(btn){
     btn.textContent = 'Review Mode: ' + (reviewMode ? 'On' : 'Off');
@@ -5130,6 +5177,10 @@ function updateReviewUI(){
   if(hamBox) hamBox.checked = reviewMode;
   if(hamMeta) hamMeta.textContent = pend ? pend + ' pending' : '';
   if(banner) banner.classList.toggle('show', reviewMode && pend > 0);
+  if(onlyBtn){
+    onlyBtn.textContent = reviewOnlyMode ? 'Show All' : 'Show Only Pending';
+    onlyBtn.classList.toggle('on', reviewOnlyMode);
+  }
 }
 const reviewToggleBtn = document.getElementById('reviewToggle');
 if(reviewToggleBtn) reviewToggleBtn.addEventListener('click', () => {
@@ -5138,6 +5189,11 @@ if(reviewToggleBtn) reviewToggleBtn.addEventListener('click', () => {
 });
 document.getElementById('reviewModeToggle').addEventListener('change', (e) => {
   setReviewMode(e.target.checked);
+});
+document.getElementById('reviewOnlyBtn').addEventListener('click', () => {
+  reviewOnlyMode = !reviewOnlyMode;
+  updateReviewUI();
+  render();
 });
 
 function serializeArt(art){
@@ -5909,7 +5965,7 @@ document.getElementById('mJsonFiltered').addEventListener('click', () => {
   const region = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
   const fieldsOn = EX_FIELDS.filter(f => mExportFieldState[f.key]).map(f => f.label).join(', ');
   openJsonView('Database JSON — Filtered',
-    evs.length + ' entries · ' + types + ' · ' + region + ' · fields: ' + (fieldsOn || 'none') + ' · edit and re-import via Paste JSON (Add/Update)',
+    evs.length + ' entries · ' + types + ' · ' + region + (mFilterReviewOnly ? ' · Held for review only' : '') + ' · fields: ' + (fieldsOn || 'none') + ' · edit and re-import via Paste JSON (Add/Update)',
     {v: db.v || 1, entries: evs}, 'catholic-timeline-filtered.json');
 });
 document.getElementById('mXlsxExport').addEventListener('click', () => {
@@ -5918,6 +5974,7 @@ document.getElementById('mXlsxExport').addEventListener('click', () => {
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const types = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
   const region = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
+  const statusSuffix = mFilterReviewOnly ? ' · Held for review only' : '';
   const fname = 'catholic-timeline-export.xlsx';
   try{
     if(typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
@@ -5925,12 +5982,12 @@ document.getElementById('mXlsxExport').addEventListener('click', () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Entries');
     XLSX.writeFile(wb, fname);
-    setStatus(evs.length + ' entries · ' + types + ' · ' + region + ' — Excel file downloading (' + fname + ')');
+    setStatus(evs.length + ' entries · ' + types + ' · ' + region + statusSuffix + ' — Excel file downloading (' + fname + ')');
   }catch(e){
     setStatus('Excel export failed (needs an internet connection to load the Excel library the first time) — falling back to CSV');
     const csv = toCSV(table);
     openPlainView('CSV Export (fallback)',
-      evs.length + ' entries · ' + types + ' · ' + region + ' · headings in row 1',
+      evs.length + ' entries · ' + types + ' · ' + region + statusSuffix + ' · headings in row 1',
       csv, 'catholic-timeline-export.csv');
   }
 });
