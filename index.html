@@ -1,4 +1,18 @@
 <!--
+VERSION: 149
+DATE: 2026-08-15T13:15:00-05:00
+CHANGES:
+- Fix: the Carlo Acutis banner's name overlay (added in v148) rendered invisibly on real Safari —
+  the button's height was only ever established by its content (the image), so the absolutely
+  positioned name box's percentage top/height had no definite containing-block height to resolve
+  against and ended up laid out outside the button's visible, overflow:hidden area. Fixed with the
+  classic percentage-padding trick (.carloLinkBtn::before with padding-top matching the banner's
+  own 900:336 ratio) to give the button a genuinely definite pixel height, and the image is now
+  absolutely positioned to fill it (object-fit:cover) instead of defining it. Also dropped the cqw
+  container-query font sizing in favor of the site's existing calc(px * var(--txt)) convention,
+  removing a second dependency on newer CSS support. No HTML/data changes — CSS-only fix.
+-->
+<!--
 VERSION: 148
 DATE: 2026-08-15T12:30:00-05:00
 CHANGES:
@@ -1438,22 +1452,27 @@ CHANGES:
      the exhibition's own banner artwork, rounded like a button, with the specific miracle's
      name overlaid on the banner's red band, linking out to that miracle's page on
      miracolieucaristici.org. Overlay coordinates are measured against the source banner image
-     (red band spans ~46.2%–89.7% of image height; text starts at ~35% width to clear the photo). */
+     (red band spans ~46.2%–89.7% of image height; text starts at ~35% width to clear the photo).
+     Deliberately avoids relying on any single modern CSS feature (container query units, aspect-ratio)
+     for the core layout — the classic percentage-padding trick below gives every browser, including
+     older Safari, a genuinely definite pixel height to position the overlay against; without that,
+     percentage top/height on the absolutely positioned name can silently fail to resolve and the
+     text ends up positioned outside the visible, overflow:hidden button entirely. */
   .carloLinkBox{ margin:22px 0; }
   .carloLinkBtn{
-    display:block; position:relative; border-radius:14px; overflow:hidden; line-height:0;
+    display:block; position:relative; border-radius:14px; overflow:hidden;
     border:1px solid rgba(167,139,250,.4); box-shadow:0 4px 14px rgba(0,0,0,.35);
     transition:transform .15s ease, box-shadow .15s ease;
-    container-type:inline-size;
   }
+  .carloLinkBtn::before{ content:''; display:block; padding-top:37.33%; } /* banner's own 900:336 ratio */
   .carloLinkBtn:active{ transform:scale(.985); }
-  .carloLinkBtn img{ display:block; width:100%; height:auto; }
+  .carloLinkBtn img{ position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; display:block; }
   .carloLinkName{
     position:absolute; left:35%; right:4%; top:46.2%; height:43.5%;
     display:flex; align-items:center;
     font-family:'Cinzel',serif; font-weight:700; text-transform:uppercase;
     letter-spacing:.04em; color:#fdf6e3; line-height:1.15;
-    font-size:clamp(11px, 4.6cqw, 27px);
+    font-size:calc(15px * var(--txt));
     text-shadow:0 2px 5px rgba(0,0,0,.45);
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
@@ -2588,7 +2607,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v148';
+const APP_VERSION = 'v149';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
