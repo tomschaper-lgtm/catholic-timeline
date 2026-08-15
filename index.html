@@ -1,4 +1,12 @@
 <!--
+VERSION: 151
+DATE: 2026-08-15T14:20:00-05:00
+CHANGES:
+- Carlo Acutis banner: more vertical space above it (margin-top 22px -> 38px) to separate it from
+  the preceding Sources & Further Reading list. Caption below the banner changed from "See Carlo's
+  Work →" to "View Saint Carlo's Work" (arrow removed) — already center-aligned, unchanged there.
+-->
+<!--
 VERSION: 150
 DATE: 2026-08-15T14:00:00-05:00
 CHANGES:
@@ -1470,7 +1478,7 @@ CHANGES:
      older Safari, a genuinely definite pixel height to position the overlay against; without that,
      percentage top/height on the absolutely positioned name can silently fail to resolve and the
      text ends up positioned outside the visible, overflow:hidden button entirely. */
-  .carloLinkBox{ margin:22px 0; }
+  .carloLinkBox{ margin:38px 0 22px; }
   .carloLinkBtn{
     display:block; position:relative; border-radius:14px; overflow:hidden;
     border:1px solid rgba(167,139,250,.4); box-shadow:0 4px 14px rgba(0,0,0,.35);
@@ -2619,7 +2627,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v150';
+const APP_VERSION = 'v151';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4133,7 +4141,7 @@ function fillArticleBody(d, peek){
         '<img src="Images/CarloAcutis/banner.jpg" alt="Miracles of the Eucharist — International Exhibition by St. Carlo Acutis" loading="lazy">' +
         '<div class="carloLinkName">' + esc(truncateWords(carloDisplayName(d.n), 20)) + '</div>' +
         '</a>' +
-        '<div class="carloLinkCaption">See Carlo\u2019s Work &rarr;</div>' +
+        '<div class="carloLinkCaption">View Saint Carlo\u2019s Work</div>' +
         '</div>';
     } else if(reviewMode){
       const note = (cl && cl.note) ? cl.note : 'No individual miracolieucaristici.org page located yet.';
