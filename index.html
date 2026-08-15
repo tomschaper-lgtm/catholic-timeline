@@ -942,6 +942,8 @@ CHANGES:
     background:none; border:1.5px solid var(--panelBlue); border-radius:50%;
     color:var(--panelBlue); cursor:pointer;
     display:flex; align-items:center; justify-content:center;
+    touch-action:manipulation; /* tapping −/reset/+ quickly was triggering the browser's
+                                   native double-tap-to-zoom on mobile */
   }
   .step svg{width:16px; height:16px;}
   .step:disabled{border-color:#D8DCE4; color:#D8DCE4; cursor:default;}
@@ -1491,14 +1493,21 @@ CHANGES:
     position:absolute; left:35%; right:4%; top:46.2%; height:43.5%;
     display:flex; align-items:center;
     font-family:Georgia,'Times New Roman',Times,serif; font-weight:700; text-transform:uppercase;
-    letter-spacing:.01em; color:#fdf6e3; line-height:1.15;
-    font-size:calc(15px * var(--txt));
+    letter-spacing:.01em; color:#fdf6e3;
     text-shadow:0 2px 5px rgba(0,0,0,.45);
+  }
+  /* Inner span carries the actual truncation. text-overflow:ellipsis doesn't reliably apply to a
+     flex container itself (the box above is flex only so it can vertically center) — it needs a
+     plain block/inline-block with its own white-space+overflow, or a long name gets a hard clip
+     at the edge instead of an ellipsis. */
+  .carloLinkName span{
+    display:block; width:100%;
+    font-size:calc(18px * var(--txt)); line-height:1.2;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .carloLinkCaption{
     font-family:'Cinzel',serif; font-size:calc(12px * var(--txt)); letter-spacing:.1em; text-transform:uppercase;
-    color:#a78bfa; margin-top:8px; text-align:center;
+    color:var(--gold-bright); margin-top:8px; text-align:center;
   }
   /* Owner-only, shown while Review Mode is on: a pending/unresolved Carlo link is never shown
      to visitors, but the research note travels with the entry so the concern isn't lost. */
@@ -4139,7 +4148,7 @@ function fillArticleBody(d, peek){
       html += '<div class="carloLinkBox">' +
         '<a class="carloLinkBtn" href="' + esc(cl.url) + '" target="_blank" rel="noopener" aria-label="See ' + esc(d.n) + ' on the Carlo Acutis Eucharistic Miracles exhibition">' +
         '<img src="Images/CarloAcutis/banner.jpg" alt="Miracles of the Eucharist — International Exhibition by St. Carlo Acutis" loading="lazy">' +
-        '<div class="carloLinkName">' + esc(truncateWords(carloDisplayName(d.n), 20)) + '</div>' +
+        '<div class="carloLinkName"><span>' + esc(truncateWords(carloDisplayName(d.n), 20)) + '</span></div>' +
         '</a>' +
         '<div class="carloLinkCaption">View Saint Carlo\u2019s Work</div>' +
         '</div>';
