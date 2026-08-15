@@ -2,6 +2,22 @@
   "v": 1,
   "entries": [
     {
+      "version": "149",
+      "date": "2026-08-15T13:15:00-05:00",
+      "changes": [
+        "Fix: the Carlo Acutis banner's name overlay (added in v148) rendered invisibly on real Safari —",
+        "the button's height was only ever established by its content (the image), so the absolutely",
+        "positioned name box's percentage top/height had no definite containing-block height to resolve",
+        "against and ended up laid out outside the button's visible, overflow:hidden area. Fixed with the",
+        "classic percentage-padding trick (.carloLinkBtn::before with padding-top matching the banner's",
+        "own 900:336 ratio) to give the button a genuinely definite pixel height, and the image is now",
+        "absolutely positioned to fill it (object-fit:cover) instead of defining it. Also dropped the cqw",
+        "container-query font sizing in favor of the site's existing calc(px * var(--txt)) convention,",
+        "removing a second dependency on newer CSS support. No HTML/data changes — CSS-only fix."
+      ],
+      "loggedAt": "2026-08-15T05:03:59.113871+00:00"
+    },
+    {
       "version": "148",
       "date": "2026-08-15T12:00:00-05:00",
       "changes": [
