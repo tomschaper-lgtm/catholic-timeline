@@ -1,4 +1,11 @@
 <!--
+VERSION: 153
+DATE: 2026-08-15T08:42:00-05:00
+CHANGES:
+- Carlo Acutis exhibition banner moved: now renders right after Quick Facts, before the story
+  sections (previously sat at the bottom, after Sources & Further Reading).
+-->
+<!--
 VERSION: 152
 DATE: 2026-08-15T06:40:00-05:00
 CHANGES:
@@ -2652,7 +2659,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v152';
+const APP_VERSION = 'v153';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4123,6 +4130,27 @@ function fillArticleBody(d, peek){
     });
     html += '</div>';
   }
+  // Carlo Acutis exhibition link (Eucharistic Miracle entries only): its own section, placed
+  // right after Quick Facts and before the story itself. Kept separate from the Sources list
+  // further down. A "pending" row (or no row at all) renders nothing to visitors — only Review
+  // Mode surfaces the research note, so an unresolved search stays an owner-facing concern
+  // rather than a public gap.
+  if(d.t === 'u'){
+    const cl = getCarloLink(d.id);
+    if(cl && cl.status === 'found' && cl.url){
+      html += '<div class="carloLinkBox">' +
+        '<a class="carloLinkBtn" href="' + esc(cl.url) + '" target="_blank" rel="noopener" aria-label="See ' + esc(d.n) + ' on the Carlo Acutis Eucharistic Miracles exhibition">' +
+        '<img src="Images/CarloAcutis/banner.jpg" alt="Miracles of the Eucharist — International Exhibition by St. Carlo Acutis" loading="lazy">' +
+        '<div class="carloLinkName"><span>' + esc(truncateWords(carloDisplayName(d.n), 20)) + '</span></div>' +
+        '</a>' +
+        '<div class="carloLinkCaption">View Saint Carlo\u2019s Work</div>' +
+        '</div>';
+    } else if(reviewMode){
+      const note = (cl && cl.note) ? cl.note : 'No individual miracolieucaristici.org page located yet.';
+      html += '<div class="carloLinkPendingBox"><div class="carloLinkLabel">Carlo Acutis Link — Pending</div>' +
+        '<p>' + esc(note) + '</p></div>';
+    }
+  }
   // Audio scrubber: immediately above the article text, riding up with the content until
   // it reaches the sticky header, at which point it pins itself just beneath it.
   if(d.audio){
@@ -4153,26 +4181,6 @@ function fillArticleBody(d, peek){
       if(l.url) html += '<li><a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.label || l.url) + '</a></li>';
     });
     html += '</ul>';
-  }
-  // Carlo Acutis exhibition link (Eucharistic Miracle entries only): its own section, kept
-  // separate from the Sources list above. A "pending" row (or no row at all) renders nothing
-  // to visitors — only Review Mode surfaces the research note, so an unresolved search stays
-  // an owner-facing concern rather than a public gap.
-  if(d.t === 'u'){
-    const cl = getCarloLink(d.id);
-    if(cl && cl.status === 'found' && cl.url){
-      html += '<div class="carloLinkBox">' +
-        '<a class="carloLinkBtn" href="' + esc(cl.url) + '" target="_blank" rel="noopener" aria-label="See ' + esc(d.n) + ' on the Carlo Acutis Eucharistic Miracles exhibition">' +
-        '<img src="Images/CarloAcutis/banner.jpg" alt="Miracles of the Eucharist — International Exhibition by St. Carlo Acutis" loading="lazy">' +
-        '<div class="carloLinkName"><span>' + esc(truncateWords(carloDisplayName(d.n), 20)) + '</span></div>' +
-        '</a>' +
-        '<div class="carloLinkCaption">View Saint Carlo\u2019s Work</div>' +
-        '</div>';
-    } else if(reviewMode){
-      const note = (cl && cl.note) ? cl.note : 'No individual miracolieucaristici.org page located yet.';
-      html += '<div class="carloLinkPendingBox"><div class="carloLinkLabel">Carlo Acutis Link — Pending</div>' +
-        '<p>' + esc(note) + '</p></div>';
-    }
   }
   // Owner-only review actions: only ever shown to an unlocked owner looking at a held entry,
   // never to a visitor (a review-flagged entry excludes itself from the public timeline and
