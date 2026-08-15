@@ -1,4 +1,20 @@
 <!--
+VERSION: 152
+DATE: 2026-08-15T06:40:00-05:00
+CHANGES:
+- Carlo Acutis banner overlay: name text now sized much larger (18px -> 30px base, still scaled by
+  the site's text-size setting) and set in Cormorant Garamond (added to the Google Fonts request)
+  instead of the plain Georgia/Times fallback, closer to the exhibition site's own display type.
+- Fixed the overlay clipping instead of ellipsis-truncating: text-overflow:ellipsis was on the same
+  element as display:flex (used for vertical centering), which doesn't reliably apply — long names
+  hit the button's overflow:hidden edge and got hard-clipped with no "…". Truncation now lives on a
+  separate inner span, flex stays only on the outer box.
+- Caption below the banner ("View Saint Carlo's Work") recolored from a stray lavender (#a78bfa)
+  to var(--gold-bright), matching the rest of the site's gold accents instead of standing out.
+- Settings > Font Size stepper buttons (−/reset/+) get touch-action:manipulation — rapid taps were
+  triggering the browser's native double-tap-to-zoom instead of just stepping the font size.
+-->
+<!--
 VERSION: 151
 DATE: 2026-08-15T14:20:00-05:00
 CHANGES:
@@ -2636,7 +2652,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v151';
+const APP_VERSION = 'v152';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
