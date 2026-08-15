@@ -1,12 +1,15 @@
 <!--
 VERSION: 148
-DATE: 2026-08-15T12:00:00-05:00
+DATE: 2026-08-15T12:30:00-05:00
 CHANGES:
 - Carlo Acutis section now shows the exhibition's own banner artwork (Images/CarloAcutis/banner.jpg
   — the "Eucharistic Miracle" photo/gold-script/red-band header from miracolieucaristici.org) with
-  rounded corners as a tappable button, in place of the earlier plain icon+text row. Tapping it opens
-  that entry's own carloLinks.url. Upload the image to Images/CarloAcutis/banner.jpg in the repo —
-  same one asset reused across every "found" Eucharistic Miracle entry, not per-entry.
+  rounded corners as a tappable button, in place of the earlier plain icon+text row. The specific
+  entry's name is overlaid on the red band in bold caps, truncated at a whole-word boundary (not
+  mid-word) via a new truncateWords() helper — tested against real button widths so it fits
+  cleanly rather than relying on CSS ellipsis alone. Tapping the button opens that entry's own
+  carloLinks.url. Upload the image to Images/CarloAcutis/banner.jpg in the repo — one shared
+  asset reused across every "found" Eucharistic Miracle entry, not per-entry.
 -->
 <!--
 VERSION: 147
@@ -1432,16 +1435,28 @@ CHANGES:
   .reviewNoteBox p{color:var(--parchment); font-size:calc(16px * var(--txt)); line-height:1.55;}
   .reviewNoteBox p + p{margin-top:10px;}
   /* Carlo Acutis exhibition link: its own section, distinct from Sources & Further Reading —
-     the exhibition's own banner artwork, rounded like a button, linking out to that miracle's
-     individual page on miracolieucaristici.org. */
+     the exhibition's own banner artwork, rounded like a button, with the specific miracle's
+     name overlaid on the banner's red band, linking out to that miracle's page on
+     miracolieucaristici.org. Overlay coordinates are measured against the source banner image
+     (red band spans ~46.2%–89.7% of image height; text starts at ~35% width to clear the photo). */
   .carloLinkBox{ margin:22px 0; }
   .carloLinkBtn{
-    display:block; border-radius:14px; overflow:hidden; line-height:0;
+    display:block; position:relative; border-radius:14px; overflow:hidden; line-height:0;
     border:1px solid rgba(167,139,250,.4); box-shadow:0 4px 14px rgba(0,0,0,.35);
     transition:transform .15s ease, box-shadow .15s ease;
+    container-type:inline-size;
   }
   .carloLinkBtn:active{ transform:scale(.985); }
   .carloLinkBtn img{ display:block; width:100%; height:auto; }
+  .carloLinkName{
+    position:absolute; left:35%; right:4%; top:46.2%; height:43.5%;
+    display:flex; align-items:center;
+    font-family:'Cinzel',serif; font-weight:700; text-transform:uppercase;
+    letter-spacing:.04em; color:#fdf6e3; line-height:1.15;
+    font-size:clamp(11px, 4.6cqw, 27px);
+    text-shadow:0 2px 5px rgba(0,0,0,.45);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
   .carloLinkCaption{
     font-family:'Cinzel',serif; font-size:calc(12px * var(--txt)); letter-spacing:.1em; text-transform:uppercase;
     color:#a78bfa; margin-top:8px; text-align:center;
@@ -2650,6 +2665,14 @@ function setStatus(msg){
 }
 function getEntry(id){ return db.entries.find(e => e.id === id); }
 function getCarloLink(entityId){ return (db.carloLinks || []).find(c => c.entityId === entityId); }
+// Truncates a miracle name at a whole-word boundary rather than mid-word, for the Carlo Acutis
+// banner overlay (a fixed-height text box — CSS ellipsis alone can't guarantee a clean word cut).
+function truncateWords(str, maxChars){
+  if(!str || str.length <= maxChars) return str || '';
+  const cut = str.slice(0, maxChars);
+  const lastSpace = cut.lastIndexOf(' ');
+  return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim() + '\u2026';
+}
 
 // ================= TIMELINE =================
 const START = 0, END = 2030, SPAN = END - START;
@@ -4067,8 +4090,9 @@ function fillArticleBody(d, peek){
     const cl = getCarloLink(d.id);
     if(cl && cl.status === 'found' && cl.url){
       html += '<div class="carloLinkBox">' +
-        '<a class="carloLinkBtn" href="' + esc(cl.url) + '" target="_blank" rel="noopener" aria-label="See this miracle on the Carlo Acutis Eucharistic Miracles exhibition">' +
+        '<a class="carloLinkBtn" href="' + esc(cl.url) + '" target="_blank" rel="noopener" aria-label="See ' + esc(d.n) + ' on the Carlo Acutis Eucharistic Miracles exhibition">' +
         '<img src="Images/CarloAcutis/banner.jpg" alt="Miracles of the Eucharist — International Exhibition by St. Carlo Acutis" loading="lazy">' +
+        '<div class="carloLinkName">' + esc(truncateWords(d.n, 20)) + '</div>' +
         '</a>' +
         '<div class="carloLinkCaption">See Carlo\u2019s Work &rarr;</div>' +
         '</div>';
