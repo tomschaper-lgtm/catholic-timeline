@@ -2,6 +2,24 @@
   "v": 1,
   "entries": [
     {
+      "version": "152",
+      "date": "2026-08-15T06:40:00-05:00",
+      "changes": [
+        "Carlo Acutis banner overlay: name text now sized much larger (18px -> 30px base, still scaled by",
+        "the site's text-size setting) and set in Cormorant Garamond (added to the Google Fonts request)",
+        "instead of the plain Georgia/Times fallback, closer to the exhibition site's own display type.",
+        "Fixed the overlay clipping instead of ellipsis-truncating: text-overflow:ellipsis was on the same",
+        "element as display:flex (used for vertical centering), which doesn't reliably apply — long names",
+        "hit the button's overflow:hidden edge and got hard-clipped with no \"…\". Truncation now lives on a",
+        "separate inner span, flex stays only on the outer box.",
+        "Caption below the banner (\"View Saint Carlo's Work\") recolored from a stray lavender (#a78bfa)",
+        "to var(--gold-bright), matching the rest of the site's gold accents instead of standing out.",
+        "Settings > Font Size stepper buttons (−/reset/+) get touch-action:manipulation — rapid taps were",
+        "triggering the browser's native double-tap-to-zoom instead of just stepping the font size."
+      ],
+      "loggedAt": "2026-08-15T11:38:39.716781+00:00"
+    },
+    {
       "version": "151",
       "date": "2026-08-15T14:20:00-05:00",
       "changes": [
