@@ -1,4 +1,14 @@
 <!--
+VERSION: 148
+DATE: 2026-08-15T12:00:00-05:00
+CHANGES:
+- Carlo Acutis section now shows the exhibition's own banner artwork (Images/CarloAcutis/banner.jpg
+  — the "Eucharistic Miracle" photo/gold-script/red-band header from miracolieucaristici.org) with
+  rounded corners as a tappable button, in place of the earlier plain icon+text row. Tapping it opens
+  that entry's own carloLinks.url. Upload the image to Images/CarloAcutis/banner.jpg in the repo —
+  same one asset reused across every "found" Eucharistic Miracle entry, not per-entry.
+-->
+<!--
 VERSION: 147
 DATE: 2026-08-14T17:00:00-05:00
 CHANGES:
@@ -1421,21 +1431,21 @@ CHANGES:
   }
   .reviewNoteBox p{color:var(--parchment); font-size:calc(16px * var(--txt)); line-height:1.55;}
   .reviewNoteBox p + p{margin-top:10px;}
-  /* Carlo Acutis exhibition link: its own section, distinct from Sources & Further Reading,
-     in the violet accent used for the Eucharistic Miracle category elsewhere in the app. */
-  .carloLinkBox{
-    display:flex; align-items:center; gap:12px;
-    border:1px solid rgba(167,139,250,.4); border-radius:10px; background:rgba(167,139,250,.07);
-    padding:12px 16px; margin:22px 0;
+  /* Carlo Acutis exhibition link: its own section, distinct from Sources & Further Reading —
+     the exhibition's own banner artwork, rounded like a button, linking out to that miracle's
+     individual page on miracolieucaristici.org. */
+  .carloLinkBox{ margin:22px 0; }
+  .carloLinkBtn{
+    display:block; border-radius:14px; overflow:hidden; line-height:0;
+    border:1px solid rgba(167,139,250,.4); box-shadow:0 4px 14px rgba(0,0,0,.35);
+    transition:transform .15s ease, box-shadow .15s ease;
   }
-  .carloLinkIcon{flex:0 0 auto; width:26px; height:26px; color:#a78bfa;}
-  .carloLinkIcon svg{width:100%; height:100%;}
-  .carloLinkText{flex:1 1 auto; min-width:0;}
-  .carloLinkLabel{
-    font-family:'Cinzel',serif; font-size:calc(12.5px * var(--txt)); letter-spacing:.1em; text-transform:uppercase;
-    color:#a78bfa; margin-bottom:3px;
+  .carloLinkBtn:active{ transform:scale(.985); }
+  .carloLinkBtn img{ display:block; width:100%; height:auto; }
+  .carloLinkCaption{
+    font-family:'Cinzel',serif; font-size:calc(12px * var(--txt)); letter-spacing:.1em; text-transform:uppercase;
+    color:#a78bfa; margin-top:8px; text-align:center;
   }
-  .carloLinkText a{color:var(--parchment); font-size:calc(16px * var(--txt)); text-decoration:underline; text-decoration-color:rgba(167,139,250,.5);}
   /* Owner-only, shown while Review Mode is on: a pending/unresolved Carlo link is never shown
      to visitors, but the research note travels with the entry so the concern isn't lost. */
   .carloLinkPendingBox{
@@ -2563,7 +2573,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v147';
+const APP_VERSION = 'v148';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4057,9 +4067,10 @@ function fillArticleBody(d, peek){
     const cl = getCarloLink(d.id);
     if(cl && cl.status === 'found' && cl.url){
       html += '<div class="carloLinkBox">' +
-        '<div class="carloLinkIcon">' + ICONS.u + '</div>' +
-        '<div class="carloLinkText"><div class="carloLinkLabel">Carlo Acutis Exhibition</div>' +
-        '<a href="' + esc(cl.url) + '" target="_blank" rel="noopener">See Carlo\u2019s Work &rarr;</a></div>' +
+        '<a class="carloLinkBtn" href="' + esc(cl.url) + '" target="_blank" rel="noopener" aria-label="See this miracle on the Carlo Acutis Eucharistic Miracles exhibition">' +
+        '<img src="Images/CarloAcutis/banner.jpg" alt="Miracles of the Eucharist — International Exhibition by St. Carlo Acutis" loading="lazy">' +
+        '</a>' +
+        '<div class="carloLinkCaption">See Carlo\u2019s Work &rarr;</div>' +
         '</div>';
     } else if(reviewMode){
       const note = (cl && cl.note) ? cl.note : 'No individual miracolieucaristici.org page located yet.';
