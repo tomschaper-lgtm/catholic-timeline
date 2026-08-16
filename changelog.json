@@ -2,6 +2,22 @@
   "v": 1,
   "entries": [
     {
+      "version": "157",
+      "date": "2026-08-16T09:45:00-05:00",
+      "changes": [
+        "Changed: the Paste JSON box's default workflow is now a single \"Import from Clipboard\" button",
+        "— reads whatever's already copied and applies it immediately, no separate paste-then-Apply",
+        "step. The old textarea + Apply/Clear still exist, moved under a collapsed \"Paste manually",
+        "instead\" details block, as a fallback for when clipboard read fails (permission denied, or an",
+        "installed-to-homescreen quirk) — every clipboard failure path shows a clear error pointing at",
+        "that fallback rather than leaving the owner stuck with no way to import.",
+        "Fix: the box previously had two elements with id=\"pasteJsonStatus\" (a leftover from before",
+        "this change) — duplicate ids silently break getElementById, so status messages could have",
+        "started writing to the wrong one. Down to one now."
+      ],
+      "loggedAt": "2026-08-16T17:10:24.474508+00:00"
+    },
+    {
       "version": "156",
       "date": "2026-08-16T09:10:00-05:00",
       "changes": [
