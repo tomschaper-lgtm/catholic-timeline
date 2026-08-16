@@ -1,4 +1,34 @@
 <!--
+VERSION: 163
+DATE: 2026-08-16T16:20:00-05:00
+CHANGES:
+- Changed: Pontiff (`po`) entries are hidden from the public timeline entirely — not filtered
+  in place, but excluded in filtered() before layout runs, so no band is reserved for them and
+  nothing else shifts to fill a gap ("no section shunting"). They only appear with Review Mode
+  on. The hamburger category-filter chip for Pontiffs is likewise hidden while Review Mode is
+  off, since there'd be nothing for it to toggle. Deep links (#entry-id) to a pontiff stub are
+  blocked the same way review:true entries already are. The Manage → Export filter chip for
+  Pontiff stays visible always — that's an owner-only tool, unaffected by what the public sees.
+  Net effect: v162's new category exists in the data and in Manage, but nothing about it is
+  visible to a visitor until Tom turns Review Mode on.
+-->
+<!--
+VERSION: 162
+DATE: 2026-08-16T15:45:00-05:00
+CHANGES:
+- Added: new "Pontiff" category (type key `po`), per pontiff-category-spec.md. Crossed-keys
+  icon and a cardinal-red accent color (--pontiff) distinct from the existing six categories.
+  Wired into every place a type is enumerated: TYPE_NAMES/TYPE_PLURALS/TYPE_ORDER,
+  SEARCH_TYPE_ORDER, ICONS/TYPE_BAND_IMG, activeTypes/mFilterTypes defaults, the hamburger
+  category-filter row, the Manage → Export category-filter chips, the manual editor's Type
+  dropdown, and FACT_HINTS (Reigned, Regnal name, Birthplace (modern country), Elected,
+  Predecessor, Successor, Notable acts) for both the "Draft Article" and "Instruct Claude"
+  prompts. No entries schema change — `po` is just a new value for the existing `t` field, so
+  pontiff-stubs.json now imports and renders as its own timeline lane. Cross-linking pontiff
+  stubs to existing Saint entries for the same person (~48 popes already have a `t:"s"` entry)
+  is intentionally left undecided — see the spec doc.
+-->
+<!--
 VERSION: 161
 DATE: 2026-08-16T12:15:00-05:00
 CHANGES:
@@ -866,7 +896,7 @@ CHANGES:
     --navy:#0B1630; --navy-deep:#070F22; --navy-band:#101D3D;
     --gold:#C9A542; --gold-bright:#E8CD7E; --parchment:#EFE6CE; --muted:#9AA5BF;
     --saint:#E0B84C; --council:#EDE4C8; --council-ecu:#F2C94C; --persec:#D45B45; --event:#7E9CC9;
-    --marian:#8FC7E8; --euch:#B98FE0;
+    --marian:#8FC7E8; --euch:#B98FE0; --pontiff:#8B2942;
     --peekH: 230px; /* ~2in peek-card height: date/name/first heading + a snippet, tune freely */
     /* Reader text scale, driven by the A-/A+ controls in the menu and remembered per browser.
        Applied only to reading text (article body, quotes, sources, card summary) — not to
@@ -1180,6 +1210,7 @@ CHANGES:
   .band-m{background:rgba(143,199,232,.055);}
   .band-u{background:rgba(185,143,224,.055);}
   .band-e{background:rgba(126,156,201,.05);}
+  .band-po{background:rgba(139,41,66,.055);}
   .bandlblwrap{position:absolute; left:0; z-index:4; pointer-events:none;}
   .bandlbl{
     position:sticky; left:0; top:58px; display:inline-block; min-width:230px;
@@ -1221,7 +1252,7 @@ CHANGES:
     overflow:hidden; text-shadow:0 1px 3px rgba(0,0,0,.9);
   }
   .t-s{color:var(--saint);} .t-c{color:var(--council);} .t-p{color:var(--persec);}
-  .t-e{color:var(--event);} .t-m{color:var(--marian);} .t-u{color:var(--euch);}
+  .t-e{color:var(--event);} .t-m{color:var(--marian);} .t-u{color:var(--euch);} .t-po{color:var(--pontiff);}
   .ev.ecu{color:var(--council-ecu);}
   .ev.ecu .ic{box-shadow:0 0 8px rgba(242,201,76,.7), 0 0 2px rgba(242,201,76,.9); border-width:2px;}
   .ev.ecu:hover .ic{box-shadow:0 0 12px var(--council-ecu);}
@@ -2115,6 +2146,7 @@ CHANGES:
     <div class="row" id="typeRow" style="display:none;">
       <span class="lbl">Show</span>
       <button class="tbtn t-s" data-type="s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>Saints</button>
+      <button class="tbtn t-po" data-type="po"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2.5"/><path d="M7.8 7.8L18 18M14 18h4v-4"/><circle cx="18" cy="6" r="2.5"/><path d="M16.2 7.8L6 18M10 18H6v-4"/></svg>Pontiffs</button>
       <button class="tbtn t-c" data-type="c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M4.5 18h15M12 3l8 5.5H4L12 3zM6.5 8.5v9.5M12 8.5v9.5M17.5 8.5v9.5"/></svg>Councils</button>
       <button class="tbtn t-p" data-type="p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2c1 4-4 5-4 10a4 4 0 0 0 8 0c0-2-1-3-1-3s3 1 3 5a7 7 0 0 1-14 0c0-6 6-7 8-12z"/></svg>Persecutions</button>
       <button class="tbtn t-m" data-type="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.4 5.4 5.9.5-4.5 3.9 1.4 5.7L12 15.6 6.8 18.5l1.4-5.7L3.7 8.9l5.9-.5z"/></svg>Marian</button>
@@ -2339,7 +2371,7 @@ CHANGES:
           <div class="mfield"><label>Year (AD)</label><input type="number" id="fYear"></div>
           <div class="mfield"><label>Type</label>
             <select id="fType">
-              <option value="s">Saint</option><option value="c">Council</option>
+              <option value="s">Saint</option><option value="po">Pontiff</option><option value="c">Council</option>
               <option value="p">Persecution</option><option value="m">Marian Apparition</option>
               <option value="u">Eucharistic Miracle</option><option value="e">Event</option>
             </select>
@@ -2395,6 +2427,7 @@ CHANGES:
       <div class="mgmtRowLabel">Category (none = all)</div>
       <div class="mgmtFilterRow" id="mfTypeRow">
         <button class="mfChip" data-mtype="s">Saint</button>
+        <button class="mfChip" data-mtype="po">Pontiff</button>
         <button class="mfChip" data-mtype="c">Council</button>
         <button class="mfChip" data-mtype="p">Persecution</button>
         <button class="mfChip" data-mtype="m">Marian</button>
@@ -2846,7 +2879,7 @@ const ERAS = [
   [604,1054,"Early Middle Ages"],[1054,1300,"High Middle Ages"],[1300,1517,"Late Middle Ages"],
   [1517,1650,"Reformation"],[1650,1900,"Age of Revolutions"],[1900,2030,"Modern Era"]
 ];
-const TYPE_NAMES = {s:"Saint", c:"Council", p:"Persecution", e:"Event", m:"Marian Apparition", u:"Eucharistic Miracle"};
+const TYPE_NAMES = {s:"Saint", c:"Council", p:"Persecution", e:"Event", m:"Marian Apparition", u:"Eucharistic Miracle", po:"Pontiff"};
 const REGION_NAMES = {rome:"Rome & Italy", west:"Western Europe", brit:"Britain & Ireland", east:"Byzantium & E. Europe", holy:"Holy Land & Mid-East", africa:"Africa", americas:"Americas", asia:"Asia & Oceania"};
 const ICONS = {
   s:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>',
@@ -2854,19 +2887,20 @@ const ICONS = {
   p:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2c1 4-4 5-4 10a4 4 0 0 0 8 0c0-2-1-3-1-3s3 1 3 5a7 7 0 0 1-14 0c0-6 6-7 8-12z"/></svg>',
   e:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 3v18M6.5 8.5h11"/></svg>',
   m:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.4 5.4 5.9.5-4.5 3.9 1.4 5.7L12 15.6 6.8 18.5l1.4-5.7L3.7 8.9l5.9-.5z"/></svg>',
-  u:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6.5" r="3.2"/><path d="M6.5 12h11M8 12c0 3 1.8 4.5 4 4.5s4-1.5 4-4.5M12 16.5V20M9.5 20h5"/></svg>'
+  u:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="6.5" r="3.2"/><path d="M6.5 12h11M8 12c0 3 1.8 4.5 4 4.5s4-1.5 4-4.5M12 16.5V20M9.5 20h5"/></svg>',
+  po:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2.5"/><path d="M7.8 7.8L18 18M14 18h4v-4"/><circle cx="18" cy="6" r="2.5"/><path d="M16.2 7.8L6 18M10 18H6v-4"/></svg>'
 };
 // Optional per-category artwork for the sticky band icon frame (below each lane's label).
 // Fill in a hosted https image URL (or repo-relative path) per type to replace the plain SVG
 // glyph with real artwork/mosaic imagery. Leave "" to keep using the SVG icon from ICONS above.
-const TYPE_BAND_IMG = {s:'', c:'', p:'', e:'', m:'', u:''};
+const TYPE_BAND_IMG = {s:'', c:'', p:'', e:'', m:'', u:'', po:''};
 
 // ================= DATABASE =================
 const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v161';
+const APP_VERSION = 'v163';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2963,7 +2997,7 @@ function carloDisplayName(name){
 // ================= TIMELINE =================
 const START = 0, END = 2030, SPAN = END - START;
 let ppy = 1.8;
-let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
+let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true, po:true};
 let activeRegion = "all";
 let currentEntry = null;
 // Cross-reference navigation history: one frame per entry visited via an in-article "entry:"
@@ -3150,12 +3184,15 @@ function reviewCount(){ return db ? db.entries.filter(isReview).length : 0; }
 
 function filtered(){
   if(reviewOnlyMode) return db.entries.filter(isReview).slice().sort((a,b) => a.y - b.y);
-  return db.entries.filter(d => (reviewMode || !isReview(d)) && activeTypes[d.t] && (activeRegion === "all" || d.r === activeRegion))
+  // Pontiff (`po`) entries are a stub-only batch pending full articles — kept off the public
+  // timeline entirely (not just filtered out, but excluded before layout) until Review Mode
+  // is on, so no band/lane ever reserves space for them and nothing else shifts to fill a gap.
+  return db.entries.filter(d => (reviewMode || !isReview(d)) && (reviewMode || d.t !== 'po') && activeTypes[d.t] && (activeRegion === "all" || d.r === activeRegion))
     .slice().sort((a,b) => a.y - b.y);
 }
 
-const TYPE_ORDER = ['e','s','c','p','m','u'];
-const TYPE_PLURALS = {s:"Saints", c:"Councils", p:"Persecutions", m:"Marian Apparitions", u:"Eucharistic Miracles", e:"Events"};
+const TYPE_ORDER = ['e','po','s','c','p','m','u'];
+const TYPE_PLURALS = {s:"Saints", c:"Councils", p:"Persecutions", m:"Marian Apparitions", u:"Eucharistic Miracles", e:"Events", po:"Pontiffs"};
 const HEAD_H = 58;
 
 // ---- Label width measurement (for lane packing) ----
@@ -3728,7 +3765,7 @@ const MAX_RESULTS = 8;
 const RECENT_KEY = 'ct-recent-searches';
 const RECENT_MAX = 5;
 // Results are grouped by category in this fixed order, then by year inside each group.
-const SEARCH_TYPE_ORDER = ['s','c','p','m','u','e'];
+const SEARCH_TYPE_ORDER = ['s','po','c','p','m','u','e'];
 
 let searchHits = new Set();
 let searchFocusId = null;
@@ -5612,7 +5649,7 @@ function selectEntryFromCms(id){
 }
 
 // ---- Export tab state: category/region/status/date-range filters, default = nothing checked = everything ----
-let mFilterTypes = {s:false, c:false, p:false, m:false, u:false, e:false};
+let mFilterTypes = {s:false, c:false, p:false, m:false, u:false, e:false, po:false};
 let mFilterRegion = 'all'; // region chips are hidden in the UI; kept for future use, always "all" for now
 let mFilterReviewOnly = false;
 
@@ -5698,7 +5735,7 @@ document.getElementById('mfReviewOnlyChip').addEventListener('click', (e) => {
 document.getElementById('mfYearFrom').addEventListener('input', renderExportSummary);
 document.getElementById('mfYearTo').addEventListener('input', renderExportSummary);
 document.getElementById('mfReset').addEventListener('click', () => {
-  mFilterTypes = {s:false, c:false, p:false, m:false, u:false, e:false};
+  mFilterTypes = {s:false, c:false, p:false, m:false, u:false, e:false, po:false};
   mFilterRegion = 'all';
   mFilterReviewOnly = false;
   document.querySelectorAll('#mfTypeRow .mfChip').forEach(c => c.classList.remove('on'));
@@ -5829,6 +5866,12 @@ function updateReviewUI(){
     onlyBtn.textContent = reviewOnlyMode ? 'Show All' : 'Show Only Pending';
     onlyBtn.classList.toggle('on', reviewOnlyMode);
   }
+  // Pontiff is a stub-only category for now (see filtered()) — its chip stays out of the
+  // timeline's public category row so there's nothing to toggle that does nothing, and no
+  // dead space where the chip used to be either. The Manage → Export chip stays visible
+  // regardless, since that's an owner-only tool independent of what the public sees.
+  const poTypeBtn = document.querySelector('#typeRow .tbtn[data-type="po"]');
+  if(poTypeBtn) poTypeBtn.style.display = reviewMode ? '' : 'none';
 }
 const reviewToggleBtn = document.getElementById('reviewToggle');
 if(reviewToggleBtn) reviewToggleBtn.addEventListener('click', () => {
@@ -6076,7 +6119,8 @@ const FACT_HINTS = {
   p: "Regime or ruler; Region; Span of years; Cause; Notable martyrs; Estimated toll; Ended by",
   m: "Seer(s); Location; Date(s); Title of Our Lady; Words or message; Approval status (diocesan or papal, with year); Feast day; Shrine",
   u: "Location; Date; What occurred; Scientific findings; Approval status; Where venerated",
-  e: "Date; Location; Key figures; Significance; Related document or decree"
+  e: "Date; Location; Key figures; Significance; Related document or decree",
+  po: "Reigned; Regnal name; Birthplace (modern country); Elected; Predecessor; Successor; Notable acts"
 };
 document.getElementById('fDraft').addEventListener('click', async () => {
   const n = document.getElementById('fName').value.trim();
@@ -6430,7 +6474,7 @@ document.getElementById('aiRun').addEventListener('click', async () => {
 "]}\n" +
 "country: the single modern country name only (e.g. \"Italy\", \"Poland\") for the place most associated with the entry — for people who moved around, the country they lived in most, or where they died if unclear. Include it on adds when placeable; include it on updates only when the instruction concerns it.\n" +
 "Article section bodies (art.sections[].b) may use simple HTML for readability: <b>, <i>, <u>, <ul>/<ol> with <li>, <br>. Use sparingly. When writing a full article, aim for depth: roughly 5-8 sections, ~900-1400 words, with only authentic quotations.\n" +
-"facts is an optional Quick Facts list ([{label,value} or {label,value,url}]) shown as a panel on the article. Use labels suited to the type — Saint: Feast day, Born, Died, Title, Canonized, Patronage, Order, Major works. Council: Ecumenical number, Convoked by, Location, Defined, Key documents. Persecution: Ruler/regime, Region, Span, Notable martyrs, Ended by. Marian: Seer(s), Location, Date(s), Approval status, Feast day. Eucharistic: Location, Date, Findings, Approval. Event: Date, Location, Key figures, Significance. Keep values short; omit unverifiable facts.\n" +
+"facts is an optional Quick Facts list ([{label,value} or {label,value,url}]) shown as a panel on the article. Use labels suited to the type — Saint: Feast day, Born, Died, Title, Canonized, Patronage, Order, Major works. Pontiff: Reigned, Regnal name, Birthplace (modern country), Elected, Predecessor, Successor, Notable acts. Council: Ecumenical number, Convoked by, Location, Defined, Key documents. Persecution: Ruler/regime, Region, Span, Notable martyrs, Ended by. Marian: Seer(s), Location, Date(s), Approval status, Feast day. Eucharistic: Location, Date, Findings, Approval. Event: Date, Location, Key figures, Significance. Keep values short; omit unverifiable facts.\n" +
 "tier (1-3) sets zoom prominence: 1 = always visible (major figures/events), 2 = appears when zoomed in, 3 = appears only at deep zoom (minor). Default 1. alt is an array of alternate names/nicknames for search (e.g. [\"JPII\",\"Karol Wojtyła\"]). tags is an array of short associated search terms/symbols for the entry (e.g. for St. Peter: [\"fish\",\"keys\",\"boat\",\"nets\",\"pope\"]).\n" +
 "Use only the ops needed. For updates, include only changed fields (y, n, t, r, country, d, art, facts, tier, alt, tags, img, imgCap, audio). Keep it focused — handle one coherent change per instruction.", 4000);
     const parsed = extractJson(text);
@@ -7845,8 +7889,10 @@ const APP_ICON = { touch: 'Images/icons/apple-touch-icon.png',
     const sharedId = location.hash ? location.hash.slice(1) : '';
     let sharedEntry = sharedId ? getEntry(sharedId) : null;
     // A deep link to an entry that is still held for review should not expose it; only Review Mode
-    // opens it. Otherwise the link falls through to the normal opening view.
+    // opens it. Same for the Pontiff category while it's stub-only. Otherwise the link falls
+    // through to the normal opening view.
     if(sharedEntry && isReview(sharedEntry) && !reviewMode) sharedEntry = null;
+    if(sharedEntry && sharedEntry.t === 'po' && !reviewMode) sharedEntry = null;
     if(sharedEntry){
       scrollToYear(sharedEntry.y);
       showDetail(sharedEntry);
