@@ -2,6 +2,19 @@
   "v": 1,
   "entries": [
     {
+      "version": "155",
+      "date": "2026-08-15T16:35:00-05:00",
+      "changes": [
+        "Fix: the triple-tap link picker (added in v154) lived outside #article in the DOM, so the",
+        "existing \"tap anywhere outside the card closes it\" handler saw every tap inside the picker",
+        "(the arrows, the search box, a result row) as an outside tap and closed the whole article out",
+        "from under it. Added #linkPicker to that handler's exclusion list (both the capture-phase",
+        "inside-detection and the bubble-phase close check), matching how #imgLightbox and #manage are",
+        "already excluded for the same reason."
+      ],
+      "loggedAt": "2026-08-16T03:44:59.196124+00:00"
+    },
+    {
       "version": "154",
       "date": "2026-08-15T16:05:00-05:00",
       "changes": [
