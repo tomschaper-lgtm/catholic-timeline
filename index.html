@@ -1,4 +1,16 @@
 <!--
+VERSION: 161
+DATE: 2026-08-16T12:15:00-05:00
+CHANGES:
+- Changed: reordered and collapsed the Import tab. Restore & Reset moved to the top (now
+  collapsed by default, was always-open); Run GitHub Action and Fix Image Extensions collapsed
+  in place (were always-open); Publish to GitHub moved down to sit directly above Import JSON
+  Data From…, which moved from the top of the tab to the bottom. New top-to-bottom order:
+  Restore & Reset, Run GitHub Action, Fix Image Extensions, Publish to GitHub, Import. All four
+  non-Import sections now use the same collapsed-details treatment already used for Publish to
+  GitHub, instead of three of them being permanently-open boxes.
+-->
+<!--
 VERSION: 160
 DATE: 2026-08-16T11:40:00-05:00
 CHANGES:
@@ -2448,6 +2460,61 @@ CHANGES:
 
     <!-- ===== TAB: Import ===== -->
     <div class="mgmtPanel" id="panel-import">
+      <details class="ghbox">
+        <summary>Restore &amp; Reset</summary>
+        <div class="mtool">
+          <button class="mbtn danger" id="mRestoreBtn">Restore Backup (Replace All)</button>
+          <input type="file" id="mRestoreFile" accept=".json,.txt" style="display:none;">
+          <button class="mbtn danger" id="mReset">Reset to Seed</button>
+        </div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Both of these replace the entire database. Take a JSON &mdash; All Entries backup first if you're not sure.</div>
+        </details>
+      </details>
+
+      <details class="ghbox">
+        <summary>Run GitHub Action</summary>
+        <div class="mtool">
+          <button class="mbtn" id="runResizeWorkflow">&#9654; Resize Images</button>
+          <button class="mbtn" id="runConvertWorkflow">&#9654; Convert Photo PNGs</button>
+        </div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Runs the workflow on GitHub directly &mdash; no need to hunt through the Actions tab. Uses the same username/repo/branch/token as Publish below (add <b>Actions: Read and write</b> to the token if you haven't). Takes 10&ndash;20 seconds; this button waits and reports success or failure below.</div>
+        </details>
+        <div class="mlog" id="runWorkflowLog"></div>
+      </details>
+
+      <details class="ghbox">
+        <summary>Fix Image Extensions</summary>
+        <div class="mtool">
+          <button class="mbtn" id="fixImgExtBtn">Check &amp; Fix Every Entry's Image Field</button>
+        </div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">The runtime fallback (added in v79) means a stale <code>.png</code>/<code>.jpg</code> reference still displays fine, but it's still wrong in the data \u2014 this actually corrects it. For every entry with a photo, tries loading the exact file data.json points to; if that fails but the other extension works, updates that entry's <code>img</code> field to match. Nothing is guessed \u2014 both files are actually checked. Session-only until you Save to GitHub (Publish) below.</div>
+        </details>
+        <div class="mlog" id="fixImgExtLog"></div>
+      </details>
+
+      <details class="ghbox" id="ghBox">
+        <summary>Publish to GitHub (save your site online)</summary>
+        <div class="mgrid2">
+          <div class="mfield"><label>GitHub username / owner</label><input type="text" id="ghOwner" value="tomschaper-lgtm" placeholder="your-username"></div>
+          <div class="mfield"><label>Repository name</label><input type="text" id="ghRepo" value="catholic-timeline" placeholder="catholic-timeline"></div>
+        </div>
+        <div class="mgrid2">
+          <div class="mfield"><label>Branch</label><input type="text" id="ghBranch" value="main" placeholder="main"></div>
+          <div class="mfield"><label>File path</label><input type="text" id="ghPath" value="data.json" placeholder="data.json"></div>
+        </div>
+        <div class="mfield"><label>Access token (fine-grained, this repo only, Contents: read/write)</label><input type="password" id="ghToken" placeholder="github_pat_…" autocomplete="off"></div>
+        <div class="mtool">
+          <button class="mbtn" id="ghPublish">Save to GitHub (Publish)</button>
+          <span class="mstatus" id="ghStatus"></span>
+        </div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">The repository details are pre-filled &mdash; you only need to paste an <b>access token</b>. Create one at <b>github.com/settings/tokens?type=beta</b> (fine-grained &rarr; only <i>catholic-timeline</i> &rarr; Contents: Read and write). If you also want the "Run GitHub Action" buttons above, add <b>Actions: Read and write</b> to the same token. Your token is stored only in this browser, never in the file or the repo, and is used to commit the current database to <b>data.json</b>. After publishing, your live site updates in about a minute. This only works on your hosted site, not inside the Claude artifact.</div>
+        </details>
+      </details>
+
       <div class="mbox">
         <h3>Import JSON Data From&hellip;</h3>
         <div class="mtool mtoolSplit">
@@ -2481,61 +2548,6 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
         <b>Cross-links.</b> A curated link list also works — one per line, <code>entryId :: exact text :: targetId</code>, with an optional 4th field to pick which occurrence of that text (default: first). Use this for links the Auto-Link Cross-References tool above can't make safely: a different name for the same person (&ldquo;Saul&rdquo; &rarr; St. Paul), a title instead of a name (&ldquo;the beloved disciple&rdquo; &rarr; St. John), or a bare &ldquo;Mary&rdquo; meant specifically as the Blessed Virgin. The exact text must appear verbatim in that entry's article body, including case. Existing links are skipped automatically, so re-running a list that already applied is harmless.<br><br>
         <b>Carlo Acutis links.</b> A separate table from <code>art.links</code>, one row per Eucharistic Miracle entry: <code>{"carloLinks":[{"entityId":"em-id","status":"found","url":"https://miracolieucaristici.org/…"}]}</code> for a located page, or <code>{"entityId":"em-id","status":"pending","note":"what was searched and why nothing turned up"}</code> while still researching. Delete a row with <code>{"carloLinkDeletions":["row-id"]}</code> (row id defaults to <code>{entityId}-carlo</code>). A <code>"found"</code> row renders its own dedicated section on the article; a <code>"pending"</code> row (or no row at all) shows nothing to visitors, and shows the note only when Review Mode is on.<br><br>
         <b>Patches.</b> For one small fix instead of resending a whole entry — fix a fact, swap a sentence, drop a stray quote — send <code>{"patches":{"entry-id":[[section, element, "I|U|D", value]]}}</code>. Say the id once, list every edit to it underneath as a plain array: <code>section</code> is one of <code>field</code> · <code>facts</code> · <code>alt</code> · <code>article</code> · <code>quotes</code> · <code>links</code> · <code>carloLink</code>; <code>element</code> is a field name, a fact/alt/quote/link label or position, or a verbatim snippet of article text (append <code>@2</code> etc. if it appears more than once); <code>I</code> inserts, <code>U</code> replaces, <code>D</code> removes (omit <code>value</code> for <code>D</code>). Patches to the same entity apply in order. An unmatched snippet, an out-of-range position, or an attempt to delete a required field (<code>n</code>/<code>y</code>/<code>t</code>/<code>r</code>/<code>d</code>) is reported as a skip, never applied silently. <code>patches</code> only edits things that already exist — it never creates a new entry, so a brand-new fact needs <code>"I"</code> on an id that's already in the database. Full spec: <code>json-import-skill.md</code>.</div>
-        </details>
-      </div>
-
-      <details class="ghbox" id="ghBox">
-        <summary>Publish to GitHub (save your site online)</summary>
-        <div class="mgrid2">
-          <div class="mfield"><label>GitHub username / owner</label><input type="text" id="ghOwner" value="tomschaper-lgtm" placeholder="your-username"></div>
-          <div class="mfield"><label>Repository name</label><input type="text" id="ghRepo" value="catholic-timeline" placeholder="catholic-timeline"></div>
-        </div>
-        <div class="mgrid2">
-          <div class="mfield"><label>Branch</label><input type="text" id="ghBranch" value="main" placeholder="main"></div>
-          <div class="mfield"><label>File path</label><input type="text" id="ghPath" value="data.json" placeholder="data.json"></div>
-        </div>
-        <div class="mfield"><label>Access token (fine-grained, this repo only, Contents: read/write)</label><input type="password" id="ghToken" placeholder="github_pat_…" autocomplete="off"></div>
-        <div class="mtool">
-          <button class="mbtn" id="ghPublish">Save to GitHub (Publish)</button>
-          <span class="mstatus" id="ghStatus"></span>
-        </div>
-        <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">The repository details are pre-filled &mdash; you only need to paste an <b>access token</b>. Create one at <b>github.com/settings/tokens?type=beta</b> (fine-grained &rarr; only <i>catholic-timeline</i> &rarr; Contents: Read and write). If you also want the "Run GitHub Action" buttons below, add <b>Actions: Read and write</b> to the same token. Your token is stored only in this browser, never in the file or the repo, and is used to commit the current database to <b>data.json</b>. After publishing, your live site updates in about a minute. This only works on your hosted site, not inside the Claude artifact.</div>
-        </details>
-      </details>
-
-      <div class="mbox">
-        <h3>Run GitHub Action</h3>
-        <div class="mtool">
-          <button class="mbtn" id="runResizeWorkflow">&#9654; Resize Images</button>
-          <button class="mbtn" id="runConvertWorkflow">&#9654; Convert Photo PNGs</button>
-        </div>
-        <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">Runs the workflow on GitHub directly &mdash; no need to hunt through the Actions tab. Uses the same username/repo/branch/token as Publish above (add <b>Actions: Read and write</b> to the token if you haven't). Takes 10&ndash;20 seconds; this button waits and reports success or failure below.</div>
-        </details>
-        <div class="mlog" id="runWorkflowLog"></div>
-      </div>
-
-      <div class="mbox">
-        <h3>Fix Image Extensions</h3>
-        <div class="mtool">
-          <button class="mbtn" id="fixImgExtBtn">Check &amp; Fix Every Entry's Image Field</button>
-        </div>
-        <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">The runtime fallback (added in v79) means a stale <code>.png</code>/<code>.jpg</code> reference still displays fine, but it's still wrong in the data \u2014 this actually corrects it. For every entry with a photo, tries loading the exact file data.json points to; if that fails but the other extension works, updates that entry's <code>img</code> field to match. Nothing is guessed \u2014 both files are actually checked. Session-only until you Save to GitHub (Publish) above.</div>
-        </details>
-        <div class="mlog" id="fixImgExtLog"></div>
-      </div>
-
-      <div class="mbox">
-        <h3>Restore &amp; Reset</h3>
-        <div class="mtool">
-          <button class="mbtn danger" id="mRestoreBtn">Restore Backup (Replace All)</button>
-          <input type="file" id="mRestoreFile" accept=".json,.txt" style="display:none;">
-          <button class="mbtn danger" id="mReset">Reset to Seed</button>
-        </div>
-        <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">Both of these replace the entire database. Take a JSON &mdash; All Entries backup first if you're not sure.</div>
         </details>
       </div>
     </div>
@@ -2854,7 +2866,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v160';
+const APP_VERSION = 'v161';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
