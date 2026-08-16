@@ -1,4 +1,15 @@
 <!--
+VERSION: 155
+DATE: 2026-08-15T16:35:00-05:00
+CHANGES:
+- Fix: the triple-tap link picker (added in v154) lived outside #article in the DOM, so the
+  existing "tap anywhere outside the card closes it" handler saw every tap inside the picker
+  (the arrows, the search box, a result row) as an outside tap and closed the whole article out
+  from under it. Added #linkPicker to that handler's exclusion list (both the capture-phase
+  inside-detection and the bubble-phase close check), matching how #imgLightbox and #manage are
+  already excluded for the same reason.
+-->
+<!--
 VERSION: 154
 DATE: 2026-08-15T16:05:00-05:00
 CHANGES:
@@ -2761,7 +2772,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v154';
+const APP_VERSION = 'v155';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -2919,7 +2930,7 @@ let suppressArticleClick = false;
 let articleClickWasInside = false;
 document.addEventListener('click', (e) => {
   const t = e.target;
-  articleClickWasInside = !!(t && t.closest && t.closest('#article, #flyPortrait, #imgLightbox'));
+  articleClickWasInside = !!(t && t.closest && t.closest('#article, #flyPortrait, #imgLightbox, #linkPicker'));
 }, true); // true briefly after a swipe-navigation gesture, so the tap-to-pause handler ignores it
 
 
@@ -3527,7 +3538,7 @@ document.addEventListener('click', (e) => {
   // The whole audio-player strip is a no-close zone: a tap anywhere near the play button —
   // on the button, beside it, on the scrubber row — is always a transport control, never a
   // "you clicked outside the card" dismissal.
-  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, .sresults, #hamMenu, .ev, .artPlayerWrap, .player')) return;
+  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, .sresults, #hamMenu, .ev, .artPlayerWrap, .player, #linkPicker')) return;
   if(article.classList.contains('open')){
     if(!hit('#article')) closeArticle();
     return;
