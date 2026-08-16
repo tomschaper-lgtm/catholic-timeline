@@ -1,4 +1,23 @@
 <!--
+VERSION: 154
+DATE: 2026-08-15T16:05:00-05:00
+CHANGES:
+- New: triple-tap-to-link. While Review Mode + Owner Tools are both on, triple-tapping a word in
+  an article's body opens a small picker: the tapped word is shown with ◀/▶ buttons to extend it
+  outward one adjacent word at a time (never crossing a paragraph or an existing entry: link), a
+  search box pre-filled with the tapped word (reuses the same name/alt matching as the timeline's
+  own search), and OK/Cancel. Picking a result and pressing OK queues a cross-reference link for
+  this reading session (dotted-underline marker shown in place) — nothing is written yet.
+- New: closing the article sheet with one or more links queued asks "Save N link(s)?"; confirming
+  applies them through the existing manual-link-list mechanism (same entryId :: exact text ::
+  targetId :: occurrence format already used by Paste JSON) and, if a GitHub token is already
+  configured under Manage → Publish, immediately pushes the commit — no separate publish step.
+  Declining discards the queue for that session; nothing is saved either way until confirmed.
+- Article sections now render each one's body inside a `.artProse` wrapper (purely a hook for the
+  above — no visual change) so the triple-tap listener can be scoped precisely to story prose and
+  never fire on headings, Quick Facts, quotes, sources, or the Carlo Acutis banner.
+-->
+<!--
 VERSION: 153
 DATE: 2026-08-15T08:42:00-05:00
 CHANGES:
@@ -1478,6 +1497,68 @@ CHANGES:
   .imgLightbox.open{display:flex;}
   .imgLightbox img{max-width:100%; max-height:100%; object-fit:contain; border-radius:6px; box-shadow:0 8px 40px rgba(0,0,0,.6);}
   .artcap{text-align:center; font-style:italic; color:var(--muted); font-size:13.5px; margin-top:6px;}
+  /* ---- Triple-tap-to-link picker (Review Mode + Owner Tools only) ---- */
+  /* Cosmetic-only marker for a link queued this session but not yet applied to the real data —
+     deliberately distinct from a.entrylink's solid gold underline so "queued" never looks
+     "already live". Cleared automatically on the next render of this article. */
+  .pendingLinkMarker{
+    border-bottom:1.5px dotted var(--euch); color:inherit; background:rgba(185,143,224,.10);
+    border-radius:2px;
+  }
+  .linkPicker{
+    position:fixed; inset:0; z-index:210; background:rgba(4,9,26,.82);
+    display:none; align-items:flex-end; justify-content:center;
+    -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
+  }
+  .linkPicker.open{display:flex;}
+  .lpBox{
+    width:100%; max-width:520px; background:var(--navy); border:1px solid rgba(201,165,66,.4);
+    border-radius:16px 16px 0 0; padding:18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    box-shadow:0 -8px 40px rgba(0,0,0,.55); max-height:78vh; display:flex; flex-direction:column;
+  }
+  @media (min-width:560px){ .lpBox{ border-radius:16px; margin-bottom:8vh; } }
+  .lpLabel{font-family:'Cinzel',serif; font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:8px;}
+  .lpPhraseRow{display:flex; align-items:center; gap:10px; margin-bottom:16px;}
+  .lpArrow{
+    flex:0 0 auto; width:40px; height:40px; border-radius:10px; border:1px solid rgba(201,165,66,.4);
+    background:rgba(201,165,66,.06); color:var(--gold-bright); font-size:18px; line-height:1;
+    display:flex; align-items:center; justify-content:center; touch-action:manipulation; cursor:pointer;
+  }
+  .lpArrow:disabled{opacity:.3; cursor:default;}
+  .lpPhrase{
+    flex:1; text-align:center; font-size:19px; color:var(--parchment); font-weight:600;
+    padding:8px 10px; border:1.5px solid var(--gold); border-radius:10px; background:rgba(201,165,66,.05);
+    overflow-wrap:break-word;
+  }
+  .lpSearchWrap{position:relative; margin-bottom:10px;}
+  .lpSearchInput{
+    width:100%; box-sizing:border-box; padding:10px 36px 10px 12px; border-radius:10px;
+    border:1px solid rgba(201,165,66,.4); background:var(--navy-deep); color:var(--parchment); font-size:16px;
+  }
+  .lpClear{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%); width:26px; height:26px;
+    border:none; background:transparent; color:var(--muted); font-size:18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .lpResults{overflow-y:auto; flex:1; min-height:60px; margin-bottom:14px; border-top:1px solid rgba(201,165,66,.15);}
+  .lpResult{
+    display:grid; grid-template-columns:26px 1fr auto; align-items:center; gap:0 10px;
+    padding:10px 4px; border-bottom:1px solid rgba(201,165,66,.12); cursor:pointer; touch-action:manipulation;
+  }
+  .lpResult .sicon svg{width:18px; height:18px;}
+  .lpResult .lpRName{color:var(--parchment); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .lpResult .lpRYear{color:var(--muted); font-style:italic; font-size:12.5px;}
+  .lpResult.selected{background:rgba(185,143,224,.14); border-radius:8px; border-bottom-color:transparent;}
+  .lpResult.selfHit{opacity:.4; pointer-events:none;}
+  .lpEmpty{padding:14px 4px; color:var(--muted); font-style:italic; font-size:14px;}
+  .lpBtns{display:flex; gap:10px;}
+  .lpBtn{
+    flex:1; padding:12px; border-radius:10px; font-size:15px; font-weight:600; cursor:pointer;
+    touch-action:manipulation; border:1px solid rgba(201,165,66,.4);
+  }
+  .lpBtnCancel{background:transparent; color:var(--muted);}
+  .lpBtnOk{background:var(--gold); color:var(--navy-deep); border-color:var(--gold);}
+  .lpBtnOk:disabled{opacity:.35; cursor:default;}
   /* Quick Facts panel */
   .factbox{border:1px solid rgba(201,165,66,.4); border-radius:10px; background:rgba(201,165,66,.05); padding:14px 18px; margin:22px 0;}
   /* The amber theme here echoes the review-hold styling used on the timeline dashed-ring icon
@@ -2078,6 +2159,27 @@ CHANGES:
   <img id="imgLightboxImg" src="" alt="">
 </div>
 
+<!-- Triple-tap-to-link picker (Review Mode + Owner Tools only). See openLinkPicker(). -->
+<div class="linkPicker" id="linkPicker">
+  <div class="lpBox">
+    <div class="lpLabel">Link this text to…</div>
+    <div class="lpPhraseRow">
+      <button type="button" class="lpArrow" id="lpLeft" aria-label="Extend left">&larr;</button>
+      <div class="lpPhrase" id="lpPhrase"></div>
+      <button type="button" class="lpArrow" id="lpRight" aria-label="Extend right">&rarr;</button>
+    </div>
+    <div class="lpSearchWrap">
+      <input type="text" class="lpSearchInput" id="lpSearch" autocomplete="off" placeholder="Search entries…">
+      <button type="button" class="lpClear" id="lpClearBtn" aria-label="Clear search">&times;</button>
+    </div>
+    <div class="lpResults" id="lpResults"></div>
+    <div class="lpBtns">
+      <button type="button" class="lpBtn lpBtnCancel" id="lpCancel">Cancel</button>
+      <button type="button" class="lpBtn lpBtnOk" id="lpOk" disabled>OK</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="jsonView" style="z-index:120;">
   <div class="artwrap">
     <button class="artback" id="jsonBack">&larr; Back to Manager</button>
@@ -2659,7 +2761,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v153';
+const APP_VERSION = 'v154';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4166,7 +4268,11 @@ function fillArticleBody(d, peek){
   }
   (art.sections || []).forEach(sec => {
     if(sec.h) html += '<div class="arth">' + esc(sec.h) + '</div>';
-    html += renderBody(sec.b);
+    // .artProse is purely a scoping hook for the triple-tap-to-link picker (Review Mode +
+    // Owner Tools only) — no visual effect of its own. It marks exactly the story prose the
+    // gesture is allowed to fire inside, so it never triggers on headings, Quick Facts, the
+    // Carlo Acutis banner, quotes, or Sources & Further Reading.
+    html += '<div class="artProse">' + renderBody(sec.b) + '</div>';
   });
   if(art.quotes && art.quotes.length){
     html += '<div class="arth">From the Sources</div>';
@@ -4304,6 +4410,9 @@ function openArticle(d, opts){
   opts = opts || {};
   cancelMorph();   // a flight belonging to the outgoing entry must not land on the new one
   if(!opts.preserveStack) articleBackStack = []; // fresh open (timeline, search, shared link…) starts a new chain
+  // A "session" for triple-tap-queued links is the same span as the back-stack: it survives
+  // swipes and in-article cross-reference navigation, and only resets on a genuinely fresh open.
+  if(!opts.preserveStack) pendingSessionLinks = [];
   currentEntry = d;
   stopAudio();
   updateUrlForEntry(d);
@@ -4583,6 +4692,18 @@ function collapseArticle(){
 // swipe from there — or a tap outside, or the back button — that lands here and closes for good.
 function closeArticle(opts){
   stopAudio();
+  closeLinkPicker(); // defensive: don't leave the picker dialog stranded open behind a closing sheet
+  // Hand off whatever links were queued this session and reset the queue immediately, so a
+  // second close (or a delete-triggered close elsewhere) never re-prompts for the same batch.
+  // confirm() is a blocking native dialog — calling it synchronously here, even from an
+  // unawaited async function, would freeze the close animation started just below until the
+  // owner responds. setTimeout defers it past this frame, so the sheet finishes closing (and
+  // the browser paints that) before the dialog can appear.
+  if(pendingSessionLinks.length){
+    const queued = pendingSessionLinks;
+    pendingSessionLinks = [];
+    setTimeout(() => confirmAndPublishLinks(queued), 60);
+  }
   cancelMorph();   // a half-finished flight must never outlive the card it belongs to
   // A hard flick gets a hard exit: the default .3s slide reads as sluggish when the reader
   // has just thrown the card away. The class is cleared once the card is gone so the normal
@@ -5032,6 +5153,245 @@ document.getElementById('artBody').addEventListener('keydown', (e) => {
   e.preventDefault();
   followEntryLink(link.getAttribute('data-entry'));
 });
+
+// ==================== Triple-tap-to-link (Review Mode + Owner Tools only) ====================
+// Lets the owner queue a cross-reference link by triple-tapping a word while reading, instead of
+// pasting a manual "entryId :: exact text :: targetId" line into the CMS later. Nothing is written
+// to the real article data until the article sheet is closed and the owner confirms — see
+// pendingSessionLinks / confirmAndPublishLinks below. Reuses the exact same apply mechanism as the
+// Paste JSON manual link list (manualLinkApplyToEntry / applyManualLinkList) so a triple-tap link
+// and a hand-typed one behave identically once applied, including the same single-text-node /
+// same-token constraint (a phrase can't be made to span an existing tag boundary — see WORD_RE
+// below, which only ever grows within the one DOM text node that was tapped).
+
+// One entry per queued (not-yet-applied) link: { sourceId, text, targetId, occurrence }.
+// Spans the whole time the article sheet is open — including swipes and cross-reference navigation
+// to other entries — and is only cleared on a fresh open (see openArticle) or once resolved at
+// close (see closeArticle / confirmAndPublishLinks).
+let pendingSessionLinks = [];
+
+// A "word" for tapping/expansion purposes: letters/numbers, allowing internal apostrophes,
+// hyphens and periods (so "O'Malley", "Jean-Baptiste", and abbreviations like "St." tokenize as
+// one word each), plus one optional trailing period. Deliberately excludes surrounding commas,
+// quotes, and sentence-ending punctuation, so the default tapped word never drags in a trailing
+// comma the way a plain \S+ split would.
+const LP_WORD_RE = /[A-Za-zÀ-ÖØ-öø-ÿ0-9]+(?:['’.\-][A-Za-zÀ-ÖØ-öø-ÿ0-9]+)*\.?/g;
+function lpTokensOf(text){
+  const toks = []; let m;
+  LP_WORD_RE.lastIndex = 0;
+  while((m = LP_WORD_RE.exec(text))){ toks.push({start:m.index, end:m.index + m[0].length}); }
+  return toks;
+}
+
+let lpState = null; // { node, tokens, lo, hi } while the picker is open; null otherwise
+let lpSelectedTarget = null; // the currently-chosen result, or null
+
+function lpEligible(){
+  return reviewMode && manageUnlocked() && !!currentEntry;
+}
+
+// ---- Triple-tap detection: three clicks, all close together in time and position, landing on
+// plain story prose (never inside an existing entry: link, button, or other control). Click-based
+// rather than a raw touch listener so it also works with mouse input for desktop testing, and so
+// it never has to fight the existing swipe/scroll gesture handling on #article. ----
+let lpTapLog = [];
+document.getElementById('artBody').addEventListener('click', (e) => {
+  if(!lpEligible()) return;
+  if(e.target.closest('a, button, input, .entrylink')) return;
+  const prose = e.target.closest('.artProse');
+  if(!prose) return;
+  const now = performance.now();
+  lpTapLog = lpTapLog.filter(t => now - t.time < 700);
+  lpTapLog.push({time: now, x: e.clientX, y: e.clientY});
+  if(lpTapLog.length < 3) return;
+  const [a, b, c] = lpTapLog.slice(-3);
+  const close = Math.abs(a.x - c.x) < 26 && Math.abs(a.y - c.y) < 26 &&
+                Math.abs(b.x - c.x) < 26 && Math.abs(b.y - c.y) < 26;
+  lpTapLog = [];
+  if(!close) return;
+  openLinkPicker(c.x, c.y);
+});
+
+function lpCaretFromPoint(x, y){
+  if(document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+  if(document.caretPositionFromPoint){
+    const p = document.caretPositionFromPoint(x, y);
+    if(!p) return null;
+    const r = document.createRange();
+    r.setStart(p.offsetNode, p.offset);
+    return r;
+  }
+  return null;
+}
+
+function openLinkPicker(x, y){
+  const range = lpCaretFromPoint(x, y);
+  const node = range && range.startContainer;
+  if(!node || node.nodeType !== 3) return; // didn't land on actual text — quietly do nothing
+  const proseEl = node.parentElement && node.parentElement.closest('.artProse');
+  if(!proseEl || node.parentElement.closest('a')) return;
+  const text = node.textContent;
+  const offset = Math.max(0, Math.min(range.startOffset, text.length));
+  const tokens = lpTokensOf(text);
+  if(!tokens.length) return;
+  let idx = tokens.findIndex(t => offset >= t.start && offset <= t.end);
+  if(idx === -1){
+    // Landed in whitespace between words — fall back to the nearest token.
+    idx = 0; let best = Infinity;
+    tokens.forEach((t, i) => {
+      const d = Math.min(Math.abs(offset - t.start), Math.abs(offset - t.end));
+      if(d < best){ best = d; idx = i; }
+    });
+  }
+  lpState = { node, tokens, lo: idx, hi: idx };
+  lpSelectedTarget = null;
+  const initialWord = text.slice(tokens[idx].start, tokens[idx].end);
+  document.getElementById('lpSearch').value = initialWord;
+  lpRenderPhrase();
+  lpRunSearch(initialWord);
+  document.getElementById('linkPicker').classList.add('open');
+  document.getElementById('lpOk').disabled = true;
+}
+function lpCurrentPhrase(){
+  if(!lpState) return '';
+  const { node, tokens, lo, hi } = lpState;
+  return node.textContent.slice(tokens[lo].start, tokens[hi].end);
+}
+function lpRenderPhrase(){
+  if(!lpState) return;
+  document.getElementById('lpPhrase').textContent = lpCurrentPhrase();
+  document.getElementById('lpLeft').disabled = lpState.lo <= 0;
+  document.getElementById('lpRight').disabled = lpState.hi >= lpState.tokens.length - 1;
+}
+document.getElementById('lpLeft').addEventListener('click', () => {
+  if(!lpState || lpState.lo <= 0) return;
+  lpState.lo--; lpRenderPhrase();
+});
+document.getElementById('lpRight').addEventListener('click', () => {
+  if(!lpState || lpState.hi >= lpState.tokens.length - 1) return;
+  lpState.hi++; lpRenderPhrase();
+});
+
+// Reuses the same folded-substring matching as the timeline's own search box (fold/fieldsA),
+// but searches the whole catalog rather than the currently-filtered pool, and excludes the
+// entry currently open (an entry can't cross-reference itself).
+function lpRunSearch(qRaw){
+  const box = document.getElementById('lpResults');
+  const q = fold(String(qRaw || '').trim());
+  lpSelectedTarget = null;
+  document.getElementById('lpOk').disabled = true;
+  if(!q){ box.innerHTML = '<div class="lpEmpty">Type a name to search.</div>'; return; }
+  const frags = q.split(/\s+/).filter(Boolean);
+  const hitsA = db.entries.filter(d => d.id !== (currentEntry && currentEntry.id) && matchesAll(fieldsA(d), frags));
+  const results = sortResults(hitsA.slice()).slice(0, MAX_RESULTS);
+  box.innerHTML = '';
+  if(!results.length){ box.innerHTML = '<div class="lpEmpty">No matches.</div>'; return; }
+  results.forEach(d => {
+    const r = document.createElement('div');
+    r.className = 'lpResult';
+    r.innerHTML = '<span class="sicon t-' + d.t + '">' + (ICONS[d.t] || '') + '</span>' +
+      '<span class="lpRName">' + esc(d.n) + '</span>' +
+      '<span class="lpRYear">AD ' + d.y + '</span>';
+    r.addEventListener('click', () => {
+      lpSelectedTarget = d;
+      box.querySelectorAll('.lpResult').forEach(el => el.classList.remove('selected'));
+      r.classList.add('selected');
+      document.getElementById('lpOk').disabled = false;
+    });
+    box.appendChild(r);
+  });
+}
+document.getElementById('lpSearch').addEventListener('input', (e) => lpRunSearch(e.target.value));
+document.getElementById('lpClearBtn').addEventListener('click', () => {
+  const input = document.getElementById('lpSearch');
+  input.value = '';
+  input.focus();
+  lpRunSearch('');
+});
+
+function closeLinkPicker(){
+  document.getElementById('linkPicker').classList.remove('open');
+  lpState = null;
+  lpSelectedTarget = null;
+}
+document.getElementById('lpCancel').addEventListener('click', closeLinkPicker);
+document.getElementById('linkPicker').addEventListener('click', (e) => {
+  if(e.target.id === 'linkPicker') closeLinkPicker(); // tap on the scrim
+});
+
+// Counts which occurrence (1-based) the given text node + phrase is, among all matches of that
+// exact phrase across the whole article's story prose (.artProse), skipping any text already
+// inside a real entry: link — the same rule manualLinkApplyToEntry itself uses at real-apply
+// time (see its `insideAnchor` check), so a triple-tap link and a hand-typed one with the same
+// text land on the same occurrence number.
+function lpComputeOccurrence(anchorNode, phrase){
+  let seen = 0;
+  const blocks = document.querySelectorAll('#artBody .artProse');
+  for(const block of blocks){
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, {
+      acceptNode(n){
+        let p = n.parentElement;
+        while(p && p !== block){ if(p.tagName === 'A') return NodeFilter.FILTER_REJECT; p = p.parentElement; }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    let node;
+    while((node = walker.nextNode())){
+      const text = node.textContent;
+      let idx = 0, at;
+      while((at = text.indexOf(phrase, idx)) !== -1){
+        seen++;
+        if(node === anchorNode && at === (lpState.tokens[lpState.lo].start)) return seen;
+        idx = at + phrase.length;
+      }
+    }
+  }
+  return seen || 1; // shouldn't happen — the phrase came from this exact node
+}
+
+document.getElementById('lpOk').addEventListener('click', () => {
+  if(!lpState || !lpSelectedTarget || !currentEntry) return;
+  const phrase = lpCurrentPhrase();
+  const { node, tokens, lo, hi } = lpState;
+  const startOff = tokens[lo].start, endOff = tokens[hi].end;
+  const occurrence = lpComputeOccurrence(node, phrase);
+  pendingSessionLinks.push({
+    sourceId: currentEntry.id, text: phrase, targetId: lpSelectedTarget.id, occurrence
+  });
+  // Cosmetic-only marker so the reader can see what's queued this session — splits the text
+  // node around the tapped phrase and wraps just that slice. Does not touch entry.art.sections.
+  try{
+    const midRange = document.createRange();
+    midRange.setStart(node, startOff);
+    midRange.setEnd(node, endOff);
+    const span = document.createElement('span');
+    span.className = 'pendingLinkMarker';
+    span.appendChild(midRange.extractContents());
+    midRange.insertNode(span);
+  }catch(err){ /* cosmetic only — a failure here should never block the queued link itself */ }
+  closeLinkPicker();
+  setStatus(phrase + ' \u2192 ' + lpSelectedTarget.n + ' queued (' + pendingSessionLinks.length +
+    ' this session) \u2014 save when you close the article');
+});
+
+// Applies every queued link via the same code path as a pasted manual link list, then publishes
+// to GitHub immediately if a token is already configured — see PROJECT-STATE / Tom's spec: no
+// separate publish step for links created this way. Called via setTimeout from closeArticle (see
+// there) so its confirm() dialog appears just after the sheet has closed, not before.
+async function confirmAndPublishLinks(queued){
+  const n = queued.length;
+  if(!confirm('Save ' + n + ' link' + (n === 1 ? '' : 's') + '?')) return;
+  const lines = queued.map(q => [q.sourceId, q.text, q.targetId, q.occurrence].join(' :: ')).join('\n');
+  await applyManualLinkList(lines, 'Triple-tap links', null);
+  if(ghConfigured()){
+    const ok = await publishToGitHub();
+    setStatus(ok
+      ? n + ' link' + (n === 1 ? '' : 's') + ' saved and published \u2014 live in about a minute'
+      : n + ' link' + (n === 1 ? '' : 's') + ' saved, but publish failed \u2014 open Manage \u2192 Publish to retry');
+  } else {
+    setStatus(n + ' link' + (n === 1 ? '' : 's') + ' saved \u2014 add a GitHub token under Manage \u2192 Publish to publish it');
+  }
+}
 
 // ---- Double-tap the article image to open it full-screen; a single tap on the lightbox closes it ----
 const imgLightbox = document.getElementById('imgLightbox');
