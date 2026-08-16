@@ -2,6 +2,26 @@
   "v": 1,
   "entries": [
     {
+      "version": "156",
+      "date": "2026-08-16T09:10:00-05:00",
+      "changes": [
+        "New: patches — surgical single-field/element edits, per json-import-skill.md Part 2. The Paste",
+        "JSON box now also accepts {\"patches\":{\"entry-id\":[[section, element, \"I|U|D\", value]]}}: one",
+        "small edit at a time (one fact, one sentence, one quote) addressed by matching the actual",
+        "content, instead of resending a whole entry or a whole art object. Covers field/facts/alt/",
+        "article/quotes/links/carloLink. Verbatim article-text matching reuses the same tag-aware",
+        "tokenizer as the manual cross-link list, including the @N occurrence convention and the \"can't",
+        "span an existing HTML tag\" constraint. Required fields (n/y/t/r/d) reject a delete rather than",
+        "silently applying it; an unmatched element or out-of-range position is reported as a skip in",
+        "the status line, same discipline as every other table in this box.",
+        "Known gap, flagged rather than hidden: the spec also names `location` and `document` sections,",
+        "but those tables (db.locations/db.documents) aren't actually built into this app's data model",
+        "yet, despite json-import-skill.md and PROJECT-STATE.md describing them as designed. A patch",
+        "naming either section is reported as a skip with that explanation, not silently dropped."
+      ],
+      "loggedAt": "2026-08-16T17:00:14.267076+00:00"
+    },
+    {
       "version": "155",
       "date": "2026-08-15T16:35:00-05:00",
       "changes": [
