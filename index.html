@@ -1,4 +1,52 @@
 <!--
+VERSION: 160
+DATE: 2026-08-16T11:40:00-05:00
+CHANGES:
+- Changed: merged the separate "Import File" and "Import JSON" boxes into one section, heading
+  "Import JSON Data From…", with two buttons side by side — Clipboard (left) and Choose File
+  (right) — instead of two stacked boxes each with their own button and status area. Both paths
+  now share one status/notes area and one "What this does" explanation. "Paste manually instead"
+  still sits underneath as the fallback for when clipboard access is denied.
+-->
+<!--
+VERSION: 159
+DATE: 2026-08-16T11:05:00-05:00
+CHANGES:
+- Fix: install instructions only ever showed the Safari flow to anyone on an iPhone, regardless
+  of which browser they were actually using. Every iOS browser is required by Apple to run on
+  WebKit, so it looked like Safari to isIOS() even when it wasn't, and the 4-step Share Sheet
+  steps don't apply outside Safari — most iOS browsers (Firefox, Edge, Opera, DuckDuckGo) have no
+  install option at all, so people following those steps could get stuck with no visible path
+  forward.
+- Added iosBrowserName(), fingerprinting the well-known iOS browsers via their UA tokens (CriOS,
+  FxiOS, EdgiOS, OPiOS, DuckDuckGo). A browser that doesn't add a recognizable token (some Brave
+  builds, for instance) is indistinguishable from Safari and falls through to the Safari
+  instructions — the safer of the two possible wrong guesses.
+- Chrome on iOS gets its own real instructions: since iOS 16.4, Chrome has a genuine Add to Home
+  Screen option under its own Share icon (next to the address bar, not the three-dot menu) —
+  confirmed against Google's own support documentation. Every other detected non-Safari browser
+  gets a direct "this browser can't install it, copy the link into Safari" message instead of
+  steps that don't exist in their UI.
+-->
+<!--
+VERSION: 158
+DATE: 2026-08-16T10:20:00-05:00
+CHANGES:
+- Changed: Check for Updates no longer tells the installed iOS app to swipe itself away as the
+  primary instruction. Tom confirmed a plain reload picked up a new version directly in the
+  installed home-screen app, with no swipe-away needed — the old warning was defensive PWA
+  folklore that assumed a service worker's own cache was the obstacle. This app doesn't have a
+  service worker (checked: zero references anywhere in the file), so that assumption didn't
+  actually apply here. The note now leads with "tap to reload" for everyone, and only mentions
+  swipe-away as a fallback if reloading somehow doesn't take.
+- Noted, not yet fixed: PROJECT-STATE.md's "Built & Live" section describes this feature as
+  "visibilitychange-triggered service worker refresh" — inaccurate on both counts. There's no
+  service worker, and the actual trigger is checking on hamburger-menu-open (throttled to once a
+  minute), not a visibilitychange listener. Same pattern as the locations/documents table gap
+  found while building v156's patches engine — PROJECT-STATE.md has drifted from what's actually
+  built in more than one place and could use a pass to reconcile it against the real code.
+-->
+<!--
 VERSION: 157
 DATE: 2026-08-16T09:45:00-05:00
 CHANGES:
@@ -1736,6 +1784,7 @@ CHANGES:
   .mbtn.danger:hover{background:var(--persec); color:#fff;}
   .mbtn.primary{background:var(--gold); color:var(--navy-deep); font-size:13px; padding:11px 16px; width:100%;}
   .mbtn.primary:hover{background:var(--gold-bright);}
+  .mtool.mtoolSplit .mbtn{flex:1; width:auto;}
   .mstatus{font-size:13.5px; font-weight:600; color:var(--m-accent); background:rgba(138,109,28,.1); border-radius:5px; padding:3px 8px; display:inline-block;}
   .mstatus:empty{padding:0; background:none;}
   .mbox{background:rgba(201,165,66,.05); border:1px solid rgba(201,165,66,.35); border-radius:10px; padding:14px; margin-top:16px;}
@@ -2400,21 +2449,11 @@ CHANGES:
     <!-- ===== TAB: Import ===== -->
     <div class="mgmtPanel" id="panel-import">
       <div class="mbox">
-        <h3>Import File</h3>
-        <div class="mtool">
-          <button class="mbtn" id="mImportBtn">Import File (Add/Update/Delete)</button>
+        <h3>Import JSON Data From&hellip;</h3>
+        <div class="mtool mtoolSplit">
+          <button class="mbtn primary" id="pasteClipboardBtn">📋 Clipboard</button>
+          <button class="mbtn primary" id="mImportBtn">📄 Choose File</button>
           <input type="file" id="mImportFile" accept=".json,.txt" style="display:none;">
-        </div>
-        <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">Adds new entries and updates matching ids. It removes entries only if the file carries an explicit <code>"deletions"</code> list of ids — a plain entries file never deletes anything.</div>
-        </details>
-        <div class="mImportStatus" id="mImportFileStatus"></div>
-      </div>
-
-      <div class="mbox">
-        <h3>Import JSON (Add / Update / Delete / Link)</h3>
-        <div class="mtool">
-          <button class="mbtn primary" id="pasteClipboardBtn">📋 Import from Clipboard</button>
         </div>
         <div class="mImportStatus" id="pasteJsonStatus"></div>
         <details class="mHelp">
@@ -2434,7 +2473,7 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
           </div>
         </details>
         <details class="mHelp"><summary>What this does</summary>
-          <div class="hint"><b>Import from Clipboard</b> reads whatever's already copied and applies it in one tap — copy Claude's JSON in the chat, come here, tap the button. Nothing is shown or held for review first; it applies immediately, same as Apply always did. It never replaces the whole database — only the ids named are touched. If the browser won't grant clipboard access (permission denied, or an installed-to-homescreen quirk), you'll see an error and can use <b>Paste manually instead</b> below, which works exactly as before.<br><br>
+          <div class="hint"><b>Clipboard</b> reads whatever's already copied and applies it in one tap — copy Claude's JSON in the chat, come here, tap the button. <b>Choose File</b> does the same from a saved <code>.json</code>/<code>.txt</code> file instead of the clipboard. Either way it applies immediately, nothing is shown or held for review first, and it never replaces the whole database — only the ids named are touched. A plain entries file/paste only ever adds or updates; it removes entries only if it carries an explicit <code>"deletions"</code> list. If clipboard access is denied (permission, or an installed-to-homescreen quirk), you'll see an error and can use <b>Paste manually instead</b> below, which works exactly as before.<br><br>
         <b>Deleting.</b> Add a <code>"deletions"</code> list of ids alongside (or instead of) <code>"entries"</code>:<br>
         <code>{"deletions":["em-ferrara-1171"],"entries":[…]}</code><br>
         An entry object written as <code>{"id":"old-id","op":"delete"}</code> works too. Deletions run <b>before</b> adds, so a paste can retire an old stub and add its replacement in one step. Ids that don't exist are reported rather than silently ignored. <b>This cannot be undone</b> — take an Export backup first.<br><br>
@@ -2815,7 +2854,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v157';
+const APP_VERSION = 'v160';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7102,7 +7141,7 @@ document.getElementById('mImportFile').addEventListener('change', (ev) => {
   const f = ev.target.files[0];
   if(!f) return;
   const r = new FileReader();
-  r.onload = () => applyMerge(r.result, 'Import', 'mImportFileStatus');
+  r.onload = () => applyMerge(r.result, 'Import', 'pasteJsonStatus');
   r.readAsText(f);
   ev.target.value = '';
 });
@@ -7438,6 +7477,21 @@ function isIOS(){
 function isAndroid(){
   return /Android/.test(navigator.userAgent);
 }
+// Every iOS browser is required by Apple to run on WebKit, so navigator.userAgent alone can't
+// distinguish them the way it can on desktop or Android — each third-party browser instead adds
+// its own token to an otherwise-Safari-looking string. This catches the well-known ones (Chrome,
+// Firefox, Edge, Opera, DuckDuckGo); a browser that doesn't add a recognizable token (e.g. some
+// builds of Brave) is indistinguishable from Safari here and will fall through to the Safari
+// instructions, which is the safer default of the two possible wrong guesses.
+function iosBrowserName(){
+  const ua = navigator.userAgent;
+  if(/CriOS/.test(ua)) return 'chrome';
+  if(/FxiOS/.test(ua)) return 'firefox';
+  if(/EdgiOS/.test(ua)) return 'edge';
+  if(/OPiOS/.test(ua)) return 'opera';
+  if(/DuckDuckGo/.test(ua)) return 'duckduckgo';
+  return 'safari'; // includes real Safari and any browser we can't fingerprint
+}
 function refreshInstallUI(){
   if(isStandalone()){
     installBtn.style.display = 'none';
@@ -7475,7 +7529,16 @@ installBtn.addEventListener('click', async (e) => {
   // No install API available — explain the manual route for this browser. The row's own
   // label becomes the instructions title (rather than adding a second title line below),
   // so there's exactly one heading either way — it just changes what it says.
-  if(isIOS()){
+  const shareIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M12 3v11"/><path d="M8.4 6.6L12 3l3.6 3.6"/>' +
+    '<path d="M7.5 10H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1.5"/>' +
+    '</svg></span>';
+  const addIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+    '<rect x="3.4" y="3.4" width="17.2" height="17.2" rx="4.6"/>' +
+    '<path d="M12 8.4v7.2M8.4 12h7.2"/></svg></span>';
+  if(isIOS() && iosBrowserName() === 'safari'){
     installBtn.querySelector('.pName').textContent = 'iPhone App Instructions';
     // Drawn rather than named: the reader is hunting for a shape in a crowded share sheet,
     // so showing the actual glyph at text size is worth more than any description of it.
@@ -7486,21 +7549,12 @@ installBtn.addEventListener('click', async (e) => {
       '<circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/>' +
       '<circle cx="16" cy="12" r="1.1" fill="currentColor" stroke="none"/>' +
       '</svg></span>';
-    const shareIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
-      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M12 3v11"/><path d="M8.4 6.6L12 3l3.6 3.6"/>' +
-      '<path d="M7.5 10H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-1.5"/>' +
-      '</svg></span>';
     // Matches the real glyph: a soft circle with a downward chevron, not three dots.
     const moreIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
       'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
       '<circle cx="12" cy="12" r="9"/>' +
       '<path d="M8.3 10.3L12 14l3.7-3.7"/>' +
       '</svg></span>';
-    const addIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
-      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
-      '<rect x="3.4" y="3.4" width="17.2" height="17.2" rx="4.6"/>' +
-      '<path d="M12 8.4v7.2M8.4 12h7.2"/></svg></span>';
     installNote.innerHTML =
       '<ul class="pSteps">' +
       '<li><span class="n">1</span><span>Press ' + dotsIcon + ' <b>(bottom right)</b></span></li>' +
@@ -7508,6 +7562,30 @@ installBtn.addEventListener('click', async (e) => {
       '<li><span class="n">3</span><span>Press ' + addIcon + ' <b>Add to Home Screen</b> after ' + moreIcon + ' <b>View More</b> <b>(bottom)</b></span></li>' +
       '<li><span class="n">4</span><span>Press <b>Add</b> ' + addIcon + '</span></li>' +
       '</ul>';
+  } else if(isIOS()){
+    // Confirmed working (as of iOS 16.4+ with an up-to-date Chrome): Chrome's own Share icon
+    // next to the address bar, not its three-dot menu, has a real Add to Home Screen option —
+    // this is a genuine install, not just a bookmark. Every other iOS browser we can actually
+    // fingerprint (Firefox, Edge, Opera, DuckDuckGo) has no equivalent at all as of this build;
+    // the reliable fallback for all of them, Chrome included if its option doesn't appear, is
+    // opening the page in Safari.
+    const browser = iosBrowserName();
+    if(browser === 'chrome'){
+      installBtn.querySelector('.pName').textContent = 'iPhone App Instructions (Chrome)';
+      installNote.innerHTML =
+        '<ul class="pSteps">' +
+        '<li><span class="n">1</span><span>Press ' + shareIcon + ' <b>Share</b> next to the address bar <b>(top)</b></span></li>' +
+        '<li><span class="n">2</span><span>Press ' + addIcon + ' <b>Add to Home Screen</b></span></li>' +
+        '<li><span class="n">3</span><span>Press <b>Add</b> ' + addIcon + '</span></li>' +
+        '</ul>' +
+        '<p style="margin-top:10px;">Needs a fairly recent iOS and Chrome version. Don\u2019t see that option? Open this page in <b>Safari</b> instead \u2014 it always works there.</p>';
+    } else {
+      const names = {firefox: 'Firefox', edge: 'Edge', opera: 'Opera', duckduckgo: 'DuckDuckGo'};
+      const label = names[browser] || 'this browser';
+      installBtn.querySelector('.pName').textContent = 'Open in Safari to Install';
+      installNote.innerHTML = 'On iPhone, ' + label + ' can\u2019t install this as an app \u2014 only Safari (and, separately, Chrome) can. ' +
+        'Copy this page\u2019s address, open <b>Safari</b>, paste it in, then use ' + shareIcon + ' <b>Share \u2192 Add to Home Screen</b>.';
+    }
   } else if(isAndroid()){
     installBtn.querySelector('.pName').textContent = 'Android Instructions';
     // Reached only when the browser didn't offer a one-tap beforeinstallprompt (e.g. Firefox
@@ -7518,10 +7596,6 @@ installBtn.addEventListener('click', async (e) => {
       '<circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>' +
       '<circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none"/>' +
       '</svg></span>';
-    const addIcon = '<span class="iconInline"><svg viewBox="0 0 24 24" fill="none" ' +
-      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
-      '<rect x="3.4" y="3.4" width="17.2" height="17.2" rx="4.6"/>' +
-      '<path d="M12 8.4v7.2M8.4 12h7.2"/></svg></span>';
     installNote.innerHTML =
       '<ul class="pSteps">' +
       '<li><span class="n">1</span><span>Press the three-dot menu ' + menuIcon + ' <b>(top right)</b></span></li>' +
@@ -7541,6 +7615,12 @@ refreshInstallUI();
 // restores it from memory, so someone who never fully closes it can sit on an old build for
 // weeks. A page cannot close or restart its own app, but location.reload() re-requests the file,
 // and since Pages serves must-revalidate the request goes to the network.
+//
+// This app has no service worker (nothing intercepts or caches the fetch below), so the usual
+// PWA lore about a reload alone "not being enough" mostly doesn't apply here — confirmed by
+// Tom testing it directly in the installed home-screen app: a plain reload picked up the new
+// version with no need to swipe the app away first. The swipe-away instruction below is now a
+// fallback offered only if a reload doesn't seem to have taken, not the leading advice.
 //
 // The check runs by itself whenever the panel is opened, so the row already reads "Up to Date"
 // or "New Version Available" before anything is pressed; pressing is only ever needed to act on
@@ -7583,11 +7663,13 @@ async function checkVersion(auto){
         hamPulseDue = true;
         rowGlowDue = true;
       }
-      // In an installed iOS app a reload alone is often not enough: iOS restores the app from
-      // memory, so the reliable route is to close it from the app switcher.
-      setUpdateNote(isStandalone() && isIOS()
-        ? 'Swipe up from the bottom of the screen, then swipe this app away to close it fully. Reopening loads ' + m[1] + '.'
-        : 'Tap to reload. Unsaved Manage edits will be lost.');
+      // Leads with a plain reload for everyone, including the installed iOS app — confirmed
+      // to work without a full swipe-away close (see comment above this function). The
+      // swipe-away steps are offered as a fallback line, not the primary instruction.
+      setUpdateNote('Tap to reload. Unsaved Manage edits will be lost.' +
+        (isStandalone() && isIOS()
+          ? ' If it still shows the old version after reloading, swipe up and swipe this app away, then reopen it.'
+          : ''));
     }
   }catch(err){
     // A silent background check should not shout about a flaky network; a requested one should.
