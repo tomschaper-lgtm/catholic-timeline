@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "154",
+      "date": "2026-08-15T16:05:00-05:00",
+      "changes": [
+        "New: triple-tap-to-link. While Review Mode + Owner Tools are both on, triple-tapping a word in",
+        "an article's body opens a small picker: the tapped word is shown with ◀/▶ buttons to extend it",
+        "outward one adjacent word at a time (never crossing a paragraph or an existing entry: link), a",
+        "search box pre-filled with the tapped word (reuses the same name/alt matching as the timeline's",
+        "own search), and OK/Cancel. Picking a result and pressing OK queues a cross-reference link for",
+        "this reading session (dotted-underline marker shown in place) — nothing is written yet.",
+        "New: closing the article sheet with one or more links queued asks \"Save N link(s)?\"; confirming",
+        "applies them through the existing manual-link-list mechanism (same entryId :: exact text ::",
+        "targetId :: occurrence format already used by Paste JSON) and, if a GitHub token is already",
+        "configured under Manage → Publish, immediately pushes the commit — no separate publish step.",
+        "Declining discards the queue for that session; nothing is saved either way until confirmed.",
+        "Article sections now render each one's body inside a `.artProse` wrapper (purely a hook for the",
+        "above — no visual change) so the triple-tap listener can be scoped precisely to story prose and",
+        "never fire on headings, Quick Facts, quotes, sources, or the Carlo Acutis banner."
+      ],
+      "loggedAt": "2026-08-16T03:40:21.815658+00:00"
+    },
+    {
       "version": "153",
       "date": "2026-08-15T08:42:00-05:00",
       "changes": [
