@@ -1,4 +1,18 @@
 <!--
+VERSION: 157
+DATE: 2026-08-16T09:45:00-05:00
+CHANGES:
+- Changed: the Paste JSON box's default workflow is now a single "Import from Clipboard" button
+  — reads whatever's already copied and applies it immediately, no separate paste-then-Apply
+  step. The old textarea + Apply/Clear still exist, moved under a collapsed "Paste manually
+  instead" details block, as a fallback for when clipboard read fails (permission denied, or an
+  installed-to-homescreen quirk) — every clipboard failure path shows a clear error pointing at
+  that fallback rather than leaving the owner stuck with no way to import.
+- Fix: the box previously had two elements with id="pasteJsonStatus" (a leftover from before
+  this change) — duplicate ids silently break getElementById, so status messages could have
+  started writing to the wrong one. Down to one now.
+-->
+<!--
 VERSION: 156
 DATE: 2026-08-16T09:10:00-05:00
 CHANGES:
@@ -1720,6 +1734,8 @@ CHANGES:
   .mbtn:hover{background:var(--gold); color:var(--navy-deep);}
   .mbtn.danger{color:#E08876; border-color:rgba(212,91,69,.6);}
   .mbtn.danger:hover{background:var(--persec); color:#fff;}
+  .mbtn.primary{background:var(--gold); color:var(--navy-deep); font-size:13px; padding:11px 16px; width:100%;}
+  .mbtn.primary:hover{background:var(--gold-bright);}
   .mstatus{font-size:13.5px; font-weight:600; color:var(--m-accent); background:rgba(138,109,28,.1); border-radius:5px; padding:3px 8px; display:inline-block;}
   .mstatus:empty{padding:0; background:none;}
   .mbox{background:rgba(201,165,66,.05); border:1px solid rgba(201,165,66,.35); border-radius:10px; padding:14px; margin-top:16px;}
@@ -2396,31 +2412,37 @@ CHANGES:
       </div>
 
       <div class="mbox">
-        <h3>Paste JSON (Add / Update / Delete / Link)</h3>
-        <div class="mfield">
-          <textarea id="pasteJson" placeholder='Paste entries JSON here: a single entry {...}, an array [...], {"entries":[...]}, or {"deletions":["id-to-remove"],"entries":[...]}. Matching ids are updated, new ones added, listed ids deleted.
+        <h3>Import JSON (Add / Update / Delete / Link)</h3>
+        <div class="mtool">
+          <button class="mbtn primary" id="pasteClipboardBtn">📋 Import from Clipboard</button>
+        </div>
+        <div class="mImportStatus" id="pasteJsonStatus"></div>
+        <details class="mHelp">
+          <summary>Paste manually instead</summary>
+          <div class="mfield">
+            <textarea id="pasteJson" placeholder='Paste entries JSON here: a single entry {...}, an array [...], {"entries":[...]}, or {"deletions":["id-to-remove"],"entries":[...]}. Matching ids are updated, new ones added, listed ids deleted.
 
 Also accepts {"carloLinks":[...]} and/or {"carloLinkDeletions":["id",...]}, alone or alongside entries in the same paste.
 
 For a small surgical edit, {"patches":{"entry-id":[["section","element","I|U|D","value"]]}} — see the help below.
 
 Or paste a cross-link list instead — one per line: entryId :: exact text :: targetId'></textarea>
-        </div>
-        <div class="mtool">
-          <button class="mbtn" id="pasteApply">Apply</button>
-          <button class="mbtn" id="pasteClear">Clear</button>
-        </div>
+          </div>
+          <div class="mtool">
+            <button class="mbtn" id="pasteApply">Apply</button>
+            <button class="mbtn" id="pasteClear">Clear</button>
+          </div>
+        </details>
         <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">This is the safe way to bring in entries drafted by Claude in a chat: copy Claude's JSON, paste it here, Apply. It never replaces the whole database — only the ids named are touched.<br><br>
+          <div class="hint"><b>Import from Clipboard</b> reads whatever's already copied and applies it in one tap — copy Claude's JSON in the chat, come here, tap the button. Nothing is shown or held for review first; it applies immediately, same as Apply always did. It never replaces the whole database — only the ids named are touched. If the browser won't grant clipboard access (permission denied, or an installed-to-homescreen quirk), you'll see an error and can use <b>Paste manually instead</b> below, which works exactly as before.<br><br>
         <b>Deleting.</b> Add a <code>"deletions"</code> list of ids alongside (or instead of) <code>"entries"</code>:<br>
         <code>{"deletions":["em-ferrara-1171"],"entries":[…]}</code><br>
         An entry object written as <code>{"id":"old-id","op":"delete"}</code> works too. Deletions run <b>before</b> adds, so a paste can retire an old stub and add its replacement in one step. Ids that don't exist are reported rather than silently ignored. <b>This cannot be undone</b> — take an Export backup first.<br><br>
         <b>Holding for review.</b> Add <code>"review": true</code> to any entry to keep it off the public timeline until you approve it; send <code>"review": false</code> (or clear the checkbox in the editor) to publish it.<br><br>
-        <b>Cross-links.</b> If what's pasted isn't valid JSON, this box also accepts a curated link list — one per line, <code>entryId :: exact text :: targetId</code>, with an optional 4th field to pick which occurrence of that text (default: first). Use this for links the Auto-Link Cross-References tool above can't make safely: a different name for the same person (&ldquo;Saul&rdquo; &rarr; St. Paul), a title instead of a name (&ldquo;the beloved disciple&rdquo; &rarr; St. John), or a bare &ldquo;Mary&rdquo; meant specifically as the Blessed Virgin. The exact text must appear verbatim in that entry's article body, including case. Existing links are skipped automatically, so re-running a list that already applied is harmless.<br><br>
+        <b>Cross-links.</b> A curated link list also works — one per line, <code>entryId :: exact text :: targetId</code>, with an optional 4th field to pick which occurrence of that text (default: first). Use this for links the Auto-Link Cross-References tool above can't make safely: a different name for the same person (&ldquo;Saul&rdquo; &rarr; St. Paul), a title instead of a name (&ldquo;the beloved disciple&rdquo; &rarr; St. John), or a bare &ldquo;Mary&rdquo; meant specifically as the Blessed Virgin. The exact text must appear verbatim in that entry's article body, including case. Existing links are skipped automatically, so re-running a list that already applied is harmless.<br><br>
         <b>Carlo Acutis links.</b> A separate table from <code>art.links</code>, one row per Eucharistic Miracle entry: <code>{"carloLinks":[{"entityId":"em-id","status":"found","url":"https://miracolieucaristici.org/…"}]}</code> for a located page, or <code>{"entityId":"em-id","status":"pending","note":"what was searched and why nothing turned up"}</code> while still researching. Delete a row with <code>{"carloLinkDeletions":["row-id"]}</code> (row id defaults to <code>{entityId}-carlo</code>). A <code>"found"</code> row renders its own dedicated section on the article; a <code>"pending"</code> row (or no row at all) shows nothing to visitors, and shows the note only when Review Mode is on.<br><br>
         <b>Patches.</b> For one small fix instead of resending a whole entry — fix a fact, swap a sentence, drop a stray quote — send <code>{"patches":{"entry-id":[[section, element, "I|U|D", value]]}}</code>. Say the id once, list every edit to it underneath as a plain array: <code>section</code> is one of <code>field</code> · <code>facts</code> · <code>alt</code> · <code>article</code> · <code>quotes</code> · <code>links</code> · <code>carloLink</code>; <code>element</code> is a field name, a fact/alt/quote/link label or position, or a verbatim snippet of article text (append <code>@2</code> etc. if it appears more than once); <code>I</code> inserts, <code>U</code> replaces, <code>D</code> removes (omit <code>value</code> for <code>D</code>). Patches to the same entity apply in order. An unmatched snippet, an out-of-range position, or an attempt to delete a required field (<code>n</code>/<code>y</code>/<code>t</code>/<code>r</code>/<code>d</code>) is reported as a skip, never applied silently. <code>patches</code> only edits things that already exist — it never creates a new entry, so a brand-new fact needs <code>"I"</code> on an id that's already in the database. Full spec: <code>json-import-skill.md</code>.</div>
         </details>
-        <div class="mImportStatus" id="pasteJsonStatus"></div>
       </div>
 
       <details class="ghbox" id="ghBox">
@@ -2793,7 +2815,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v156';
+const APP_VERSION = 'v157';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7083,6 +7105,35 @@ document.getElementById('mImportFile').addEventListener('change', (ev) => {
   r.onload = () => applyMerge(r.result, 'Import', 'mImportFileStatus');
   r.readAsText(f);
   ev.target.value = '';
+});
+
+// Primary import path: read the clipboard directly and apply immediately, so there's no
+// separate paste-then-Apply step for the common case of "copy Claude's JSON, bring it in".
+// Clipboard access needs a secure context (fine — the site is https) and a direct user
+// gesture, which this click handler provides. It can still fail — permission denied, or an
+// installed-to-homescreen PWA quirk — so every failure path falls back to a clear instruction
+// to use "Paste manually instead" rather than leaving the owner stuck with no way to import.
+document.getElementById('pasteClipboardBtn').addEventListener('click', async () => {
+  if(!navigator.clipboard || !navigator.clipboard.readText){
+    const msg = 'This browser can\u2019t read the clipboard directly \u2014 use "Paste manually instead" below.';
+    setStatus(msg); showInlineStatus('pasteJsonStatus', msg, true);
+    return;
+  }
+  let text;
+  try{
+    text = await navigator.clipboard.readText();
+  }catch(err){
+    const msg = 'Couldn\u2019t read the clipboard (permission denied, or nothing was copied) \u2014 copy the JSON again, or use "Paste manually instead" below.';
+    setStatus(msg); showInlineStatus('pasteJsonStatus', msg, true);
+    return;
+  }
+  text = (text || '').trim();
+  if(!text){
+    const msg = 'Clipboard is empty \u2014 copy the JSON first, then tap Import from Clipboard.';
+    setStatus(msg); showInlineStatus('pasteJsonStatus', msg, true);
+    return;
+  }
+  await applyMerge(text, 'Imported', 'pasteJsonStatus');
 });
 
 document.getElementById('pasteApply').addEventListener('click', async () => {
