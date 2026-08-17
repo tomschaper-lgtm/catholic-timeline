@@ -2,6 +2,23 @@
   "v": 1,
   "entries": [
     {
+      "version": "165",
+      "date": "2026-08-17T15:40:00-05:00",
+      "changes": [
+        "Changed: the manual editor's Quick Facts box now supports typing a line break by hand. The",
+        "textarea's one-fact-per-line format already used a real newline to separate facts, so a real",
+        "Enter keypress inside a value would have split it into a second, broken fact rather than",
+        "breaking within one — instead, typing the two-character escape \\n inside a value (e.g.",
+        "\"253, Centumcellae\\n(in exile)\") converts to a real newline on save (parseFacts), and any",
+        "already-stored newline converts back to visible \\n text when reopening the entry for edit",
+        "(serializeFacts), so it round-trips cleanly. Pairs with v164's factbox rendering change,",
+        "which turns a real newline into <br> for display — this just makes that reachable from the",
+        "manual editor instead of only from pasted JSON/patches. Field hint text updated to document",
+        "the convention inline."
+      ],
+      "loggedAt": "2026-08-17T04:18:01.011946+00:00"
+    },
+    {
       "version": "164",
       "date": "2026-08-17T14:10:00-05:00",
       "changes": [
