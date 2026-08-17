@@ -1,4 +1,15 @@
 <!--
+VERSION: 166
+DATE: 2026-08-17T16:05:00-05:00
+CHANGES:
+- Changed: category colors. --pontiff changed from cardinal red (#8B2942) to white (#FFFFFF).
+  --council changed from pale ivory (#EDE4C8) to silver (#C0C0C0). Updated both matching
+  .band-po/.band-c background tints to stay visually consistent with the new colors. The
+  separate --council-ecu gold highlight (used for ecumenical councils specifically) is
+  untouched, since it wasn't part of this request. No other hardcoded references to the old
+  hex values found elsewhere in the file.
+-->
+<!--
 VERSION: 165
 DATE: 2026-08-17T15:40:00-05:00
 CHANGES:
@@ -921,8 +932,8 @@ CHANGES:
   :root{
     --navy:#0B1630; --navy-deep:#070F22; --navy-band:#101D3D;
     --gold:#C9A542; --gold-bright:#E8CD7E; --parchment:#EFE6CE; --muted:#9AA5BF;
-    --saint:#E0B84C; --council:#EDE4C8; --council-ecu:#F2C94C; --persec:#D45B45; --event:#7E9CC9;
-    --marian:#8FC7E8; --euch:#B98FE0; --pontiff:#8B2942;
+    --saint:#E0B84C; --council:#C0C0C0; --council-ecu:#F2C94C; --persec:#D45B45; --event:#7E9CC9;
+    --marian:#8FC7E8; --euch:#B98FE0; --pontiff:#FFFFFF;
     --peekH: 230px; /* ~2in peek-card height: date/name/first heading + a snippet, tune freely */
     /* Reader text scale, driven by the A-/A+ controls in the menu and remembered per browser.
        Applied only to reading text (article body, quotes, sources, card summary) — not to
@@ -1231,12 +1242,12 @@ CHANGES:
   /* Category bands */
   .band{position:absolute; left:0; z-index:1; border-bottom:1px solid rgba(201,165,66,.14);}
   .band-s{background:rgba(224,184,76,.055);}
-  .band-c{background:rgba(237,228,200,.045);}
+  .band-c{background:rgba(192,192,192,.045);}
   .band-p{background:rgba(212,91,69,.055);}
   .band-m{background:rgba(143,199,232,.055);}
   .band-u{background:rgba(185,143,224,.055);}
   .band-e{background:rgba(126,156,201,.05);}
-  .band-po{background:rgba(139,41,66,.055);}
+  .band-po{background:rgba(255,255,255,.05);}
   .bandlblwrap{position:absolute; left:0; z-index:4; pointer-events:none;}
   .bandlbl{
     position:sticky; left:0; top:58px; display:inline-block; min-width:230px;
@@ -2926,7 +2937,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v165';
+const APP_VERSION = 'v166';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
