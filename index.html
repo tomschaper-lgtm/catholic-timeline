@@ -1,4 +1,15 @@
 <!--
+VERSION: 164
+DATE: 2026-08-17T14:10:00-05:00
+CHANGES:
+- Changed: Quick Facts values now support a manual line break. A `\n` inside a fact's `value`
+  renders as `<br>` in the article's factbox — added specifically so a parenthetical aside
+  (e.g. "253, Centumcellae (in exile)") can drop to its own line instead of wrapping mid-value.
+  Escaping still happens first (via esc()), so this only recognizes literal newlines already in
+  the data, not arbitrary HTML — no new injection surface. Only one render path needed the fix;
+  facts don't appear anywhere else in the UI besides the article factbox itself.
+-->
+<!--
 VERSION: 163
 DATE: 2026-08-16T16:20:00-05:00
 CHANGES:
@@ -2900,7 +2911,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v163';
+const APP_VERSION = 'v164';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4369,7 +4380,7 @@ function fillArticleBody(d, peek){
       if(!f || !f.label) return;
       const val = f.url
         ? '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.value || f.url) + '</a>'
-        : esc(f.value || '');
+        : esc(f.value || '').replace(/\n/g, '<br>');
       html += '<div class="factrow"><div class="factlabel">' + esc(f.label) + '</div><div class="factval">' + val + '</div></div>';
     });
     html += '</div>';
