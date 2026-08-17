@@ -2,6 +2,19 @@
   "v": 1,
   "entries": [
     {
+      "version": "164",
+      "date": "2026-08-17T14:10:00-05:00",
+      "changes": [
+        "Changed: Quick Facts values now support a manual line break. A `\\n` inside a fact's `value`",
+        "renders as `<br>` in the article's factbox — added specifically so a parenthetical aside",
+        "(e.g. \"253, Centumcellae (in exile)\") can drop to its own line instead of wrapping mid-value.",
+        "Escaping still happens first (via esc()), so this only recognizes literal newlines already in",
+        "the data, not arbitrary HTML — no new injection surface. Only one render path needed the fix;",
+        "facts don't appear anywhere else in the UI besides the article factbox itself."
+      ],
+      "loggedAt": "2026-08-17T03:57:33.576876+00:00"
+    },
+    {
       "version": "163",
       "date": "2026-08-16T16:20:00-05:00",
       "changes": [
