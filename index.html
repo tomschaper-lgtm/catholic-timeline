@@ -1,4 +1,19 @@
 <!--
+VERSION: 165
+DATE: 2026-08-17T15:40:00-05:00
+CHANGES:
+- Changed: the manual editor's Quick Facts box now supports typing a line break by hand. The
+  textarea's one-fact-per-line format already used a real newline to separate facts, so a real
+  Enter keypress inside a value would have split it into a second, broken fact rather than
+  breaking within one — instead, typing the two-character escape \n inside a value (e.g.
+  "253, Centumcellae\n(in exile)") converts to a real newline on save (parseFacts), and any
+  already-stored newline converts back to visible \n text when reopening the entry for edit
+  (serializeFacts), so it round-trips cleanly. Pairs with v164's factbox rendering change,
+  which turns a real newline into <br> for display — this just makes that reachable from the
+  manual editor instead of only from pasted JSON/patches. Field hint text updated to document
+  the convention inline.
+-->
+<!--
 VERSION: 164
 DATE: 2026-08-17T14:10:00-05:00
 CHANGES:
@@ -2419,7 +2434,7 @@ CHANGES:
         <div class="mfield"><label>Article — "## Heading" starts a section; blank lines between paragraphs; simple HTML allowed (&lt;b&gt; &lt;i&gt; &lt;u&gt; &lt;ul&gt; &lt;ol&gt; &lt;li&gt; &lt;br&gt; &lt;blockquote&gt; &lt;a href&gt;)</label><textarea class="tall" id="fArt"></textarea></div>
         <div class="mfield"><label>Quotes — one per line: quote text :: source</label><textarea id="fQuotes"></textarea></div>
         <div class="mfield"><label>Source Links — one per line: label :: url</label><textarea id="fLinks"></textarea></div>
-        <div class="mfield"><label>Quick Facts — one per line: label :: value &nbsp;(optional source: label :: value :: url)</label><textarea id="fFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
+        <div class="mfield"><label>Quick Facts — one per line: label :: value &nbsp;(optional source: label :: value :: url). Type \n inside a value for a manual line break, e.g. "253, Centumcellae\n(in exile)"</label><textarea id="fFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
         <div class="mgrid2">
           <div class="mfield"><label>Image (filename, or full URL)</label><input type="text" id="fImg" placeholder="augustine.jpg — or https://…"></div>
           <div class="mfield"><label>Image Caption</label><input type="text" id="fImgCap"></div>
@@ -2911,7 +2926,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v164';
+const APP_VERSION = 'v165';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5930,12 +5945,12 @@ function parsePairs(text, k1, k2){
   });
 }
 function serializeFacts(arr){
-  return (arr || []).map(f => [f.label || '', f.value || ''].concat(f.url ? [f.url] : []).join(' :: ')).join('\n');
+  return (arr || []).map(f => [f.label || '', (f.value || '').replace(/\n/g, '\\n')].concat(f.url ? [f.url] : []).join(' :: ')).join('\n');
 }
 function parseFacts(text){
   return text.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
     const parts = l.split('::').map(s => s.trim());
-    const o = {label: parts[0] || '', value: parts[1] || ''};
+    const o = {label: parts[0] || '', value: (parts[1] || '').replace(/\\n/g, '\n')};
     if(parts[2]) o.url = parts[2];
     return o;
   });
