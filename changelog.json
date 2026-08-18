@@ -2,6 +2,25 @@
   "v": 1,
   "entries": [
     {
+      "version": "167",
+      "date": "2026-08-17T19:10:00-05:00",
+      "changes": [
+        "Removed: the entire \"Pontiff\" category (type key `po`) added in v162-166, per owner's decision",
+        "to not pursue popes as a category. Stripped from every layer: the --pontiff CSS var and",
+        ".t-po/.band-po rules; the Pontiffs filter button in the timeline category row; the \"Pontiff\"",
+        "option in the manual editor's Type dropdown; the Pontiff chip in Manage -> Export; the po",
+        "entries in TYPE_NAMES, TYPE_ORDER, TYPE_PLURALS, SEARCH_TYPE_ORDER, ICONS, TYPE_BAND_IMG,",
+        "activeTypes, and both mFilterTypes defaults; the po-specific exclusion in filtered() and the",
+        "deep-link handler; the poTypeBtn show/hide block (now dead code, since the button is gone);",
+        "the po clause in FACT_HINTS and in the Draft Article Claude-prompt facts guidance. All 264",
+        "pontiff data entries removed separately via a {\"deletions\":[...]} paste (see",
+        "pontiff-removal-fixed.json) before this file was uploaded. Validated clean: 0 HTML tag-balance",
+        "errors, 0 JS syntax errors. Historical changelog entries below documenting the original v162-166",
+        "build are left as-is, as a record of what was built and then removed."
+      ],
+      "loggedAt": "2026-08-18T04:20:24.747249+00:00"
+    },
+    {
       "version": "166",
       "date": "2026-08-17T16:05:00-05:00",
       "changes": [
