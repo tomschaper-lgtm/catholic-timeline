@@ -1,4 +1,53 @@
 <!--
+VERSION: 170
+DATE: 2026-08-18T13:30:00-05:00
+CHANGES:
+- Fix: v169's double-tap-to-select-story did nothing on iPhone. Cause: #artStoryText had no
+  touch-action set, so iOS Safari's native double-tap-to-zoom gesture consumed the double-tap
+  before the dblclick listener ever fired — the same reason .artimg's own double-tap-to-open
+  lightbox has always needed touch-action:manipulation. Added
+  #artStoryText{touch-action:manipulation;} alongside the existing .artSticky touch-action
+  rule. No JS changes.
+-->
+<!--
+VERSION: 169
+DATE: 2026-08-18T13:00:00-05:00
+CHANGES:
+- Changed: replaced the v168 auto-select-on-open/swipe attempt (didn't work reliably — a
+  programmatic selection made with no direct touch behind it apparently isn't enough to
+  surface iOS's Speak Selection "Speak" bubble) with an explicit double-tap gesture instead.
+  Double-tapping anywhere in the story text — Review Mode only — now selects just the section
+  headings and prose via a new selectArticleStory(), scoped to a new #artStoryText wrapper
+  that excludes Quick Facts, the Carlo Acutis banner, quotes, and Sources & Further Reading
+  (per owner's request: "just the story part with the section headers, not the links").
+  Replaces v168's broader #artReadable wrapper and its auto-fire-on-render approach entirely.
+  The new dblclick listener sits on #artBody alongside the existing image-lightbox one, checks
+  reviewMode and that the tap landed inside #artStoryText (and not on a link/button), and
+  clears the triple-tap-to-link picker's tap log afterward so a double-tap-to-select doesn't
+  leave the picker's click-counter primed to fire on the next single tap.
+-->
+<!--
+VERSION: 168
+DATE: 2026-08-18T12:00:00-05:00
+CHANGES:
+- New: in Review Mode, opening a story (openArticle) or swiping to the next/previous one
+  (slideArticleTo — same underlying fillArticleBody render) now auto-selects the entire
+  readable body of the article (Quick Facts through Sources & Further Reading) via the
+  Selection API, so iOS's Speak Selection accessibility feature ("Speak") is available
+  immediately without the owner manually long-pressing and dragging selection handles.
+  Implementation: story content (everything from just after the sticky header/back button
+  through the Sources & Further Reading list, but excluding the audio scrubber and the
+  Approve/Delete review buttons) is now wrapped in a new #artReadable div; a new
+  selectArticleReadable() function selects its full contents via
+  window.getSelection()/document.createRange(), called at the end of fillArticleBody only
+  when !peek && reviewMode. closeArticle() now clears any lingering selection
+  (getSelection().removeAllRanges()) so it doesn't stay highlighted behind the closed sheet.
+  Off entirely outside Review Mode — no behavior change for visitors. Note for the owner: the
+  triple-tap-to-link picker (also Review Mode only) is click-based via caretRangeFromPoint and
+  wasn't observed to be disrupted by the pre-existing selection in testing, but flag it if a
+  tap ever seems to need an extra try before the picker opens.
+-->
+<!--
 VERSION: 167
 DATE: 2026-08-17T19:10:00-05:00
 CHANGES:
@@ -1613,6 +1662,10 @@ CHANGES:
   /* A drag anywhere on the sticky header is a dismiss gesture, not a scroll, so the
      header keeps its swipe-down-to-close behaviour at any scroll position. */
   .artSticky{touch-action:none;}
+  /* Without this, iOS Safari's native double-tap-to-zoom gesture eats a double-tap on the
+     story text before it ever reaches the dblclick listener that selects it for Speak
+     Selection — same reason .artimg (below) already carries this property. */
+  #artStoryText{touch-action:manipulation;}
   /* The audio scrubber sits with the article text, directly above it, and pins itself
      just below the sticky header once it reaches the top. */
   .artPlayerWrap{
@@ -2950,7 +3003,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v167';
+const APP_VERSION = 'v170';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4455,6 +4508,12 @@ function fillArticleBody(d, peek){
     html += '<div class="reviewNoteBox"><div class="reviewNoteLabel">Notes to Reviewer</div>' +
       renderBody(d.reviewNote) + '</div>';
   }
+  // #artStoryText wraps just the narrative — section headings and prose, nothing else (not
+  // Quick Facts, the Carlo Acutis banner, quotes, or Sources & Further Reading). Double-tapping
+  // anywhere inside it (Review Mode only) selects the whole story via selectArticleStory(), so
+  // iOS's Speak Selection ("Speak") is one tap away. See the dblclick listener near the
+  // image-lightbox one, below.
+  html += '<div id="artStoryText">';
   (art.sections || []).forEach(sec => {
     if(sec.h) html += '<div class="arth">' + esc(sec.h) + '</div>';
     // .artProse is purely a scoping hook for the triple-tap-to-link picker (Review Mode +
@@ -4463,6 +4522,7 @@ function fillArticleBody(d, peek){
     // Carlo Acutis banner, quotes, or Sources & Further Reading.
     html += '<div class="artProse">' + renderBody(sec.b) + '</div>';
   });
+  html += '</div>'; // #artStoryText
   if(art.quotes && art.quotes.length){
     html += '<div class="arth">From the Sources</div>';
     art.quotes.forEach(q => {
@@ -4521,6 +4581,22 @@ function fillArticleBody(d, peek){
   syncStickyBackdrops();
   if(peek){ flyGeo = null; placePeekFly(hasImg); }
   else measureFly();
+}
+// Selects every node inside #artStoryText (section headings + prose only) via the Selection
+// API, triggered by a double-tap in Review Mode — see the dblclick listener near the
+// image-lightbox one, below. Wrapped in try/catch: Selection support is universal on iOS
+// Safari, but this must never be the thing that breaks article rendering if some other
+// browser's implementation balks.
+function selectArticleStory(){
+  const el = document.getElementById('artStoryText');
+  if(!el) return;
+  try{
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    sel.addRange(range);
+  }catch(err){}
 }
 // In the peek card the big hero photo is hidden, but the small corner portrait is shown
 // straight away — parked in exactly the size and spot it settles into once the full article
@@ -4882,6 +4958,7 @@ function collapseArticle(){
 function closeArticle(opts){
   stopAudio();
   closeLinkPicker(); // defensive: don't leave the picker dialog stranded open behind a closing sheet
+  try{ window.getSelection().removeAllRanges(); }catch(err){} // don't leave the auto-selected story text highlighted behind the closed sheet
   // Hand off whatever links were queued this session and reset the queue immediately, so a
   // second close (or a delete-triggered close elsewhere) never re-prompts for the same batch.
   // confirm() is a blocking native dialog — calling it synchronously here, even from an
@@ -5582,6 +5659,20 @@ async function confirmAndPublishLinks(queued){
   }
 }
 
+// ---- Double-tap the story text (headings + prose only — not Quick Facts, quotes, or Sources
+// & Further Reading) to select the whole story, so iOS's Speak Selection accessibility feature
+// ("Speak") is one tap away without long-pressing and dragging handles. Review Mode only.
+// Resets the triple-tap-to-link picker's tap log afterward — a double-tap already consumes two
+// of the three clicks that gesture watches for, and without this reset a single follow-up tap
+// could complete an accidental triple and pop the link picker open.
+document.getElementById('artBody').addEventListener('dblclick', (e) => {
+  if(!reviewMode) return;
+  if(e.target.closest('a, button, input, .entrylink')) return;
+  if(!e.target.closest('#artStoryText')) return;
+  e.preventDefault();
+  lpTapLog = [];
+  selectArticleStory();
+});
 // ---- Double-tap the article image to open it full-screen; a single tap on the lightbox closes it ----
 const imgLightbox = document.getElementById('imgLightbox');
 const imgLightboxImg = document.getElementById('imgLightboxImg');
