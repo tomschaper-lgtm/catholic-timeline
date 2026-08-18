@@ -2,6 +2,19 @@
   "v": 1,
   "entries": [
     {
+      "version": "170",
+      "date": "2026-08-18T13:30:00-05:00",
+      "changes": [
+        "Fix: v169's double-tap-to-select-story did nothing on iPhone. Cause: #artStoryText had no",
+        "touch-action set, so iOS Safari's native double-tap-to-zoom gesture consumed the double-tap",
+        "before the dblclick listener ever fired — the same reason .artimg's own double-tap-to-open",
+        "lightbox has always needed touch-action:manipulation. Added",
+        "#artStoryText{touch-action:manipulation;} alongside the existing .artSticky touch-action",
+        "rule. No JS changes."
+      ],
+      "loggedAt": "2026-08-18T19:04:52.439217+00:00"
+    },
+    {
       "version": "168",
       "date": "2026-08-18T12:00:00-05:00",
       "changes": [
