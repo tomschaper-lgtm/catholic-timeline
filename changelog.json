@@ -2,6 +2,29 @@
   "v": 1,
   "entries": [
     {
+      "version": "168",
+      "date": "2026-08-18T12:00:00-05:00",
+      "changes": [
+        "New: in Review Mode, opening a story (openArticle) or swiping to the next/previous one",
+        "(slideArticleTo — same underlying fillArticleBody render) now auto-selects the entire",
+        "readable body of the article (Quick Facts through Sources & Further Reading) via the",
+        "Selection API, so iOS's Speak Selection accessibility feature (\"Speak\") is available",
+        "immediately without the owner manually long-pressing and dragging selection handles.",
+        "Implementation: story content (everything from just after the sticky header/back button",
+        "through the Sources & Further Reading list, but excluding the audio scrubber and the",
+        "Approve/Delete review buttons) is now wrapped in a new #artReadable div; a new",
+        "selectArticleReadable() function selects its full contents via",
+        "window.getSelection()/document.createRange(), called at the end of fillArticleBody only",
+        "when !peek && reviewMode. closeArticle() now clears any lingering selection",
+        "(getSelection().removeAllRanges()) so it doesn't stay highlighted behind the closed sheet.",
+        "Off entirely outside Review Mode — no behavior change for visitors. Note for the owner: the",
+        "triple-tap-to-link picker (also Review Mode only) is click-based via caretRangeFromPoint and",
+        "wasn't observed to be disrupted by the pre-existing selection in testing, but flag it if a",
+        "tap ever seems to need an extra try before the picker opens."
+      ],
+      "loggedAt": "2026-08-18T17:36:11.067482+00:00"
+    },
+    {
       "version": "167",
       "date": "2026-08-17T19:10:00-05:00",
       "changes": [
