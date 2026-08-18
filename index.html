@@ -1,25 +1,4 @@
 <!--
-VERSION: 168
-DATE: 2026-08-18T12:00:00-05:00
-CHANGES:
-- New: in Review Mode, opening a story (openArticle) or swiping to the next/previous one
-  (slideArticleTo — same underlying fillArticleBody render) now auto-selects the entire
-  readable body of the article (Quick Facts through Sources & Further Reading) via the
-  Selection API, so iOS's Speak Selection accessibility feature ("Speak") is available
-  immediately without the owner manually long-pressing and dragging selection handles.
-  Implementation: story content (everything from just after the sticky header/back button
-  through the Sources & Further Reading list, but excluding the audio scrubber and the
-  Approve/Delete review buttons) is now wrapped in a new #artReadable div; a new
-  selectArticleReadable() function selects its full contents via
-  window.getSelection()/document.createRange(), called at the end of fillArticleBody only
-  when !peek && reviewMode. closeArticle() now clears any lingering selection
-  (getSelection().removeAllRanges()) so it doesn't stay highlighted behind the closed sheet.
-  Off entirely outside Review Mode — no behavior change for visitors. Note for the owner: the
-  triple-tap-to-link picker (also Review Mode only) is click-based via caretRangeFromPoint and
-  wasn't observed to be disrupted by the pre-existing selection in testing, but flag it if a
-  tap ever seems to need an extra try before the picker opens.
--->
-<!--
 VERSION: 167
 DATE: 2026-08-17T19:10:00-05:00
 CHANGES:
@@ -2971,7 +2950,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v168';
+const APP_VERSION = 'v167';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4414,11 +4393,6 @@ function fillArticleBody(d, peek){
     '<div class="ahName">' + esc(d.n) + '</div></div>' +
     '<div class="ahTaper" id="ahTaper"></div>';
   html += '</div>'; // .artSticky
-  // Wraps everything a reader would actually want spoken aloud — Quick Facts through Sources
-  // & Further Reading — but stops short of the sticky header/back button, the audio scrubber,
-  // and the Approve/Delete review buttons. Used by selectArticleReadable() (Review Mode only)
-  // to select the whole story in one shot for iOS's Speak Selection accessibility feature.
-  html += '<div id="artReadable">';
   if(peek){
     // The peek card's own content: first heading + a text snippet. Sits right where the hero
     // photo will end up — collapsing this away and fading the (already-present, opacity:0)
@@ -4503,7 +4477,6 @@ function fillArticleBody(d, peek){
     });
     html += '</ul>';
   }
-  html += '</div>'; // #artReadable
   // Owner-only review actions: only ever shown to an unlocked owner looking at a held entry,
   // never to a visitor (a review-flagged entry excludes itself from the public timeline and
   // search, but a direct link could still open it, so this is gated independently here too).
@@ -4548,27 +4521,6 @@ function fillArticleBody(d, peek){
   syncStickyBackdrops();
   if(peek){ flyGeo = null; placePeekFly(hasImg); }
   else measureFly();
-  // Review Mode only, and only once the full story (not a peek preview) is on screen: select
-  // the whole readable body so iOS's Speak Selection ("Speak") is one tap away without the
-  // owner having to long-press and drag handles themselves. Runs again on every swipe to a
-  // new story too, since slideArticleTo() calls back into this same function.
-  if(!peek && reviewMode) selectArticleReadable();
-}
-// Selects every node inside #artReadable in one shot via the Selection API, so the iOS
-// "Speak" accessibility action (Settings → Accessibility → Spoken Content → Speak Selection)
-// is available immediately on open/swipe. Wrapped in try/catch: Selection support is universal
-// on iOS Safari, but this must never be the thing that breaks article rendering if some other
-// browser's implementation balks.
-function selectArticleReadable(){
-  const el = document.getElementById('artReadable');
-  if(!el) return;
-  try{
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    sel.addRange(range);
-  }catch(err){}
 }
 // In the peek card the big hero photo is hidden, but the small corner portrait is shown
 // straight away — parked in exactly the size and spot it settles into once the full article
@@ -4930,7 +4882,6 @@ function collapseArticle(){
 function closeArticle(opts){
   stopAudio();
   closeLinkPicker(); // defensive: don't leave the picker dialog stranded open behind a closing sheet
-  try{ window.getSelection().removeAllRanges(); }catch(err){} // don't leave the auto-selected story text highlighted behind the closed sheet
   // Hand off whatever links were queued this session and reset the queue immediately, so a
   // second close (or a delete-triggered close elsewhere) never re-prompts for the same batch.
   // confirm() is a blocking native dialog — calling it synchronously here, even from an
