@@ -1,4 +1,48 @@
 <!--
+VERSION: 172
+DATE: 2026-08-18T22:34:00-05:00
+CHANGES:
+- New: Manage → Import → "Record Audio Narration" card. Triggers the existing generate-audio.yml
+  Action directly from the app (reusing the same triggerWorkflow()/run-and-poll machinery as
+  Resize Images / Convert Photo PNGs, now extended to accept a workflow_dispatch `inputs` object
+  instead of always sending a bare {ref}). Fields: Voice ID, how many to record, and a collapsed
+  "Voice & pacing settings" section (model, speed, stability, similarity boost, style, speaker
+  boost, heading/section pause, narrate-headings toggle, overwrite toggle). ids/category are left
+  blank on the dispatch — generate-audio.mjs's own candidateEntries() already sorts the whole
+  catalog chronologically and skips anything with existing audio, so "record the next N" is just
+  its default no-ids/no-category path; Overwrite maps straight to its own input.
+- New: every field on that card is remembered per-device in localStorage
+  ('audio-gen-settings', saved at record-time) and reloaded whenever Manage opens
+  (prefillAudioGen(), alongside the existing prefillGh()/prefillAssetBase() calls) — so voice ID
+  and tuning only have to be set once. First run on a device with nothing saved yet prefills
+  Voice ID with the project's current voice.
+-->
+<!--
+VERSION: 171
+DATE: 2026-08-18T22:25:00-05:00
+CHANGES:
+- New: sentence-level audio sync. When an entry has `audioTiming` (set by the
+  generate-audio.mjs Action alongside `audio`), its timing JSON is fetched on article open and
+  matched into #artStoryText — each matched sentence/heading gets wrapped in
+  <span data-cue-idx="N" class="sentCue"> (headings get the attribute directly on their .arth,
+  no wrapper needed). Two things this enables: (1) as the audio plays, the sentence under the
+  playhead gets a `.cuePlaying` highlight, tracked off the existing player's timeupdate listener
+  via updateActiveCue(); (2) tapping any highlighted sentence or heading seeks + plays from that
+  cue's start time via seekToCue(), wired through one delegated click listener on #artBody
+  checking `[data-cue-idx]`.
+- Matching (applyCueMarkup/cueFlatMap/cueWrapRange): builds a whitespace-collapsed flat-text
+  map of each section's rendered .artProse (mirroring the stripHtml+collapse the audio script
+  ran before TTS), locates each cue's verbatim sentence text in it, then wraps the matched range
+  by splitting text nodes at the exact boundaries (never Range.surroundContents, which throws on
+  a sentence that only partially overlaps an inline tag like <b>). Cues within a section are
+  wrapped in reverse document order so splitText's node mutations never invalidate an
+  earlier/not-yet-wrapped cue's already-computed range. An unmatched cue (stale text, or no
+  audioTiming at all) is skipped silently — falls back to plain scrubber-only playback, same as
+  before this version.
+- Entries without `audioTiming` are completely unaffected. New optional field, not yet added to
+  json-import-skill.md's field reference — do that alongside the next content-authoring session.
+-->
+<!--
 VERSION: 170
 DATE: 2026-08-18T13:30:00-05:00
 CHANGES:
@@ -1690,6 +1734,12 @@ CHANGES:
   .artrule{width:min(360px,60%); height:1px; margin:18px auto; background:linear-gradient(90deg,transparent,var(--gold),transparent);}
   .arth{font-family:'Cinzel',serif; font-size:calc(15px * var(--txt)); letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:26px 0 8px; border-bottom:1px solid rgba(201,165,66,.35); padding-bottom:5px;}
   .artp{font-size:calc(19.5px * var(--txt)); line-height:1.68; margin:0 0 14px;}
+  /* Sentence-level audio-sync cues (v171): applied to spans wrapping matched sentences inside
+     .artProse, and directly to .arth headings that got a matching heading cue. Tappable only
+     once cues actually loaded (data-cue-idx present); .cuePlaying tracks the audio's current
+     position, added/removed on timeupdate — see wireSentenceCues()/initAudio() in JS. */
+  [data-cue-idx]{cursor:pointer;}
+  .cuePlaying{background:rgba(201,165,66,.22); border-radius:3px; box-shadow:0 0 0 2px rgba(201,165,66,.22); transition:background .15s ease;}
   .artquote{border-left:3px solid var(--gold); background:rgba(201,165,66,.06); padding:10px 16px; margin:14px 0; font-style:italic; font-size:calc(17px * var(--txt)); line-height:1.6;}
   .artquote .qsrc{display:block; font-style:normal; font-size:calc(13.5px * var(--txt)); color:var(--muted); margin-top:5px;}
   .artsrc a{color:var(--gold-bright); font-size:calc(15.5px * var(--txt));}
@@ -2622,6 +2672,42 @@ CHANGES:
       </details>
 
       <details class="ghbox">
+        <summary>Record Audio Narration</summary>
+        <div class="mgrid2">
+          <div class="mfield"><label>ElevenLabs Voice ID</label><input type="text" id="audioVoiceId" placeholder="e.g. DrIa8xWRu2s3gTbGhVO4"></div>
+          <div class="mfield"><label>How many to record</label><input type="number" id="audioCount" min="1" step="1" value="5"></div>
+        </div>
+        <details class="mHelp">
+          <summary>Voice &amp; pacing settings</summary>
+          <div class="mgrid2">
+            <div class="mfield"><label>Model ID</label><input type="text" id="audioModelId" value="eleven_multilingual_v2"></div>
+            <div class="mfield"><label>Speed</label><input type="number" id="audioSpeed" step="0.05" min="0.25" max="4" value="1.0"></div>
+          </div>
+          <div class="mgrid2">
+            <div class="mfield"><label>Stability</label><input type="number" id="audioStability" step="0.05" min="0" max="1" value="0.5"></div>
+            <div class="mfield"><label>Similarity Boost</label><input type="number" id="audioSimilarity" step="0.05" min="0" max="1" value="0.75"></div>
+          </div>
+          <div class="mgrid2">
+            <div class="mfield"><label>Style</label><input type="number" id="audioStyle" step="0.05" min="0" max="1" value="0"></div>
+            <div class="mfield"><label>Speaker Boost</label><select id="audioSpeakerBoost"><option value="true">On</option><option value="false">Off</option></select></div>
+          </div>
+          <div class="mgrid2">
+            <div class="mfield"><label>Heading Pause (ms)</label><input type="number" id="audioHeadingPause" min="0" step="50" value="500"></div>
+            <div class="mfield"><label>Section Pause (ms)</label><input type="number" id="audioSectionPause" min="0" step="50" value="700"></div>
+          </div>
+          <div class="mfield"><label><input type="checkbox" id="audioReadHeadings" checked style="width:auto; margin-right:6px;">Narrate section headings</label></div>
+          <div class="mfield"><label><input type="checkbox" id="audioOverwrite" style="width:auto; margin-right:6px;">Overwrite entries that already have audio</label></div>
+        </details>
+        <div class="mtool">
+          <button class="mbtn" id="runAudioWorkflow">&#9654; Record Audio</button>
+        </div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Runs the Generate Audio Narration workflow for the next <b>N</b> entries (above), oldest first by year, automatically skipping any entry that already has audio &mdash; check "Overwrite" to regenerate those instead. Voice ID and every setting on this card are remembered on this device, so you only need to set them once. Takes a few minutes for a full batch; this button waits and reports success or failure below.</div>
+        </details>
+        <div class="mlog" id="runAudioLog"></div>
+      </details>
+
+      <details class="ghbox">
         <summary>Fix Image Extensions</summary>
         <div class="mtool">
           <button class="mbtn" id="fixImgExtBtn">Check &amp; Fix Every Entry's Image Field</button>
@@ -3003,7 +3089,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v170';
+const APP_VERSION = 'v172';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4150,6 +4236,37 @@ function prefillGh(){
   set('ghPath', c.path || GH_DEFAULTS.path);
   set('ghToken', localStorage.getItem('gh-token') || '');
 }
+// ---- Record Audio Narration card: voice id + every pacing/voice-tuning field is remembered
+// per-device via localStorage, so the owner only has to set them up once (see triggerWorkflow's
+// `inputs` param below for how these become the workflow_dispatch inputs). ----
+const AUDIO_GEN_FIELDS = {
+  audioVoiceId: 'text', audioCount: 'text', audioModelId: 'text', audioSpeed: 'text',
+  audioStability: 'text', audioSimilarity: 'text', audioStyle: 'text',
+  audioSpeakerBoost: 'text', audioHeadingPause: 'text', audioSectionPause: 'text',
+  audioReadHeadings: 'checkbox', audioOverwrite: 'checkbox'
+};
+function prefillAudioGen(){
+  let c = {};
+  try{ c = JSON.parse(localStorage.getItem('audio-gen-settings') || '{}'); }catch(e){}
+  Object.keys(AUDIO_GEN_FIELDS).forEach(id => {
+    const el = document.getElementById(id);
+    if(!el || !(id in c)) return;
+    if(AUDIO_GEN_FIELDS[id] === 'checkbox') el.checked = !!c[id];
+    else el.value = c[id];
+  });
+  // First run on this device, nothing saved yet — prefill with the project's current voice.
+  const voiceEl = document.getElementById('audioVoiceId');
+  if(voiceEl && !voiceEl.value) voiceEl.value = 'DrIa8xWRu2s3gTbGhVO4';
+}
+function saveAudioGenSettings(){
+  const c = {};
+  Object.keys(AUDIO_GEN_FIELDS).forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    c[id] = AUDIO_GEN_FIELDS[id] === 'checkbox' ? el.checked : el.value.trim();
+  });
+  localStorage.setItem('audio-gen-settings', JSON.stringify(c));
+}
 async function publishToGitHub(){
   const v = id => document.getElementById(id).value.trim();
   const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', path = v('ghPath') || 'data.json', token = v('ghToken');
@@ -4258,20 +4375,22 @@ document.getElementById('logSearch').addEventListener('input', renderLogList);
 // Reuses the same owner/repo/branch/token fields as Publish above. workflow_dispatch itself
 // returns no run info (just 204 No Content), so after firing it this polls the workflow's
 // recent runs for one that started after the dispatch, and reports when it finishes.
-async function triggerWorkflow(filename){
+async function triggerWorkflow(filename, inputs, logElId){
   const v = id => document.getElementById(id).value.trim();
   const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', token = v('ghToken');
-  const log = document.getElementById('runWorkflowLog');
+  const log = document.getElementById(logElId || 'runWorkflowLog');
   if(!owner || !repo || !token){ log.textContent = 'Enter GitHub username, repository, and token in the Publish section above first.'; return; }
   const hdr = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' };
   const dispatchedAt = Date.now();
   log.textContent = 'Starting ' + filename + '\u2026';
   try{
     const dispatchUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/actions/workflows/' + encodeURIComponent(filename) + '/dispatches';
+    const body = { ref: branch };
+    if(inputs && Object.keys(inputs).length) body.inputs = inputs;
     const res = await fetch(dispatchUrl, {
       method: 'POST',
       headers: Object.assign({'Content-Type':'application/json'}, hdr),
-      body: JSON.stringify({ ref: branch })
+      body: JSON.stringify(body)
     });
     if(res.status !== 204){
       let m = ''; try{ m = (await res.json()).message; }catch(e){}
@@ -4302,6 +4421,31 @@ async function triggerWorkflow(filename){
 }
 document.getElementById('runResizeWorkflow').addEventListener('click', () => triggerWorkflow('resize-images.yml'));
 document.getElementById('runConvertWorkflow').addEventListener('click', () => triggerWorkflow('convert-photo-pngs.yml'));
+document.getElementById('runAudioWorkflow').addEventListener('click', () => {
+  const v = id => document.getElementById(id).value.trim();
+  const voiceId = v('audioVoiceId');
+  const log = document.getElementById('runAudioLog');
+  if(!voiceId){ log.textContent = 'Enter an ElevenLabs Voice ID above first.'; return; }
+  saveAudioGenSettings();
+  // ids/category left blank on purpose — generate-audio.mjs's own candidateEntries() already
+  // sorts the whole catalog chronologically and skips anything with existing audio (unless
+  // Overwrite is checked), so "record the next N" is exactly its default no-ids/no-category path.
+  const inputs = {
+    count: v('audioCount') || '5',
+    voice_id: voiceId,
+    model_id: v('audioModelId') || 'eleven_multilingual_v2',
+    overwrite: String(document.getElementById('audioOverwrite').checked),
+    read_headings: String(document.getElementById('audioReadHeadings').checked),
+    heading_pause_ms: v('audioHeadingPause') || '500',
+    section_pause_ms: v('audioSectionPause') || '700',
+    stability: v('audioStability') || '0.5',
+    similarity_boost: v('audioSimilarity') || '0.75',
+    style: v('audioStyle') || '0',
+    speed: v('audioSpeed') || '1.0',
+    use_speaker_boost: v('audioSpeakerBoost') || 'true'
+  };
+  triggerWorkflow('generate-audio.yml', inputs, 'runAudioLog');
+});
 
 // ---- Fix Image Extensions: actually corrects data.json, rather than relying on the runtime
 // fallback (altExtUrl/imgExtFallback) to paper over a stale reference on every page load. ----
@@ -4577,7 +4721,8 @@ function fillArticleBody(d, peek){
     });
   }
 
-  if(d.audio) initAudio(resolveAsset(d.audio, db.settings && db.settings.audioBase));
+  if(d.audio){ initAudio(resolveAsset(d.audio, db.settings && db.settings.audioBase)); wireSentenceCues(d); }
+  else stopAudio();
   syncStickyBackdrops();
   if(peek){ flyGeo = null; placePeekFly(hasImg); }
   else measureFly();
@@ -5055,6 +5200,12 @@ function slideArticleTo(d, direction){
 
 // ---- Audio player ----
 let audioEl = null;
+// Sentence-sync state (v171) — see wireSentenceCues() below for how these get populated from
+// each entry's audioTiming JSON, and applyCueMarkup() for how they get matched into the DOM.
+let currentCues = [];      // the raw cues array from the timing file (start/end/type/text/section)
+let cueEls = [];           // parallel array: cueEls[i] = the DOM element(s) matched for currentCues[i], or []
+let activeCueIdx = -1;     // index into currentCues currently highlighted, or -1
+let apPlayBtn = null, apSeekEl = null, apTimeEl = null; // live refs to this render's player controls
 function fmtTime(s){
   if(!isFinite(s)) return '0:00';
   const m = Math.floor(s/60), sec = Math.floor(s%60);
@@ -5069,6 +5220,7 @@ function initAudio(url){
   const play = document.getElementById('apPlay');
   const seek = document.getElementById('apSeek');
   const time = document.getElementById('apTime');
+  apPlayBtn = play; apSeekEl = seek; apTimeEl = time;
   let scrubbing = false;
   // Capture this entry's audio element locally. Listeners must not read the shared
   // `audioEl`, because a late event from the *previous* entry's audio can arrive after
@@ -5087,8 +5239,15 @@ function initAudio(url){
       seek.value = (a.currentTime / a.duration) * 100;
       time.textContent = fmtTime(a.currentTime) + ' / ' + fmtTime(a.duration);
     }
+    // Sentence highlight: reads live off currentCues/cueEls, not a snapshot taken when this
+    // listener was attached — cues typically finish their async fetch a moment after playback
+    // could already have started, and this listener just starts seeing them once populated.
+    updateActiveCue(a.currentTime);
   });
-  a.addEventListener('ended', () => { play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); seek.value = 0; });
+  a.addEventListener('ended', () => {
+    play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); seek.value = 0;
+    setActiveCue(-1);
+  });
   a.addEventListener('error', () => { time.textContent = 'audio unavailable'; });
   seek.addEventListener('input', () => {
     scrubbing = true;
@@ -5101,7 +5260,179 @@ function initAudio(url){
 }
 function stopAudio(){
   if(audioEl){ audioEl.pause(); audioEl.src = ''; audioEl = null; }
+  currentCues = []; cueEls = []; activeCueIdx = -1;
+  apPlayBtn = null; apSeekEl = null; apTimeEl = null;
 }
+
+// ---- Sentence-sync: matches each entry's audioTiming cues into #artStoryText and lights the
+// active one up as the audio plays, or seeks on tap. Entirely additive — an entry with no
+// audioTiming (or a fetch/match failure) just falls back to the plain scrubber, same as before. ----
+
+function setActiveCue(idx){
+  if(idx === activeCueIdx) return;
+  (cueEls[activeCueIdx] || []).forEach(el => el.classList.remove('cuePlaying'));
+  activeCueIdx = idx;
+  (cueEls[activeCueIdx] || []).forEach(el => el.classList.add('cuePlaying'));
+}
+function updateActiveCue(t){
+  if(!currentCues.length) return;
+  // Cues are in chronological order, so start the scan near the current index rather than
+  // always from 0 — cheap enough either way at typical cue counts, but this keeps it trivial
+  // even for a very long article.
+  let idx = -1;
+  for(let i = 0; i < currentCues.length; i++){
+    const c = currentCues[i];
+    if(t >= c.start && t < c.end){ idx = i; break; }
+    if(t < c.start) break;
+  }
+  setActiveCue(idx);
+}
+function seekToCue(idx){
+  const cue = currentCues[idx];
+  if(!cue || !audioEl) return;
+  audioEl.currentTime = cue.start;
+  if(audioEl.paused){
+    audioEl.play();
+    if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PAUSE; apPlayBtn.setAttribute('aria-label','Pause'); }
+  }
+  if(apSeekEl && audioEl.duration) apSeekEl.value = (audioEl.currentTime / audioEl.duration) * 100;
+  if(apTimeEl && audioEl.duration) apTimeEl.textContent = fmtTime(audioEl.currentTime) + ' / ' + fmtTime(audioEl.duration);
+  setActiveCue(idx);
+}
+// Pairs each rendered section's optional .arth with its always-present following .artProse, in
+// document order — mirrors exactly how fillArticleBody emitted them, so array index === section
+// index regardless of which sections happen to have a heading.
+function cueSectionElements(){
+  const container = document.getElementById('artStoryText');
+  if(!container) return [];
+  const secs = [];
+  let cur = null;
+  Array.from(container.children).forEach(ch => {
+    if(ch.classList.contains('arth')){ cur = {headEl: ch, proseEl: null}; secs.push(cur); }
+    else if(ch.classList.contains('artProse')){
+      if(cur && !cur.proseEl){ cur.proseEl = ch; }
+      else { cur = {headEl: null, proseEl: ch}; secs.push(cur); }
+    }
+  });
+  return secs;
+}
+// Flattens a subtree's text nodes into one whitespace-collapsed string (matching the
+// stripHtml+collapse the audio script ran before splitting into sentences), plus a parallel
+// map from each character of that flat string back to {node, offset} in the real DOM.
+function cueFlatMap(root){
+  const map = [];
+  const chars = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  let node, lastWasSpace = true;
+  while((node = walker.nextNode())){
+    const text = node.textContent;
+    for(let i = 0; i < text.length; i++){
+      const ch = text[i];
+      if(/\s/.test(ch)){
+        if(lastWasSpace) continue;
+        chars.push(' '); map.push({node, offset:i}); lastWasSpace = true;
+      } else {
+        chars.push(ch); map.push({node, offset:i}); lastWasSpace = false;
+      }
+    }
+  }
+  return {flat: chars.join(''), map};
+}
+// Wraps flat-string range [start,end) — which may span several text nodes/tags, e.g. a sentence
+// with a <b> in the middle — in one or more <span data-cue-idx>. Splits text nodes at the exact
+// boundaries via splitText rather than a single Range.surroundContents(), since a sentence that
+// only partially overlaps an inline tag would make surroundContents throw.
+function cueWrapRange(map, start, end, idx, className){
+  const segments = [];
+  let i = start;
+  while(i < end){
+    const node = map[i].node;
+    let j = i;
+    while(j < end && map[j].node === node) j++;
+    segments.push({node, offStart: map[i].offset, offEnd: map[j-1].offset + 1});
+    i = j;
+  }
+  const wrapped = [];
+  // Rightmost segment first: splitText always preserves the untouched *prefix* of a node under
+  // its original object identity, so processing right-to-left keeps every not-yet-wrapped
+  // segment's {node, offset} pair (computed earlier, from the pristine DOM) still valid.
+  segments.reverse().forEach(seg => {
+    let target = seg.node;
+    if(seg.offEnd < target.textContent.length) target.splitText(seg.offEnd);
+    let toWrap = target;
+    if(seg.offStart > 0) toWrap = target.splitText(seg.offStart);
+    const span = document.createElement('span');
+    span.className = className;
+    span.dataset.cueIdx = idx;
+    toWrap.parentNode.insertBefore(span, toWrap);
+    span.appendChild(toWrap);
+    wrapped.push(span);
+  });
+  return wrapped.reverse();
+}
+// Matches currentCues into the just-rendered #artStoryText DOM and populates cueEls. An
+// unmatched cue (verbatim text moved/changed since the audio was generated, or genuinely absent)
+// is simply skipped — that sentence won't highlight or be tappable, everything else still works.
+function applyCueMarkup(cues){
+  const secs = cueSectionElements();
+  // Group sentence-type cues by section so each .artProse's flat map is only built once.
+  const bySection = {};
+  cues.forEach((c, idx) => {
+    if(c.type === 'heading'){
+      const sec = secs[c.section];
+      if(sec && sec.headEl){ sec.headEl.dataset.cueIdx = idx; cueEls[idx] = [sec.headEl]; }
+      return;
+    }
+    (bySection[c.section] = bySection[c.section] || []).push(idx);
+  });
+  Object.keys(bySection).forEach(si => {
+    const sec = secs[si];
+    if(!sec || !sec.proseEl) return;
+    const { flat, map } = cueFlatMap(sec.proseEl);
+    const matches = []; // {idx, start, end} in document order
+    let searchFrom = 0;
+    bySection[si].forEach(idx => {
+      const text = cues[idx].text;
+      if(!text) return;
+      const at = flat.indexOf(text, searchFrom);
+      if(at === -1) return; // unmatched — skip, non-fatal
+      matches.push({ idx, start: at, end: at + text.length });
+      searchFrom = at + text.length;
+    });
+    // Wrap in reverse document order — see cueWrapRange's comment on why.
+    matches.slice().reverse().forEach(m => {
+      cueEls[m.idx] = cueWrapRange(map, m.start, m.end, m.idx, 'sentCue');
+    });
+  });
+}
+// Fetches the entry's timing JSON (if any) and wires up highlighting + tap-to-seek. Guards
+// against the article having changed while the fetch was in flight (a quick swipe away and
+// back), same pattern as the rest of the app's async work.
+async function wireSentenceCues(d){
+  currentCues = []; cueEls = []; activeCueIdx = -1;
+  if(!d.audioTiming) return;
+  const entryId = d.id;
+  let timing;
+  try{
+    const res = await fetch(resolveAsset(d.audioTiming, db.settings && db.settings.audioBase));
+    if(!res.ok) return;
+    timing = await res.json();
+  }catch(err){ return; }
+  if(!currentEntry || currentEntry.id !== entryId) return;
+  const cues = timing.cues || [];
+  if(!cues.length) return;
+  currentCues = cues;
+  cueEls = cues.map(() => []);
+  applyCueMarkup(cues);
+}
+// Tap a highlighted sentence/heading to jump playback there and start playing.
+document.getElementById('artBody').addEventListener('click', (e) => {
+  if(e.target.closest('a, button, input')) return; // links/controls keep their own behavior
+  const el = e.target.closest('[data-cue-idx]');
+  if(!el) return;
+  const idx = parseInt(el.dataset.cueIdx, 10);
+  if(!isNaN(idx)) seekToCue(idx);
+});
 
 // ---- Sticky header / player backdrops ----
 // Both sticky bands need an opaque backdrop so article text scrolls cleanly underneath.
@@ -5713,6 +6044,7 @@ document.getElementById('manageBtn').addEventListener('click', () => {
   renderExportSummary();
   prefillGh();
   prefillAssetBase();
+  prefillAudioGen();
 });
 
 // ---- Tabs ----
