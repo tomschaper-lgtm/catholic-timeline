@@ -77,9 +77,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
-
+      # ubuntu-latest already ships with ffmpeg/ffprobe preinstalled — a separate apt-get install
+      # is redundant work that only adds an unnecessary apt-get update over the network (and, on a
+      # bad day, can hang there for minutes for no benefit). This step just confirms the
+      # preinstalled binaries are actually on PATH; if a future runner image ever drops ffmpeg,
+      # this step failing loudly is the signal to add a real install step back.
       - name: Confirm ffmpeg/ffprobe are available
         run: ffmpeg -version && ffprobe -version
 
