@@ -1,4 +1,19 @@
 <!--
+VERSION: 174
+DATE: 2026-08-18T23:20:00-05:00
+CHANGES:
+- Fix: sentence-highlighting/tap-to-seek (v171) matched almost nothing on real narrated
+  entries. Root cause: generate-audio.mjs computes each cue's `section` number against its own
+  internal, FILTERED list of sections (sectionParts() drops any section with empty body before
+  numbering them), while the app's old applyCueMarkup() grouped cues by that same number against
+  the *unfiltered* list of rendered .arth/.artProse pairs — so on any entry with even one
+  empty-bodied section, every cue after it pointed at the wrong section and silently failed to
+  match. Fixed by dropping section-based grouping entirely: applyCueMarkup() now builds one flat
+  text map of the whole #artStoryText container and matches cues sequentially by verbatim text
+  alone, the same way sentences within a section already worked — `section` numbers are no
+  longer read at all. cueSectionElements() (now unused) removed.
+-->
+<!--
 VERSION: 173
 DATE: 2026-08-18T22:51:00-05:00
 CHANGES:
@@ -3114,7 +3129,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v173';
+const APP_VERSION = 'v174';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5378,23 +5393,6 @@ function seekToCue(idx){
   if(apTimeEl && audioEl.duration) apTimeEl.textContent = fmtTime(audioEl.currentTime) + ' / ' + fmtTime(audioEl.duration);
   setActiveCue(idx);
 }
-// Pairs each rendered section's optional .arth with its always-present following .artProse, in
-// document order — mirrors exactly how fillArticleBody emitted them, so array index === section
-// index regardless of which sections happen to have a heading.
-function cueSectionElements(){
-  const container = document.getElementById('artStoryText');
-  if(!container) return [];
-  const secs = [];
-  let cur = null;
-  Array.from(container.children).forEach(ch => {
-    if(ch.classList.contains('arth')){ cur = {headEl: ch, proseEl: null}; secs.push(cur); }
-    else if(ch.classList.contains('artProse')){
-      if(cur && !cur.proseEl){ cur.proseEl = ch; }
-      else { cur = {headEl: null, proseEl: ch}; secs.push(cur); }
-    }
-  });
-  return secs;
-}
 // Flattens a subtree's text nodes into one whitespace-collapsed string (matching the
 // stripHtml+collapse the audio script ran before splitting into sentences), plus a parallel
 // map from each character of that flat string back to {node, offset} in the real DOM.
@@ -5449,39 +5447,32 @@ function cueWrapRange(map, start, end, idx, className){
   });
   return wrapped.reverse();
 }
-// Matches currentCues into the just-rendered #artStoryText DOM and populates cueEls. An
-// unmatched cue (verbatim text moved/changed since the audio was generated, or genuinely absent)
-// is simply skipped — that sentence won't highlight or be tappable, everything else still works.
+// Matches currentCues into the just-rendered #artStoryText DOM and populates cueEls. Cues are
+// matched sequentially against ONE flat map of the entire container (headings and prose
+// together, in document order) rather than grouped by each cue's `section` number — because
+// generate-audio.mjs's own section indices are computed after filtering out any section with
+// empty body text, so they don't reliably line up with #artStoryText's actual section positions
+// whenever an entry has such a section. Matching by verbatim text in sequence sidesteps that
+// entirely. An unmatched cue (verbatim text moved/changed since the audio was generated, or
+// genuinely absent) is simply skipped — that sentence won't highlight or be tappable, everything
+// else still works.
 function applyCueMarkup(cues){
-  const secs = cueSectionElements();
-  // Group sentence-type cues by section so each .artProse's flat map is only built once.
-  const bySection = {};
+  const container = document.getElementById('artStoryText');
+  if(!container) return;
+  const { flat, map } = cueFlatMap(container);
+  const matches = []; // {idx, start, end} in document order
+  let searchFrom = 0;
   cues.forEach((c, idx) => {
-    if(c.type === 'heading'){
-      const sec = secs[c.section];
-      if(sec && sec.headEl){ sec.headEl.dataset.cueIdx = idx; cueEls[idx] = [sec.headEl]; }
-      return;
-    }
-    (bySection[c.section] = bySection[c.section] || []).push(idx);
+    const text = c.text;
+    if(!text) return;
+    const at = flat.indexOf(text, searchFrom);
+    if(at === -1) return; // unmatched — skip, non-fatal
+    matches.push({ idx, start: at, end: at + text.length });
+    searchFrom = at + text.length;
   });
-  Object.keys(bySection).forEach(si => {
-    const sec = secs[si];
-    if(!sec || !sec.proseEl) return;
-    const { flat, map } = cueFlatMap(sec.proseEl);
-    const matches = []; // {idx, start, end} in document order
-    let searchFrom = 0;
-    bySection[si].forEach(idx => {
-      const text = cues[idx].text;
-      if(!text) return;
-      const at = flat.indexOf(text, searchFrom);
-      if(at === -1) return; // unmatched — skip, non-fatal
-      matches.push({ idx, start: at, end: at + text.length });
-      searchFrom = at + text.length;
-    });
-    // Wrap in reverse document order — see cueWrapRange's comment on why.
-    matches.slice().reverse().forEach(m => {
-      cueEls[m.idx] = cueWrapRange(map, m.start, m.end, m.idx, 'sentCue');
-    });
+  // Wrap in reverse document order — see cueWrapRange's comment on why.
+  matches.slice().reverse().forEach(m => {
+    cueEls[m.idx] = cueWrapRange(map, m.start, m.end, m.idx, 'sentCue');
   });
 }
 // Fetches the entry's timing JSON (if any) and wires up highlighting + tap-to-seek. Guards
