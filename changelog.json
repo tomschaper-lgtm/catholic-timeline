@@ -2,6 +2,26 @@
   "v": 1,
   "entries": [
     {
+      "version": "175",
+      "date": "2026-08-19T18:45:00-05:00",
+      "changes": [
+        "Fix: the Record Audio Narration card had no category filter at all — audioCandidatePool()",
+        "pulled from every entry type sorted purely by year, so a \"Start at St. Michael, record 3\"",
+        "request could (and did) walk straight past two Saints and pick up a Council or a different",
+        "Marian entry just because their years happened to fall in between. Added a Category dropdown",
+        "(All categories, or one of Saint/Council/Persecution/Marian Apparition/Eucharistic",
+        "Miracle/Event); audioCandidatePool() now filters on it, so the Start Year navigator only steps",
+        "through that one category and the resulting batch is genuinely locked to it. Category is sent",
+        "as the `category` workflow_dispatch input when no explicit start entry is chosen, and implicitly",
+        "enforced via the `ids` list when one is (since the pool itself is already filtered).",
+        "Category is remembered per-device alongside the rest of the card's settings (added to",
+        "AUDIO_GEN_FIELDS). Changing it resets the Start Year position back to \"earliest in this",
+        "category\" rather than keeping a numeric index that pointed at the wrong entry under the old",
+        "category's pool."
+      ],
+      "loggedAt": "2026-08-19T23:08:29.293517+00:00"
+    },
+    {
       "version": "174",
       "date": "2026-08-18T23:20:00-05:00",
       "changes": [
