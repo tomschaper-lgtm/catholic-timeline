@@ -1,4 +1,23 @@
 <!--
+VERSION: 173
+DATE: 2026-08-18T22:51:00-05:00
+CHANGES:
+- New: the Record Audio Narration card (v172) gets a start-year navigator instead of always
+  recording from the earliest entry needing audio. Type a year to jump near it, then &larr;/&rarr;
+  to land on the exact entry to begin from. audioCandidatePool() mirrors generate-audio.mjs's
+  own candidateEntries() default (chronological, has narratable text via the existing
+  articleStats().wordCount, has/lacks audio per the Overwrite checkbox) so the entry shown is
+  always exactly what a blank-ids run would have picked at that position — arrowing just moves
+  the starting point within it. audioStartIdx stays -1 (no explicit start) until a year is
+  entered or an arrow is pressed; toggling Overwrite re-renders the preview since it changes
+  pool membership.
+- On Record: if a start entry is chosen, the next `count` ids from that point in the pool are
+  sent as an explicit `ids` input, overriding the script's own blank-ids/category auto-select.
+  No start chosen — ids/category stay blank, unchanged from v172's behavior.
+- Start year resets (and the field clears) each time Manage is opened, so a stale starting point
+  from an earlier session never silently carries into a new one.
+-->
+<!--
 VERSION: 172
 DATE: 2026-08-18T22:34:00-05:00
 CHANGES:
@@ -2677,6 +2696,12 @@ CHANGES:
           <div class="mfield"><label>ElevenLabs Voice ID</label><input type="text" id="audioVoiceId" placeholder="e.g. DrIa8xWRu2s3gTbGhVO4"></div>
           <div class="mfield"><label>How many to record</label><input type="number" id="audioCount" min="1" step="1" value="5"></div>
         </div>
+        <div class="mfield"><label>Start year (optional — leave blank to always begin at the earliest entry that still needs audio)</label><input type="number" id="audioStartYear" inputmode="numeric" placeholder="e.g. 1200"></div>
+        <div class="mtool">
+          <button type="button" class="mbtn" id="audioStartPrev" style="flex:0 0 auto; padding:8px 16px;">&larr;</button>
+          <span class="mstatus" id="audioStartPreview" style="flex:1; text-align:center;">Will start at the earliest entry that needs audio</span>
+          <button type="button" class="mbtn" id="audioStartNext" style="flex:0 0 auto; padding:8px 16px;">&rarr;</button>
+        </div>
         <details class="mHelp">
           <summary>Voice &amp; pacing settings</summary>
           <div class="mgrid2">
@@ -2702,7 +2727,7 @@ CHANGES:
           <button class="mbtn" id="runAudioWorkflow">&#9654; Record Audio</button>
         </div>
         <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">Runs the Generate Audio Narration workflow for the next <b>N</b> entries (above), oldest first by year, automatically skipping any entry that already has audio &mdash; check "Overwrite" to regenerate those instead. Voice ID and every setting on this card are remembered on this device, so you only need to set them once. Takes a few minutes for a full batch; this button waits and reports success or failure below.</div>
+          <div class="hint">Runs the Generate Audio Narration workflow for the next <b>N</b> entries (above), oldest first by year, automatically skipping any entry that already has audio &mdash; check "Overwrite" to regenerate those instead. Type a year to jump near it, then use &larr;/&rarr; to land on the exact entry to start from; leave the year blank to always begin at the earliest entry that still needs audio. Voice ID and every setting on this card are remembered on this device, so you only need to set them once. Takes a few minutes for a full batch; this button waits and reports success or failure below.</div>
         </details>
         <div class="mlog" id="runAudioLog"></div>
       </details>
@@ -3089,7 +3114,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v172';
+const APP_VERSION = 'v173';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4427,11 +4452,9 @@ document.getElementById('runAudioWorkflow').addEventListener('click', () => {
   const log = document.getElementById('runAudioLog');
   if(!voiceId){ log.textContent = 'Enter an ElevenLabs Voice ID above first.'; return; }
   saveAudioGenSettings();
-  // ids/category left blank on purpose — generate-audio.mjs's own candidateEntries() already
-  // sorts the whole catalog chronologically and skips anything with existing audio (unless
-  // Overwrite is checked), so "record the next N" is exactly its default no-ids/no-category path.
+  const count = parseInt(v('audioCount'), 10) || 5;
   const inputs = {
-    count: v('audioCount') || '5',
+    count: String(count),
     voice_id: voiceId,
     model_id: v('audioModelId') || 'eleven_multilingual_v2',
     overwrite: String(document.getElementById('audioOverwrite').checked),
@@ -4444,8 +4467,64 @@ document.getElementById('runAudioWorkflow').addEventListener('click', () => {
     speed: v('audioSpeed') || '1.0',
     use_speaker_boost: v('audioSpeakerBoost') || 'true'
   };
+  // A chosen start entry (see audioStartIdx below) becomes an explicit `ids` list of the next
+  // `count` entries in the pool from that point — overriding the script's own default (blank
+  // ids/category, which always begins at the earliest entry needing audio). No start chosen —
+  // leave ids/category blank and let candidateEntries() in generate-audio.mjs pick as before.
+  const pool = audioCandidatePool();
+  if(audioStartIdx >= 0 && audioStartIdx < pool.length){
+    const batch = pool.slice(audioStartIdx, audioStartIdx + count);
+    if(!batch.length){ log.textContent = 'No entries at that starting point.'; return; }
+    inputs.ids = batch.map(e => e.id).join(',');
+  }
   triggerWorkflow('generate-audio.yml', inputs, 'runAudioLog');
 });
+
+// ---- Start-year navigator: type a year to jump near it, then step ←/→ to the exact entry to
+// begin the batch from. Walks the same pool the workflow would otherwise auto-select from
+// (chronological, has narratable text, has/lacks audio per the Overwrite checkbox) so what's
+// shown is always exactly what a blank-ids run would have picked, just letting the owner move
+// the starting point instead of always taking the very first one. ----
+let audioStartIdx = -1; // -1 = no explicit start chosen — record button leaves ids/category blank
+function audioCandidatePool(){
+  const overwrite = document.getElementById('audioOverwrite').checked;
+  return db.entries
+    .filter(e => articleStats(e).wordCount > 0)
+    .filter(e => overwrite || !e.audio)
+    .slice()
+    .sort((a, b) => a.y - b.y);
+}
+function renderAudioStartPreview(){
+  const preview = document.getElementById('audioStartPreview');
+  const pool = audioCandidatePool();
+  if(!pool.length){ preview.textContent = 'No entries currently need audio.'; audioStartIdx = -1; return; }
+  if(audioStartIdx < 0){ preview.textContent = 'Will start at the earliest entry that needs audio'; return; }
+  if(audioStartIdx >= pool.length) audioStartIdx = pool.length - 1;
+  const e = pool[audioStartIdx];
+  preview.textContent = e.n + ' (' + fmtYear(e.y) + ') \u2014 #' + (audioStartIdx + 1) + ' of ' + pool.length + ' needing audio';
+}
+document.getElementById('audioStartYear').addEventListener('change', () => {
+  const year = parseInt(document.getElementById('audioStartYear').value, 10);
+  const pool = audioCandidatePool();
+  if(isNaN(year) || !pool.length){ audioStartIdx = -1; renderAudioStartPreview(); return; }
+  let idx = pool.findIndex(e => e.y >= year);
+  if(idx === -1) idx = pool.length - 1; // year is after every remaining entry — land on the last one
+  audioStartIdx = idx;
+  renderAudioStartPreview();
+});
+document.getElementById('audioStartPrev').addEventListener('click', () => {
+  const pool = audioCandidatePool();
+  if(!pool.length) return;
+  audioStartIdx = Math.max(0, (audioStartIdx < 0 ? 0 : audioStartIdx) - 1);
+  renderAudioStartPreview();
+});
+document.getElementById('audioStartNext').addEventListener('click', () => {
+  const pool = audioCandidatePool();
+  if(!pool.length) return;
+  audioStartIdx = Math.min(pool.length - 1, (audioStartIdx < 0 ? -1 : audioStartIdx) + 1);
+  renderAudioStartPreview();
+});
+document.getElementById('audioOverwrite').addEventListener('change', renderAudioStartPreview);
 
 // ---- Fix Image Extensions: actually corrects data.json, rather than relying on the runtime
 // fallback (altExtUrl/imgExtFallback) to paper over a stale reference on every page load. ----
@@ -6045,6 +6124,9 @@ document.getElementById('manageBtn').addEventListener('click', () => {
   prefillGh();
   prefillAssetBase();
   prefillAudioGen();
+  audioStartIdx = -1;
+  document.getElementById('audioStartYear').value = '';
+  renderAudioStartPreview();
 });
 
 // ---- Tabs ----
