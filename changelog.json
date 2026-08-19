@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "173",
+      "date": "2026-08-18T22:51:00-05:00",
+      "changes": [
+        "New: the Record Audio Narration card (v172) gets a start-year navigator instead of always",
+        "recording from the earliest entry needing audio. Type a year to jump near it, then &larr;/&rarr;",
+        "to land on the exact entry to begin from. audioCandidatePool() mirrors generate-audio.mjs's",
+        "own candidateEntries() default (chronological, has narratable text via the existing",
+        "articleStats().wordCount, has/lacks audio per the Overwrite checkbox) so the entry shown is",
+        "always exactly what a blank-ids run would have picked at that position — arrowing just moves",
+        "the starting point within it. audioStartIdx stays -1 (no explicit start) until a year is",
+        "entered or an arrow is pressed; toggling Overwrite re-renders the preview since it changes",
+        "pool membership.",
+        "On Record: if a start entry is chosen, the next `count` ids from that point in the pool are",
+        "sent as an explicit `ids` input, overriding the script's own blank-ids/category auto-select.",
+        "No start chosen — ids/category stay blank, unchanged from v172's behavior.",
+        "Start year resets (and the field clears) each time Manage is opened, so a stale starting point",
+        "from an earlier session never silently carries into a new one."
+      ],
+      "loggedAt": "2026-08-19T03:52:03.444137+00:00"
+    },
+    {
       "version": "172",
       "date": "2026-08-18T22:34:00-05:00",
       "changes": [
