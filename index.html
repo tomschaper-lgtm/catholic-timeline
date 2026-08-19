@@ -1,4 +1,22 @@
 <!--
+VERSION: 175
+DATE: 2026-08-19T18:45:00-05:00
+CHANGES:
+- Fix: the Record Audio Narration card had no category filter at all — audioCandidatePool()
+  pulled from every entry type sorted purely by year, so a "Start at St. Michael, record 3"
+  request could (and did) walk straight past two Saints and pick up a Council or a different
+  Marian entry just because their years happened to fall in between. Added a Category dropdown
+  (All categories, or one of Saint/Council/Persecution/Marian Apparition/Eucharistic
+  Miracle/Event); audioCandidatePool() now filters on it, so the Start Year navigator only steps
+  through that one category and the resulting batch is genuinely locked to it. Category is sent
+  as the `category` workflow_dispatch input when no explicit start entry is chosen, and implicitly
+  enforced via the `ids` list when one is (since the pool itself is already filtered).
+- Category is remembered per-device alongside the rest of the card's settings (added to
+  AUDIO_GEN_FIELDS). Changing it resets the Start Year position back to "earliest in this
+  category" rather than keeping a numeric index that pointed at the wrong entry under the old
+  category's pool.
+-->
+<!--
 VERSION: 174
 DATE: 2026-08-18T23:20:00-05:00
 CHANGES:
@@ -2711,6 +2729,17 @@ CHANGES:
           <div class="mfield"><label>ElevenLabs Voice ID</label><input type="text" id="audioVoiceId" placeholder="e.g. DrIa8xWRu2s3gTbGhVO4"></div>
           <div class="mfield"><label>How many to record</label><input type="number" id="audioCount" min="1" step="1" value="5"></div>
         </div>
+        <div class="mfield"><label>Category</label>
+          <select id="audioCategory">
+            <option value="">All categories</option>
+            <option value="s">Saint</option>
+            <option value="c">Council</option>
+            <option value="p">Persecution</option>
+            <option value="m">Marian Apparition</option>
+            <option value="u">Eucharistic Miracle</option>
+            <option value="e">Event</option>
+          </select>
+        </div>
         <div class="mfield"><label>Start year (optional — leave blank to always begin at the earliest entry that still needs audio)</label><input type="number" id="audioStartYear" inputmode="numeric" placeholder="e.g. 1200"></div>
         <div class="mtool">
           <button type="button" class="mbtn" id="audioStartPrev" style="flex:0 0 auto; padding:8px 16px;">&larr;</button>
@@ -2742,7 +2771,7 @@ CHANGES:
           <button class="mbtn" id="runAudioWorkflow">&#9654; Record Audio</button>
         </div>
         <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">Runs the Generate Audio Narration workflow for the next <b>N</b> entries (above), oldest first by year, automatically skipping any entry that already has audio &mdash; check "Overwrite" to regenerate those instead. Type a year to jump near it, then use &larr;/&rarr; to land on the exact entry to start from; leave the year blank to always begin at the earliest entry that still needs audio. Voice ID and every setting on this card are remembered on this device, so you only need to set them once. Takes a few minutes for a full batch; this button waits and reports success or failure below.</div>
+          <div class="hint">Runs the Generate Audio Narration workflow for the next <b>N</b> entries (above), oldest first by year, automatically skipping any entry that already has audio &mdash; check "Overwrite" to regenerate those instead. Category locks the batch (and the Start Year navigator below) to just that type &mdash; leave it on "All categories" to mix types by year like before. Type a year to jump near it, then use &larr;/&rarr; to land on the exact entry to start from; leave the year blank to always begin at the earliest entry that still needs audio. Voice ID and every setting on this card are remembered on this device, so you only need to set them once. Takes a few minutes for a full batch; this button waits and reports success or failure below.</div>
         </details>
         <div class="mlog" id="runAudioLog"></div>
       </details>
@@ -3129,7 +3158,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v174';
+const APP_VERSION = 'v175';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4280,7 +4309,7 @@ function prefillGh(){
 // per-device via localStorage, so the owner only has to set them up once (see triggerWorkflow's
 // `inputs` param below for how these become the workflow_dispatch inputs). ----
 const AUDIO_GEN_FIELDS = {
-  audioVoiceId: 'text', audioCount: 'text', audioModelId: 'text', audioSpeed: 'text',
+  audioVoiceId: 'text', audioCount: 'text', audioCategory: 'text', audioModelId: 'text', audioSpeed: 'text',
   audioStability: 'text', audioSimilarity: 'text', audioStyle: 'text',
   audioSpeakerBoost: 'text', audioHeadingPause: 'text', audioSectionPause: 'text',
   audioReadHeadings: 'checkbox', audioOverwrite: 'checkbox'
@@ -4468,6 +4497,7 @@ document.getElementById('runAudioWorkflow').addEventListener('click', () => {
   if(!voiceId){ log.textContent = 'Enter an ElevenLabs Voice ID above first.'; return; }
   saveAudioGenSettings();
   const count = parseInt(v('audioCount'), 10) || 5;
+  const category = v('audioCategory');
   const inputs = {
     count: String(count),
     voice_id: voiceId,
@@ -4482,10 +4512,11 @@ document.getElementById('runAudioWorkflow').addEventListener('click', () => {
     speed: v('audioSpeed') || '1.0',
     use_speaker_boost: v('audioSpeakerBoost') || 'true'
   };
+  if(category) inputs.category = category;
   // A chosen start entry (see audioStartIdx below) becomes an explicit `ids` list of the next
   // `count` entries in the pool from that point — overriding the script's own default (blank
-  // ids/category, which always begins at the earliest entry needing audio). No start chosen —
-  // leave ids/category blank and let candidateEntries() in generate-audio.mjs pick as before.
+  // ids, category as selected above). No start chosen — ids stays blank and the script's own
+  // candidateEntries() picks (still respecting the category input, so the lock holds either way).
   const pool = audioCandidatePool();
   if(audioStartIdx >= 0 && audioStartIdx < pool.length){
     const batch = pool.slice(audioStartIdx, audioStartIdx + count);
@@ -4497,26 +4528,32 @@ document.getElementById('runAudioWorkflow').addEventListener('click', () => {
 
 // ---- Start-year navigator: type a year to jump near it, then step ←/→ to the exact entry to
 // begin the batch from. Walks the same pool the workflow would otherwise auto-select from
-// (chronological, has narratable text, has/lacks audio per the Overwrite checkbox) so what's
-// shown is always exactly what a blank-ids run would have picked, just letting the owner move
-// the starting point instead of always taking the very first one. ----
-let audioStartIdx = -1; // -1 = no explicit start chosen — record button leaves ids/category blank
+// (chronological, has narratable text, has/lacks audio per the Overwrite checkbox, and — this is
+// the part that was missing before — locked to the Category dropdown above exactly the way the
+// script's own `category` input would filter it) so what's shown is always exactly what that
+// dispatch would have picked, just letting the owner move the starting point instead of always
+// taking the very first one. ----
+let audioStartIdx = -1; // -1 = no explicit start chosen — record button leaves ids blank
 function audioCandidatePool(){
   const overwrite = document.getElementById('audioOverwrite').checked;
+  const category = document.getElementById('audioCategory').value;
   return db.entries
     .filter(e => articleStats(e).wordCount > 0)
     .filter(e => overwrite || !e.audio)
+    .filter(e => !category || e.t === category)
     .slice()
     .sort((a, b) => a.y - b.y);
 }
 function renderAudioStartPreview(){
   const preview = document.getElementById('audioStartPreview');
   const pool = audioCandidatePool();
-  if(!pool.length){ preview.textContent = 'No entries currently need audio.'; audioStartIdx = -1; return; }
-  if(audioStartIdx < 0){ preview.textContent = 'Will start at the earliest entry that needs audio'; return; }
+  const catVal = document.getElementById('audioCategory').value;
+  const catLabel = catVal ? (TYPE_NAMES[catVal] + 's') : 'entries';
+  if(!pool.length){ preview.textContent = 'No ' + catLabel + ' currently need audio.'; audioStartIdx = -1; return; }
+  if(audioStartIdx < 0){ preview.textContent = 'Will start at the earliest ' + (catVal ? TYPE_NAMES[catVal].toLowerCase() : 'entry') + ' that needs audio'; return; }
   if(audioStartIdx >= pool.length) audioStartIdx = pool.length - 1;
   const e = pool[audioStartIdx];
-  preview.textContent = e.n + ' (' + fmtYear(e.y) + ') \u2014 #' + (audioStartIdx + 1) + ' of ' + pool.length + ' needing audio';
+  preview.textContent = e.n + ' (' + fmtYear(e.y) + ') \u2014 #' + (audioStartIdx + 1) + ' of ' + pool.length + ' ' + catLabel + ' needing audio';
 }
 document.getElementById('audioStartYear').addEventListener('change', () => {
   const year = parseInt(document.getElementById('audioStartYear').value, 10);
@@ -4540,6 +4577,10 @@ document.getElementById('audioStartNext').addEventListener('click', () => {
   renderAudioStartPreview();
 });
 document.getElementById('audioOverwrite').addEventListener('change', renderAudioStartPreview);
+// Changing the category changes which pool audioStartIdx indexes into, so a numeric position
+// left over from a different category would silently point at the wrong entry — reset back to
+// "start at the earliest" rather than carry a stale index across categories.
+document.getElementById('audioCategory').addEventListener('change', () => { audioStartIdx = -1; renderAudioStartPreview(); });
 
 // ---- Fix Image Extensions: actually corrects data.json, rather than relying on the runtime
 // fallback (altExtUrl/imgExtFallback) to paper over a stale reference on every page load. ----
