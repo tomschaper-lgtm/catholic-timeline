@@ -2,6 +2,23 @@
   "v": 1,
   "entries": [
     {
+      "version": "174",
+      "date": "2026-08-18T23:20:00-05:00",
+      "changes": [
+        "Fix: sentence-highlighting/tap-to-seek (v171) matched almost nothing on real narrated",
+        "entries. Root cause: generate-audio.mjs computes each cue's `section` number against its own",
+        "internal, FILTERED list of sections (sectionParts() drops any section with empty body before",
+        "numbering them), while the app's old applyCueMarkup() grouped cues by that same number against",
+        "the *unfiltered* list of rendered .arth/.artProse pairs — so on any entry with even one",
+        "empty-bodied section, every cue after it pointed at the wrong section and silently failed to",
+        "match. Fixed by dropping section-based grouping entirely: applyCueMarkup() now builds one flat",
+        "text map of the whole #artStoryText container and matches cues sequentially by verbatim text",
+        "alone, the same way sentences within a section already worked — `section` numbers are no",
+        "longer read at all. cueSectionElements() (now unused) removed."
+      ],
+      "loggedAt": "2026-08-19T13:57:34.805632+00:00"
+    },
+    {
       "version": "173",
       "date": "2026-08-18T22:51:00-05:00",
       "changes": [
