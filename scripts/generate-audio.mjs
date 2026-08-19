@@ -1,5 +1,5 @@
 // Generates narration audio + a sentence-timing file for timeline entries via
-// the ElevenLabs API. Saves audio/<Category>/<id>-v<N>.wav plus a matching
+// the ElevenLabs API. Saves audio/<Category>/<id>-v<N>.mp3 plus a matching
 // <id>-v<N>.json timing file, updates data.json's `audio` (and `audioTiming`)
 // fields, and appends a row per entry to audio-log.csv.
 //
@@ -27,6 +27,13 @@ const voiceId = (process.env.VOICE_ID || '').trim();
 const modelId = process.env.MODEL_ID || 'eleven_multilingual_v2';
 const overwrite = String(process.env.OVERWRITE || 'false') === 'true';
 const apiKey = process.env.ELEVENLABS_API_KEY;
+
+// Final stitched output format. mp3 at this bitrate is plenty for spoken narration and runs
+// roughly 4-5x smaller than the uncompressed wav this used to produce (a ~5-minute entry drops
+// from ~25MB to ~5-6MB) — meaningfully faster to load on the site, no audible quality loss for
+// voice. Change here (and nowhere else) if a different bitrate/format is ever wanted.
+const OUTPUT_EXT = 'mp3';
+const OUTPUT_BITRATE = '128k';
 
 // Narration pacing — tune these via the workflow's inputs and re-run on a
 // couple of test entries; there's no universally "right" gap, it depends on
@@ -169,20 +176,22 @@ function makeSilence(durationSec, outPath) {
   return true;
 }
 
-// Decodes/re-encodes every segment into one wav via ffmpeg's concat *filter*
-// (not the concat demuxer) — this tolerates the mp3-vs-silence-mp3 format
-// differences that broke stream-copy concat in testing.
-function concatSegments(files, wavOut, dir) {
+// Decodes/re-encodes every segment into one final audio file via ffmpeg's concat *filter*
+// (not the concat demuxer) — this tolerates the mp3-vs-silence-mp3 format differences that broke
+// stream-copy concat in testing. Final output is re-encoded to OUTPUT_EXT/OUTPUT_BITRATE
+// (libmp3lame's default encoder for a .mp3 target) rather than stream-copied, since concat's
+// filter graph always re-encodes its output anyway.
+function concatSegments(files, audioOut, dir) {
   const rel = files.map(f => path.relative(dir, f));
   const inputs = rel.map(f => `-i "${f}"`).join(' ');
   const filterIn = rel.map((_, i) => `[${i}:a]`).join('');
   const filter = `${filterIn}concat=n=${rel.length}:v=0:a=1[out]`;
-  execSync(`ffmpeg -y ${inputs} -filter_complex "${filter}" -map "[out]" "${path.basename(wavOut)}"`, { stdio: 'inherit', cwd: dir });
+  execSync(`ffmpeg -y ${inputs} -filter_complex "${filter}" -map "[out]" -c:a libmp3lame -b:a ${OUTPUT_BITRATE} "${path.basename(audioOut)}"`, { stdio: 'inherit', cwd: dir });
 }
 
 // Narrates one entry: heading (optional) + body per section, each its own
 // timestamped TTS call, with silence gaps inserted between heading→body and
-// between sections so nothing runs together. Returns the final wav path,
+// between sections so nothing runs together. Returns the final audio path,
 // total duration, and a `cues` array of {section, type, text, start, end}
 // in seconds — the raw material for a sentence-highlighting player.
 async function narrateEntry(entry, dir, baseName) {
@@ -239,11 +248,11 @@ async function narrateEntry(entry, dir, baseName) {
     cumulative += dur;
   }
 
-  const wavPath = path.join(dir, `${baseName}.wav`);
-  concatSegments(segmentFiles, wavPath, dir);
+  const audioPath = path.join(dir, `${baseName}.${OUTPUT_EXT}`);
+  concatSegments(segmentFiles, audioPath, dir);
   await Promise.all(segmentFiles.map(f => fs.unlink(f).catch(() => {})));
 
-  return { wavPath, durationSec: round2(cumulative), cues };
+  return { audioPath, durationSec: round2(cumulative), cues };
 }
 function round2(n) { return Math.round(n * 100) / 100; }
 
@@ -290,11 +299,11 @@ async function main() {
       const version = nextVersion(entry);
       const baseName = `${entry.id}-v${version}`;
       console.log(`Generating audio for ${entry.id} (${entry.n})...`);
-      const { wavPath, durationSec, cues } = await narrateEntry(entry, dir, baseName);
+      const { audioPath, durationSec, cues } = await narrateEntry(entry, dir, baseName);
 
-      const relAudio = path.join(AUDIO_ROOT, folder, path.basename(wavPath)).split(path.sep).join('/');
-      const relTiming = relAudio.replace(/\.wav$/, '.json');
-      const timingPath = wavPath.replace(/\.wav$/, '.json');
+      const relAudio = path.join(AUDIO_ROOT, folder, path.basename(audioPath)).split(path.sep).join('/');
+      const relTiming = relAudio.replace(new RegExp(`\\.${OUTPUT_EXT}$`), '.json');
+      const timingPath = audioPath.replace(new RegExp(`\\.${OUTPUT_EXT}$`), '.json');
       await fs.writeFile(timingPath, JSON.stringify({ id: entry.id, audio: relAudio, durationSec, cues }, null, 1));
 
       entry.audio = relAudio;
