@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "172",
+      "date": "2026-08-18T22:34:00-05:00",
+      "changes": [
+        "New: Manage → Import → \"Record Audio Narration\" card. Triggers the existing generate-audio.yml",
+        "Action directly from the app (reusing the same triggerWorkflow()/run-and-poll machinery as",
+        "Resize Images / Convert Photo PNGs, now extended to accept a workflow_dispatch `inputs` object",
+        "instead of always sending a bare {ref}). Fields: Voice ID, how many to record, and a collapsed",
+        "\"Voice & pacing settings\" section (model, speed, stability, similarity boost, style, speaker",
+        "boost, heading/section pause, narrate-headings toggle, overwrite toggle). ids/category are left",
+        "blank on the dispatch — generate-audio.mjs's own candidateEntries() already sorts the whole",
+        "catalog chronologically and skips anything with existing audio, so \"record the next N\" is just",
+        "its default no-ids/no-category path; Overwrite maps straight to its own input.",
+        "New: every field on that card is remembered per-device in localStorage",
+        "('audio-gen-settings', saved at record-time) and reloaded whenever Manage opens",
+        "(prefillAudioGen(), alongside the existing prefillGh()/prefillAssetBase() calls) — so voice ID",
+        "and tuning only have to be set once. First run on a device with nothing saved yet prefills",
+        "Voice ID with the project's current voice."
+      ],
+      "loggedAt": "2026-08-19T03:41:25.600408+00:00"
+    },
+    {
       "version": "170",
       "date": "2026-08-18T13:30:00-05:00",
       "changes": [
