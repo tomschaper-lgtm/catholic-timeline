@@ -2,6 +2,21 @@
   "v": 1,
   "entries": [
     {
+      "version": "190",
+      "date": "2026-08-20T13:15:00-05:00",
+      "changes": [
+        "Fix: on entries with audio, the section-reveal glide (v187-v189) still landed the heading",
+        "underneath the audio scrubber. Cause: the scrubber (#artPlayerWrap) is ALSO sticky — it pins",
+        "itself directly beneath the sticky header once scrolled past, per its own CSS",
+        "(top:var(--ahH)) — so on any entry with audio there are two bars stacked at the top of the",
+        "viewport, not one, and the reveal math only ever accounted for the header's height. It now",
+        "adds the scrubber's own height too (only when the entry actually has one) to both the",
+        "section-membership check and the reveal target, so the heading clears both bars — audio",
+        "entries and silent entries land in the same visually-correct spot now."
+      ],
+      "loggedAt": "2026-08-20T16:42:15.972120+00:00"
+    },
+    {
       "version": "189",
       "date": "2026-08-20T13:00:00-05:00",
       "changes": [
