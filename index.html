@@ -1,4 +1,27 @@
 <!--
+VERSION: 192
+DATE: 2026-08-20T13:55:00-05:00
+CHANGES:
+- Fix: follow-along auto-scroll (v191) never triggered — reported as "the text just sits there
+  through the whole playing article." Root cause: cueSectionHeading was built by looking for
+  [data-cue-idx] elements in the DOM, which only exist where a cue's SENTENCE successfully
+  matched into #artStoryText's actual text (applyCueMarkup) — a separate, more fragile
+  verbatim-text match that silently breaks the moment an entry's prose is edited after its
+  audio was generated. If that per-sentence matching comes up empty (which looks likely to be
+  happening on the entries tested — see the highlighting complaint from before this feature was
+  even built), cueSectionHeading ended up entirely empty too, so every single follow check
+  bailed out immediately with nothing to go on. computeCueSectionHeadings() no longer depends
+  on that at all: it now walks currentCues directly against the DOM's actual .arth headings (in
+  order), recognizing a heading cue either by the timing file's own `type:"heading"` flag or,
+  as a fallback, by its text matching the next expected heading exactly — neither of which
+  requires ordinary sentence cues to have matched anything.
+- New: the small status line under the scrubber (visible on any entry with audioTiming) now
+  also reports how many sections it mapped for follow-scroll, alongside the existing
+  sentence-linked count — e.g. "12/40 sentences linked · 6 section(s) mapped for
+  follow-scroll" — so it's visible at a glance whether each half of the sync is actually
+  working, without needing dev tools.
+-->
+<!--
 VERSION: 191
 DATE: 2026-08-20T13:35:00-05:00
 CHANGES:
@@ -3427,7 +3450,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v191';
+const APP_VERSION = 'v192';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6237,22 +6260,29 @@ function applyCueMarkup(cues){
     cueEls[m.idx] = cueWrapRange(map, m.start, m.end, m.idx, 'sentCue');
   });
 }
-// Builds cueSectionHeading (parallel to currentCues): for each matched cue, the .arth element
-// governing it — the nearest section heading at or before it in document order. Walked once,
-// straight down the actual rendered DOM, rather than trusted from the timing file's own
-// `section` numbers (see the comment above applyCueMarkup on why those don't reliably line up).
-// A heading that is itself a matched cue governs its own index.
+// Builds cueSectionHeading (parallel to currentCues): for each cue, the .arth element that
+// governs it. Deliberately does NOT depend on that cue's own sentence having successfully
+// matched into #artStoryText (applyCueMarkup / [data-cue-idx]) — that per-sentence verbatim
+// match is a separate, more fragile thing (it breaks the moment an entry's prose is edited
+// after the audio was generated), and there's no reason section-following should inherit that
+// fragility. Instead this walks currentCues directly against the DOM's own .arth elements (in
+// order), advancing to the next heading whenever a cue is recognized as that heading — either
+// because the timing file flags it (`c.type === 'heading'`) or, as a fallback in case that
+// field isn't present, because its text matches the next expected heading's text exactly.
 function computeCueSectionHeadings(){
   cueSectionHeading = new Array(currentCues.length).fill(null);
   const container = document.getElementById('artStoryText');
   if(!container) return;
-  let heading = null;
-  container.querySelectorAll('.arth, [data-cue-idx]').forEach(node => {
-    if(node.classList.contains('arth')) heading = node;
-    if(node.dataset && node.dataset.cueIdx !== undefined){
-      const idx = parseInt(node.dataset.cueIdx, 10);
-      if(!isNaN(idx) && cueSectionHeading[idx] == null) cueSectionHeading[idx] = heading;
-    }
+  const headingEls = Array.from(container.querySelectorAll('.arth'));
+  if(!headingEls.length) return;
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim();
+  const headingTexts = headingEls.map(h => norm(h.textContent));
+  let headingPtr = -1; // -1 = still before the first section (e.g. an intro cue with no heading yet)
+  currentCues.forEach((c, i) => {
+    const nextText = headingPtr + 1 < headingEls.length ? headingTexts[headingPtr + 1] : null;
+    const isHeading = c.type === 'heading' || (nextText !== null && norm(c.text) === nextText);
+    if(isHeading) headingPtr++;
+    cueSectionHeading[i] = headingPtr >= 0 ? headingEls[headingPtr] : null;
   });
 }
 // Fetches the entry's timing JSON (if any) and wires up highlighting + tap-to-seek. Guards
@@ -6279,7 +6309,8 @@ async function wireSentenceCues(d){
   applyCueMarkup(cues);
   computeCueSectionHeadings();
   const matched = cueEls.filter(arr => arr && arr.length).length;
-  if(statusEl) statusEl.textContent = 'Sentence sync: ' + matched + '/' + cues.length + ' sentences linked';
+  const sectionsFound = new Set(cueSectionHeading.filter(Boolean)).size;
+  if(statusEl) statusEl.textContent = 'Sentence sync: ' + matched + '/' + cues.length + ' sentences linked · ' + sectionsFound + ' section(s) mapped for follow-scroll';
 }
 // Tap a highlighted sentence/heading to jump playback there and start playing.
 document.getElementById('artBody').addEventListener('click', (e) => {
