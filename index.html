@@ -1,4 +1,23 @@
 <!--
+VERSION: 184
+DATE: 2026-08-20T11:40:00-05:00
+CHANGES:
+- Fix (the real gap): reopening a card via the normal route — tapping its icon on the
+  timeline — always calls showDetail(), which asks openArticle() for the teaser peek
+  (opts.peek:true). v182/v183's recent-position lookup explicitly skipped that path
+  ("&& !opts.peek"), so a saved scroll position was found and then thrown away every time,
+  and the reader always landed back on the plain teaser no matter how recently they'd been
+  reading. The lookup now runs BEFORE the peek/full decision: if there's a real, unexpired
+  (within the hour) mid-article position on file, it wins outright — opts.peek is forced
+  false and the reader goes straight back into the full story at that scroll position,
+  which is what "remembering where you were" was always supposed to mean. A fresh card with
+  no recent position still opens to the normal teaser, unchanged.
+- Fix: the same gap existed on left/right swipe between chronological neighbors —
+  slideArticleTo() restored a recent audio position but never scroll, always resetting to
+  the top of the incoming entry regardless of how recently it had been read. It now restores
+  scroll the same way openArticle() does.
+-->
+<!--
 VERSION: 183
 DATE: 2026-08-20T11:20:00-05:00
 CHANGES:
@@ -3309,7 +3328,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v183';
+const APP_VERSION = 'v184';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5319,24 +5338,32 @@ function openArticle(d, opts){
   currentEntry = d;
   stopAudio();
   updateUrlForEntry(d);
+  // If the Back button didn't already hand us a scroll to restore, check whether this entry
+  // has a recent (within the hour) position of its own from a previous visit — a card closed
+  // and re-opened, or the app itself closed and relaunched, should still pick up close to
+  // where the reader left off, not force them back to the top every time. Deliberately
+  // checked BEFORE the peek/full decision below: the normal "tap the icon" flow always asks
+  // for the teaser (opts.peek:true), but a real mid-article position to return to means the
+  // whole point is to skip the teaser and land the reader straight back in the full story —
+  // that's what "remembering where you were" actually means, not just a data point that gets
+  // silently ignored because the caller happened to ask for a peek.
+  pendingAudioResume = null;
+  if(!(opts.restoreScroll > 0)){
+    const recent = findRecentCard(d.id);
+    if(recent){
+      if(recent.scroll > 0){
+        opts.restoreScroll = recent.scroll;
+        opts.peek = false; // a saved mid-article position always wins over a requested teaser
+      }
+      if(recent.audioTime > 0) pendingAudioResume = recent.audioTime;
+    }
+  }
   const opening = !article.classList.contains('open');
   article.classList.toggle('peek', !!opts.peek);
   article.classList.add('open');
   document.body.classList.add('artOpen');
   article.scrollTop = 0;
   setHeroLogoFade(0); // every fresh open starts at scroll 0 — nowhere near the corner badge
-  // If the Back button didn't already hand us a scroll to restore, check whether this entry
-  // has a recent (within the hour) position of its own from a previous visit — a card closed
-  // and re-opened, or the app itself closed and relaunched, should still pick up close to
-  // where the reader left off, not force them back to the top every time.
-  pendingAudioResume = null;
-  if(!(opts.restoreScroll > 0) && !opts.peek){
-    const recent = findRecentCard(d.id);
-    if(recent){
-      if(recent.scroll > 0) opts.restoreScroll = recent.scroll;
-      if(recent.audioTime > 0) pendingAudioResume = recent.audioTime;
-    }
-  }
   fillArticleBody(d, !!opts.peek);
   document.getElementById('peekFade').classList.toggle('show', !!opts.peek);
   prefetchImage(categoryNeighbor(d, -1));
@@ -5673,12 +5700,17 @@ function slideArticleTo(d, direction){
   currentEntry = d;
   updateUrlForEntry(d);
   stopAudio();
-  // Swiping to a neighbor visited within the last hour picks up where that visit left off,
-  // same as reopening any other recent card — see openArticle().
+  // Swiping to a neighbor visited within the last hour picks up where that visit left off —
+  // both scroll position and audio — same as reopening any other recent card. See
+  // openArticle() for why full-story mode always wins here too when a real position exists.
   pendingAudioResume = null;
+  let swipeRestoreScroll = 0;
   if(!peek){
     const recent = findRecentCard(d.id);
-    if(recent && recent.audioTime > 0) pendingAudioResume = recent.audioTime;
+    if(recent){
+      if(recent.scroll > 0) swipeRestoreScroll = recent.scroll;
+      if(recent.audioTime > 0) pendingAudioResume = recent.audioTime;
+    }
   }
   // Park the flying photo for the duration of the slide. The incoming article is rendered
   // while it is still translated a full screen-width off to the side, so measuring against
@@ -5695,7 +5727,9 @@ function slideArticleTo(d, direction){
   fillArticleBody(d, peek);
   prefetchImage(categoryNeighbor(d, -1));
   prefetchImage(categoryNeighbor(d, 1));
-  article.scrollTop = 0;
+  scrollRestoreToken++;   // invalidate any restore still in flight from a previous navigation
+  if(swipeRestoreScroll > 0 && !peek) restoreArticleScroll(swipeRestoreScroll);
+  else article.scrollTop = 0;
   body.style.transition = 'none';
   body.style.transform = 'translateX(' + (direction > 0 ? '100%' : '-100%') + ')';
   void body.offsetWidth;
