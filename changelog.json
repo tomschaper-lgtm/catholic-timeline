@@ -2,6 +2,23 @@
   "v": 1,
   "entries": [
     {
+      "version": "183",
+      "date": "2026-08-20T11:20:00-05:00",
+      "changes": [
+        "Fix (the actual point of v182): collapseArticle() — the step a swipe-down normally takes",
+        "BEFORE fully closing, full story down to the peek preview — was resetting article.scrollTop",
+        "to 0 as part of that animation, with nothing capturing the real reading position first. So",
+        "the very moment a reader swiped down (even just once, accidentally, without meaning to",
+        "close anything), their place was already gone by the time closeArticle() ran and tried to",
+        "save it — v182's whole recently-viewed-cards mechanism was saving a scroll of 0 for exactly",
+        "the accidental-swipe case it was built to protect against. Now collapseArticle() saves the",
+        "card's real position the instant it's invoked, before touching scrollTop, so a reader who",
+        "swipes away — on purpose or by accident — always gets their actual place back within the",
+        "hour, not just the top of the card."
+      ],
+      "loggedAt": "2026-08-20T14:40:33.787340+00:00"
+    },
+    {
       "version": "181",
       "date": "2026-08-19T23:40:00-05:00",
       "changes": [
