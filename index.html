@@ -1,4 +1,15 @@
 <!--
+VERSION: 188
+DATE: 2026-08-20T12:45:00-05:00
+CHANGES:
+- Fix: v187's "ease back up to the section heading" reveal was scrolling to the heading's raw
+  offset, which put it directly underneath the card's own sticky header (#artSticky, pinned to
+  the top of the visible area) — so the title never actually became visible. The reveal target
+  now backs off further: sticky-header-height-plus-a-little-breathing-room past the heading's
+  top, so the title actually clears the sticky bar and is genuinely on screen once the glide
+  finishes, not just technically scrolled past.
+-->
+<!--
 VERSION: 187
 DATE: 2026-08-20T12:30:00-05:00
 CHANGES:
@@ -3365,7 +3376,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v187';
+const APP_VERSION = 'v188';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3569,14 +3580,21 @@ function jumpAndRevealSection(artEl, y, token){
       if(topAbs <= target + 1 && (sectionTop === null || topAbs > sectionTop)) sectionTop = topAbs;
     });
     if(sectionTop === null) return;                              // landed above the first heading — nothing to reveal
-    if(target - sectionTop <= SECTION_ALIGN_TOLERANCE) return;    // already essentially at the section's top
+    // The card's own sticky header (#artSticky) pins to the top of the visible area, so
+    // scrolling exactly to the heading's raw offset would land it right underneath that bar,
+    // not actually in view. The real reveal target has to sit far enough past the heading's
+    // top to clear the sticky header's own height, plus a little breathing room beneath it.
+    const sticky = document.getElementById('artSticky');
+    const headerH = sticky ? sticky.offsetHeight : 0;
+    const revealTarget = Math.max(0, sectionTop - headerH - 10);
+    if(target - revealTarget <= SECTION_ALIGN_TOLERANCE) return;  // already essentially at the section's top
     // Give the reader a moment to register the landing spot itself before easing away from it.
     setTimeout(() => {
       if(token !== scrollRestoreToken) return;
       if(!artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
       if(Math.abs(artEl.scrollTop - target) > 2) return; // reader already scrolled — leave them alone
       const start = target;
-      const delta = sectionTop - start; // negative — moving up toward the heading
+      const delta = revealTarget - start; // negative — moving up toward the heading
       let lastSet = start;
       const t0 = performance.now();
       const step = (now) => {
