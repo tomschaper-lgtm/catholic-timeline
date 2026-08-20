@@ -1,4 +1,41 @@
 <!--
+VERSION: 183
+DATE: 2026-08-20T11:20:00-05:00
+CHANGES:
+- Fix (the actual point of v182): collapseArticle() — the step a swipe-down normally takes
+  BEFORE fully closing, full story down to the peek preview — was resetting article.scrollTop
+  to 0 as part of that animation, with nothing capturing the real reading position first. So
+  the very moment a reader swiped down (even just once, accidentally, without meaning to
+  close anything), their place was already gone by the time closeArticle() ran and tried to
+  save it — v182's whole recently-viewed-cards mechanism was saving a scroll of 0 for exactly
+  the accidental-swipe case it was built to protect against. Now collapseArticle() saves the
+  card's real position the instant it's invoked, before touching scrollTop, so a reader who
+  swipes away — on purpose or by accident — always gets their actual place back within the
+  hour, not just the top of the card.
+-->
+<!--
+VERSION: 182
+DATE: 2026-08-20T11:00:00-05:00
+CHANGES:
+- New: recently-viewed-cards memory. Every time a card is left — closed, swiped away from to a
+  chronological neighbor, or the app itself backgrounded (visibilitychange/pagehide) — its
+  scroll position and (if audio was playing) the audio's timestamp, backed up 5 seconds, are
+  saved to a device-local list of the last 20 cards visited (most-recent-first, capped,
+  localStorage key ct-recent-cards). Re-opening any of those entries within an hour of that
+  save resumes at that same scroll position and audio timestamp instead of starting at the
+  top; past an hour it starts fresh, same as before. No UI yet for browsing this list — it's
+  read internally by the app for this resume behavior only, on purpose, per the owner's
+  instruction; a "recently viewed" screen can read the same list later without changing
+  anything here.
+- New: return-to-app routing. On cold start and on every resume from the background, the app
+  checks whether it's a new calendar day since the last visit (localStorage
+  ct-last-visit-date). On a new day, today's feast (if any saint's feast falls today) is
+  shown, exactly as before. Otherwise — same day, or a new day with no feast — the app now
+  falls back to the last card viewed (the head of the recently-viewed list above) rather than
+  leaving the reader on the bare timeline. A card already open, or an explicit deep link
+  (#entry-id in the URL), always takes priority over this and is left alone.
+-->
+<!--
 VERSION: 181
 DATE: 2026-08-19T23:40:00-05:00
 CHANGES:
@@ -3272,7 +3309,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v181';
+const APP_VERSION = 'v183';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4373,6 +4410,64 @@ function goToFeastOfDay(d){
   centerAndFocus(d, {onDone: () => showDetail(d), scrollOpts: {durationScale: 2.4}});
 }
 
+// ---- Return-to-app routing ----
+// On a genuinely new day, today's feast wins (if there is one) — that's the whole point of
+// the feature. Otherwise — same day, or a new day with nothing to celebrate — the reader is
+// dropped back on whichever card they most recently had open (see the recently-viewed-cards
+// list above), rather than the bare timeline. Runs at cold start and again every time the app
+// is resumed from the background, so a PWA that was never fully killed still gets the same
+// "new day" treatment as a fresh launch.
+const LAST_VISIT_DATE_KEY = 'ct-last-visit-date';
+function localDateStr(d){
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+// Core routing decision, shared by cold start (which has already ruled out an explicit deep
+// link on its own) and app-resume (which checks that itself in routeOnAppEntry below).
+function routeToFeastOrLastCard(){
+  const today = localDateStr();
+  const isNewDay = localStorage.getItem(LAST_VISIT_DATE_KEY) !== today;
+  try{ localStorage.setItem(LAST_VISIT_DATE_KEY, today); }catch(e){}
+  if(isNewDay){
+    const todaysSaint = findTodaysSaint();
+    if(todaysSaint){
+      // Start from the familiar overview, then travel to today's saint after a brief beat,
+      // so the journey reads as a deliberate "here's who we celebrate today" moment rather
+      // than an instant jump straight to their card.
+      setTimeout(() => goToFeastOfDay(todaysSaint), 600);
+      return;
+    }
+  }
+  // No feast to jump to (or it's the same day as last visit) — fall back to the last card
+  // viewed, if any. The card's own recent-position memory (see openArticle) then decides
+  // whether to resume mid-scroll/mid-audio or start that card fresh at the top.
+  const last = getRecentCards()[0];
+  if(!last) return;
+  const entry = getEntry(last.id);
+  if(!entry || (isReview(entry) && !reviewMode)) return;
+  scrollToYear(entry.y);
+  setTimeout(() => showDetail(entry), isNewDay ? 600 : 0);
+}
+function routeOnAppEntry(){
+  if(article.classList.contains('open')) return; // a card is already open — don't yank the reader away
+  if(location.hash) return;                      // an explicit deep link always wins
+  routeToFeastOrLastCard();
+}
+// Backgrounding the app (switching apps, locking the phone, etc.) is also a "leaving" moment
+// for whatever card is open, same as closing it outright — snapshot its position so a later
+// resume (possibly tomorrow) can find it. On the way back to visible, run the same routing
+// a cold launch gets.
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden'){
+    saveCurrentCardPosition();
+  } else if(document.visibilityState === 'visible'){
+    routeOnAppEntry();
+  }
+});
+// Belt-and-suspenders for iOS Safari, which doesn't always fire visibilitychange reliably
+// before a tab is discarded or the app is swiped away.
+window.addEventListener('pagehide', saveCurrentCardPosition);
+
 document.getElementById('tlSearch').addEventListener('input', runSearch);
 document.getElementById('tlSearch').addEventListener('focus', runSearch);
 document.getElementById('tlSearch').addEventListener('keydown', (e) => {
@@ -5079,8 +5174,9 @@ function fillArticleBody(d, peek){
     });
   }
 
-  if(d.audio){ initAudio(resolveAsset(d.audio, db.settings && db.settings.audioBase)); wireSentenceCues(d); }
+  if(d.audio){ initAudio(resolveAsset(d.audio, db.settings && db.settings.audioBase), pendingAudioResume); wireSentenceCues(d); }
   else stopAudio();
+  pendingAudioResume = null; // consumed (or there was none) — never leak into a later entry
   syncStickyBackdrops();
   if(peek){ flyGeo = null; placePeekFly(hasImg); }
   else measureFly();
@@ -5174,8 +5270,47 @@ function placePeekFly(hasImg){
   setTimeout(placePeekFlyNow, 260);
   setTimeout(placePeekFlyNow, 620);
 }
+// ---- Recently viewed cards (most recent first, persisted, device-local) ----
+// Every time the reader leaves a card — closing it, swiping to a neighbor, or backgrounding
+// the app entirely — we snapshot where they were (scroll position, and where the audio had
+// gotten to) and push it to the front of this list, capped at the last 20. Re-visiting an
+// entry that's still in the list, and still within the last hour, picks back up close to
+// where they left off instead of starting over at the top. No UI reads this yet — it's kept
+// purely so the open-a-card logic below has somewhere to look. A future "recently viewed"
+// screen can read the same list without changing anything here.
+const RECENT_CARDS_KEY = 'ct-recent-cards';
+const RECENT_CARDS_MAX = 20;
+const CARD_RESUME_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const AUDIO_RESUME_BACKUP_SEC = 5; // rewind a few seconds so we don't resume mid-word
+function getRecentCards(){
+  try{ const a = JSON.parse(localStorage.getItem(RECENT_CARDS_KEY) || '[]'); return Array.isArray(a) ? a : []; }
+  catch(e){ return []; }
+}
+function findRecentCard(id){
+  const rec = getRecentCards().find(c => c.id === id);
+  if(!rec) return null;
+  if(Date.now() - (rec.ts || 0) > CARD_RESUME_WINDOW_MS) return null; // too stale — start fresh
+  return rec;
+}
+// Snapshots whatever card is currently open (scroll position, audio position) to the front
+// of the recent list. Called from every route out of a card — see call sites below.
+function saveCurrentCardPosition(){
+  if(!currentEntry || !article.classList.contains('open') || article.classList.contains('peek')) return;
+  const rec = { id: currentEntry.id, scroll: article.scrollTop || 0, ts: Date.now() };
+  if(audioEl && isFinite(audioEl.currentTime) && audioEl.currentTime > 0){
+    rec.audioTime = Math.max(0, audioEl.currentTime - AUDIO_RESUME_BACKUP_SEC);
+  }
+  const list = getRecentCards().filter(c => c.id !== rec.id); // re-visiting promotes, never duplicates
+  list.unshift(rec);
+  try{ localStorage.setItem(RECENT_CARDS_KEY, JSON.stringify(list.slice(0, RECENT_CARDS_MAX))); }catch(e){}
+}
+// Holds an audio resume time between openArticle()/slideArticleTo() deciding to restore one
+// and initAudio() actually having an <audio> element to apply it to. Read-once: cleared as
+// soon as it's consumed so a later entry with no saved position doesn't inherit it.
+let pendingAudioResume = null;
 function openArticle(d, opts){
   opts = opts || {};
+  saveCurrentCardPosition();  // snapshot whatever card is being left behind before it's gone
   cancelMorph();   // a flight belonging to the outgoing entry must not land on the new one
   if(!opts.preserveStack) articleBackStack = []; // fresh open (timeline, search, shared link…) starts a new chain
   // A "session" for triple-tap-queued links is the same span as the back-stack: it survives
@@ -5190,12 +5325,25 @@ function openArticle(d, opts){
   document.body.classList.add('artOpen');
   article.scrollTop = 0;
   setHeroLogoFade(0); // every fresh open starts at scroll 0 — nowhere near the corner badge
+  // If the Back button didn't already hand us a scroll to restore, check whether this entry
+  // has a recent (within the hour) position of its own from a previous visit — a card closed
+  // and re-opened, or the app itself closed and relaunched, should still pick up close to
+  // where the reader left off, not force them back to the top every time.
+  pendingAudioResume = null;
+  if(!(opts.restoreScroll > 0) && !opts.peek){
+    const recent = findRecentCard(d.id);
+    if(recent){
+      if(recent.scroll > 0) opts.restoreScroll = recent.scroll;
+      if(recent.audioTime > 0) pendingAudioResume = recent.audioTime;
+    }
+  }
   fillArticleBody(d, !!opts.peek);
   document.getElementById('peekFade').classList.toggle('show', !!opts.peek);
   prefetchImage(categoryNeighbor(d, -1));
   prefetchImage(categoryNeighbor(d, 1));
-  // Coming back via the Back button: return the reader to where they left off. Every other
-  // route (a fresh open, a forward link tap) has no saved position and stays at the top.
+  // Coming back via the Back button, or reopening a card visited within the last hour:
+  // return the reader to where they left off. Every other route (a fresh open, a forward
+  // link tap, a stale/expired position) has no saved position and stays at the top.
   scrollRestoreToken++;   // invalidate any restore still in flight from a previous navigation
   if(opts.restoreScroll > 0 && !opts.peek) restoreArticleScroll(opts.restoreScroll);
   // The sheet slides up on a transform, which a fixed-position element cannot ride along
@@ -5407,6 +5555,7 @@ function canCollapseToPeek(){
 }
 function collapseArticle(){
   if(!canCollapseToPeek()) return false;
+  saveCurrentCardPosition();  // capture the real reading position NOW — scrollTop is about to be reset to 0 below, and that's exactly the moment a reader's place was silently getting lost
   lastCollapseAt = performance.now();
   const peekEl = document.getElementById('artPeek');
   const hero = document.getElementById('artHeroImg');
@@ -5459,6 +5608,7 @@ function collapseArticle(){
 // from the full story steps back to the preview first (collapseArticle), and it's a second
 // swipe from there — or a tap outside, or the back button — that lands here and closes for good.
 function closeArticle(opts){
+  saveCurrentCardPosition();  // must run before stopAudio() clears the audio element below
   stopAudio();
   closeLinkPicker(); // defensive: don't leave the picker dialog stranded open behind a closing sheet
   try{ window.getSelection().removeAllRanges(); }catch(err){} // don't leave the auto-selected story text highlighted behind the closed sheet
@@ -5516,12 +5666,20 @@ function slideArticleTo(d, direction){
   } else if(currentEntry){
     articleBackStack.push({ id: currentEntry.id, scroll: article.scrollTop || 0 });
   }
+  saveCurrentCardPosition();  // snapshot the entry we're swiping away from, same as any other exit
   const peek = article.classList.contains('peek');
   const wrap = document.querySelector('.artwrap');
   const body = document.getElementById('artBody');
   currentEntry = d;
   updateUrlForEntry(d);
   stopAudio();
+  // Swiping to a neighbor visited within the last hour picks up where that visit left off,
+  // same as reopening any other recent card — see openArticle().
+  pendingAudioResume = null;
+  if(!peek){
+    const recent = findRecentCard(d.id);
+    if(recent && recent.audioTime > 0) pendingAudioResume = recent.audioTime;
+  }
   // Park the flying photo for the duration of the slide. The incoming article is rendered
   // while it is still translated a full screen-width off to the side, so measuring against
   // it here would strand the photo at the edge. The inline photo simply slides in with the
@@ -5571,7 +5729,7 @@ function fmtTime(s){
 }
 const ICON_PLAY = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor" pointer-events="none"><path d="M7 4l14 8-14 8V4z"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor" pointer-events="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-function initAudio(url){
+function initAudio(url, resumeTime){
   stopAudio();
   audioEl = new Audio(url);
   audioEl.preload = 'metadata';
@@ -5590,7 +5748,14 @@ function initAudio(url){
     else { a.pause(); play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); }
   });
   a.addEventListener('loadedmetadata', () => {
-    time.textContent = '0:00 / ' + fmtTime(a.duration);
+    // Resume where a previous visit (this session or a past one, within the hour) left off,
+    // already backed up a few seconds — see saveCurrentCardPosition(). Clamped to the
+    // actual duration in case the file changed since that position was saved.
+    if(resumeTime > 0){
+      a.currentTime = Math.min(resumeTime, Math.max(0, a.duration - 0.25 || resumeTime));
+      if(seek && a.duration) seek.value = (a.currentTime / a.duration) * 100;
+    }
+    time.textContent = fmtTime(a.currentTime) + ' / ' + fmtTime(a.duration);
   });
   a.addEventListener('timeupdate', () => {
     if(!scrubbing && a.duration){
@@ -8700,13 +8865,7 @@ const APP_ICON = { touch: 'Images/icons/apple-touch-icon.png',
       showDetail(sharedEntry);
     } else {
       scrollToYear(120);
-      const todaysSaint = findTodaysSaint();
-      if(todaysSaint){
-        // Start from the familiar overview, then travel to today's saint after a brief
-        // beat, so the journey reads as a deliberate "here's who we celebrate today"
-        // moment rather than an instant jump straight to their card.
-        setTimeout(() => goToFeastOfDay(todaysSaint), 600);
-      }
+      routeToFeastOrLastCard();
     }
   }catch(e){
     console.warn('Startup render failed:', e);
