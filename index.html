@@ -1,4 +1,18 @@
 <!--
+VERSION: 187
+DATE: 2026-08-20T12:30:00-05:00
+CHANGES:
+- Changed: reopening a card at a remembered position (v184/v185/v186) no longer glides down
+  from the top of the card at all — that read as distracting regardless of speed. It now
+  jumps straight to the saved scroll position instantly, exactly like the audio and the
+  hero-photo-position restore already did. The only motion left is orienting, not
+  "here's-a-neat-effect": if the landing spot is more than a hair into its section (not
+  already sitting right at that section's heading), the view eases gently back up — a short,
+  slow, purely upward glide — to reveal that section's title, giving the reader a beat to
+  place themselves before continuing. A spot that already lands right at a section's top
+  skips that step entirely, since there's nothing to reveal.
+-->
+<!--
 VERSION: 186
 DATE: 2026-08-20T12:15:00-05:00
 CHANGES:
@@ -3351,7 +3365,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v186';
+const APP_VERSION = 'v187';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3479,15 +3493,16 @@ function goBackArticle(){
 // opts.animate — used specifically for the "we remembered your place" resume case (reopening
 // a recently-visited card, or swiping to one), NOT for the Back button, which stays an
 // instant jump so undoing an in-article link tap still feels snappy. When animating, the
-// article rides down from the very top in one smooth, decelerating motion — see
-// animateRestoreScroll().
+// card jumps straight to the saved position (no travel animation — that read as more
+// distracting than helpful) and then, only if that position isn't already at the top of its
+// section, eases gently back up to reveal the section heading — see jumpAndRevealSection().
 let scrollRestoreToken = 0;
 function restoreArticleScroll(y, opts){
   const artEl = document.getElementById('article');
   if(!artEl || !(y > 0)) return;
   const token = ++scrollRestoreToken;
   if(opts && opts.animate){
-    animateRestoreScroll(artEl, y, token);
+    jumpAndRevealSection(artEl, y, token);
     return;
   }
   let lastSet = -1;
@@ -3512,14 +3527,17 @@ function restoreArticleScroll(y, opts){
   setTimeout(apply, 420);
 }
 function easeOutDecel(t){ return 1 - Math.pow(1 - t, 3); }
-// The animated half of restoreArticleScroll: rides from the top of the card down to `y` over
-// a slow, deliberate glide with a decelerating ease-out (fast start, gentle landing) — long
-// enough that it reads as a purposeful "here's where you were," not a flicker.
-function animateRestoreScroll(artEl, y, token){
-  const RESTORE_MS = 2200;
-  // Same "wait for real height" concern as the plain restore above, just resolved once up
-  // front instead of via repeated re-application, since the scroll itself is now a single
-  // continuous motion rather than a series of snap-corrections.
+// A short scroll-past-the-heading tolerance: landing this close to a section's top already
+// reads as "right at the section," so there's nothing worth easing back up to reveal.
+const SECTION_ALIGN_TOLERANCE = 40;
+// The animated half of restoreArticleScroll: lands directly on the saved position (no travel
+// glide down the whole card — that read as more distracting than helpful), then, if that spot
+// sits some way into a section rather than right at its heading, gives the reader a beat to
+// register where they are and eases back up to that section's title — a shorter, slower,
+// purely orienting motion, not a re-play of the whole scroll.
+function jumpAndRevealSection(artEl, y, token){
+  const REVEAL_DELAY_MS = 400;
+  const REVEAL_MS = 1400;
   const settle = (cb) => {
     let done = false;
     const go = () => { if(done) return; done = true; cb(); };
@@ -3533,23 +3551,48 @@ function animateRestoreScroll(artEl, y, token){
     if(!artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
     const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
     const target = Math.min(y, max);
-    if(target <= 1) return; // nowhere meaningful to ride down to
-    artEl.scrollTop = 0;    // always start the reveal from the very beginning of the card
-    let lastSet = 0;
-    const t0 = performance.now();
-    const step = (now) => {
-      if(token !== scrollRestoreToken) return;                                // superseded
+    if(target <= 1) return; // nowhere meaningful to jump to
+    artEl.scrollTop = target; // land immediately — this is the reader's actual saved spot
+    syncStickyBackdrops();
+    measureFly();
+    updateFly();
+    // Find the section heading that governs this landing spot: the last .arth whose own top
+    // sits at or above it. Coordinates are computed in the scrollable content's own space
+    // (independent of the current scroll offset) so they're directly comparable to `target`.
+    const headings = artEl.querySelectorAll('#artStoryText .arth');
+    if(!headings.length) return;
+    const artRect = artEl.getBoundingClientRect();
+    let sectionTop = null;
+    headings.forEach(h => {
+      const r = h.getBoundingClientRect();
+      const topAbs = r.top - artRect.top + artEl.scrollTop; // scrollTop is now `target`
+      if(topAbs <= target + 1 && (sectionTop === null || topAbs > sectionTop)) sectionTop = topAbs;
+    });
+    if(sectionTop === null) return;                              // landed above the first heading — nothing to reveal
+    if(target - sectionTop <= SECTION_ALIGN_TOLERANCE) return;    // already essentially at the section's top
+    // Give the reader a moment to register the landing spot itself before easing away from it.
+    setTimeout(() => {
+      if(token !== scrollRestoreToken) return;
       if(!artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
-      if(Math.abs(artEl.scrollTop - lastSet) > 2) return;                     // reader took over — stop overriding
-      const raw = Math.min(1, (now - t0) / RESTORE_MS);
-      artEl.scrollTop = target * easeOutDecel(raw);
-      lastSet = artEl.scrollTop;
-      syncStickyBackdrops();
-      updateFly();
-      if(raw < 1){ requestAnimationFrame(step); return; }
-      measureFly();
-    };
-    requestAnimationFrame(step);
+      if(Math.abs(artEl.scrollTop - target) > 2) return; // reader already scrolled — leave them alone
+      const start = target;
+      const delta = sectionTop - start; // negative — moving up toward the heading
+      let lastSet = start;
+      const t0 = performance.now();
+      const step = (now) => {
+        if(token !== scrollRestoreToken) return;
+        if(!artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
+        if(Math.abs(artEl.scrollTop - lastSet) > 2) return; // reader took over — stop overriding
+        const raw = Math.min(1, (now - t0) / REVEAL_MS);
+        artEl.scrollTop = start + delta * easeOutDecel(raw);
+        lastSet = artEl.scrollTop;
+        syncStickyBackdrops();
+        updateFly();
+        if(raw < 1){ requestAnimationFrame(step); return; }
+        measureFly();
+      };
+      requestAnimationFrame(step);
+    }, REVEAL_DELAY_MS);
   });
 }
 let suppressArticleClick = false;
