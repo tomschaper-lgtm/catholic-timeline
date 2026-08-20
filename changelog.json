@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "184",
+      "date": "2026-08-20T11:40:00-05:00",
+      "changes": [
+        "Fix (the real gap): reopening a card via the normal route — tapping its icon on the",
+        "timeline — always calls showDetail(), which asks openArticle() for the teaser peek",
+        "(opts.peek:true). v182/v183's recent-position lookup explicitly skipped that path",
+        "(\"&& !opts.peek\"), so a saved scroll position was found and then thrown away every time,",
+        "and the reader always landed back on the plain teaser no matter how recently they'd been",
+        "reading. The lookup now runs BEFORE the peek/full decision: if there's a real, unexpired",
+        "(within the hour) mid-article position on file, it wins outright — opts.peek is forced",
+        "false and the reader goes straight back into the full story at that scroll position,",
+        "which is what \"remembering where you were\" was always supposed to mean. A fresh card with",
+        "no recent position still opens to the normal teaser, unchanged.",
+        "Fix: the same gap existed on left/right swipe between chronological neighbors —",
+        "slideArticleTo() restored a recent audio position but never scroll, always resetting to",
+        "the top of the incoming entry regardless of how recently it had been read. It now restores",
+        "scroll the same way openArticle() does."
+      ],
+      "loggedAt": "2026-08-20T15:09:06.467551+00:00"
+    },
+    {
       "version": "183",
       "date": "2026-08-20T11:20:00-05:00",
       "changes": [
