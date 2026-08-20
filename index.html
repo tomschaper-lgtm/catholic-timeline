@@ -1,4 +1,26 @@
 <!--
+VERSION: 191
+DATE: 2026-08-20T13:35:00-05:00
+CHANGES:
+- New: follow-along auto-scroll during audio playback. While the narration plays, whenever the
+  highlighted sentence moves into a section whose heading isn't on screen, the view eases up
+  or down (same decelerating glide as the resume-reveal feature, clearing the sticky header
+  and audio scrubber the same way) to bring that section's heading into view — so the text
+  being read stays visible without the reader having to touch anything. Also fires the instant
+  Play is pressed, not just on section changes: scroll to the bottom of a long entry, hit Play
+  from the start, and the view jumps straight to wherever playback is actually beginning.
+  Tapping a sentence to seek (existing feature) benefits too, though it's usually a no-op there
+  since the tapped sentence is already visible.
+- A genuine manual scroll (touchmove or wheel — not just a tap, so pressing Play/seek/a cue
+  itself never counts) silences the follow-along for 4 seconds and immediately stops any
+  follow animation already in progress, so it never fights a reader repositioning the text
+  themselves. It re-arms automatically once that window passes.
+- New: cueSectionHeading — built once per entry right after cues are matched, mapping each
+  matched cue to the section heading that governs it (walked directly off the rendered DOM, not
+  the timing file's own section numbers, for the same reliability reason documented above
+  applyCueMarkup).
+-->
+<!--
 VERSION: 190
 DATE: 2026-08-20T13:15:00-05:00
 CHANGES:
@@ -3405,7 +3427,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v190';
+const APP_VERSION = 'v191';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5943,6 +5965,19 @@ let currentCues = [];      // the raw cues array from the timing file (start/end
 let cueEls = [];           // parallel array: cueEls[i] = the DOM element(s) matched for currentCues[i], or []
 let activeCueIdx = -1;     // index into currentCues currently highlighted, or -1
 let apPlayBtn = null, apSeekEl = null, apTimeEl = null; // live refs to this render's player controls
+// ---- Follow-along auto-scroll (v191) ----
+// While audio plays, keeps whichever section is currently being read on-screen — without
+// fighting the reader if they move the text around with their own finger. cueSectionHeading
+// is a parallel array to currentCues: cueSectionHeading[i] = the .arth element governing that
+// cue (the nearest heading at or before it in document order), built once per entry right
+// after cues are matched — see computeCueSectionHeadings(). See followAudioSection() below for
+// the actual scroll decision, and the touchmove/wheel listeners further down for how a manual
+// scroll silences it for a few seconds.
+let cueSectionHeading = [];
+let audioFollowLastHeading = null;  // the heading we've already scrolled to (or found already visible) — don't repeat
+let audioFollowSuppressUntil = 0;   // Date.now() ms; a manual scroll pushes this forward
+let audioFollowToken = 0;           // invalidates any in-flight follow animation, same pattern as scrollRestoreToken
+const AUDIO_FOLLOW_SUPPRESS_MS = 4000;
 function fmtTime(s){
   if(!isFinite(s)) return '0:00';
   const m = Math.floor(s/60), sec = Math.floor(s%60);
@@ -5965,7 +6000,15 @@ function initAudio(url, resumeTime){
   const a = audioEl;
 
   play.addEventListener('click', () => {
-    if(a.paused){ a.play(); play.innerHTML = ICON_PAUSE; play.setAttribute('aria-label','Pause'); }
+    if(a.paused){
+      a.play(); play.innerHTML = ICON_PAUSE; play.setAttribute('aria-label','Pause');
+      // Force a follow-check right now, regardless of whether the highlighted sentence is
+      // about to change: pressing Play is exactly the moment a reader who scrolled elsewhere
+      // (e.g. down to the very bottom, then hit Play to start the story over) needs the view
+      // brought back to wherever playback is actually starting from.
+      audioFollowLastHeading = null;
+      followAudioSection(cueIndexForTime(a.currentTime), true);
+    }
     else { a.pause(); play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); }
   });
   a.addEventListener('loadedmetadata', () => {
@@ -6005,6 +6048,7 @@ function initAudio(url, resumeTime){
 function stopAudio(){
   if(audioEl){ audioEl.pause(); audioEl.src = ''; audioEl = null; }
   currentCues = []; cueEls = []; activeCueIdx = -1;
+  cueSectionHeading = []; audioFollowLastHeading = null; audioFollowSuppressUntil = 0; audioFollowToken++;
   apPlayBtn = null; apSeekEl = null; apTimeEl = null;
 }
 
@@ -6013,24 +6057,92 @@ function stopAudio(){
 // audioTiming (or a fetch/match failure) just falls back to the plain scrubber, same as before. ----
 
 function setActiveCue(idx){
-  if(idx === activeCueIdx) return;
-  (cueEls[activeCueIdx] || []).forEach(el => el.classList.remove('cuePlaying'));
-  activeCueIdx = idx;
-  (cueEls[activeCueIdx] || []).forEach(el => el.classList.add('cuePlaying'));
+  if(idx !== activeCueIdx){
+    (cueEls[activeCueIdx] || []).forEach(el => el.classList.remove('cuePlaying'));
+    activeCueIdx = idx;
+    (cueEls[activeCueIdx] || []).forEach(el => el.classList.add('cuePlaying'));
+  }
+  followAudioSection(idx);
 }
-function updateActiveCue(t){
-  if(!currentCues.length) return;
-  // Cues are in chronological order, so start the scan near the current index rather than
-  // always from 0 — cheap enough either way at typical cue counts, but this keeps it trivial
-  // even for a very long article.
+// Cues are in chronological order; a plain forward scan is cheap enough at typical cue counts
+// and stays trivial even for a very long article. Shared by updateActiveCue (the normal
+// playback-driven path) and the Play-button handler above (which needs the answer once, up
+// front, without waiting for the next timeupdate tick).
+function cueIndexForTime(t){
+  if(!currentCues.length) return -1;
   let idx = -1;
   for(let i = 0; i < currentCues.length; i++){
     const c = currentCues[i];
     if(t >= c.start && t < c.end){ idx = i; break; }
     if(t < c.start) break;
   }
-  setActiveCue(idx);
+  return idx;
 }
+function updateActiveCue(t){
+  if(!currentCues.length) return;
+  setActiveCue(cueIndexForTime(t));
+}
+// The follow-along scroll decision itself: does the section governing the currently-playing
+// cue need to be brought on screen? `force` (used only from the Play button) bypasses the
+// manual-scroll suppression window — pressing Play is a deliberate request to go to wherever
+// playback is starting, even if the reader had just been scrolling a moment before.
+function followAudioSection(idx, force){
+  if(!(idx >= 0) || !cueSectionHeading.length) return;
+  const heading = cueSectionHeading[idx];
+  if(!heading) return;                                  // before the first heading, or no headings matched at all
+  const artEl = document.getElementById('article');
+  if(!artEl || !artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
+  if(!force && Date.now() < audioFollowSuppressUntil) return; // reader is actively scrolling — don't fight them
+  const sticky = document.getElementById('artSticky');
+  const headerH = sticky ? sticky.offsetHeight : 0;
+  const player = document.getElementById('artPlayerWrap');
+  const playerH = player ? player.offsetHeight : 0;
+  const occludedH = headerH + playerH; // same two stacked sticky bars as the resume-reveal logic
+  const artRect = artEl.getBoundingClientRect();
+  const hRect = heading.getBoundingClientRect();
+  const headingViewportTop = hRect.top - artRect.top; // heading's position in the card's own box, current screen pixels
+  const onScreen = headingViewportTop >= occludedH - 4 && headingViewportTop <= artEl.clientHeight - 40;
+  if(onScreen){ audioFollowLastHeading = heading; return; } // already visible somewhere below the bars — leave it be
+  if(heading === audioFollowLastHeading && !force) return;  // already scrolled here for this section, still off-screen only because the reader moved away — don't re-chase
+  audioFollowLastHeading = heading;
+  const headingAbs = headingViewportTop + artEl.scrollTop; // convert to absolute content-space offset
+  const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
+  const target = Math.min(max, Math.max(0, headingAbs - occludedH - SECTION_BREATH));
+  animateFollowScroll(artEl, target);
+}
+// Same decelerating glide as the resume-reveal animation, just driven by playback advancing
+// into a new section rather than reopening a saved position. Kept separate (own token) so the
+// two features can't fight over which is allowed to be mid-animation.
+function animateFollowScroll(artEl, target){
+  const token = ++audioFollowToken;
+  const DURATION = 1100;
+  const start = artEl.scrollTop;
+  if(Math.abs(target - start) < 4) return;
+  let lastSet = start;
+  const t0 = performance.now();
+  const step = (now) => {
+    if(token !== audioFollowToken) return;                          // a newer follow, or a manual scroll, took over
+    if(!artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
+    if(Math.abs(artEl.scrollTop - lastSet) > 2) return;              // reader took over — stop overriding
+    const raw = Math.min(1, (now - t0) / DURATION);
+    artEl.scrollTop = start + (target - start) * easeOutDecel(raw);
+    lastSet = artEl.scrollTop;
+    syncStickyBackdrops();
+    updateFly();
+    if(raw < 1){ requestAnimationFrame(step); return; }
+    measureFly();
+  };
+  requestAnimationFrame(step);
+}
+// A manual drag/scroll (not a mere tap — touchmove/wheel only) silences follow-along for a few
+// seconds and immediately halts any follow animation already in flight, so the reader's own
+// gesture always wins. Re-armed automatically once the suppression window elapses.
+function noteManualScrollForAudioFollow(){
+  audioFollowSuppressUntil = Date.now() + AUDIO_FOLLOW_SUPPRESS_MS;
+  audioFollowToken++;
+}
+document.getElementById('article').addEventListener('touchmove', noteManualScrollForAudioFollow, {passive:true});
+document.getElementById('article').addEventListener('wheel', noteManualScrollForAudioFollow, {passive:true});
 function seekToCue(idx){
   const cue = currentCues[idx];
   if(!cue || !audioEl) return;
@@ -6125,11 +6237,30 @@ function applyCueMarkup(cues){
     cueEls[m.idx] = cueWrapRange(map, m.start, m.end, m.idx, 'sentCue');
   });
 }
+// Builds cueSectionHeading (parallel to currentCues): for each matched cue, the .arth element
+// governing it — the nearest section heading at or before it in document order. Walked once,
+// straight down the actual rendered DOM, rather than trusted from the timing file's own
+// `section` numbers (see the comment above applyCueMarkup on why those don't reliably line up).
+// A heading that is itself a matched cue governs its own index.
+function computeCueSectionHeadings(){
+  cueSectionHeading = new Array(currentCues.length).fill(null);
+  const container = document.getElementById('artStoryText');
+  if(!container) return;
+  let heading = null;
+  container.querySelectorAll('.arth, [data-cue-idx]').forEach(node => {
+    if(node.classList.contains('arth')) heading = node;
+    if(node.dataset && node.dataset.cueIdx !== undefined){
+      const idx = parseInt(node.dataset.cueIdx, 10);
+      if(!isNaN(idx) && cueSectionHeading[idx] == null) cueSectionHeading[idx] = heading;
+    }
+  });
+}
 // Fetches the entry's timing JSON (if any) and wires up highlighting + tap-to-seek. Guards
 // against the article having changed while the fetch was in flight (a quick swipe away and
 // back), same pattern as the rest of the app's async work.
 async function wireSentenceCues(d){
   currentCues = []; cueEls = []; activeCueIdx = -1;
+  cueSectionHeading = []; audioFollowLastHeading = null; audioFollowSuppressUntil = 0; audioFollowToken++;
   const statusEl = document.getElementById('apCueStatus');
   if(!d.audioTiming) return;
   const entryId = d.id;
@@ -6146,6 +6277,7 @@ async function wireSentenceCues(d){
   currentCues = cues;
   cueEls = cues.map(() => []);
   applyCueMarkup(cues);
+  computeCueSectionHeadings();
   const matched = cueEls.filter(arr => arr && arr.length).length;
   if(statusEl) statusEl.textContent = 'Sentence sync: ' + matched + '/' + cues.length + ' sentences linked';
 }
