@@ -2,6 +2,31 @@
   "v": 1,
   "entries": [
     {
+      "version": "192",
+      "date": "2026-08-20T13:55:00-05:00",
+      "changes": [
+        "Fix: follow-along auto-scroll (v191) never triggered — reported as \"the text just sits there",
+        "through the whole playing article.\" Root cause: cueSectionHeading was built by looking for",
+        "[data-cue-idx] elements in the DOM, which only exist where a cue's SENTENCE successfully",
+        "matched into #artStoryText's actual text (applyCueMarkup) — a separate, more fragile",
+        "verbatim-text match that silently breaks the moment an entry's prose is edited after its",
+        "audio was generated. If that per-sentence matching comes up empty (which looks likely to be",
+        "happening on the entries tested — see the highlighting complaint from before this feature was",
+        "even built), cueSectionHeading ended up entirely empty too, so every single follow check",
+        "bailed out immediately with nothing to go on. computeCueSectionHeadings() no longer depends",
+        "on that at all: it now walks currentCues directly against the DOM's actual .arth headings (in",
+        "order), recognizing a heading cue either by the timing file's own `type:\"heading\"` flag or,",
+        "as a fallback, by its text matching the next expected heading exactly — neither of which",
+        "requires ordinary sentence cues to have matched anything.",
+        "New: the small status line under the scrubber (visible on any entry with audioTiming) now",
+        "also reports how many sections it mapped for follow-scroll, alongside the existing",
+        "sentence-linked count — e.g. \"12/40 sentences linked · 6 section(s) mapped for",
+        "follow-scroll\" — so it's visible at a glance whether each half of the sync is actually",
+        "working, without needing dev tools."
+      ],
+      "loggedAt": "2026-08-20T18:45:35.080469+00:00"
+    },
+    {
       "version": "191",
       "date": "2026-08-20T13:35:00-05:00",
       "changes": [
