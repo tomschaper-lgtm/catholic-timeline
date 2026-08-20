@@ -1,4 +1,23 @@
 <!--
+VERSION: 193
+DATE: 2026-08-20T14:15:00-05:00
+CHANGES:
+- Confirmed against a real audioTiming file (st-john-the-baptist-30-v1.json): the cue schema
+  does carry `type:"heading"`, exactly what computeCueSectionHeadings() (v192) already checks
+  for first. So the matching logic itself isn't the failure — the status line not appearing at
+  all was the real clue: that line only renders when `d.audioTiming` is truthy, so its total
+  absence (not just an unhelpful message) means the entry being tested most likely doesn't have
+  an audioTiming path set yet, even if the timing file itself exists and audio is playing fine.
+- Fix: the status line now renders for any entry with audio at all, not only ones with
+  audioTiming linked — and reports plainly ("no audioTiming linked to this entry") when that's
+  the case, instead of the whole line just not existing. A missing link and a genuine blank are
+  no longer visually identical.
+- Fix: wireSentenceCues() now wraps the cue-matching + section-mapping step in its own
+  try/catch and reports any real error as visible status text ("Sentence sync error: …")
+  instead of letting an exception vanish into a silently-rejected async function with no
+  visible trace.
+-->
+<!--
 VERSION: 192
 DATE: 2026-08-20T13:55:00-05:00
 CHANGES:
@@ -3450,7 +3469,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v192';
+const APP_VERSION = 'v193';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5348,7 +5367,7 @@ function fillArticleBody(d, peek){
       '<input type="range" id="apSeek" min="0" max="100" value="0" step="0.1" aria-label="Seek">' +
       '<span class="ptime" id="apTime">0:00 / 0:00</span>' +
       '</div>' +
-      (d.audioTiming ? '<div class="apCueStatus" id="apCueStatus"></div>' : '') +
+      (d.audio ? '<div class="apCueStatus" id="apCueStatus"></div>' : '') +
       '</div>';
   }
   if(isReview(d) && d.reviewNote){
@@ -6292,7 +6311,14 @@ async function wireSentenceCues(d){
   currentCues = []; cueEls = []; activeCueIdx = -1;
   cueSectionHeading = []; audioFollowLastHeading = null; audioFollowSuppressUntil = 0; audioFollowToken++;
   const statusEl = document.getElementById('apCueStatus');
-  if(!d.audioTiming) return;
+  if(!d.audioTiming){
+    // An entry can have audio without a timing file yet (narration recorded, sync not built).
+    // Say so explicitly rather than leaving the line blank — a blank line and a genuinely
+    // absent one look identical to the reader, but only this one tells the owner what's
+    // actually going on at a glance, without needing dev tools.
+    if(statusEl) statusEl.textContent = 'Sentence sync: no audioTiming linked to this entry';
+    return;
+  }
   const entryId = d.id;
   if(statusEl) statusEl.textContent = 'Loading sentence sync\u2026';
   let timing;
@@ -6306,8 +6332,16 @@ async function wireSentenceCues(d){
   if(!cues.length){ if(statusEl) statusEl.textContent = 'Sentence sync: timing file has no cues'; return; }
   currentCues = cues;
   cueEls = cues.map(() => []);
-  applyCueMarkup(cues);
-  computeCueSectionHeadings();
+  try{
+    applyCueMarkup(cues);
+    computeCueSectionHeadings();
+  }catch(err){
+    // Surface a real bug in the matching code as visible text rather than letting it vanish
+    // into a silently-rejected promise — the whole point of this status line is to make
+    // failures diagnosable without a console.
+    if(statusEl) statusEl.textContent = 'Sentence sync error: ' + err.message;
+    return;
+  }
   const matched = cueEls.filter(arr => arr && arr.length).length;
   const sectionsFound = new Set(cueSectionHeading.filter(Boolean)).size;
   if(statusEl) statusEl.textContent = 'Sentence sync: ' + matched + '/' + cues.length + ' sentences linked · ' + sectionsFound + ' section(s) mapped for follow-scroll';
