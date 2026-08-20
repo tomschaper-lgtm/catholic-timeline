@@ -2,6 +2,24 @@
   "v": 1,
   "entries": [
     {
+      "version": "189",
+      "date": "2026-08-20T13:00:00-05:00",
+      "changes": [
+        "Fix: reopening the same card repeatedly crept one section further back each time. Cause:",
+        "the section-reveal math (v187/v188) compared the raw scroll position against each heading's",
+        "raw offset to decide which section \"governs\" the landing spot — but after a reveal glide",
+        "lands the reader with the heading sitting just below the sticky header (by design), that",
+        "heading's true offset is now a few pixels past the raw scroll position, so the very next",
+        "reopen's comparison wrongly credited the section BEFORE it and eased up again — and again on",
+        "the next reopen after that. The comparison now accounts for the sticky header's own height",
+        "(the actual visible reading position is scrollTop + header height, not raw scrollTop) with",
+        "matching slack on both the \"which section\" check and the reveal-target math, so a",
+        "properly-revealed heading is recognized as already current and reopening the same spot",
+        "twice in a row is a no-op the second time, not another step backward."
+      ],
+      "loggedAt": "2026-08-20T16:28:13.440370+00:00"
+    },
+    {
       "version": "188",
       "date": "2026-08-20T12:45:00-05:00",
       "changes": [
