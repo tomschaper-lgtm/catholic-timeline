@@ -1,4 +1,21 @@
 <!--
+VERSION: 179
+DATE: 2026-08-19T21:50:00-05:00
+CHANGES:
+- Fix: v178 only auto-synced audio/audioTiming when the Record Audio panel was opened or right
+  before a dispatch — never after a run actually finished, so the result of every recording still
+  needed a manual reopen (or full app reload) to become visible/playable. The Record button's
+  click handler now chains onto triggerWorkflow()'s own promise (it already awaits the run's
+  completion via polling) and calls syncAudioStatusFromGitHub() the moment that resolves, whether
+  the run succeeded, failed, or the poll simply gave up after ~60s. Since that sync mutates the
+  same db.entries objects the rest of the app reads from, an entry's article — even one already
+  open in this session — picks up its new audio without needing to be reopened.
+- Caveat worth knowing: this only covers runs the button's own poll actually observed finish
+  (typically well within its ~60s window for a 1-5 entry batch, per this app's own run-time
+  history). An unusually long batch that outlasts the poll will still need the panel reopened
+  once — which itself re-syncs (v178) — to pick up the result.
+-->
+<!--
 VERSION: 178
 DATE: 2026-08-19T21:35:00-05:00
 CHANGES:
@@ -3210,7 +3227,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v178';
+const APP_VERSION = 'v179';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4609,7 +4626,16 @@ document.getElementById('runAudioWorkflow').addEventListener('click', async () =
     if(!batch.length){ log.textContent = 'No entries at that starting point.'; return; }
     inputs.ids = batch.map(e => e.id).join(',');
   }
-  triggerWorkflow('generate-audio.yml', inputs, 'runAudioLog');
+  triggerWorkflow('generate-audio.yml', inputs, 'runAudioLog').then(async () => {
+    // The button's own polling above already waited for the run to finish (or gave up after
+    // ~60s on an unusually long batch) — either way, pull whatever's newly committed back into
+    // this session automatically now, rather than requiring a manual re-open of this panel (or
+    // reload of the whole app) to actually see or hear the result. Mutates the same db.entries
+    // objects the rest of the app reads, so an already-open article for one of these entries
+    // picks up its new audio immediately too, without needing to be reopened.
+    await syncAudioStatusFromGitHub();
+    refreshAudioPreview();
+  });
 });
 
 // ---- Start-year navigator: type a year to jump near it, then step ←/→ to the exact entry to
