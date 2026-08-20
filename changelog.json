@@ -2,6 +2,23 @@
   "v": 1,
   "entries": [
     {
+      "version": "180",
+      "date": "2026-08-19T22:40:00-05:00",
+      "changes": [
+        "Fix: confirmed via a real recording (St. James the Greater, generate-audio.yml reported",
+        "success in 78s, file genuinely landed at audio/Saints/st-james-greater-44-v1.mp3) that",
+        "syncAudioStatusFromGitHub() (v178/v179) was in fact updating db.entries correctly all along —",
+        "the bug was one level up. The Entries editor's #fAudio field is a plain <input> that",
+        "openEditor() fills in once, at the moment an entry is opened; nothing re-populated it when",
+        "db.entries changed out from under it afterward, so an editor left open across a recording (or",
+        "reopened right after one) kept showing the field empty/stale even though the real data was",
+        "fine. syncAudioStatusFromGitHub() now re-runs openEditor(editingId) whenever the entry",
+        "currently open in the editor is one of the ones it just synced, so the visible form updates",
+        "immediately rather than needing to be closed and reopened by hand."
+      ],
+      "loggedAt": "2026-08-20T01:23:39.278357+00:00"
+    },
+    {
       "version": "179",
       "date": "2026-08-19T21:50:00-05:00",
       "changes": [
