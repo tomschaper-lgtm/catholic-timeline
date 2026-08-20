@@ -1,4 +1,17 @@
 <!--
+VERSION: 190
+DATE: 2026-08-20T13:15:00-05:00
+CHANGES:
+- Fix: on entries with audio, the section-reveal glide (v187-v189) still landed the heading
+  underneath the audio scrubber. Cause: the scrubber (#artPlayerWrap) is ALSO sticky — it pins
+  itself directly beneath the sticky header once scrolled past, per its own CSS
+  (top:var(--ahH)) — so on any entry with audio there are two bars stacked at the top of the
+  viewport, not one, and the reveal math only ever accounted for the header's height. It now
+  adds the scrubber's own height too (only when the entry actually has one) to both the
+  section-membership check and the reveal target, so the heading clears both bars — audio
+  entries and silent entries land in the same visually-correct spot now.
+-->
+<!--
 VERSION: 189
 DATE: 2026-08-20T13:00:00-05:00
 CHANGES:
@@ -3392,7 +3405,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v189';
+const APP_VERSION = 'v190';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3588,12 +3601,19 @@ function jumpAndRevealSection(artEl, y, token){
     measureFly();
     updateFly();
     // The card's own sticky header (#artSticky) pins to the top of the visible area and
-    // overlays whatever content is scrolled underneath it, so the content actually VISIBLE
-    // to the reader starts headerH further down than the raw scroll position — that's the
-    // position that should decide which section they're really in, not the raw scrollTop.
+    // overlays whatever content is scrolled underneath it. When the entry has audio, the
+    // scrubber (#artPlayerWrap) is sticky too — it pins directly beneath that header once
+    // scrolled past — so for any position within the story text (which always comes after
+    // the scrubber in the document) BOTH bars are stacked over the top of the viewport. The
+    // content actually VISIBLE to the reader starts occludedH further down than the raw
+    // scroll position — that's the position that should decide which section they're really
+    // in, not the raw scrollTop.
     const sticky = document.getElementById('artSticky');
     const headerH = sticky ? sticky.offsetHeight : 0;
-    const effectivePos = target + headerH;
+    const player = document.getElementById('artPlayerWrap');
+    const playerH = player ? player.offsetHeight : 0;
+    const occludedH = headerH + playerH;
+    const effectivePos = target + occludedH;
     // Find the section heading that governs this landing spot: the last .arth whose own top
     // sits at or above the visible reading position. Coordinates are computed in the
     // scrollable content's own space (independent of the current scroll offset).
@@ -3606,7 +3626,7 @@ function jumpAndRevealSection(artEl, y, token){
       const topAbs = r.top - artRect.top + artEl.scrollTop; // scrollTop is now `target`
       // The `+ SECTION_BREATH` slack matters as much as the base comparison: once a previous
       // reopen has already eased up to reveal a heading (deliberately landing it SECTION_BREATH
-      // px below the sticky header, not flush with it), a strict "<= effectivePos" check here
+      // px below the occluding bars, not flush with them), a strict "<= effectivePos" check here
       // would find that heading's true offset sitting just past the new effective position and
       // wrongly credit the section BEFORE it instead — which is exactly what made every reopen
       // creep one more section back. This keeps an already-properly-revealed heading recognized
@@ -3615,9 +3635,10 @@ function jumpAndRevealSection(artEl, y, token){
     });
     if(sectionTop === null) return;                              // landed above the first heading — nothing to reveal
     // Scrolling exactly to the heading's raw offset would put it right underneath the sticky
-    // bar, not actually in view — the real reveal target has to sit far enough past the
-    // heading's top to clear the header's own height, plus SECTION_BREATH of margin under it.
-    const revealTarget = Math.max(0, sectionTop - headerH - SECTION_BREATH);
+    // bars (header, and audio scrubber if present), not actually in view — the real reveal
+    // target has to sit far enough past the heading's top to clear both bars' combined
+    // height, plus SECTION_BREATH of margin under them.
+    const revealTarget = Math.max(0, sectionTop - occludedH - SECTION_BREATH);
     if(target - revealTarget <= SECTION_ALIGN_TOLERANCE) return;  // already essentially at the section's top
     // Give the reader a moment to register the landing spot itself before easing away from it.
     setTimeout(() => {
