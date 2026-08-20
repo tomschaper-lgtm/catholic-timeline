@@ -1,4 +1,47 @@
 <!--
+VERSION: 178
+DATE: 2026-08-19T21:35:00-05:00
+CHANGES:
+- New: syncAudioStatusFromGitHub() — refreshes just the `audio`/`audioTiming` fields on the
+  in-memory entries from the live data.json (same cache-busted fetch pattern as boot-time
+  loadDb()) before the Record Audio pool is computed. Fires twice: once when the "Record Audio
+  Narration" panel is opened (via a `toggle` listener on the new #audioRecordDetails id), and
+  again right before the actual dispatch inside the button's own click handler — since the panel
+  may have sat open for a while and another run could have finished narrating entries in the
+  meantime. Deliberately merges only those two fields per entry rather than replacing the whole
+  db, so any unsaved edits elsewhere in the session are untouched. This closes the gap that let a
+  "start at Michael, record 3" batch try an entry the session's own (stale) copy of db didn't yet
+  know had already been narrated.
+- The Start Year label and batch-preview list both show "Checking latest narration status…"
+  while this sync is in flight, so it's visible rather than a silent pause.
+-->
+<!--
+VERSION: 177
+DATE: 2026-08-19T21:05:00-05:00
+CHANGES:
+- New: Record Audio Narration now shows the full list of entries a click of the button would
+  send — not just the single starting entry — right below the Start Year arrows. Updates live as
+  Start Year, Count, Category, or Overwrite change (renderAudioBatchPreview(), called alongside
+  the existing single-entry preview via a new refreshAudioPreview() wrapper that replaces every
+  prior direct call to renderAudioStartPreview()). Any entry in the batch that already has audio
+  and would only be re-recorded because Overwrite is checked is marked "(re-recording)" inline,
+  so an accidental Overwrite-triggered re-record is visible before pressing Record rather than
+  discovered afterward in audio-log.csv.
+-->
+<!--
+VERSION: 176
+DATE: 2026-08-19T20:10:00-05:00
+CHANGES:
+- Diagnostic: added a small status line under the audio player (visible only when the entry has
+  audioTiming) that reports exactly what wireSentenceCues() did, since v171/v174 both reportedly
+  fixed sentence-sync but it's apparently still not working on the live site and there's no
+  console access on the device this runs from to see why. Reports one of: "Loading sentence
+  sync…", "timing file not found (HTTP nnn)", "failed to load (<error>)", "timing file has no
+  cues", or "N/M sentences linked" on success. This should pinpoint which stage is actually
+  failing — fetch, empty cues, or text matching — directly on-screen. Safe to remove once
+  sentence-sync is confirmed reliable.
+-->
+<!--
 VERSION: 175
 DATE: 2026-08-19T18:45:00-05:00
 CHANGES:
@@ -1792,6 +1835,14 @@ CHANGES:
      position, added/removed on timeupdate — see wireSentenceCues()/initAudio() in JS. */
   [data-cue-idx]{cursor:pointer;}
   .cuePlaying{background:rgba(201,165,66,.22); border-radius:3px; box-shadow:0 0 0 2px rgba(201,165,66,.22); transition:background .15s ease;}
+  /* Temporary diagnostic line (v176) — reports whether the timing file loaded and how many
+     sentences actually matched, directly on-screen since this build has no console access on
+     the primary device it's used from. Safe to remove once sentence-sync is confirmed reliable
+     across a range of entries. */
+  .apCueStatus{font-size:11px; color:var(--muted); text-align:center; padding:3px 0 0; letter-spacing:.02em;}
+  .apBatchList{max-height:180px; overflow-y:auto; border:1px solid rgba(201,165,66,.25); border-radius:8px; padding:8px 10px; font-size:13px; line-height:1.55; background:rgba(0,0,0,.12);}
+  .apBatchRow{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .apBatchNote{color:var(--m-accent); font-style:italic;}
   .artquote{border-left:3px solid var(--gold); background:rgba(201,165,66,.06); padding:10px 16px; margin:14px 0; font-style:italic; font-size:calc(17px * var(--txt)); line-height:1.6;}
   .artquote .qsrc{display:block; font-style:normal; font-size:calc(13.5px * var(--txt)); color:var(--muted); margin-top:5px;}
   .artsrc a{color:var(--gold-bright); font-size:calc(15.5px * var(--txt));}
@@ -2723,7 +2774,7 @@ CHANGES:
         <div class="mlog" id="runWorkflowLog"></div>
       </details>
 
-      <details class="ghbox">
+      <details class="ghbox" id="audioRecordDetails">
         <summary>Record Audio Narration</summary>
         <div class="mgrid2">
           <div class="mfield"><label>ElevenLabs Voice ID</label><input type="text" id="audioVoiceId" placeholder="e.g. DrIa8xWRu2s3gTbGhVO4"></div>
@@ -2746,6 +2797,7 @@ CHANGES:
           <span class="mstatus" id="audioStartPreview" style="flex:1; text-align:center;">Will start at the earliest entry that needs audio</span>
           <button type="button" class="mbtn" id="audioStartNext" style="flex:0 0 auto; padding:8px 16px;">&rarr;</button>
         </div>
+        <div class="mfield"><label>Will record</label><div class="apBatchList" id="audioBatchList"></div></div>
         <details class="mHelp">
           <summary>Voice &amp; pacing settings</summary>
           <div class="mgrid2">
@@ -3158,7 +3210,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v175';
+const APP_VERSION = 'v178';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4488,14 +4540,48 @@ async function triggerWorkflow(filename, inputs, logElId){
     log.textContent = 'Failed: ' + err.message;
   }
 }
+// Refreshes just the audio/audioTiming fields on the in-memory entries from the LIVE data.json —
+// closes the exact gap that caused a "record 3 starting at Michael" run to try an entry that had
+// already been narrated: this session's own db can be stale relative to whatever GitHub Actions
+// has committed since the app was opened (or since Manage was last opened, or even since the
+// last click of this same button a minute ago). Deliberately touches only these two fields per
+// entry — never replaces the whole db — so any of the owner's own unsaved edits elsewhere in
+// this session are untouched. Same cache-busting fetch as the app's own boot-time loadDb().
+async function syncAudioStatusFromGitHub(){
+  try{
+    const r = await fetch('data.json?t=' + Date.now(), {cache: 'no-store'});
+    if(!r.ok) return false;
+    const fresh = await r.json();
+    const byId = {};
+    (fresh.entries || []).forEach(e => { byId[e.id] = e; });
+    db.entries.forEach(e => {
+      const f = byId[e.id];
+      if(!f) return;
+      e.audio = f.audio;
+      e.audioTiming = f.audioTiming;
+    });
+    return true;
+  }catch(err){ return false; }
+}
+document.getElementById('audioRecordDetails').addEventListener('toggle', function(){
+  if(!this.open) return;
+  document.getElementById('audioStartPreview').textContent = 'Checking latest narration status\u2026';
+  syncAudioStatusFromGitHub().finally(refreshAudioPreview);
+});
 document.getElementById('runResizeWorkflow').addEventListener('click', () => triggerWorkflow('resize-images.yml'));
 document.getElementById('runConvertWorkflow').addEventListener('click', () => triggerWorkflow('convert-photo-pngs.yml'));
-document.getElementById('runAudioWorkflow').addEventListener('click', () => {
+document.getElementById('runAudioWorkflow').addEventListener('click', async () => {
   const v = id => document.getElementById(id).value.trim();
   const voiceId = v('audioVoiceId');
   const log = document.getElementById('runAudioLog');
   if(!voiceId){ log.textContent = 'Enter an ElevenLabs Voice ID above first.'; return; }
   saveAudioGenSettings();
+  // Re-sync right before computing the batch, not just when the panel opened — the panel may
+  // have been open a while (another run could have finished in the meantime), and this is the
+  // last moment before the actual ids list gets built and sent.
+  log.textContent = 'Checking latest narration status\u2026';
+  await syncAudioStatusFromGitHub();
+  refreshAudioPreview();
   const count = parseInt(v('audioCount'), 10) || 5;
   const category = v('audioCategory');
   const inputs = {
@@ -4555,32 +4641,57 @@ function renderAudioStartPreview(){
   const e = pool[audioStartIdx];
   preview.textContent = e.n + ' (' + fmtYear(e.y) + ') \u2014 #' + (audioStartIdx + 1) + ' of ' + pool.length + ' ' + catLabel + ' needing audio';
 }
+// The full list of entries this exact click of "Record Audio" would send — same pool, same
+// starting position, sliced to the current Count — so what's about to be recorded (and, per the
+// (re-recording) note, anything Overwrite would touch again) is visible before committing to a
+// run rather than discovered after the fact from audio-log.csv.
+function renderAudioBatchPreview(){
+  const listEl = document.getElementById('audioBatchList');
+  if(!listEl) return;
+  const pool = audioCandidatePool();
+  const count = parseInt(document.getElementById('audioCount').value, 10) || 5;
+  const startIdx = audioStartIdx < 0 ? 0 : audioStartIdx;
+  const batch = pool.slice(startIdx, startIdx + count);
+  if(!batch.length){ listEl.textContent = 'Nothing to record at this position.'; return; }
+  const overwrite = document.getElementById('audioOverwrite').checked;
+  listEl.innerHTML = batch.map((e, i) => {
+    const note = (overwrite && e.audio) ? ' <span class="apBatchNote">(re-recording)</span>' : '';
+    return '<div class="apBatchRow">' + (startIdx + i + 1) + '. ' + esc(e.n) + ' (' + fmtYear(e.y) + ')' + note + '</div>';
+  }).join('');
+}
+function refreshAudioPreview(){
+  renderAudioStartPreview();
+  renderAudioBatchPreview();
+}
 document.getElementById('audioStartYear').addEventListener('change', () => {
   const year = parseInt(document.getElementById('audioStartYear').value, 10);
   const pool = audioCandidatePool();
-  if(isNaN(year) || !pool.length){ audioStartIdx = -1; renderAudioStartPreview(); return; }
+  if(isNaN(year) || !pool.length){ audioStartIdx = -1; refreshAudioPreview(); return; }
   let idx = pool.findIndex(e => e.y >= year);
   if(idx === -1) idx = pool.length - 1; // year is after every remaining entry — land on the last one
   audioStartIdx = idx;
-  renderAudioStartPreview();
+  refreshAudioPreview();
 });
 document.getElementById('audioStartPrev').addEventListener('click', () => {
   const pool = audioCandidatePool();
   if(!pool.length) return;
   audioStartIdx = Math.max(0, (audioStartIdx < 0 ? 0 : audioStartIdx) - 1);
-  renderAudioStartPreview();
+  refreshAudioPreview();
 });
 document.getElementById('audioStartNext').addEventListener('click', () => {
   const pool = audioCandidatePool();
   if(!pool.length) return;
   audioStartIdx = Math.min(pool.length - 1, (audioStartIdx < 0 ? -1 : audioStartIdx) + 1);
-  renderAudioStartPreview();
+  refreshAudioPreview();
 });
-document.getElementById('audioOverwrite').addEventListener('change', renderAudioStartPreview);
+document.getElementById('audioOverwrite').addEventListener('change', refreshAudioPreview);
 // Changing the category changes which pool audioStartIdx indexes into, so a numeric position
 // left over from a different category would silently point at the wrong entry — reset back to
 // "start at the earliest" rather than carry a stale index across categories.
-document.getElementById('audioCategory').addEventListener('change', () => { audioStartIdx = -1; renderAudioStartPreview(); });
+document.getElementById('audioCategory').addEventListener('change', () => { audioStartIdx = -1; refreshAudioPreview(); });
+// Count doesn't move the starting position, only how far the batch list extends past it.
+document.getElementById('audioCount').addEventListener('input', renderAudioBatchPreview);
+
 
 // ---- Fix Image Extensions: actually corrects data.json, rather than relying on the runtime
 // fallback (altExtUrl/imgExtFallback) to paper over a stale reference on every page load. ----
@@ -4781,7 +4892,9 @@ function fillArticleBody(d, peek){
       '<button class="pbtn" id="apPlay" aria-label="Play">' + ICON_PLAY + '</button>' +
       '<input type="range" id="apSeek" min="0" max="100" value="0" step="0.1" aria-label="Seek">' +
       '<span class="ptime" id="apTime">0:00 / 0:00</span>' +
-      '</div></div>';
+      '</div>' +
+      (d.audioTiming ? '<div class="apCueStatus" id="apCueStatus"></div>' : '') +
+      '</div>';
   }
   if(isReview(d) && d.reviewNote){
     html += '<div class="reviewNoteBox"><div class="reviewNoteLabel">Notes to Reviewer</div>' +
@@ -5521,20 +5634,24 @@ function applyCueMarkup(cues){
 // back), same pattern as the rest of the app's async work.
 async function wireSentenceCues(d){
   currentCues = []; cueEls = []; activeCueIdx = -1;
+  const statusEl = document.getElementById('apCueStatus');
   if(!d.audioTiming) return;
   const entryId = d.id;
+  if(statusEl) statusEl.textContent = 'Loading sentence sync\u2026';
   let timing;
   try{
     const res = await fetch(resolveAsset(d.audioTiming, db.settings && db.settings.audioBase));
-    if(!res.ok) return;
+    if(!res.ok){ if(statusEl) statusEl.textContent = 'Sentence sync: timing file not found (HTTP ' + res.status + ')'; return; }
     timing = await res.json();
-  }catch(err){ return; }
-  if(!currentEntry || currentEntry.id !== entryId) return;
+  }catch(err){ if(statusEl) statusEl.textContent = 'Sentence sync: failed to load (' + err.message + ')'; return; }
+  if(!currentEntry || currentEntry.id !== entryId) return; // article changed mid-fetch
   const cues = timing.cues || [];
-  if(!cues.length) return;
+  if(!cues.length){ if(statusEl) statusEl.textContent = 'Sentence sync: timing file has no cues'; return; }
   currentCues = cues;
   cueEls = cues.map(() => []);
   applyCueMarkup(cues);
+  const matched = cueEls.filter(arr => arr && arr.length).length;
+  if(statusEl) statusEl.textContent = 'Sentence sync: ' + matched + '/' + cues.length + ' sentences linked';
 }
 // Tap a highlighted sentence/heading to jump playback there and start playing.
 document.getElementById('artBody').addEventListener('click', (e) => {
@@ -6158,7 +6275,7 @@ document.getElementById('manageBtn').addEventListener('click', () => {
   prefillAudioGen();
   audioStartIdx = -1;
   document.getElementById('audioStartYear').value = '';
-  renderAudioStartPreview();
+  refreshAudioPreview();
 });
 
 // ---- Tabs ----
