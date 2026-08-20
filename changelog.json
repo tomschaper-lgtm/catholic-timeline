@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "193",
+      "date": "2026-08-20T14:15:00-05:00",
+      "changes": [
+        "Confirmed against a real audioTiming file (st-john-the-baptist-30-v1.json): the cue schema",
+        "does carry `type:\"heading\"`, exactly what computeCueSectionHeadings() (v192) already checks",
+        "for first. So the matching logic itself isn't the failure — the status line not appearing at",
+        "all was the real clue: that line only renders when `d.audioTiming` is truthy, so its total",
+        "absence (not just an unhelpful message) means the entry being tested most likely doesn't have",
+        "an audioTiming path set yet, even if the timing file itself exists and audio is playing fine.",
+        "Fix: the status line now renders for any entry with audio at all, not only ones with",
+        "audioTiming linked — and reports plainly (\"no audioTiming linked to this entry\") when that's",
+        "the case, instead of the whole line just not existing. A missing link and a genuine blank are",
+        "no longer visually identical.",
+        "Fix: wireSentenceCues() now wraps the cue-matching + section-mapping step in its own",
+        "try/catch and reports any real error as visible status text (\"Sentence sync error: …\")",
+        "instead of letting an exception vanish into a silently-rejected async function with no",
+        "visible trace."
+      ],
+      "loggedAt": "2026-08-20T22:17:42.536884+00:00"
+    },
+    {
       "version": "192",
       "date": "2026-08-20T13:55:00-05:00",
       "changes": [
