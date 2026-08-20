@@ -1,4 +1,19 @@
 <!--
+VERSION: 180
+DATE: 2026-08-19T22:40:00-05:00
+CHANGES:
+- Fix: confirmed via a real recording (St. James the Greater, generate-audio.yml reported
+  success in 78s, file genuinely landed at audio/Saints/st-james-greater-44-v1.mp3) that
+  syncAudioStatusFromGitHub() (v178/v179) was in fact updating db.entries correctly all along —
+  the bug was one level up. The Entries editor's #fAudio field is a plain <input> that
+  openEditor() fills in once, at the moment an entry is opened; nothing re-populated it when
+  db.entries changed out from under it afterward, so an editor left open across a recording (or
+  reopened right after one) kept showing the field empty/stale even though the real data was
+  fine. syncAudioStatusFromGitHub() now re-runs openEditor(editingId) whenever the entry
+  currently open in the editor is one of the ones it just synced, so the visible form updates
+  immediately rather than needing to be closed and reopened by hand.
+-->
+<!--
 VERSION: 179
 DATE: 2026-08-19T21:50:00-05:00
 CHANGES:
@@ -3227,7 +3242,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v179';
+const APP_VERSION = 'v180';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4577,6 +4592,12 @@ async function syncAudioStatusFromGitHub(){
       e.audio = f.audio;
       e.audioTiming = f.audioTiming;
     });
+    // The Entries editor's #fAudio field is a plain input openEditor() fills in once, at the
+    // moment an entry is opened — it has no way to notice db.entries changing out from under it
+    // afterward. If the entry currently sitting open in the editor is one of the ones this sync
+    // just touched, re-run openEditor() so the visible form actually reflects the new audio
+    // field instead of showing empty/stale until the entry is closed and reopened by hand.
+    if(editingId && byId[editingId]) openEditor(editingId);
     return true;
   }catch(err){ return false; }
 }
