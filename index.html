@@ -1,4 +1,34 @@
 <!--
+VERSION: 181
+DATE: 2026-08-19T23:40:00-05:00
+CHANGES:
+- Fix (the real one this time, probably): syncAudioStatusFromGitHub() fetches data.json from the
+  live SITE, not straight from GitHub's API — which means it's actually reading whatever
+  Cloudflare has deployed, and a push takes real time (seconds to roughly a minute) to actually
+  redeploy. Every previous version of this sync blindly did `e.audio = f.audio` regardless of
+  whether `f.audio` was populated, so a sync that raced Cloudflare's deploy lag — which the panel-
+  open toggle listener risked on literally every use — would silently WIPE an already-good
+  audio/audioTiming field back to blank/undefined from a stale pre-deploy snapshot. This is almost
+  certainly why sentence-highlighting "worked for a while, then stopped" on entries recorded well
+  before this session, and why a freshly-recorded entry's link kept failing to appear even on a
+  confirmed-latest build: the very act of opening the Record Audio panel to check could erase the
+  thing being checked for. The merge is now non-destructive — `if(f.audio) e.audio = f.audio`,
+  same for audioTiming — so a sync that races the deploy is a harmless no-op instead of active
+  data loss.
+- New: syncAudioStatusUntilFresh() — since a non-destructive sync can still legitimately just not
+  see the new field yet if it runs too soon, the Record button's post-completion handler now
+  polls up to 8 times (8s apart) until every entry it just requested actually shows a real `audio`
+  value, updating the log with "waiting for the site to finish deploying…" in between rather than
+  trying once and quietly giving up.
+- Caveat: this only prevents future data loss. If an entry's audioTiming was already wiped to
+  blank in a past session and that state got published to GitHub, the field is genuinely gone
+  from data.json and needs the entry re-recorded (Overwrite checked) rather than just re-synced.
+- Increased the play/pause button's touch target (66px → 76px, explicit min-width/min-height,
+  touch-action:manipulation) and set pointer-events:none on its SVG icons so a tap anywhere in
+  the button's circle always reaches the <button> itself rather than depending on hitting the
+  icon's own painted pixels.
+-->
+<!--
 VERSION: 180
 DATE: 2026-08-19T22:40:00-05:00
 CHANGES:
@@ -2067,10 +2097,10 @@ CHANGES:
     margin:22px 0;
   }
   .pbtn{
-    width:66px; height:66px; margin:-7px 0; border-radius:50%; flex:0 0 auto;
-    background:none; color:var(--gold); border:none;
+    width:76px; height:76px; min-width:76px; min-height:76px; margin:-11px 0; border-radius:50%; flex:0 0 auto;
+    background:none; color:var(--gold); border:none; padding:0; position:relative; z-index:1;
     cursor:pointer; display:flex; align-items:center; justify-content:center;
-    -webkit-tap-highlight-color:transparent;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation;
   }
   .pbtn:hover{color:var(--gold-bright);}
   .pbtn:active{transform:scale(0.92);}
@@ -3242,7 +3272,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v180';
+const APP_VERSION = 'v181';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4579,6 +4609,15 @@ async function triggerWorkflow(filename, inputs, logElId){
 // last click of this same button a minute ago). Deliberately touches only these two fields per
 // entry — never replaces the whole db — so any of the owner's own unsaved edits elsewhere in
 // this session are untouched. Same cache-busting fetch as the app's own boot-time loadDb().
+//
+// IMPORTANT: this fetches data.json from the SITE the app is served from, not straight from
+// GitHub's API — meaning it's actually reading whatever Cloudflare has *deployed*, which lags a
+// push by anywhere from a few seconds to roughly a minute. A sync that runs in that gap sees a
+// pre-recording copy of data.json with no audio field for the entry that was just narrated. The
+// merge below is written to be safe against that: it only ever ADDS or UPDATES to a real value,
+// never blanks out a field that's already populated locally, so a sync that races the deploy is
+// a harmless no-op (leaves things as they were) rather than actively erasing a good value with
+// whatever the stale snapshot shows.
 async function syncAudioStatusFromGitHub(){
   try{
     const r = await fetch('data.json?t=' + Date.now(), {cache: 'no-store'});
@@ -4589,8 +4628,8 @@ async function syncAudioStatusFromGitHub(){
     db.entries.forEach(e => {
       const f = byId[e.id];
       if(!f) return;
-      e.audio = f.audio;
-      e.audioTiming = f.audioTiming;
+      if(f.audio) e.audio = f.audio;
+      if(f.audioTiming) e.audioTiming = f.audioTiming;
     });
     // The Entries editor's #fAudio field is a plain input openEditor() fills in once, at the
     // moment an entry is opened — it has no way to notice db.entries changing out from under it
@@ -4600,6 +4639,25 @@ async function syncAudioStatusFromGitHub(){
     if(editingId && byId[editingId]) openEditor(editingId);
     return true;
   }catch(err){ return false; }
+}
+// Cloudflare's deploy lag (see the long comment above) means one sync attempt right as the
+// Action reports done can genuinely be too early — not destructive anymore, just a no-op, so it
+// needs to actually be retried rather than accepted as final. Polls a handful of times with a
+// short wait between attempts, stopping as soon as every id in `entryIds` has picked up a real
+// `audio` value, or after giving up. `log`, if given, is kept updated so waiting is visible
+// rather than a silent pause.
+async function syncAudioStatusUntilFresh(entryIds, log){
+  const stillMissing = () => entryIds.filter(id => { const e = getEntry(id); return e && !e.audio; });
+  for(let attempt = 1; attempt <= 8; attempt++){
+    await syncAudioStatusFromGitHub();
+    refreshAudioPreview();
+    const missing = stillMissing();
+    if(!missing.length) return true;
+    if(attempt === 8) break;
+    if(log) log.textContent = 'Recorded \u2014 waiting for the site to finish deploying before linking it in\u2026 (' + attempt + '/8)';
+    await new Promise(r => setTimeout(r, 8000));
+  }
+  return false;
 }
 document.getElementById('audioRecordDetails').addEventListener('toggle', function(){
   if(!this.open) return;
@@ -4641,21 +4699,26 @@ document.getElementById('runAudioWorkflow').addEventListener('click', async () =
   // `count` entries in the pool from that point — overriding the script's own default (blank
   // ids, category as selected above). No start chosen — ids stays blank and the script's own
   // candidateEntries() picks (still respecting the category input, so the lock holds either way).
+  // Either way, `targetIds` below mirrors exactly what the script will end up processing, purely
+  // so the post-run sync knows which specific entries to wait on.
   const pool = audioCandidatePool();
-  if(audioStartIdx >= 0 && audioStartIdx < pool.length){
-    const batch = pool.slice(audioStartIdx, audioStartIdx + count);
-    if(!batch.length){ log.textContent = 'No entries at that starting point.'; return; }
-    inputs.ids = batch.map(e => e.id).join(',');
-  }
+  const startIdx = audioStartIdx >= 0 ? audioStartIdx : 0;
+  const batch = pool.slice(startIdx, startIdx + count);
+  if(!batch.length){ log.textContent = 'No entries at that starting point.'; return; }
+  const targetIds = batch.map(e => e.id);
+  if(audioStartIdx >= 0) inputs.ids = targetIds.join(',');
   triggerWorkflow('generate-audio.yml', inputs, 'runAudioLog').then(async () => {
     // The button's own polling above already waited for the run to finish (or gave up after
     // ~60s on an unusually long batch) — either way, pull whatever's newly committed back into
     // this session automatically now, rather than requiring a manual re-open of this panel (or
     // reload of the whole app) to actually see or hear the result. Mutates the same db.entries
     // objects the rest of the app reads, so an already-open article for one of these entries
-    // picks up its new audio immediately too, without needing to be reopened.
-    await syncAudioStatusFromGitHub();
-    refreshAudioPreview();
+    // picks up its new audio immediately too, without needing to be reopened. Retries with a
+    // short wait between attempts since a single sync right as the run finishes can race
+    // Cloudflare's own deploy lag and simply not see the new field yet (see
+    // syncAudioStatusFromGitHub's long comment) — this keeps checking instead of accepting that
+    // as final.
+    await syncAudioStatusUntilFresh(targetIds, log);
   });
 });
 
@@ -5506,8 +5569,8 @@ function fmtTime(s){
   const m = Math.floor(s/60), sec = Math.floor(s%60);
   return m + ':' + String(sec).padStart(2,'0');
 }
-const ICON_PLAY = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor"><path d="M7 4l14 8-14 8V4z"/></svg>';
-const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+const ICON_PLAY = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor" pointer-events="none"><path d="M7 4l14 8-14 8V4z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor" pointer-events="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
 function initAudio(url){
   stopAudio();
   audioEl = new Audio(url);
