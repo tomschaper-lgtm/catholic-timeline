@@ -1,4 +1,17 @@
 <!--
+VERSION: 185
+DATE: 2026-08-20T12:00:00-05:00
+CHANGES:
+- New: reopening a card at a remembered position (via icon tap or swipe to a neighbor — see
+  v184) now rides there instead of teleporting. The card opens at the top as always, then
+  scrolls smoothly down to the saved spot over about 0.9s with a decelerating ease-out (fast
+  start, gentle landing), and the single paragraph it lands on gets one soft gold glow-and-dim
+  pulse — same gold as the audio sentence-highlight — so it's visually obvious the app found
+  the actual place, not just that the page happens to be scrolled somewhere. The Back button's
+  own restore (undoing an in-article cross-reference tap) is deliberately left as an instant
+  jump, unchanged — that's a quick "undo," not a "welcome back" moment.
+-->
+<!--
 VERSION: 184
 DATE: 2026-08-20T11:40:00-05:00
 CHANGES:
@@ -1953,6 +1966,17 @@ CHANGES:
      position, added/removed on timeupdate — see wireSentenceCues()/initAudio() in JS. */
   [data-cue-idx]{cursor:pointer;}
   .cuePlaying{background:rgba(201,165,66,.22); border-radius:3px; box-shadow:0 0 0 2px rgba(201,165,66,.22); transition:background .15s ease;}
+  /* "Welcome back" pulse (v185): the single paragraph an animated scroll-restore lands on
+     gets one soft gold glow-and-dim, so it's visually obvious the app actually found the
+     reader's place rather than just happening to land partway down the page. Same gold as
+     .cuePlaying above, held a beat longer and only ever run once — see glowResumeParagraph()
+     and animateRestoreScroll() in JS. */
+  @keyframes artResumePulse{
+    0%{ background:rgba(201,165,66,0); box-shadow:0 0 0 0 rgba(201,165,66,0); }
+    35%{ background:rgba(201,165,66,.30); box-shadow:0 0 16px 3px rgba(201,165,66,.22); }
+    100%{ background:rgba(201,165,66,0); box-shadow:0 0 0 0 rgba(201,165,66,0); }
+  }
+  .artResumeGlow{ animation:artResumePulse 2.4s ease-out 1; border-radius:4px; }
   /* Temporary diagnostic line (v176) — reports whether the timing file loaded and how many
      sentences actually matched, directly on-screen since this build has no console access on
      the primary device it's used from. Safe to remove once sentence-sync is confirmed reliable
@@ -3328,7 +3352,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v184';
+const APP_VERSION = 'v185';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3453,11 +3477,20 @@ function goBackArticle(){
 // height until it loads. Setting scrollTop against a too-short page silently clamps to a
 // smaller number, so this re-applies as the layout settles — while standing down the moment
 // the reader scrolls themselves, or a newer navigation supersedes it.
+// opts.animate — used specifically for the "we remembered your place" resume case (reopening
+// a recently-visited card, or swiping to one), NOT for the Back button, which stays an
+// instant jump so undoing an in-article link tap still feels snappy. When animating, the
+// article rides down from the very top in one smooth, decelerating motion and the paragraph
+// it lands on gets a single soft glow — see animateRestoreScroll()/glowResumeParagraph().
 let scrollRestoreToken = 0;
-function restoreArticleScroll(y){
+function restoreArticleScroll(y, opts){
   const artEl = document.getElementById('article');
   if(!artEl || !(y > 0)) return;
   const token = ++scrollRestoreToken;
+  if(opts && opts.animate){
+    animateRestoreScroll(artEl, y, token);
+    return;
+  }
   let lastSet = -1;
   const apply = () => {
     if(token !== scrollRestoreToken) return;                 // a newer navigation owns the card
@@ -3478,6 +3511,70 @@ function restoreArticleScroll(y){
   if(hero && !hero.complete) hero.addEventListener('load', apply, {once:true});
   setTimeout(apply, 120);
   setTimeout(apply, 420);
+}
+function easeOutDecel(t){ return 1 - Math.pow(1 - t, 3); }
+// The animated half of restoreArticleScroll: rides from the top of the card down to `y` over
+// ~0.9s with a decelerating ease-out (fast start, gentle landing), then lights up whichever
+// paragraph it landed on — once — so it's obvious the app found the reader's actual spot
+// rather than just parking somewhere plausible.
+function animateRestoreScroll(artEl, y, token){
+  const RESTORE_MS = 900;
+  // Same "wait for real height" concern as the plain restore above, just resolved once up
+  // front instead of via repeated re-application, since the scroll itself is now a single
+  // continuous motion rather than a series of snap-corrections.
+  const settle = (cb) => {
+    let done = false;
+    const go = () => { if(done) return; done = true; cb(); };
+    const hero = document.getElementById('artHeroImg');
+    if(hero && !hero.complete) hero.addEventListener('load', go, {once:true});
+    requestAnimationFrame(() => setTimeout(go, 60));
+    setTimeout(go, 300); // safety net if neither of the above ever fires
+  };
+  settle(() => {
+    if(token !== scrollRestoreToken) return;
+    if(!artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
+    const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
+    const target = Math.min(y, max);
+    if(target <= 1) return; // nowhere meaningful to ride down to
+    artEl.scrollTop = 0;    // always start the reveal from the very beginning of the card
+    let lastSet = 0;
+    const t0 = performance.now();
+    const step = (now) => {
+      if(token !== scrollRestoreToken) return;                                // superseded
+      if(!artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
+      if(Math.abs(artEl.scrollTop - lastSet) > 2) return;                     // reader took over — stop overriding
+      const raw = Math.min(1, (now - t0) / RESTORE_MS);
+      artEl.scrollTop = target * easeOutDecel(raw);
+      lastSet = artEl.scrollTop;
+      syncStickyBackdrops();
+      updateFly();
+      if(raw < 1){ requestAnimationFrame(step); return; }
+      measureFly();
+      glowResumeParagraph(artEl, target);
+    };
+    requestAnimationFrame(step);
+  });
+}
+// Finds whichever story paragraph (or heading, quote-adjacent block, list item…) sits
+// closest to the landed-on scroll position and gives it one soft gold pulse. Purely a "here's
+// where you were" cue — never re-fires for the same landing, and quietly does nothing if the
+// article has no matching prose (e.g. an entry with no article body yet).
+function glowResumeParagraph(artEl, targetScroll){
+  const blocks = artEl.querySelectorAll('#artStoryText p, #artStoryText li, #artStoryText blockquote, #artStoryText .arth');
+  if(!blocks.length) return;
+  const artRect = artEl.getBoundingClientRect();
+  let best = null, bestDist = Infinity;
+  blocks.forEach(el => {
+    const r = el.getBoundingClientRect();
+    const topWithinArt = r.top - artRect.top + artEl.scrollTop;
+    const dist = Math.abs(topWithinArt - targetScroll);
+    if(dist < bestDist){ bestDist = dist; best = el; }
+  });
+  if(!best) return;
+  best.classList.remove('artResumeGlow');
+  void best.offsetWidth; // restart the CSS animation if this element was already glowing once
+  best.classList.add('artResumeGlow');
+  best.addEventListener('animationend', () => best.classList.remove('artResumeGlow'), {once:true});
 }
 let suppressArticleClick = false;
 // Set during the CAPTURE phase of any click that begins inside the article card, before any
@@ -5353,6 +5450,7 @@ function openArticle(d, opts){
     if(recent){
       if(recent.scroll > 0){
         opts.restoreScroll = recent.scroll;
+        opts.animateRestore = true; // a resumed position rides down and glows; the Back button never does
         opts.peek = false; // a saved mid-article position always wins over a requested teaser
       }
       if(recent.audioTime > 0) pendingAudioResume = recent.audioTime;
@@ -5372,7 +5470,7 @@ function openArticle(d, opts){
   // return the reader to where they left off. Every other route (a fresh open, a forward
   // link tap, a stale/expired position) has no saved position and stays at the top.
   scrollRestoreToken++;   // invalidate any restore still in flight from a previous navigation
-  if(opts.restoreScroll > 0 && !opts.peek) restoreArticleScroll(opts.restoreScroll);
+  if(opts.restoreScroll > 0 && !opts.peek) restoreArticleScroll(opts.restoreScroll, {animate: !!opts.animateRestore});
   // The sheet slides up on a transform, which a fixed-position element cannot ride along
   // with. So during the open animation the inline photo shows normally, and the flying
   // copy only takes over once the sheet has settled — the swap is invisible because at
@@ -5728,7 +5826,7 @@ function slideArticleTo(d, direction){
   prefetchImage(categoryNeighbor(d, -1));
   prefetchImage(categoryNeighbor(d, 1));
   scrollRestoreToken++;   // invalidate any restore still in flight from a previous navigation
-  if(swipeRestoreScroll > 0 && !peek) restoreArticleScroll(swipeRestoreScroll);
+  if(swipeRestoreScroll > 0 && !peek) restoreArticleScroll(swipeRestoreScroll, {animate: true});
   else article.scrollTop = 0;
   body.style.transition = 'none';
   body.style.transform = 'translateX(' + (direction > 0 ? '100%' : '-100%') + ')';
