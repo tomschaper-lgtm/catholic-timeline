@@ -2,6 +2,38 @@
   "v": 1,
   "entries": [
     {
+      "version": "181",
+      "date": "2026-08-19T23:40:00-05:00",
+      "changes": [
+        "Fix (the real one this time, probably): syncAudioStatusFromGitHub() fetches data.json from the",
+        "live SITE, not straight from GitHub's API — which means it's actually reading whatever",
+        "Cloudflare has deployed, and a push takes real time (seconds to roughly a minute) to actually",
+        "redeploy. Every previous version of this sync blindly did `e.audio = f.audio` regardless of",
+        "whether `f.audio` was populated, so a sync that raced Cloudflare's deploy lag — which the panel-",
+        "open toggle listener risked on literally every use — would silently WIPE an already-good",
+        "audio/audioTiming field back to blank/undefined from a stale pre-deploy snapshot. This is almost",
+        "certainly why sentence-highlighting \"worked for a while, then stopped\" on entries recorded well",
+        "before this session, and why a freshly-recorded entry's link kept failing to appear even on a",
+        "confirmed-latest build: the very act of opening the Record Audio panel to check could erase the",
+        "thing being checked for. The merge is now non-destructive — `if(f.audio) e.audio = f.audio`,",
+        "same for audioTiming — so a sync that races the deploy is a harmless no-op instead of active",
+        "data loss.",
+        "New: syncAudioStatusUntilFresh() — since a non-destructive sync can still legitimately just not",
+        "see the new field yet if it runs too soon, the Record button's post-completion handler now",
+        "polls up to 8 times (8s apart) until every entry it just requested actually shows a real `audio`",
+        "value, updating the log with \"waiting for the site to finish deploying…\" in between rather than",
+        "trying once and quietly giving up.",
+        "Caveat: this only prevents future data loss. If an entry's audioTiming was already wiped to",
+        "blank in a past session and that state got published to GitHub, the field is genuinely gone",
+        "from data.json and needs the entry re-recorded (Overwrite checked) rather than just re-synced.",
+        "Increased the play/pause button's touch target (66px → 76px, explicit min-width/min-height,",
+        "touch-action:manipulation) and set pointer-events:none on its SVG icons so a tap anywhere in",
+        "the button's circle always reaches the <button> itself rather than depending on hitting the",
+        "icon's own painted pixels."
+      ],
+      "loggedAt": "2026-08-20T05:07:24.042892+00:00"
+    },
+    {
       "version": "180",
       "date": "2026-08-19T22:40:00-05:00",
       "changes": [
