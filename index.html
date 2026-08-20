@@ -1,4 +1,20 @@
 <!--
+VERSION: 189
+DATE: 2026-08-20T13:00:00-05:00
+CHANGES:
+- Fix: reopening the same card repeatedly crept one section further back each time. Cause:
+  the section-reveal math (v187/v188) compared the raw scroll position against each heading's
+  raw offset to decide which section "governs" the landing spot — but after a reveal glide
+  lands the reader with the heading sitting just below the sticky header (by design), that
+  heading's true offset is now a few pixels past the raw scroll position, so the very next
+  reopen's comparison wrongly credited the section BEFORE it and eased up again — and again on
+  the next reopen after that. The comparison now accounts for the sticky header's own height
+  (the actual visible reading position is scrollTop + header height, not raw scrollTop) with
+  matching slack on both the "which section" check and the reveal-target math, so a
+  properly-revealed heading is recognized as already current and reopening the same spot
+  twice in a row is a no-op the second time, not another step backward.
+-->
+<!--
 VERSION: 188
 DATE: 2026-08-20T12:45:00-05:00
 CHANGES:
@@ -3376,7 +3392,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v188';
+const APP_VERSION = 'v189';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3541,6 +3557,10 @@ function easeOutDecel(t){ return 1 - Math.pow(1 - t, 3); }
 // A short scroll-past-the-heading tolerance: landing this close to a section's top already
 // reads as "right at the section," so there's nothing worth easing back up to reveal.
 const SECTION_ALIGN_TOLERANCE = 40;
+// Gap deliberately left between the bottom of the sticky header and a revealed heading, so
+// the title doesn't sit flush against the bar. Used on both sides of the reveal math below —
+// see the comment at the section-membership check for why that consistency matters.
+const SECTION_BREATH = 14;
 // The animated half of restoreArticleScroll: lands directly on the saved position (no travel
 // glide down the whole card — that read as more distracting than helpful), then, if that spot
 // sits some way into a section rather than right at its heading, gives the reader a beat to
@@ -3567,9 +3587,16 @@ function jumpAndRevealSection(artEl, y, token){
     syncStickyBackdrops();
     measureFly();
     updateFly();
+    // The card's own sticky header (#artSticky) pins to the top of the visible area and
+    // overlays whatever content is scrolled underneath it, so the content actually VISIBLE
+    // to the reader starts headerH further down than the raw scroll position — that's the
+    // position that should decide which section they're really in, not the raw scrollTop.
+    const sticky = document.getElementById('artSticky');
+    const headerH = sticky ? sticky.offsetHeight : 0;
+    const effectivePos = target + headerH;
     // Find the section heading that governs this landing spot: the last .arth whose own top
-    // sits at or above it. Coordinates are computed in the scrollable content's own space
-    // (independent of the current scroll offset) so they're directly comparable to `target`.
+    // sits at or above the visible reading position. Coordinates are computed in the
+    // scrollable content's own space (independent of the current scroll offset).
     const headings = artEl.querySelectorAll('#artStoryText .arth');
     if(!headings.length) return;
     const artRect = artEl.getBoundingClientRect();
@@ -3577,16 +3604,20 @@ function jumpAndRevealSection(artEl, y, token){
     headings.forEach(h => {
       const r = h.getBoundingClientRect();
       const topAbs = r.top - artRect.top + artEl.scrollTop; // scrollTop is now `target`
-      if(topAbs <= target + 1 && (sectionTop === null || topAbs > sectionTop)) sectionTop = topAbs;
+      // The `+ SECTION_BREATH` slack matters as much as the base comparison: once a previous
+      // reopen has already eased up to reveal a heading (deliberately landing it SECTION_BREATH
+      // px below the sticky header, not flush with it), a strict "<= effectivePos" check here
+      // would find that heading's true offset sitting just past the new effective position and
+      // wrongly credit the section BEFORE it instead — which is exactly what made every reopen
+      // creep one more section back. This keeps an already-properly-revealed heading recognized
+      // as "current," not "earlier."
+      if(topAbs <= effectivePos + SECTION_BREATH + 2 && (sectionTop === null || topAbs > sectionTop)) sectionTop = topAbs;
     });
     if(sectionTop === null) return;                              // landed above the first heading — nothing to reveal
-    // The card's own sticky header (#artSticky) pins to the top of the visible area, so
-    // scrolling exactly to the heading's raw offset would land it right underneath that bar,
-    // not actually in view. The real reveal target has to sit far enough past the heading's
-    // top to clear the sticky header's own height, plus a little breathing room beneath it.
-    const sticky = document.getElementById('artSticky');
-    const headerH = sticky ? sticky.offsetHeight : 0;
-    const revealTarget = Math.max(0, sectionTop - headerH - 10);
+    // Scrolling exactly to the heading's raw offset would put it right underneath the sticky
+    // bar, not actually in view — the real reveal target has to sit far enough past the
+    // heading's top to clear the header's own height, plus SECTION_BREATH of margin under it.
+    const revealTarget = Math.max(0, sectionTop - headerH - SECTION_BREATH);
     if(target - revealTarget <= SECTION_ALIGN_TOLERANCE) return;  // already essentially at the section's top
     // Give the reader a moment to register the landing spot itself before easing away from it.
     setTimeout(() => {
