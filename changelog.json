@@ -2,6 +2,30 @@
   "v": 1,
   "entries": [
     {
+      "version": "191",
+      "date": "2026-08-20T13:35:00-05:00",
+      "changes": [
+        "New: follow-along auto-scroll during audio playback. While the narration plays, whenever the",
+        "highlighted sentence moves into a section whose heading isn't on screen, the view eases up",
+        "or down (same decelerating glide as the resume-reveal feature, clearing the sticky header",
+        "and audio scrubber the same way) to bring that section's heading into view — so the text",
+        "being read stays visible without the reader having to touch anything. Also fires the instant",
+        "Play is pressed, not just on section changes: scroll to the bottom of a long entry, hit Play",
+        "from the start, and the view jumps straight to wherever playback is actually beginning.",
+        "Tapping a sentence to seek (existing feature) benefits too, though it's usually a no-op there",
+        "since the tapped sentence is already visible.",
+        "A genuine manual scroll (touchmove or wheel — not just a tap, so pressing Play/seek/a cue",
+        "itself never counts) silences the follow-along for 4 seconds and immediately stops any",
+        "follow animation already in progress, so it never fights a reader repositioning the text",
+        "themselves. It re-arms automatically once that window passes.",
+        "New: cueSectionHeading — built once per entry right after cues are matched, mapping each",
+        "matched cue to the section heading that governs it (walked directly off the rendered DOM, not",
+        "the timing file's own section numbers, for the same reliability reason documented above",
+        "applyCueMarkup)."
+      ],
+      "loggedAt": "2026-08-20T18:06:10.872860+00:00"
+    },
+    {
       "version": "190",
       "date": "2026-08-20T13:15:00-05:00",
       "changes": [
