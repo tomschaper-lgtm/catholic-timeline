@@ -1,4 +1,14 @@
 <!--
+VERSION: 186
+DATE: 2026-08-20T12:15:00-05:00
+CHANGES:
+- Changed: the resume-scroll glide from v185 slowed way down (900ms → 2.2s) — it was reading
+  as an instant jump, not a deliberate glide.
+- Removed: the paragraph glow/dim pulse that fired when the resume glide landed. Owner found
+  it looked odd rather than helpful — the slower glide itself is now what signals "here's
+  where you were," with nothing highlighted at the end.
+-->
+<!--
 VERSION: 185
 DATE: 2026-08-20T12:00:00-05:00
 CHANGES:
@@ -1966,17 +1976,6 @@ CHANGES:
      position, added/removed on timeupdate — see wireSentenceCues()/initAudio() in JS. */
   [data-cue-idx]{cursor:pointer;}
   .cuePlaying{background:rgba(201,165,66,.22); border-radius:3px; box-shadow:0 0 0 2px rgba(201,165,66,.22); transition:background .15s ease;}
-  /* "Welcome back" pulse (v185): the single paragraph an animated scroll-restore lands on
-     gets one soft gold glow-and-dim, so it's visually obvious the app actually found the
-     reader's place rather than just happening to land partway down the page. Same gold as
-     .cuePlaying above, held a beat longer and only ever run once — see glowResumeParagraph()
-     and animateRestoreScroll() in JS. */
-  @keyframes artResumePulse{
-    0%{ background:rgba(201,165,66,0); box-shadow:0 0 0 0 rgba(201,165,66,0); }
-    35%{ background:rgba(201,165,66,.30); box-shadow:0 0 16px 3px rgba(201,165,66,.22); }
-    100%{ background:rgba(201,165,66,0); box-shadow:0 0 0 0 rgba(201,165,66,0); }
-  }
-  .artResumeGlow{ animation:artResumePulse 2.4s ease-out 1; border-radius:4px; }
   /* Temporary diagnostic line (v176) — reports whether the timing file loaded and how many
      sentences actually matched, directly on-screen since this build has no console access on
      the primary device it's used from. Safe to remove once sentence-sync is confirmed reliable
@@ -3352,7 +3351,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v185';
+const APP_VERSION = 'v186';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3480,8 +3479,8 @@ function goBackArticle(){
 // opts.animate — used specifically for the "we remembered your place" resume case (reopening
 // a recently-visited card, or swiping to one), NOT for the Back button, which stays an
 // instant jump so undoing an in-article link tap still feels snappy. When animating, the
-// article rides down from the very top in one smooth, decelerating motion and the paragraph
-// it lands on gets a single soft glow — see animateRestoreScroll()/glowResumeParagraph().
+// article rides down from the very top in one smooth, decelerating motion — see
+// animateRestoreScroll().
 let scrollRestoreToken = 0;
 function restoreArticleScroll(y, opts){
   const artEl = document.getElementById('article');
@@ -3514,11 +3513,10 @@ function restoreArticleScroll(y, opts){
 }
 function easeOutDecel(t){ return 1 - Math.pow(1 - t, 3); }
 // The animated half of restoreArticleScroll: rides from the top of the card down to `y` over
-// ~0.9s with a decelerating ease-out (fast start, gentle landing), then lights up whichever
-// paragraph it landed on — once — so it's obvious the app found the reader's actual spot
-// rather than just parking somewhere plausible.
+// a slow, deliberate glide with a decelerating ease-out (fast start, gentle landing) — long
+// enough that it reads as a purposeful "here's where you were," not a flicker.
 function animateRestoreScroll(artEl, y, token){
-  const RESTORE_MS = 900;
+  const RESTORE_MS = 2200;
   // Same "wait for real height" concern as the plain restore above, just resolved once up
   // front instead of via repeated re-application, since the scroll itself is now a single
   // continuous motion rather than a series of snap-corrections.
@@ -3550,31 +3548,9 @@ function animateRestoreScroll(artEl, y, token){
       updateFly();
       if(raw < 1){ requestAnimationFrame(step); return; }
       measureFly();
-      glowResumeParagraph(artEl, target);
     };
     requestAnimationFrame(step);
   });
-}
-// Finds whichever story paragraph (or heading, quote-adjacent block, list item…) sits
-// closest to the landed-on scroll position and gives it one soft gold pulse. Purely a "here's
-// where you were" cue — never re-fires for the same landing, and quietly does nothing if the
-// article has no matching prose (e.g. an entry with no article body yet).
-function glowResumeParagraph(artEl, targetScroll){
-  const blocks = artEl.querySelectorAll('#artStoryText p, #artStoryText li, #artStoryText blockquote, #artStoryText .arth');
-  if(!blocks.length) return;
-  const artRect = artEl.getBoundingClientRect();
-  let best = null, bestDist = Infinity;
-  blocks.forEach(el => {
-    const r = el.getBoundingClientRect();
-    const topWithinArt = r.top - artRect.top + artEl.scrollTop;
-    const dist = Math.abs(topWithinArt - targetScroll);
-    if(dist < bestDist){ bestDist = dist; best = el; }
-  });
-  if(!best) return;
-  best.classList.remove('artResumeGlow');
-  void best.offsetWidth; // restart the CSS animation if this element was already glowing once
-  best.classList.add('artResumeGlow');
-  best.addEventListener('animationend', () => best.classList.remove('artResumeGlow'), {once:true});
 }
 let suppressArticleClick = false;
 // Set during the CAPTURE phase of any click that begins inside the article card, before any
