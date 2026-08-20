@@ -2,6 +2,25 @@
   "v": 1,
   "entries": [
     {
+      "version": "178",
+      "date": "2026-08-19T21:35:00-05:00",
+      "changes": [
+        "New: syncAudioStatusFromGitHub() — refreshes just the `audio`/`audioTiming` fields on the",
+        "in-memory entries from the live data.json (same cache-busted fetch pattern as boot-time",
+        "loadDb()) before the Record Audio pool is computed. Fires twice: once when the \"Record Audio",
+        "Narration\" panel is opened (via a `toggle` listener on the new #audioRecordDetails id), and",
+        "again right before the actual dispatch inside the button's own click handler — since the panel",
+        "may have sat open for a while and another run could have finished narrating entries in the",
+        "meantime. Deliberately merges only those two fields per entry rather than replacing the whole",
+        "db, so any unsaved edits elsewhere in the session are untouched. This closes the gap that let a",
+        "\"start at Michael, record 3\" batch try an entry the session's own (stale) copy of db didn't yet",
+        "know had already been narrated.",
+        "The Start Year label and batch-preview list both show \"Checking latest narration status…\"",
+        "while this sync is in flight, so it's visible rather than a silent pause."
+      ],
+      "loggedAt": "2026-08-20T00:27:46.050410+00:00"
+    },
+    {
       "version": "175",
       "date": "2026-08-19T18:45:00-05:00",
       "changes": [
