@@ -1,0 +1,65 @@
+name: Repair Audio Timing Gaps
+
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: 'Comma-separated entry ids to check. Leave blank to check every entry with audioTiming.'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Preview gaps without writing any files (uncheck to actually apply + commit fixes)'
+        required: false
+        default: true
+        type: boolean
+      heading_pause_ms:
+        description: 'Heading→body pause to assume when reconstructing a section''s FIRST missing sentence (only matters if a past run used something other than the 500ms default)'
+        required: false
+        default: '500'
+      section_pause_ms:
+        description: 'Section→section pause to assume when reconstructing a section''s LAST missing sentence (only matters if a past run used something other than the 700ms default)'
+        required: false
+        default: '700'
+
+permissions:
+  contents: write
+
+jobs:
+  repair-cue-gaps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Find and repair timing gaps
+        env:
+          IDS: ${{ github.event.inputs.ids }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          HEADING_PAUSE_MS: ${{ github.event.inputs.heading_pause_ms }}
+          SECTION_PAUSE_MS: ${{ github.event.inputs.section_pause_ms }}
+        run: node scripts/repair-cue-gaps.mjs
+
+      - name: Upload repair log
+        uses: actions/upload-artifact@v4
+        with:
+          name: cue-repair-log
+          path: cue-repair-log.csv
+          if-no-files-found: ignore
+
+      - name: Commit and push results
+        if: ${{ github.event.inputs.dry_run == 'false' }}
+        run: |
+          git config user.name "audio-narration-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add audio/ cue-repair-log.csv
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Repair audio timing gap cues [skip ci]"
+            git push
+          fi
