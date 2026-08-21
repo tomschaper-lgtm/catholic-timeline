@@ -2,6 +2,24 @@
   "v": 1,
   "entries": [
     {
+      "version": "194",
+      "date": "2026-08-20T14:30:00-05:00",
+      "changes": [
+        "Changed: audioTiming is no longer a separate field to set on every entry. The timing path is",
+        "now derived automatically from the audio path — same folder, same base name, just `.json`",
+        "instead of `.mp3`/`.wav` (e.g. audio/Saints/x-v1.mp3 → audio/Saints/x-v1.json), matching the",
+        "actual convention generate-audio.mjs already outputs to. A new sync file just has to exist",
+        "alongside its audio to start working; no patch, no field to remember. An explicit",
+        "`audioTiming` value, if ever set on an entry, still wins over the derived guess — an escape",
+        "hatch for the rare case where the timing file doesn't follow the convention.",
+        "The status line's wording adjusted to match: a derived-but-missing timing file (the normal",
+        "state for any entry whose audio hasn't been through the sync step yet) now reads \"no timing",
+        "file yet\" rather than the old \"no audioTiming linked to this entry,\" since there's no longer",
+        "a link to set in the first place."
+      ],
+      "loggedAt": "2026-08-21T02:40:09.040718+00:00"
+    },
+    {
       "version": "193",
       "date": "2026-08-20T14:15:00-05:00",
       "changes": [
