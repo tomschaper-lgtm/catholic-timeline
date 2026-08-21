@@ -2,6 +2,21 @@
   "v": 1,
   "entries": [
     {
+      "version": "204",
+      "date": "2026-08-21T14:15:00-05:00",
+      "changes": [
+        "Restored: the diagnostic sentence-sync status line under the scrubber (\"Sentence sync: X/Y",
+        "sentences linked · Z section(s) mapped for follow-scroll\"), removed in v196 once the sync bug",
+        "was believed fixed. It's back — gated to Review Mode + Owner Tools only (same gate as",
+        "triple-tap-to-link), so it never shows to a visitor. wireSentenceCues() itself was never",
+        "touched by the v196 removal (per that changelog note) — it was only ever the #apCueStatus DOM",
+        "element that was gone, so this is purely a template + CSS change, not a logic change. Useful",
+        "again now that the repair-cue-gaps.mjs batch tool is fixing older timing files in bulk: this",
+        "is the fastest way to confirm, per entry, that a given repair actually took."
+      ],
+      "loggedAt": "2026-08-21T19:20:16.373631+00:00"
+    },
+    {
       "version": "203",
       "date": "2026-08-20T16:30:00-05:00",
       "changes": [
