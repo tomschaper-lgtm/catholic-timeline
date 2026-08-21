@@ -1,4 +1,20 @@
 <!--
+VERSION: 201
+DATE: 2026-08-20T16:05:00-05:00
+CHANGES:
+- Changed: the highlighted-sentence indicator is no longer any change to the text itself
+  (color/weight from v198-v200 all reverted — .sentCue/.cuePlaying carry no visual styling now,
+  just the class toggle for JS to key off). Instead, a single glowing white bar (#audioActiveBar,
+  4px, layered box-shadow) sits flush against the actual left edge of the screen — a direct
+  child of #article itself rather than the narrower centered .artwrap column, so it always
+  touches the true edge regardless of screen width. Its top/height are set to span whichever
+  sentence is currently playing, computed in content-space (element position + current
+  scrollTop) so it scrolls naturally along with the article without needing to be re-positioned
+  every animation frame — same coordinate approach used throughout the follow-scroll features.
+  Hidden whenever there's no active cue, the entry has no audio, or the current sentence never
+  matched into the DOM.
+-->
+<!--
 VERSION: 200
 DATE: 2026-08-20T15:50:00-05:00
 CHANGES:
@@ -2189,8 +2205,12 @@ CHANGES:
      once cues actually loaded (data-cue-idx present); .cuePlaying tracks the audio's current
      position, added/removed on timeupdate — see wireSentenceCues()/initAudio() in JS. */
   [data-cue-idx]{cursor:pointer;}
-  .sentCue{color:#EEE8DC; font-weight:400; transition:color 150ms ease, font-weight 150ms ease;}
-  .cuePlaying{color:#FFFFFF; font-weight:600;}
+  .audioActiveBar{
+    position:absolute; left:0; width:4px; border-radius:0 3px 3px 0; background:#fff;
+    box-shadow:0 0 6px rgba(255,255,255,.85), 0 0 14px rgba(255,255,255,.55), 0 0 26px rgba(255,255,255,.3);
+    opacity:0; transition:top .28s ease, height .28s ease, opacity .2s ease; pointer-events:none; z-index:5;
+  }
+  .audioActiveBar.on{opacity:1;}
   /* Temporary diagnostic line (v176) — reports whether the timing file loaded and how many
      sentences actually matched, directly on-screen since this build has no console access on
      the primary device it's used from. Safe to remove once sentence-sync is confirmed reliable
@@ -2884,6 +2904,7 @@ CHANGES:
 </div>
 
 <div class="overlay" id="article">
+  <div class="audioActiveBar" id="audioActiveBar"></div>
   <div class="draghandle" id="artHandle"></div>
   <button class="artX" id="artClose" aria-label="Close">×</button>
   <button class="artShareBtn" id="artShareBtn" aria-label="Share">
@@ -3566,7 +3587,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v200';
+const APP_VERSION = 'v201';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6188,17 +6209,47 @@ function stopAudio(){
   currentCues = []; cueEls = []; activeCueIdx = -1;
   cueSectionHeading = []; audioFollowLastHeading = null; audioFollowSuppressUntil = 0; audioFollowToken++;
   apPlayBtn = null; apSeekEl = null; apTimeEl = null;
+  const bar = document.getElementById('audioActiveBar');
+  if(bar) bar.classList.remove('on');
 }
 
 // ---- Sentence-sync: matches each entry's audioTiming cues into #artStoryText and lights the
 // active one up as the audio plays, or seeks on tap. Entirely additive — an entry with no
 // audioTiming (or a fetch/match failure) just falls back to the plain scrubber, same as before. ----
 
+// Points to whichever sentence is currently playing without touching the text itself — a
+// glowing bar flush against the true screen edge (left:0 of #article, not the narrower
+// centered .artwrap column), its top/height spanning the active cue's actual rendered extent
+// in content-space (so it scrolls naturally with the article, no per-frame syncing needed —
+// see the comment on the coordinate math elsewhere in this file for why content-space, not
+// viewport-space, is what stays valid across a scroll). Hidden whenever there's no active cue
+// or that cue's sentence never matched into the DOM.
+function updateAudioActiveBar(idx){
+  const bar = document.getElementById('audioActiveBar');
+  if(!bar) return;
+  const els = idx >= 0 ? cueEls[idx] : null;
+  if(!els || !els.length){ bar.classList.remove('on'); return; }
+  const artEl = document.getElementById('article');
+  if(!artEl){ bar.classList.remove('on'); return; }
+  const artRect = artEl.getBoundingClientRect();
+  let top = Infinity, bottom = -Infinity;
+  els.forEach(el => {
+    const r = el.getBoundingClientRect();
+    top = Math.min(top, r.top - artRect.top + artEl.scrollTop);
+    bottom = Math.max(bottom, r.bottom - artRect.top + artEl.scrollTop);
+  });
+  if(!isFinite(top) || !isFinite(bottom)){ bar.classList.remove('on'); return; }
+  const PAD = 3;
+  bar.style.top = (top - PAD) + 'px';
+  bar.style.height = (bottom - top + PAD * 2) + 'px';
+  bar.classList.add('on');
+}
 function setActiveCue(idx){
   if(idx !== activeCueIdx){
     (cueEls[activeCueIdx] || []).forEach(el => el.classList.remove('cuePlaying'));
     activeCueIdx = idx;
     (cueEls[activeCueIdx] || []).forEach(el => el.classList.add('cuePlaying'));
+    updateAudioActiveBar(idx);
   }
   driveAudioFollow(idx);
 }
