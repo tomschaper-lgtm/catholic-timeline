@@ -1,4 +1,28 @@
 <!--
+VERSION: 203
+DATE: 2026-08-20T16:30:00-05:00
+CHANGES:
+- Fix: v202 only stripped backslashes from the cue-text side of the comparison. Now the
+  article's own flattened search text (cueFlatMap()) drops any literal backslash character too
+  — never added to its flat string/DOM-offset map in the first place, so the two stay in
+  lockstep automatically, no separate cleanup pass needed. A stray backslash now breaks nothing
+  regardless of which side it turns up on — the article text, the cue text, or (per the
+  double-escaping bug this was chasing) both.
+-->
+<!--
+VERSION: 202
+DATE: 2026-08-20T16:20:00-05:00
+CHANGES:
+- Fix: another cause of missed sentence matches — a quoted phrase in the raw audioTiming file
+  (visible in GitHub's file view as \"brood of vipers,\") leaves a literal backslash character
+  in the parsed cue text after JSON.parse(), which the real article text never has in front of
+  its quotes. Under correct single-escaping a JSON \" simply becomes a plain " once parsed and
+  no backslash survives — this points to a double-escaping slip upstream in generate-audio.mjs.
+  applyCueMarkup() now strips any literal backslash characters from a cue's text before
+  attempting to match it (ahead of the existing space-before-punctuation normalization from
+  v195), since a backslash has no legitimate reason to appear in narration prose.
+-->
+<!--
 VERSION: 201
 DATE: 2026-08-20T16:05:00-05:00
 CHANGES:
@@ -3587,7 +3611,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v201';
+const APP_VERSION = 'v203';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6391,7 +6415,11 @@ function seekToCue(idx){
 }
 // Flattens a subtree's text nodes into one whitespace-collapsed string (matching the
 // stripHtml+collapse the audio script ran before splitting into sentences), plus a parallel
-// map from each character of that flat string back to {node, offset} in the real DOM.
+// map from each character of that flat string back to {node, offset} in the real DOM. Also
+// drops any literal backslash character entirely (never added to chars/map at all, so flat
+// and map stay in lockstep automatically) — matching applyCueMarkup's own backslash-stripping
+// on the cue-text side, so a stray backslash breaks nothing regardless of which side it turns
+// up on. A backslash has no legitimate reason to appear in narration prose either way.
 function cueFlatMap(root){
   const map = [];
   const chars = [];
@@ -6401,6 +6429,7 @@ function cueFlatMap(root){
     const text = node.textContent;
     for(let i = 0; i < text.length; i++){
       const ch = text[i];
+      if(ch === '\\') continue; // see comment above — dropped on both sides, never just one
       if(/\s/.test(ch)){
         if(lastWasSpace) continue;
         chars.push(' '); map.push({node, offset:i}); lastWasSpace = true;
@@ -6471,8 +6500,16 @@ function applyCueMarkup(cues){
   const matches = []; // {idx, start, end} in document order
   let searchFrom = 0;
   cues.forEach((c, idx) => {
-    const text = c.text;
-    if(!text) return;
+    const raw = c.text;
+    if(!raw) return;
+    // Strip literal backslash characters before anything else. Under correct JSON escaping
+    // these never survive JSON.parse — a JSON-escaped quote \" in the file becomes a plain "
+    // once parsed — but a double-escaping slip upstream (generate-audio.mjs escaping a quote
+    // that was already going to be escaped by JSON.stringify) can leave an actual backslash
+    // character sitting in the parsed string itself, right before quotes the real article
+    // text never has one in front of. Backslashes have no legitimate reason to appear in
+    // narration prose, so unconditionally dropping them here is safe.
+    const text = raw.indexOf('\\') === -1 ? raw : raw.replace(/\\/g, '');
     let at = flat.indexOf(text, searchFrom);
     let searchText = text;
     if(at === -1){
