@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "195",
+      "date": "2026-08-20T14:45:00-05:00",
+      "changes": [
+        "Fix: some of the missed sentence matches on St. John the Baptist (16/20) traced to",
+        "cross-reference links. Whenever a linked name (its first mention only, per the auto-link",
+        "convention — e.g. \"Mary\", \"Jordan River\", \"Herod Antipas\") is immediately followed by",
+        "punctuation in the source prose, generate-audio.mjs's tag-stripping leaves a stray space at",
+        "that boundary in the cue text (\"Mary , newly pregnant\") that the real rendered article never",
+        "has (\"Mary, newly pregnant\") — so the verbatim match failed for that whole sentence. Later",
+        "plain-text mentions of the same name (no link, since only the first mention gets one) never",
+        "carried the artifact, which is why it only hit some sentences. applyCueMarkup() now retries",
+        "an unmatched cue with a normalized version (a space directly before common punctuation",
+        "stripped) before giving up on it — fixes the mismatch without touching the generation script",
+        "or re-recording anything.",
+        "Changed: the section-follow glide (v191-v194) now rides to the top of a section every time",
+        "playback crosses into it, not only when that heading happens to already be off-screen — a",
+        "simpler, more literal \"teleprompter\" behavior: every new section always rises to the top."
+      ],
+      "loggedAt": "2026-08-21T03:09:47.978441+00:00"
+    },
+    {
       "version": "194",
       "date": "2026-08-20T14:30:00-05:00",
       "changes": [
