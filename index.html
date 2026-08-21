@@ -1,4 +1,23 @@
 <!--
+VERSION: 195
+DATE: 2026-08-20T14:45:00-05:00
+CHANGES:
+- Fix: some of the missed sentence matches on St. John the Baptist (16/20) traced to
+  cross-reference links. Whenever a linked name (its first mention only, per the auto-link
+  convention — e.g. "Mary", "Jordan River", "Herod Antipas") is immediately followed by
+  punctuation in the source prose, generate-audio.mjs's tag-stripping leaves a stray space at
+  that boundary in the cue text ("Mary , newly pregnant") that the real rendered article never
+  has ("Mary, newly pregnant") — so the verbatim match failed for that whole sentence. Later
+  plain-text mentions of the same name (no link, since only the first mention gets one) never
+  carried the artifact, which is why it only hit some sentences. applyCueMarkup() now retries
+  an unmatched cue with a normalized version (a space directly before common punctuation
+  stripped) before giving up on it — fixes the mismatch without touching the generation script
+  or re-recording anything.
+- Changed: the section-follow glide (v191-v194) now rides to the top of a section every time
+  playback crosses into it, not only when that heading happens to already be off-screen — a
+  simpler, more literal "teleprompter" behavior: every new section always rises to the top.
+-->
+<!--
 VERSION: 194
 DATE: 2026-08-20T14:30:00-05:00
 CHANGES:
@@ -3485,7 +3504,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v194';
+const APP_VERSION = 'v195';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6140,17 +6159,21 @@ function updateActiveCue(t){
   if(!currentCues.length) return;
   setActiveCue(cueIndexForTime(t));
 }
-// The follow-along scroll decision itself: does the section governing the currently-playing
-// cue need to be brought on screen? `force` (used only from the Play button) bypasses the
-// manual-scroll suppression window — pressing Play is a deliberate request to go to wherever
-// playback is starting, even if the reader had just been scrolling a moment before.
+// The follow-along scroll decision itself: whenever playback crosses into a new section, ride
+// to put that section's heading right at the top (below the sticky bars) — every time, not
+// only when the heading happens to already be off-screen. `force` (used only from the Play
+// button) bypasses both the manual-scroll suppression window and the "already handled this
+// section" memory — pressing Play is a deliberate request to go to wherever playback is
+// starting, even if the reader had just been scrolling a moment before.
 function followAudioSection(idx, force){
   if(!(idx >= 0) || !cueSectionHeading.length) return;
   const heading = cueSectionHeading[idx];
-  if(!heading) return;                                  // before the first heading, or no headings matched at all
+  if(!heading) return;                                       // before the first heading, or no headings matched at all
+  if(heading === audioFollowLastHeading && !force) return;    // already handled this section
   const artEl = document.getElementById('article');
   if(!artEl || !artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
   if(!force && Date.now() < audioFollowSuppressUntil) return; // reader is actively scrolling — don't fight them
+  audioFollowLastHeading = heading;
   const sticky = document.getElementById('artSticky');
   const headerH = sticky ? sticky.offsetHeight : 0;
   const player = document.getElementById('artPlayerWrap');
@@ -6158,14 +6181,10 @@ function followAudioSection(idx, force){
   const occludedH = headerH + playerH; // same two stacked sticky bars as the resume-reveal logic
   const artRect = artEl.getBoundingClientRect();
   const hRect = heading.getBoundingClientRect();
-  const headingViewportTop = hRect.top - artRect.top; // heading's position in the card's own box, current screen pixels
-  const onScreen = headingViewportTop >= occludedH - 4 && headingViewportTop <= artEl.clientHeight - 40;
-  if(onScreen){ audioFollowLastHeading = heading; return; } // already visible somewhere below the bars — leave it be
-  if(heading === audioFollowLastHeading && !force) return;  // already scrolled here for this section, still off-screen only because the reader moved away — don't re-chase
-  audioFollowLastHeading = heading;
-  const headingAbs = headingViewportTop + artEl.scrollTop; // convert to absolute content-space offset
+  const headingAbs = hRect.top - artRect.top + artEl.scrollTop; // heading's position in absolute content-space
   const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
   const target = Math.min(max, Math.max(0, headingAbs - occludedH - SECTION_BREATH));
+  if(Math.abs(artEl.scrollTop - target) < 4) return; // already sitting right at that spot — nothing to glide to
   animateFollowScroll(artEl, target);
 }
 // Same decelerating glide as the resume-reveal animation, just driven by playback advancing
@@ -6267,6 +6286,18 @@ function cueWrapRange(map, start, end, idx, className){
   });
   return wrapped.reverse();
 }
+// A cue's text can carry a stray space that the real article text never had — specifically,
+// wherever a cross-reference link (<a href="entry:…">) is immediately followed by punctuation
+// in the source prose, generate-audio.mjs's own tag-stripping leaves a space at that boundary
+// (e.g. cue text "Mary , newly pregnant" for what actually renders as "Mary, newly pregnant").
+// Only the FIRST mention of a name is ever linked (per the auto-link convention), so later
+// plain-text mentions of the same word never carry this artifact — which is why it shows up
+// intermittently rather than on every occurrence of a name. Stripping a space that sits right
+// before common punctuation makes a cue built from that stray space match the real text again,
+// without needing to touch the generation script or re-record anything.
+function normalizeCueSearchText(s){
+  return s.replace(/\s+([,.;:!?)\]}'"\u201d\u2019])/g, '$1');
+}
 // Matches currentCues into the just-rendered #artStoryText DOM and populates cueEls. Cues are
 // matched sequentially against ONE flat map of the entire container (headings and prose
 // together, in document order) rather than grouped by each cue's `section` number — because
@@ -6285,10 +6316,18 @@ function applyCueMarkup(cues){
   cues.forEach((c, idx) => {
     const text = c.text;
     if(!text) return;
-    const at = flat.indexOf(text, searchFrom);
+    let at = flat.indexOf(text, searchFrom);
+    let searchText = text;
+    if(at === -1){
+      const normalized = normalizeCueSearchText(text);
+      if(normalized !== text){
+        at = flat.indexOf(normalized, searchFrom);
+        searchText = normalized;
+      }
+    }
     if(at === -1) return; // unmatched — skip, non-fatal
-    matches.push({ idx, start: at, end: at + text.length });
-    searchFrom = at + text.length;
+    matches.push({ idx, start: at, end: at + searchText.length });
+    searchFrom = at + searchText.length;
   });
   // Wrap in reverse document order — see cueWrapRange's comment on why.
   matches.slice().reverse().forEach(m => {
