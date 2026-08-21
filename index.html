@@ -1,4 +1,40 @@
 <!--
+VERSION: 205
+DATE: 2026-08-21T15:30:00-05:00
+CHANGES:
+- New: timeline range extended 40 years each direction (was AD 0-2030, now 40 BC-AD 2070) for
+  scroll room before Pentecost and after the current stretch. Found and fixed a real bug this
+  surfaced: yearToX/xToYear's 2x "widened Apostolic Age" zoom used to assume START and
+  DISTORT_START were the same year (both were 0) — extending START negative without separating
+  them would have silently pulled the whole B.C. padding into that 2x zone. Rewrote both as
+  proper 3-zone piecewise functions (undistorted / 2x / undistorted) so it doesn't.
+- New: a "B.C." era band and a labeled boundary tick (e.g. "40 BC") mark the new pre-Pentecost
+  stretch. fmtYear() and the new fmtAxisYear() both render negative years as "N BC".
+- Changed: the inline audio scrubber is gone, replaced by a fixed bottom bar (play/pause plus
+  jump-to-previous/next-SECTION, not seconds — see audJumpSection()/sectionBoundaryTimes(), which
+  read section boundaries straight from the timing file's cues rather than DOM matching, so
+  section-jumping works even on an entry whose sentence-highlighting is broken). No seek bar —
+  section jumping covers the navigation need a plain scrubber used to.
+- New: bottom-bar visibility follows the ARTICLE CARD's state, not playback state — visible any
+  time the entry has audio and the full card is up (not peeking, not mid slide/expand/collapse
+  transition), whether or not something is currently playing. Wired into all four card-state
+  transitions (openArticle, expandArticle, collapseArticle, closeArticle) via one shared check,
+  updateAudioBarPresence().
+- New: double-tap the story text to start/resume audio (outside Review Mode only — Review Mode's
+  own double-tap already means "select story for Speak Selection", so the two never compete for
+  the same gesture); a single tap anywhere in the story still stops it in place, as it already
+  did — now centralized through stopAudioPlaybackInPlace()/startAudioPlayback() so the bottom
+  bar's own button and both tap gestures share one code path. Added a fading play-triangle glyph
+  (showPlayIndicator()) as the double-tap's visual feedback, mirroring the existing pause glyph.
+- Removed: dead CSS/JS left over from the scrubber (.artPlayerWrap, .player, .pbtn, .ptime, the
+  old "tap anywhere on the scrubber row" handler) and the three occludedH calculations that used
+  to account for its sticky height — the bottom bar is fixed, not sticky-in-flow, so it no longer
+  occludes the top of the viewport at all. paintPlayerBackdrop() is left in place as a documented
+  no-op (same call as v196 made for wireSentenceCues' status line) rather than removed outright.
+- Added a bottom spacer (.audioBottomSpacer) to any entry with audio, so the fixed bar never
+  overlaps the last lines of the story or Sources & Further Reading.
+-->
+<!--
 VERSION: 204
 DATE: 2026-08-21T14:15:00-05:00
 CHANGES:
@@ -2213,24 +2249,8 @@ CHANGES:
      story text before it ever reaches the dblclick listener that selects it for Speak
      Selection — same reason .artimg (below) already carries this property. */
   #artStoryText{touch-action:manipulation;}
-  /* The audio scrubber sits with the article text, directly above it, and pins itself
-     just below the sticky header once it reaches the top. */
-  .artPlayerWrap{
-    position:sticky; top:var(--ahH, 120px); z-index:12;
-    margin:18px -20px 0; padding:4px 20px 8px;
-    background-repeat:no-repeat;
-  }
-  .artPlayerWrap .player{margin:0;}
-  /* Generous tap area: the whole strip is live, so a thumb landing beside the triangle still
-     works the transport instead of doing nothing (or, previously, dismissing the card). */
-  .artPlayerWrap{cursor:pointer; -webkit-tap-highlight-color:transparent;}
-  /* NOT transparent. This strip is sticky, so article text scrolls underneath it — it needs
-     a solid backdrop or the words show through the scrubber. It gets one in JS
-     (paintPlayerBackdrop), which paints the card's OWN gradient, sampled at exactly this
-     strip's current offset down the card. That's why it reads as part of the card rather
-     than as a panel sitting on top of it: it is pixel-identical to what's behind it.
-     The fallback colour below only matters for the frame before JS first runs. */
-  .artPlayerWrap{background-color:#101C40; background-repeat:no-repeat;}
+  /* v205: the old inline sticky scrubber (.artPlayerWrap/.player/.pbtn) is gone, replaced by
+     the fixed .audioBottomBar below. */
   /* Share and close buttons hidden for now — swipe down to close. */
   .artShareBtn, .artX{display:none;}
   .artbadges{display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
@@ -2248,11 +2268,10 @@ CHANGES:
     opacity:0; transition:top .28s ease, height .28s ease, opacity .2s ease; pointer-events:none; z-index:5;
   }
   .audioActiveBar.on{opacity:1;}
-  /* Temporary diagnostic line (v176) — reports whether the timing file loaded and how many
-     sentences actually matched, directly on-screen since this build has no console access on
-     the primary device it's used from. Safe to remove once sentence-sync is confirmed reliable
-     across a range of entries. */
-  .apCueStatus{font-size:11px; color:var(--muted); text-align:center; padding:3px 0 0; letter-spacing:.02em;}
+  /* Diagnostic sentence-sync line — Review Mode + Owner Tools only. See wireSentenceCues().
+     (v176 originally, restored behind the owner gate in v204; this replaces both of that
+     history's separate rules with one.) */
+  .apCueStatus{font-size:11px; color:var(--muted); text-align:center; padding:3px 0 0; letter-spacing:.02em; opacity:.85;}
   .apBatchList{max-height:180px; overflow-y:auto; border:1px solid rgba(201,165,66,.25); border-radius:8px; padding:8px 10px; font-size:13px; line-height:1.55; background:rgba(0,0,0,.12);}
   .apBatchRow{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .apBatchNote{color:var(--m-accent); font-style:italic;}
@@ -2442,33 +2461,36 @@ CHANGES:
   .factlabel{flex:0 0 38%; max-width:38%; font-family:'Cinzel',serif; font-size:calc(14px * var(--txt)); letter-spacing:.05em; text-transform:uppercase; color:#BFC9EA; padding-top:2px;}
   .factval{flex:1;}
   .factval a{color:var(--gold-bright);}
-  /* Audio player */
-  .player{
-    display:flex; align-items:center; gap:8px;
-    margin:22px 0;
+  /* Audio player: v205 replaced the old inline sticky scrubber with a fixed bottom bar (below).
+     Per Tom's spec: no seek bar (section-jump buttons cover navigation), and it's always
+     present once the entry has audio and the full card is up — see updateAudioBarPresence(). */
+  .audioBottomBar{
+    position:fixed; left:50%; bottom:max(18px, env(safe-area-inset-bottom, 0px) + 10px);
+    transform:translate(-50%, 14px);
+    display:flex; align-items:center; gap:4px;
+    padding:6px; border-radius:999px; z-index:20;
+    background:rgba(10,20,48,.88); border:1px solid rgba(201,165,66,.4);
+    box-shadow:0 6px 24px rgba(0,0,0,.5);
+    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    opacity:0; pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;
   }
-  .pbtn{
-    width:76px; height:76px; min-width:76px; min-height:76px; margin:-11px 0; border-radius:50%; flex:0 0 auto;
-    background:none; color:var(--gold); border:none; padding:0; position:relative; z-index:1;
-    cursor:pointer; display:flex; align-items:center; justify-content:center;
-    -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+  .audioBottomBar.show{opacity:1; pointer-events:auto; transform:translate(-50%, 0);}
+  .audBarBtn{
+    background:none; border:none; color:var(--gold); padding:0;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
   }
-  .pbtn:hover{color:var(--gold-bright);}
-  .pbtn:active{transform:scale(0.92);}
-  .player input[type=range]{
-    flex:1 1 auto; -webkit-appearance:none; appearance:none;
-    height:4px; background:rgba(201,165,66,.28); border-radius:2px; outline:none; accent-color:var(--gold);
+  .audBarBtn:hover{color:var(--gold-bright);}
+  .audBarBtn:active{transform:scale(0.92);}
+  .audBarSide{width:46px; height:46px; border-radius:50%;}
+  .audBarPlay{
+    width:64px; height:64px; border-radius:50%;
+    background:rgba(201,165,66,.14); border:1px solid rgba(201,165,66,.5);
   }
-  .player input[type=range]::-webkit-slider-runnable-track{height:4px; background:rgba(201,165,66,.28); border-radius:2px;}
-  .player input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:var(--gold); margin-top:-4px; cursor:pointer;}
-  .player input[type=range]::-moz-range-track{height:4px; background:rgba(201,165,66,.28); border-radius:2px;}
-  .player input[type=range]::-moz-range-thumb{width:12px; height:12px; border-radius:50%; background:var(--gold); border:none; cursor:pointer;}
-  .ptime{font-size:13px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums;}
-  /* Owner-only diagnostic line (Review Mode + Owner Tools) — see wireSentenceCues(). Sits under
-     the scrubber, small and quiet enough not to look like a visitor-facing element. */
-  .apCueStatus{
-    font-size:12px; color:var(--muted); line-height:1.4; margin:-14px 0 16px; opacity:.85;
-  }
+  /* Comfortable clearance so the fixed bar (above) never sits over the last lines of the story
+     or Sources & Further Reading — see fillArticleBody's audioBottomSpacer. */
+  .audioBottomSpacer{height:110px;}
   /* position:fixed (not absolute) so it centres on the VISIBLE card rather than on the full
      scroll height of the article — #article carries a transform, which makes fixed children
      anchor to the card's own box. The old absolute/top:50% put it halfway down the entire
@@ -3605,9 +3627,16 @@ const SEED = [
 ];
 
 const ERAS = [
+  // Blank scroll room before Pentecost, per Tom's request — kept in sync with START below by
+  // hand since ERAS is defined before START/END exist as consts (used at file-parse time, not
+  // runtime, so it can't just reference them). If START changes, update this first entry's
+  // start year to match.
+  [-40,0,"B.C."],
   [0,100,"Apostolic Age"],[100,313,"Age of Martyrs"],[313,604,"Age of the Fathers"],
   [604,1054,"Early Middle Ages"],[1054,1300,"High Middle Ages"],[1300,1517,"Late Middle Ages"],
-  [1517,1650,"Reformation"],[1650,1900,"Age of Revolutions"],[1900,2030,"Modern Era"]
+  [1517,1650,"Reformation"],[1650,1900,"Age of Revolutions"],
+  // Same sync note as the B.C. entry above — this end year must match END below.
+  [1900,2070,"Modern Era"]
 ];
 const TYPE_NAMES = {s:"Saint", c:"Council", p:"Persecution", e:"Event", m:"Marian Apparition", u:"Eucharistic Miracle"};
 const REGION_NAMES = {rome:"Rome & Italy", west:"Western Europe", brit:"Britain & Ireland", east:"Byzantium & E. Europe", holy:"Holy Land & Mid-East", africa:"Africa", americas:"Americas", asia:"Asia & Oceania"};
@@ -3629,7 +3658,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v204';
+const APP_VERSION = 'v205';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3724,7 +3753,12 @@ function carloDisplayName(name){
 }
 
 // ================= TIMELINE =================
-const START = 0, END = 2030, SPAN = END - START;
+// Extra scroll room at both ends beyond actual content, per Tom's request: at least 35 years
+// of blank canvas before Pentecost (AD 1) and after the last-covered stretch, so the timeline
+// doesn't feel like it stops dead exactly where entries do. 40 years each side, comfortably
+// past the 35-year minimum, in round numbers. If these change, update ERAS's first/last
+// entries above to match (they can't reference these consts directly — see note there).
+const START = -40, END = 2070, SPAN = END - START;
 let ppy = 1.8;
 let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
 let activeRegion = "all";
@@ -3825,18 +3859,14 @@ function jumpAndRevealSection(artEl, y, token){
     measureFly();
     updateFly();
     // The card's own sticky header (#artSticky) pins to the top of the visible area and
-    // overlays whatever content is scrolled underneath it. When the entry has audio, the
-    // scrubber (#artPlayerWrap) is sticky too — it pins directly beneath that header once
-    // scrolled past — so for any position within the story text (which always comes after
-    // the scrubber in the document) BOTH bars are stacked over the top of the viewport. The
-    // content actually VISIBLE to the reader starts occludedH further down than the raw
-    // scroll position — that's the position that should decide which section they're really
-    // in, not the raw scrollTop.
+    // overlays whatever content is scrolled underneath it — that's the only thing occluding
+    // the top now. (v205: the old inline scrubber that used to stack a second sticky bar
+    // beneath the header is gone, replaced by a fixed BOTTOM bar that doesn't occlude the top
+    // at all — so occludedH is just the header's own height these days.) The content actually
+    // VISIBLE to the reader starts occludedH further down than the raw scroll position — that's
+    // the position that should decide which section they're really in, not the raw scrollTop.
     const sticky = document.getElementById('artSticky');
-    const headerH = sticky ? sticky.offsetHeight : 0;
-    const player = document.getElementById('artPlayerWrap');
-    const playerH = player ? player.offsetHeight : 0;
-    const occludedH = headerH + playerH;
+    const occludedH = sticky ? sticky.offsetHeight : 0;
     const effectivePos = target + occludedH;
     // Find the section heading that governs this landing spot: the last .arth whose own top
     // sits at or above the visible reading position. Coordinates are computed in the
@@ -3910,16 +3940,30 @@ const manage = document.getElementById('manage');
 // where entries are most densely packed — this trades "more pixels per year" for
 // less vertical stacking, instead of clustering/collapsing markers. yearToX/xToYear
 // replace the old straight (year-START)*ppy math everywhere it was used.
+//
+// Three zones now, not two: this used to assume START === DISTORT_START (both were 0), so a
+// single "y <= DISTORT_END" branch covered both "before the distortion" and "inside it" at
+// once. Now that START can sit before DISTORT_START (the B.C. padding — see START's own
+// comment), that assumption breaks: without a real pre-distortion zone, the padding years
+// would silently get pulled into the 2x-wide treatment meant only for AD 0-100, rendering
+// twice as wide as intended. Each function below now has its own explicit zone 1 (undistorted,
+// START..DISTORT_START), zone 2 (2x, DISTORT_START..DISTORT_END), zone 3 (undistorted,
+// DISTORT_END..END) — reduces to the old two-zone math exactly when START === DISTORT_START.
 const DISTORT_START = 0, DISTORT_END = 100, DISTORT_FACTOR = 2;
-const EFFECTIVE_SPAN = (DISTORT_END - DISTORT_START) * DISTORT_FACTOR + (END - DISTORT_END);
+const EFFECTIVE_SPAN = (DISTORT_START - START) + (DISTORT_END - DISTORT_START) * DISTORT_FACTOR + (END - DISTORT_END);
 function yearToX(y){
-  if(y <= DISTORT_END) return (y - START) * ppy * DISTORT_FACTOR;
-  return (DISTORT_END - START) * ppy * DISTORT_FACTOR + (y - DISTORT_END) * ppy;
+  if(y <= DISTORT_START) return (y - START) * ppy;
+  const zone1 = (DISTORT_START - START) * ppy;
+  if(y <= DISTORT_END) return zone1 + (y - DISTORT_START) * ppy * DISTORT_FACTOR;
+  const zone2 = (DISTORT_END - DISTORT_START) * ppy * DISTORT_FACTOR;
+  return zone1 + zone2 + (y - DISTORT_END) * ppy;
 }
 function xToYear(x){
-  const distortedWidth = (DISTORT_END - START) * ppy * DISTORT_FACTOR;
-  if(x <= distortedWidth) return START + x / (ppy * DISTORT_FACTOR);
-  return DISTORT_END + (x - distortedWidth) / ppy;
+  const zone1 = (DISTORT_START - START) * ppy;
+  if(x <= zone1) return START + x / ppy;
+  const zone2 = (DISTORT_END - DISTORT_START) * ppy * DISTORT_FACTOR;
+  if(x <= zone1 + zone2) return DISTORT_START + (x - zone1) / (ppy * DISTORT_FACTOR);
+  return DISTORT_END + (x - zone1 - zone2) / ppy;
 }
 function totalWidth(){ return yearToX(END); }
 
@@ -4125,6 +4169,22 @@ function render(){
       axis.appendChild(l);
     }
   });
+  // One labeled boundary tick right at the canvas's own left edge, into the B.C. padding zone
+  // (e.g. "40 BC") — the only tick that zone needs, since it's blank scroll room rather than
+  // a real century-marked stretch (see START's comment). Skipped entirely when START isn't
+  // negative, so this is a no-op if the padding is ever removed.
+  if(START < 0){
+    const x = yearToX(START);
+    const t = document.createElement('div');
+    t.className = 'tick';
+    t.style.left = x + 'px';
+    axis.appendChild(t);
+    const l = document.createElement('div');
+    l.className = 'ticklbl';
+    l.style.left = x + 'px';
+    l.textContent = fmtAxisYear(START);
+    axis.appendChild(l);
+  }
   head.appendChild(axis);
   canvas.insertBefore(head, canvas.firstChild);
 
@@ -4387,11 +4447,12 @@ function navigateStory(direction){
 
   artEl.addEventListener('touchstart', (e) => {
     if(e.touches.length !== 1) return;
-    // A touch starting on the audio player (or any other interactive control) is that
-    // control's own gesture — pressing Play or dragging the scrubber — never a swipe.
-    // Leaving startY unset makes touchend's guard below bail out immediately, so native
-    // button/slider behavior runs completely undisturbed.
-    if(e.target.closest('.player, input, button, a')){ startY = null; return; }
+    // A touch starting on the audio bar (or any other interactive control) is that control's
+    // own gesture — pressing Play, tapping a skip button — never a swipe. Leaving startY unset
+    // makes touchend's guard below bail out immediately, so native button behavior runs
+    // completely undisturbed. `.audioBottomBar` covers the padding around its buttons too, not
+    // just the buttons themselves (a touch landing in that gap should still not start a swipe).
+    if(e.target.closest('.audioBottomBar, input, button, a')){ startY = null; return; }
     startY = e.touches[0].clientY;
     startX = e.touches[0].clientX;
     samples = [{y: startY, t: performance.now()}];
@@ -4480,7 +4541,7 @@ function navigateStory(direction){
 // users can expand it at all, and a natural affordance on mobile too.
 document.getElementById('article').addEventListener('click', (e) => {
   if(!article.classList.contains('peek')) return;
-  if(e.target.closest('.player, a, button, input')) return;
+  if(e.target.closest('.audioBottomBar, a, button, input')) return;
   // A swipe-down that just collapsed the card back to a preview can be followed by a
   // synthesised click on some devices, which would bounce it straight back to full. Ignore
   // taps for a moment after a collapse so "down" reliably means down.
@@ -4501,10 +4562,9 @@ document.addEventListener('click', (e) => {
   const path = (typeof e.composedPath === 'function' ? e.composedPath() : null) || [];
   const hit = sel => path.some(n => n && n.nodeType === 1 && n.matches && n.matches(sel)) ||
                      !!(e.target.isConnected && e.target.closest && e.target.closest(sel));
-  // The whole audio-player strip is a no-close zone: a tap anywhere near the play button —
-  // on the button, beside it, on the scrubber row — is always a transport control, never a
-  // "you clicked outside the card" dismissal.
-  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, .sresults, #hamMenu, .ev, .artPlayerWrap, .player, #linkPicker')) return;
+  // The floating audio bar is a no-close zone: a tap on it (or near it) is always a transport
+  // control, never a "you clicked outside the card" dismissal.
+  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, .sresults, #hamMenu, .ev, .audioBottomBar, #linkPicker')) return;
   if(article.classList.contains('open')){
     if(!hit('#article')) closeArticle();
     return;
@@ -5436,7 +5496,13 @@ function renderBody(b){
     .map(par => '<p class="artp">' + esc(par) + '</p>').join('');
 }
 
-function fmtYear(y){ return (y <= 99 ? 'AD ' + y : String(y)); }
+// y < 0 is a B.C. year (only possible via the timeline's own blank padding zone right now —
+// see START's comment — nothing in the seed data uses it, but this makes the app correct if a
+// B.C.-dated entry is ever actually added rather than just scrolled past).
+function fmtYear(y){ return y < 0 ? (-y) + ' BC' : (y <= 99 ? 'AD ' + y : String(y)); }
+// Same B.C. handling as fmtYear, but without the "AD " prefix on plain-number years — matches
+// the axis's existing bare-century-number labels (e.g. "100", not "AD 100").
+function fmtAxisYear(y){ return y < 0 ? (-y) + ' BC' : String(y); }
 function ordinalSuffix(n){
   const j = n % 10, k = n % 100;
   if(j === 1 && k !== 11) return n + 'st';
@@ -5519,23 +5585,30 @@ function fillArticleBody(d, peek){
         '<p>' + esc(note) + '</p></div>';
     }
   }
-  // Audio scrubber: immediately above the article text, riding up with the content until
-  // it reaches the sticky header, at which point it pins itself just beneath it.
+  // Diagnostic sentence-sync line — Review Mode + Owner Tools only (same gate as
+  // triple-tap-to-link), never shown to a visitor. wireSentenceCues() has populated this
+  // element's text on every article load since v192; it was only ever the DOM element that
+  // was removed in v196 once the sync bug was believed fixed. No longer nested inside a player
+  // strip (v205 removed the inline scrubber — see audioBottomBar below) — it's just its own
+  // quiet line now, in normal document flow, not sticky.
+  if(d.audio && reviewMode && manageUnlocked()){
+    html += '<div class="apCueStatus" id="apCueStatus">Sentence sync: \u2026</div>';
+  }
+  // The floating playback bar (v205): play/pause plus jump-to-previous/next-SECTION, replacing
+  // the old inline scrubber entirely — no seek bar, since section-jumping covers the actual
+  // navigation need and a fixed pill needs to stay small. Always in the DOM whenever the entry
+  // has audio, and — per Tom's correction — visible any time the entry has audio AND the full
+  // card is up (not peeking, not mid-transition); it does NOT hide again just because playback
+  // is paused/stopped (see updateAudioBarPresence(), driven by card state, not play state).
+  // The center button is a real play/pause toggle; a double-tap on the story text is a shortcut
+  // to start it and a single tap a shortcut to stop it, but the bar itself is the persistent,
+  // always-available control (see toggleAudioPlayback()).
   if(d.audio){
-    html += '<div class="artPlayerWrap" id="artPlayerWrap"><div class="player">' +
-      '<button class="pbtn" id="apPlay" aria-label="Play">' + ICON_PLAY + '</button>' +
-      '<input type="range" id="apSeek" min="0" max="100" value="0" step="0.1" aria-label="Seek">' +
-      '<span class="ptime" id="apTime">0:00 / 0:00</span>' +
+    html += '<div class="audioBottomBar" id="audioBottomBar">' +
+      '<button class="audBarBtn audBarSide" id="audPrevBtn" aria-label="Previous section">' + ICON_PREV_SECTION + '</button>' +
+      '<button class="audBarBtn audBarPlay" id="audPlayBtn" aria-label="Play">' + ICON_PLAY + '</button>' +
+      '<button class="audBarBtn audBarSide" id="audNextBtn" aria-label="Next section">' + ICON_NEXT_SECTION + '</button>' +
       '</div>';
-    // Diagnostic sentence-sync line — Review Mode + Owner Tools only (same gate as
-    // triple-tap-to-link), never shown to a visitor. wireSentenceCues() has populated this
-    // element's text on every article load since v192; it was only ever the DOM element that
-    // was removed in v196 once the sync bug was believed fixed. Restoring it behind the owner
-    // gate, rather than removing the reporting code, is what that changelog note anticipated.
-    if(reviewMode && manageUnlocked()){
-      html += '<div class="apCueStatus" id="apCueStatus">Sentence sync: \u2026</div>';
-    }
-    html += '</div>';
   }
   if(isReview(d) && d.reviewNote){
     html += '<div class="reviewNoteBox"><div class="reviewNoteLabel">Notes to Reviewer</div>' +
@@ -5580,6 +5653,10 @@ function fillArticleBody(d, peek){
       '</div>' +
       '<p class="reviewActionNote" id="reviewActionNote"></p>';
   }
+  // Clearance for the fixed bottom audio bar (see .audioBottomBar) — it's always present once
+  // the entry has audio (not just while playing, per Tom's spec), so this is unconditional on
+  // d.audio too, not on play state, to avoid a layout jump when the bar's own visibility toggles.
+  if(d.audio) html += '<div class="audioBottomSpacer"></div>';
   document.getElementById('artBody').innerHTML = html;
   if(isReview(d) && manageUnlocked()){
     const noteEl = document.getElementById('reviewActionNote');
@@ -5808,6 +5885,7 @@ function openArticle(d, opts){
       if(!article.classList.contains('open')) return;
       syncStickyBackdrops();
       measureFly();
+      updateAudioBarPresence(); // slide-up finished — the bottom bar can appear now, not before
     };
     // Wait for the slide to actually finish. A fixed delay is unreliable here: rendering a
     // long article in the same frame can push the transition's start back well past it.
@@ -5817,6 +5895,11 @@ function openArticle(d, opts){
       settle();
     });
     setTimeout(settle, 700); // safety net if the transition never reports
+  } else {
+    // Card was already fully open (e.g. swiping to a chronological neighbor) — nothing is
+    // sliding, so there's no transition to wait for; the new entry's bar (if it has audio) can
+    // reflect the (already-settled) card state immediately.
+    updateAudioBarPresence();
   }
 }
 // ---- The peek ⇄ hero photo morph --------------------------------------------------
@@ -5979,6 +6062,7 @@ function expandArticle(){
     if(hero && !morphing) hero.style.transition = ''; // hand back to the short CSS rule the fly-photo handoff relies on
     syncStickyBackdrops();
     if(!morphing) measureFly();
+    updateAudioBarPresence(); // peek->full finished — no longer peeking, no longer expanding
   };
   article.addEventListener('transitionend', function once(ev){
     if(ev.target !== article || ev.propertyName !== 'transform') return;
@@ -6039,6 +6123,7 @@ function collapseArticle(){
     article.classList.remove('expanding');
     syncStickyBackdrops();
     if(!morphing && article.classList.contains('peek')) placePeekFlyNow();
+    updateAudioBarPresence(); // full->peek finished — now peeking, bar should be gone
   };
   article.addEventListener('transitionend', function once(ev){
     if(ev.target !== article || ev.propertyName !== 'transform') return;
@@ -6077,6 +6162,7 @@ function closeArticle(opts){
     setTimeout(() => article.classList.remove('flick'), GEST.exitMs + 130);
   }
   article.classList.remove('open', 'peek', 'expanding');
+  updateAudioBarPresence(); // card is closing — bar goes with it, before stopAudio() tears the DOM down
   document.body.classList.remove('artOpen');
   flyGeo = null;
   articleBackStack = []; // the whole cross-reference trail disappears once you leave the article
@@ -6173,7 +6259,7 @@ let audioEl = null;
 let currentCues = [];      // the raw cues array from the timing file (start/end/type/text/section)
 let cueEls = [];           // parallel array: cueEls[i] = the DOM element(s) matched for currentCues[i], or []
 let activeCueIdx = -1;     // index into currentCues currently highlighted, or -1
-let apPlayBtn = null, apSeekEl = null, apTimeEl = null; // live refs to this render's player controls
+let apPlayBtn = null; // kept for wireSentenceCues's follow-along code path, now points at #audPlayBtn
 // ---- Follow-along auto-scroll (v191) ----
 // While audio plays, keeps whichever section is currently being read on-screen — without
 // fighting the reader if they move the text around with their own finger. cueSectionHeading
@@ -6194,71 +6280,140 @@ function fmtTime(s){
 }
 const ICON_PLAY = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor" pointer-events="none"><path d="M7 4l14 8-14 8V4z"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor" pointer-events="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+// Standard "skip to previous/next track" glyph (bar + triangle) — the metaphor still reads
+// correctly even though these skip by SECTION rather than by time/track; see audJumpSection().
+const ICON_PREV_SECTION = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" pointer-events="none"><rect x="4" y="4" width="3" height="16"/><path d="M20 4v16L8 12z"/></svg>';
+const ICON_NEXT_SECTION = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" pointer-events="none"><rect x="17" y="4" width="3" height="16"/><path d="M4 4v16l12-8z"/></svg>';
+// Bottom bar presence follows the CARD's state, not playback state — per Tom's correction:
+// "always show if there is an audio file to play [but] not... until the full card is up." So
+// unlike a typical media player, this bar is NOT hidden when paused/stopped; it's hidden only
+// while there's genuinely nothing to show it over — peeking, or mid open/close/expand
+// transition. Called from the settle/done points of every card-state change (openArticle,
+// expandArticle, collapseArticle, closeArticle) rather than from play/pause, since those are
+// the actual moments its visibility should change.
+function updateAudioBarPresence(){
+  const bar = document.getElementById('audioBottomBar');
+  if(!bar) return; // this entry has no audio — nothing was rendered
+  const show = article.classList.contains('open') &&
+               !article.classList.contains('peek') &&
+               !article.classList.contains('expanding');
+  bar.classList.toggle('show', show);
+}
+// Starts (or resumes) playback. Called from the bottom bar's own play/pause button (see
+// toggleAudioPlayback) and from the double-tap-to-play gesture on the story text (see the
+// dblclick listener near wireSentenceCues below).
+function startAudioPlayback(){
+  if(!audioEl) return;
+  audioEl.play();
+  if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PAUSE; apPlayBtn.setAttribute('aria-label','Stop'); }
+  // Force a follow-check right now, regardless of whether the highlighted sentence is about to
+  // change: this is exactly the moment a reader who scrolled elsewhere (e.g. down to the very
+  // bottom, then started the story over) needs the view brought back to wherever playback is
+  // actually starting from.
+  audioFollowLastHeading = null;
+  driveAudioFollow(cueIndexForTime(audioEl.currentTime), true);
+}
+// Pauses IN PLACE (position retained, so a later Play resumes rather than restarts). Called from
+// the bottom bar's button and from the single-tap-anywhere-in-the-story gesture — deliberately
+// the same action, so there's one mental model for "stop" regardless of which control triggered
+// it. The bar itself stays visible (see updateAudioBarPresence) — only the icon changes.
+function stopAudioPlaybackInPlace(){
+  if(!audioEl) return;
+  audioEl.pause();
+  if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PLAY; apPlayBtn.setAttribute('aria-label','Play'); }
+}
+function toggleAudioPlayback(){
+  if(!audioEl) return;
+  if(audioEl.paused) startAudioPlayback(); else stopAudioPlaybackInPlace();
+}
+// One entry per distinct section present in currentCues, each {section, start} — start is that
+// section's heading cue if it has one, else its earliest sentence cue. Pure timing-file data,
+// independent of whether cues matched into the DOM (unlike cueSectionHeading), so section
+// jumping works even for an entry whose sentence-highlighting is broken.
+function sectionBoundaryTimes(){
+  // Min start time per section, but a heading cue wins a tie over a sentence cue (a heading is
+  // always narrated first within its section anyway, so in practice this only matters for a
+  // section with no heading cue at all, where the earliest sentence wins by default).
+  const mins = new Map();
+  currentCues.forEach(c => {
+    const cur = mins.get(c.section);
+    if(!cur || c.start < cur.start || (c.start === cur.start && c.type === 'heading')) mins.set(c.section, c);
+  });
+  return Array.from(mins.entries())
+    .map(([section, cue]) => ({section, start: cue.start}))
+    .sort((a,b) => a.start - b.start);
+}
+// Jumps to the previous/next section, per the bottom bar's skip buttons. "Previous" follows the
+// standard media-player convention: more than 3s into the current section restarts IT rather
+// than jumping back a further section, since that's almost always what a listener actually
+// wants from a "back" tap taken mid-section.
+function audJumpSection(dir){
+  if(!audioEl) return;
+  const bounds = sectionBoundaryTimes();
+  if(!bounds.length) return;
+  const t = audioEl.currentTime;
+  let target;
+  if(dir > 0){
+    target = bounds.find(b => b.start > t + 0.15);
+    if(!target) return; // already in the last section — nothing further to skip to
+  } else {
+    const curIdx = bounds.reduce((best, b, i) => b.start <= t + 0.15 ? i : best, 0);
+    const RESTART_THRESHOLD = 3;
+    target = (t - bounds[curIdx].start > RESTART_THRESHOLD || curIdx === 0)
+      ? bounds[curIdx]
+      : bounds[curIdx - 1];
+  }
+  audioEl.currentTime = target.start;
+  setActiveCue(cueIndexForTime(target.start));
+  audioFollowLastHeading = null;
+  driveAudioFollow(cueIndexForTime(target.start), true);
+}
 function initAudio(url, resumeTime){
   stopAudio();
   audioEl = new Audio(url);
   audioEl.preload = 'metadata';
-  const play = document.getElementById('apPlay');
-  const seek = document.getElementById('apSeek');
-  const time = document.getElementById('apTime');
-  apPlayBtn = play; apSeekEl = seek; apTimeEl = time;
-  let scrubbing = false;
+  const play = document.getElementById('audPlayBtn');
+  const prev = document.getElementById('audPrevBtn');
+  const next = document.getElementById('audNextBtn');
+  apPlayBtn = play;
   // Capture this entry's audio element locally. Listeners must not read the shared
   // `audioEl`, because a late event from the *previous* entry's audio can arrive after
   // stopAudio() has already nulled it out (which used to throw on every swipe).
   const a = audioEl;
 
-  play.addEventListener('click', () => {
-    if(a.paused){
-      a.play(); play.innerHTML = ICON_PAUSE; play.setAttribute('aria-label','Pause');
-      // Force a follow-check right now, regardless of whether the highlighted sentence is
-      // about to change: pressing Play is exactly the moment a reader who scrolled elsewhere
-      // (e.g. down to the very bottom, then hit Play to start the story over) needs the view
-      // brought back to wherever playback is actually starting from.
-      audioFollowLastHeading = null;
-      driveAudioFollow(cueIndexForTime(a.currentTime), true);
-    }
-    else { a.pause(); play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); }
-  });
+  if(play) play.addEventListener('click', toggleAudioPlayback);
+  if(prev) prev.addEventListener('click', () => audJumpSection(-1));
+  if(next) next.addEventListener('click', () => audJumpSection(1));
   a.addEventListener('loadedmetadata', () => {
     // Resume where a previous visit (this session or a past one, within the hour) left off,
-    // already backed up a few seconds — see saveCurrentCardPosition(). Clamped to the
-    // actual duration in case the file changed since that position was saved.
+    // already backed up a few seconds — see saveCurrentCardPosition(). Clamped to the actual
+    // duration in case the file changed since that position was saved. Resuming a position
+    // does NOT auto-play — the reader still taps Play (or double-taps the text) to actually
+    // start it; only where it starts FROM is remembered.
     if(resumeTime > 0){
       a.currentTime = Math.min(resumeTime, Math.max(0, a.duration - 0.25 || resumeTime));
-      if(seek && a.duration) seek.value = (a.currentTime / a.duration) * 100;
     }
-    time.textContent = fmtTime(a.currentTime) + ' / ' + fmtTime(a.duration);
   });
   a.addEventListener('timeupdate', () => {
-    if(!scrubbing && a.duration){
-      seek.value = (a.currentTime / a.duration) * 100;
-      time.textContent = fmtTime(a.currentTime) + ' / ' + fmtTime(a.duration);
-    }
     // Sentence highlight: reads live off currentCues/cueEls, not a snapshot taken when this
     // listener was attached — cues typically finish their async fetch a moment after playback
     // could already have started, and this listener just starts seeing them once populated.
     updateActiveCue(a.currentTime);
   });
   a.addEventListener('ended', () => {
-    play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); seek.value = 0;
+    if(play){ play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); }
     setActiveCue(-1);
   });
-  a.addEventListener('error', () => { time.textContent = 'audio unavailable'; });
-  seek.addEventListener('input', () => {
-    scrubbing = true;
-    if(a.duration) time.textContent = fmtTime((seek.value/100)*a.duration) + ' / ' + fmtTime(a.duration);
-  });
-  seek.addEventListener('change', () => {
-    if(a.duration) a.currentTime = (seek.value/100) * a.duration;
-    scrubbing = false;
+  a.addEventListener('error', () => {
+    const toast = document.getElementById('shareToast');
+    if(toast){ toast.textContent = 'Audio unavailable'; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 1800); }
   });
 }
 function stopAudio(){
   if(audioEl){ audioEl.pause(); audioEl.src = ''; audioEl = null; }
   currentCues = []; cueEls = []; activeCueIdx = -1;
   cueSectionHeading = []; audioFollowLastHeading = null; audioFollowSuppressUntil = 0; audioFollowToken++;
-  apPlayBtn = null; apSeekEl = null; apTimeEl = null;
+  apPlayBtn = null;
   const bar = document.getElementById('audioActiveBar');
   if(bar) bar.classList.remove('on');
 }
@@ -6347,10 +6502,10 @@ function driveAudioFollow(idx, force){
 // "teleprompter" behavior: every new section always rises to the top).
 function followAudioSection(artEl, heading){
   const sticky = document.getElementById('artSticky');
-  const headerH = sticky ? sticky.offsetHeight : 0;
-  const player = document.getElementById('artPlayerWrap');
-  const playerH = player ? player.offsetHeight : 0;
-  const occludedH = headerH + playerH; // same two stacked sticky bars as the resume-reveal logic
+  // v205: occludedH is just the sticky header's height now — the old inline scrubber that
+  // used to stack a second sticky bar under it is gone (fixed bottom bar now, doesn't occlude
+  // the top). See jumpAndRevealSection's comment for the fuller explanation.
+  const occludedH = sticky ? sticky.offsetHeight : 0;
   const artRect = artEl.getBoundingClientRect();
   const hRect = heading.getBoundingClientRect();
   const headingAbs = hRect.top - artRect.top + artEl.scrollTop; // heading's position in absolute content-space
@@ -6371,10 +6526,7 @@ function ensureActiveCueVisible(artEl, idx){
   const els = cueEls[idx];
   if(!els || !els.length) return; // this cue's sentence never matched into the DOM — nothing to track
   const sticky = document.getElementById('artSticky');
-  const headerH = sticky ? sticky.offsetHeight : 0;
-  const player = document.getElementById('artPlayerWrap');
-  const playerH = player ? player.offsetHeight : 0;
-  const occludedH = headerH + playerH;
+  const occludedH = sticky ? sticky.offsetHeight : 0;
   const artRect = artEl.getBoundingClientRect();
   let top = Infinity, bottom = -Infinity;
   els.forEach(el => {
@@ -6433,10 +6585,8 @@ function seekToCue(idx){
   audioEl.currentTime = cue.start;
   if(audioEl.paused){
     audioEl.play();
-    if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PAUSE; apPlayBtn.setAttribute('aria-label','Pause'); }
+    if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PAUSE; apPlayBtn.setAttribute('aria-label','Stop'); }
   }
-  if(apSeekEl && audioEl.duration) apSeekEl.value = (audioEl.currentTime / audioEl.duration) * 100;
-  if(apTimeEl && audioEl.duration) apTimeEl.textContent = fmtTime(audioEl.currentTime) + ' / ' + fmtTime(audioEl.duration);
   setActiveCue(idx);
 }
 // Flattens a subtree's text nodes into one whitespace-collapsed string (matching the
@@ -6672,6 +6822,13 @@ function syncStickyBackdrops(){
 }
 // The scrubber strip's backdrop, kept in step with wherever the strip currently sits.
 //
+// DORMANT as of v205: #artPlayerWrap (the old inline sticky scrubber this painted a backdrop
+// for) no longer exists — the player is now a fixed bottom bar with its own opaque background,
+// not something article text scrolls underneath, so it never needed this. Left in place rather
+// than removed, same reasoning as v196 left wireSentenceCues' status-reporting in place when its
+// DOM target briefly disappeared: it already no-ops safely (the `!player` check below) and
+// costs nothing to keep, in case a future sticky-strip design needs the same technique again.
+//
 // The sticky header is easy: it pins to top:0, so its slice of the card gradient is always
 // the one at offset 0. The player is not — it flows down the page with the text until it
 // reaches its sticky position under the header, and only then holds still. So a single
@@ -6900,7 +7057,11 @@ window.addEventListener('resize', handleViewportChange);
 window.addEventListener('orientationchange', handleViewportChange);
 if(window.visualViewport) window.visualViewport.addEventListener('resize', handleViewportChange);
 
-// ---- Tap anywhere in the story to pause the audio, with a fading pause glyph as feedback ----
+// ---- Tap anywhere in the story to stop the audio (pause in place), with a fading pause glyph
+// as feedback — the counterpart to the double-tap-to-play gesture near the other dblclick
+// listeners below. v205 removed the old "tap anywhere on the scrubber row" handler along with
+// the scrubber itself — the bottom bar's own buttons are each their own clear tap target now
+// (see .audBarBtn's generous circular hit areas), so nothing plays that role anymore.
 const ICON_PAUSE_GLYPH = '<i></i><i></i>'; // two large frosted bars, styled by .pauseIndicator i
 function showPauseIndicator(){
   const el = document.getElementById('pauseIndicator');
@@ -6909,25 +7070,14 @@ function showPauseIndicator(){
   void el.offsetWidth; // restart the animation if it's already mid-fade
   el.classList.add('show');
 }
-// A tap anywhere on the player strip other than the scrubber works the play/pause button,
-// so the effective target is the whole row rather than just the 66px triangle.
-document.addEventListener('click', (e) => {
-  const strip = e.target.closest && e.target.closest('.artPlayerWrap, .player');
-  if(!strip) return;
-  if(e.target.closest('input, a')) return;      // the scrubber and links keep their own behaviour
-  if(e.target.closest('#apPlay')) return;       // the button itself is already handled natively
-  const play = document.getElementById('apPlay');
-  if(play) play.click();
-});
 document.getElementById('article').addEventListener('click', (e) => {
   if(suppressArticleClick) return;
   if(!audioEl || audioEl.paused) return;
-  if(e.target.closest('.player, .artPlayerWrap, a, button, input, .artX')) return;
-  audioEl.pause();
-  const play = document.getElementById('apPlay');
-  if(play){ play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); }
+  if(e.target.closest('.audioBottomBar, a, button, input, .artX')) return;
+  stopAudioPlaybackInPlace();
   showPauseIndicator();
 });
+
 
 // ---- Tap an in-article cross-reference (e.g. "St. Augustine") to jump straight to that entry's article,
 // and tap Back (when it appears) to unwind that trail one step at a time, infinitely. ----
@@ -7218,6 +7368,28 @@ document.getElementById('artBody').addEventListener('dblclick', (e) => {
   e.preventDefault();
   lpTapLog = [];
   selectArticleStory();
+});
+// ---- Double-tap the story text to start (or resume) the audio — the counterpart to the
+// single-tap-to-stop gesture above. Review Mode's own double-tap (immediately above) already
+// claims this gesture for its own purpose there, so this only fires OUTSIDE Review Mode —
+// they never compete for the same tap. A fading play glyph mirrors showPauseIndicator()'s
+// feedback, reusing the same #pauseIndicator element/animation with a different icon.
+const ICON_PLAY_GLYPH = '<svg viewBox="0 0 24 24" width="64" height="64" fill="rgba(255,255,255,.82)" style="filter:drop-shadow(0 4px 18px rgba(0,0,0,.45))"><path d="M8 5l12 7-12 7V5z"/></svg>';
+function showPlayIndicator(){
+  const el = document.getElementById('pauseIndicator');
+  el.innerHTML = ICON_PLAY_GLYPH;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+document.getElementById('artBody').addEventListener('dblclick', (e) => {
+  if(reviewMode) return; // Review Mode's double-tap means something else — see the handler above
+  if(e.target.closest('a, button, input, .entrylink, .audioBottomBar')) return;
+  if(!e.target.closest('#artStoryText')) return;
+  if(!audioEl || !audioEl.paused) return; // no audio to start, or it's already playing
+  e.preventDefault();
+  startAudioPlayback();
+  showPlayIndicator();
 });
 // ---- Double-tap the article image to open it full-screen; a single tap on the lightbox closes it ----
 const imgLightbox = document.getElementById('imgLightbox');
