@@ -2,6 +2,31 @@
   "v": 1,
   "entries": [
     {
+      "version": "196",
+      "date": "2026-08-20T15:05:00-05:00",
+      "changes": [
+        "New: within-section follow-scroll. Alongside the existing \"ride to the top of a new section\"",
+        "behavior, the actively-highlighted sentence is now kept fully on screen as playback moves",
+        "through a section that runs longer than one screenful — a smaller, more frequent nudge",
+        "(ensureActiveCueVisible()) than the section-level jump, triggered only when the current",
+        "section hasn't just changed. If the sentence fits with room to spare, its top lands just",
+        "below the sticky bars; if it's taller than the visible area even with margin, the view",
+        "favors bringing its bottom into view over its top, prioritizing what the reader hasn't heard",
+        "yet. Same manual-scroll deference as the rest of follow-along — never fights a reader",
+        "dragging the text themselves. followAudioSection() and the new function now share one small",
+        "orchestrator (driveAudioFollow()) that decides which of the two applies each tick.",
+        "Changed: the highlighted-sentence style dropped the gold background glow in favor of a plain",
+        "silver text color (#E3E8F2) — no background, no box-shadow, just the words themselves reading",
+        "a cooler, brighter tone against the page's warm parchment.",
+        "Removed: the small diagnostic status line under the scrubber (\"X/Y sentences linked · Z",
+        "section(s) mapped…\"), now that sentence-sync and follow-scroll are confirmed working. The",
+        "underlying status-reporting code in wireSentenceCues() is untouched and harmless — it just",
+        "looks up an element that no longer exists and no-ops — so it can come back with one line if a",
+        "future entry needs the same diagnosis again."
+      ],
+      "loggedAt": "2026-08-21T03:50:39.858743+00:00"
+    },
+    {
       "version": "195",
       "date": "2026-08-20T14:45:00-05:00",
       "changes": [
