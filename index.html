@@ -1,4 +1,27 @@
 <!--
+VERSION: 196
+DATE: 2026-08-20T15:05:00-05:00
+CHANGES:
+- New: within-section follow-scroll. Alongside the existing "ride to the top of a new section"
+  behavior, the actively-highlighted sentence is now kept fully on screen as playback moves
+  through a section that runs longer than one screenful — a smaller, more frequent nudge
+  (ensureActiveCueVisible()) than the section-level jump, triggered only when the current
+  section hasn't just changed. If the sentence fits with room to spare, its top lands just
+  below the sticky bars; if it's taller than the visible area even with margin, the view
+  favors bringing its bottom into view over its top, prioritizing what the reader hasn't heard
+  yet. Same manual-scroll deference as the rest of follow-along — never fights a reader
+  dragging the text themselves. followAudioSection() and the new function now share one small
+  orchestrator (driveAudioFollow()) that decides which of the two applies each tick.
+- Changed: the highlighted-sentence style dropped the gold background glow in favor of a plain
+  silver text color (#E3E8F2) — no background, no box-shadow, just the words themselves reading
+  a cooler, brighter tone against the page's warm parchment.
+- Removed: the small diagnostic status line under the scrubber ("X/Y sentences linked · Z
+  section(s) mapped…"), now that sentence-sync and follow-scroll are confirmed working. The
+  underlying status-reporting code in wireSentenceCues() is untouched and harmless — it just
+  looks up an element that no longer exists and no-ops — so it can come back with one line if a
+  future entry needs the same diagnosis again.
+-->
+<!--
 VERSION: 195
 DATE: 2026-08-20T14:45:00-05:00
 CHANGES:
@@ -2128,7 +2151,7 @@ CHANGES:
      once cues actually loaded (data-cue-idx present); .cuePlaying tracks the audio's current
      position, added/removed on timeupdate — see wireSentenceCues()/initAudio() in JS. */
   [data-cue-idx]{cursor:pointer;}
-  .cuePlaying{background:rgba(201,165,66,.22); border-radius:3px; box-shadow:0 0 0 2px rgba(201,165,66,.22); transition:background .15s ease;}
+  .cuePlaying{color:#E3E8F2; transition:color .15s ease;}
   /* Temporary diagnostic line (v176) — reports whether the timing file loaded and how many
      sentences actually matched, directly on-screen since this build has no console access on
      the primary device it's used from. Safe to remove once sentence-sync is confirmed reliable
@@ -3504,7 +3527,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v195';
+const APP_VERSION = 'v196';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5402,7 +5425,6 @@ function fillArticleBody(d, peek){
       '<input type="range" id="apSeek" min="0" max="100" value="0" step="0.1" aria-label="Seek">' +
       '<span class="ptime" id="apTime">0:00 / 0:00</span>' +
       '</div>' +
-      (d.audio ? '<div class="apCueStatus" id="apCueStatus"></div>' : '') +
       '</div>';
   }
   if(isReview(d) && d.reviewNote){
@@ -6084,7 +6106,7 @@ function initAudio(url, resumeTime){
       // (e.g. down to the very bottom, then hit Play to start the story over) needs the view
       // brought back to wherever playback is actually starting from.
       audioFollowLastHeading = null;
-      followAudioSection(cueIndexForTime(a.currentTime), true);
+      driveAudioFollow(cueIndexForTime(a.currentTime), true);
     }
     else { a.pause(); play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); }
   });
@@ -6139,7 +6161,7 @@ function setActiveCue(idx){
     activeCueIdx = idx;
     (cueEls[activeCueIdx] || []).forEach(el => el.classList.add('cuePlaying'));
   }
-  followAudioSection(idx);
+  driveAudioFollow(idx);
 }
 // Cues are in chronological order; a plain forward scan is cheap enough at typical cue counts
 // and stays trivial even for a very long article. Shared by updateActiveCue (the normal
@@ -6159,21 +6181,31 @@ function updateActiveCue(t){
   if(!currentCues.length) return;
   setActiveCue(cueIndexForTime(t));
 }
-// The follow-along scroll decision itself: whenever playback crosses into a new section, ride
-// to put that section's heading right at the top (below the sticky bars) — every time, not
-// only when the heading happens to already be off-screen. `force` (used only from the Play
-// button) bypasses both the manual-scroll suppression window and the "already handled this
-// section" memory — pressing Play is a deliberate request to go to wherever playback is
-// starting, even if the reader had just been scrolling a moment before.
-function followAudioSection(idx, force){
+const SENTENCE_VISIBLE_MARGIN = 16;
+// Orchestrates the two follow behaviors, in priority order. A section change always wins and
+// rides to the top of the new one — see followAudioSection(). Otherwise, still within the same
+// section, a smaller nudge keeps whichever sentence is actively highlighted fully on screen —
+// see ensureActiveCueVisible() — since a section can easily run longer than one screenful and
+// the reader shouldn't have to scroll by hand just to keep up with the narration. `force` (only
+// from the Play button) bypasses the manual-scroll suppression window and the "already
+// handled this section" memory alike — pressing Play is a deliberate request to go to wherever
+// playback is starting, even if the reader had just been scrolling a moment before.
+function driveAudioFollow(idx, force){
   if(!(idx >= 0) || !cueSectionHeading.length) return;
   const heading = cueSectionHeading[idx];
-  if(!heading) return;                                       // before the first heading, or no headings matched at all
-  if(heading === audioFollowLastHeading && !force) return;    // already handled this section
+  if(!heading) return;                                         // before the first heading, or no headings matched at all
   const artEl = document.getElementById('article');
   if(!artEl || !artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
-  if(!force && Date.now() < audioFollowSuppressUntil) return; // reader is actively scrolling — don't fight them
+  if(!force && Date.now() < audioFollowSuppressUntil) return;   // reader is actively scrolling — don't fight them
+  const isNewSection = heading !== audioFollowLastHeading || force;
   audioFollowLastHeading = heading;
+  if(isNewSection) followAudioSection(artEl, heading);
+  else ensureActiveCueVisible(artEl, idx);
+}
+// Rides to put a just-entered section's heading right at the top, below the sticky bars —
+// every time, not only when the heading happens to already be off-screen (a simple, literal
+// "teleprompter" behavior: every new section always rises to the top).
+function followAudioSection(artEl, heading){
   const sticky = document.getElementById('artSticky');
   const headerH = sticky ? sticky.offsetHeight : 0;
   const player = document.getElementById('artPlayerWrap');
@@ -6185,6 +6217,41 @@ function followAudioSection(idx, force){
   const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
   const target = Math.min(max, Math.max(0, headingAbs - occludedH - SECTION_BREATH));
   if(Math.abs(artEl.scrollTop - target) < 4) return; // already sitting right at that spot — nothing to glide to
+  animateFollowScroll(artEl, target);
+}
+// Within a section (no heading change this tick), keeps the actively-highlighted sentence
+// fully on screen — the finer-grained counterpart to followAudioSection's section-level jump.
+// A long section's later sentences would otherwise sit below the fold indefinitely, since
+// nothing else moves the view until the NEXT section heading arrives. If the sentence is short
+// enough to fit with room to spare, its top lands just below the sticky bars (a consistent,
+// comfortable reading position); if it's taller than the visible area even with margin, the
+// best available compromise is bringing its bottom into view, favoring what the reader hasn't
+// heard yet over what they already have.
+function ensureActiveCueVisible(artEl, idx){
+  const els = cueEls[idx];
+  if(!els || !els.length) return; // this cue's sentence never matched into the DOM — nothing to track
+  const sticky = document.getElementById('artSticky');
+  const headerH = sticky ? sticky.offsetHeight : 0;
+  const player = document.getElementById('artPlayerWrap');
+  const playerH = player ? player.offsetHeight : 0;
+  const occludedH = headerH + playerH;
+  const artRect = artEl.getBoundingClientRect();
+  let top = Infinity, bottom = -Infinity;
+  els.forEach(el => {
+    const r = el.getBoundingClientRect();
+    top = Math.min(top, r.top - artRect.top);
+    bottom = Math.max(bottom, r.bottom - artRect.top);
+  });
+  if(!isFinite(top) || !isFinite(bottom)) return;
+  const safeTop = occludedH + SENTENCE_VISIBLE_MARGIN;
+  const safeBottom = artEl.clientHeight - SENTENCE_VISIBLE_MARGIN;
+  if(top >= safeTop - 2 && bottom <= safeBottom + 2) return; // already fully visible, with margin — nothing to do
+  const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
+  const sentenceHeight = bottom - top;
+  const target = Math.min(max, Math.max(0, artEl.scrollTop + (
+    sentenceHeight <= safeBottom - safeTop ? (top - safeTop) : (bottom - safeBottom)
+  )));
+  if(Math.abs(artEl.scrollTop - target) < 4) return;
   animateFollowScroll(artEl, target);
 }
 // Same decelerating glide as the resume-reveal animation, just driven by playback advancing
