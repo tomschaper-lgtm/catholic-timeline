@@ -2,6 +2,24 @@
   "v": 1,
   "entries": [
     {
+      "version": "201",
+      "date": "2026-08-20T16:05:00-05:00",
+      "changes": [
+        "Changed: the highlighted-sentence indicator is no longer any change to the text itself",
+        "(color/weight from v198-v200 all reverted — .sentCue/.cuePlaying carry no visual styling now,",
+        "just the class toggle for JS to key off). Instead, a single glowing white bar (#audioActiveBar,",
+        "4px, layered box-shadow) sits flush against the actual left edge of the screen — a direct",
+        "child of #article itself rather than the narrower centered .artwrap column, so it always",
+        "touches the true edge regardless of screen width. Its top/height are set to span whichever",
+        "sentence is currently playing, computed in content-space (element position + current",
+        "scrollTop) so it scrolls naturally along with the article without needing to be re-positioned",
+        "every animation frame — same coordinate approach used throughout the follow-scroll features.",
+        "Hidden whenever there's no active cue, the entry has no audio, or the current sentence never",
+        "matched into the DOM."
+      ],
+      "loggedAt": "2026-08-21T04:49:21.369986+00:00"
+    },
+    {
       "version": "200",
       "date": "2026-08-20T15:50:00-05:00",
       "changes": [
