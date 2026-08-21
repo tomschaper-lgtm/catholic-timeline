@@ -1,4 +1,24 @@
 <!--
+VERSION: 207
+DATE: 2026-08-21T16:35:00-05:00
+CHANGES:
+- New: the bottom playback bar now also waits on a scroll-position gate, not just card state —
+  it fades in once Quick Facts (id="artFactBox", new) has scrolled up to within "an inch or two"
+  of the bottom of the screen (AUDIO_BAR_REVEAL_MARGIN, 130px), rather than appearing the instant
+  the card finishes opening while the reader's still looking at the hero photo.
+- This is a one-way latch (audioBarScrollRevealed), not a continuous show/hide tied to live
+  scroll position: once revealed, it stays revealed for the rest of that entry's viewing, even
+  scrolling back up past Quick Facts. Toggling right at the threshold line on every scroll tick
+  would be far more distracting than useful. Resets on every fresh openArticle() so each entry
+  re-earns its own reveal; does NOT reset on a peek<->full round-trip within the same entry.
+- checkAudioBarScrollReveal() is folded into the existing scroll-driven rAF loop (queueFly(),
+  already used for the flying photo) rather than given its own scroll listener — reusing that
+  established, debounced mechanism instead of adding a second one, partly on general principle
+  and partly because a new per-scroll-tick listener is exactly the shape of thing that caused
+  v205's jitter bug.
+- Entries with no Quick Facts at all (rare) skip the gate entirely — nothing to wait for.
+-->
+<!--
 VERSION: 206
 DATE: 2026-08-21T16:10:00-05:00
 CHANGES:
@@ -3706,7 +3726,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v206';
+const APP_VERSION = 'v207';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5602,7 +5622,7 @@ function fillArticleBody(d, peek){
   const factList = (d.facts || []).slice();
   if(d.country) factList.push({label:'Country', value:d.country});
   if(factList.length){
-    html += '<div class="factbox">';
+    html += '<div class="factbox" id="artFactBox">';
     factList.forEach(f => {
       if(!f || !f.label) return;
       const val = f.url
@@ -5866,6 +5886,7 @@ function openArticle(d, opts){
   if(!opts.preserveStack) pendingSessionLinks = [];
   currentEntry = d;
   stopAudio();
+  audioBarScrollRevealed = false; // every fresh open re-earns its own scroll reveal — see checkAudioBarScrollReveal()
   updateUrlForEntry(d);
   // If the Back button didn't already hand us a scroll to restore, check whether this entry
   // has a recent (within the hour) position of its own from a previous visit — a card closed
@@ -5921,6 +5942,7 @@ function openArticle(d, opts){
       syncStickyBackdrops();
       measureFly();
       updateAudioBarPresence(); // slide-up finished — the bottom bar can appear now, not before
+      checkAudioBarScrollReveal(); // catches a short entry where Quick Facts is already in the reveal zone at scrollTop 0
     };
     // Wait for the slide to actually finish. A fixed delay is unreliable here: rendering a
     // long article in the same frame can push the transition's start back well past it.
@@ -5935,6 +5957,7 @@ function openArticle(d, opts){
     // sliding, so there's no transition to wait for; the new entry's bar (if it has audio) can
     // reflect the (already-settled) card state immediately.
     updateAudioBarPresence();
+    checkAudioBarScrollReveal();
   }
 }
 // ---- The peek ⇄ hero photo morph --------------------------------------------------
@@ -6098,6 +6121,7 @@ function expandArticle(){
     syncStickyBackdrops();
     if(!morphing) measureFly();
     updateAudioBarPresence(); // peek->full finished — no longer peeking, no longer expanding
+    checkAudioBarScrollReveal(); // scrollTop reset to 0 by the expand above — catches a short entry immediately
   };
   article.addEventListener('transitionend', function once(ev){
     if(ev.target !== article || ev.propertyName !== 'transform') return;
@@ -6323,13 +6347,44 @@ const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="25" height="25" fill="curren
 // correctly even though these skip by SECTION rather than by time/track; see audJumpSection().
 const ICON_PREV_SECTION = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" pointer-events="none"><rect x="4" y="4" width="3" height="16"/><path d="M20 4v16L8 12z"/></svg>';
 const ICON_NEXT_SECTION = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" pointer-events="none"><rect x="17" y="4" width="3" height="16"/><path d="M4 4v16l12-8z"/></svg>';
-// Bottom bar presence follows the CARD's state AND whether the open entry has audio at all —
-// per Tom's correction: "always show if there is an audio file to play [but] not... until the
-// full card is up." So unlike a typical media player, this bar is NOT hidden when
-// paused/stopped; it's hidden only when there's genuinely nothing to show it over (no audio on
-// this entry at all, peeking, or mid open/close/expand transition). Called from the settle/done
-// points of every card-state change (openArticle, expandArticle, collapseArticle, closeArticle)
-// rather than from play/pause, since those are the actual moments its visibility should change.
+// v207: the bar also waits on a SCROLL-POSITION gate, not just card state — per Tom: it should
+// fade in once Quick Facts has scrolled up to within "an inch or two" of the bottom of the
+// screen, not the instant the card opens (while the reader's still looking at the hero photo).
+// One-way latch, not a continuous show/hide tied to scroll position: once revealed, it stays
+// revealed even if the reader scrolls back up past that point — a bar that blinks in and out
+// right at the threshold line would be far more annoying than useful. Resets to unrevealed on
+// every fresh openArticle() (see there), so each article re-earns its own reveal.
+let audioBarScrollRevealed = false;
+// 1 CSS inch = 96px by spec; "an inch or two" splits the difference. Rough by nature (it's
+// describing a felt distance on screen, not a precise measurement), so this doesn't need to be
+// exact — just in that neighborhood.
+const AUDIO_BAR_REVEAL_MARGIN = 130;
+// Checked from the same scroll-driven rAF loop as the flying photo (see queueFly()) — reusing
+// that existing debounced loop rather than adding a second scroll listener, both for
+// consistency and because a NEW per-scroll-tick listener is exactly the kind of thing that
+// caused v205's jitter bug in the first place.
+function checkAudioBarScrollReveal(){
+  if(audioBarScrollRevealed) return; // already latched — nothing left to check
+  if(!currentEntry || !currentEntry.audio) return;
+  const factBox = document.getElementById('artFactBox');
+  // No Quick Facts on this entry (rare — most entries carry at least a Country fact) — nothing
+  // to wait for, so don't block the reveal on an element that will never arrive.
+  const revealed = !factBox || factBox.getBoundingClientRect().top <= window.innerHeight - AUDIO_BAR_REVEAL_MARGIN;
+  if(revealed){
+    audioBarScrollRevealed = true;
+    updateAudioBarPresence();
+  }
+}
+// Bottom bar presence follows the CARD's state, whether the open entry has audio at all, AND
+// the scroll-reveal latch above — per Tom's correction: "always show if there is an audio file
+// to play [but] not... until the full card is up" (refined further in v207: not until Quick
+// Facts has scrolled into the reveal zone, either). So unlike a typical media player, this bar
+// is NOT hidden when paused/stopped; it's hidden only when there's genuinely nothing to show it
+// over (no audio on this entry at all, peeking, mid open/close/expand transition, or not yet
+// scrolled far enough). Called from the settle/done points of every card-state change
+// (openArticle, expandArticle, collapseArticle, closeArticle) rather than from play/pause,
+// since those are the actual moments its visibility should change — and from
+// checkAudioBarScrollReveal() the moment the scroll gate itself opens.
 // v206: the bar itself is a persistent body-level element now (see its markup near
 // #flyPortrait, and that comment for why) rather than re-rendered inside each article — so
 // unlike v205, checking "does the bar exist" no longer doubles as "does this entry have audio";
@@ -6340,7 +6395,8 @@ function updateAudioBarPresence(){
   const show = !!(currentEntry && currentEntry.audio) &&
                article.classList.contains('open') &&
                !article.classList.contains('peek') &&
-               !article.classList.contains('expanding');
+               !article.classList.contains('expanding') &&
+               audioBarScrollRevealed;
   bar.classList.toggle('show', show);
 }
 // Starts (or resumes) playback. Called from the bottom bar's own play/pause button (see
@@ -7064,9 +7120,11 @@ function updateFly(){
 }
 function queueFly(){
   if(flyRAF) return;
-  // One rAF for both scroll-driven jobs: the flying photo and the scrubber's backdrop, which
-  // has to be re-sampled as the strip travels down the card toward its sticky position.
-  flyRAF = requestAnimationFrame(() => { updateFly(); paintPlayerBackdrop(); });
+  // One rAF for all the scroll-driven jobs: the flying photo, the (now-dormant) scrubber
+  // backdrop, and — v207 — checking whether the audio bar's scroll-reveal threshold has been
+  // crossed. checkAudioBarScrollReveal() is cheap and self-latching (returns instantly once
+  // already revealed), so folding it in here costs nothing once an entry has settled.
+  flyRAF = requestAnimationFrame(() => { updateFly(); paintPlayerBackdrop(); checkAudioBarScrollReveal(); });
 }
 // The flying photo sits above the story sheet, so it must step aside whenever another
 // full-screen surface takes over. Watching their classes keeps this correct no matter
