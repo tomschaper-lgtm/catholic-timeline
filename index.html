@@ -1,4 +1,22 @@
 <!--
+VERSION: 200
+DATE: 2026-08-20T15:50:00-05:00
+CHANGES:
+- Changed: highlighted-sentence style dropped the glow in favor of weight + brightness — every
+  matched sentence span (.sentCue) sits at a base ivory (#EEE8DC, matching the article's normal
+  parchment tone) at regular weight; the actively-playing one (.cuePlaying) goes pure white and
+  semi-bold (600), with both properties transitioning smoothly (150ms) as the highlight moves
+  from sentence to sentence.
+-->
+<!--
+VERSION: 199
+DATE: 2026-08-20T15:40:00-05:00
+CHANGES:
+- Changed: highlighted-sentence style is now white text with a soft layered glow (three
+  text-shadow passes at 6px/14px/24px blur, fading opacity) instead of a flat color — reads as
+  the text itself gently lit up, not just recolored.
+-->
+<!--
 VERSION: 198
 DATE: 2026-08-20T15:30:00-05:00
 CHANGES:
@@ -2171,7 +2189,8 @@ CHANGES:
      once cues actually loaded (data-cue-idx present); .cuePlaying tracks the audio's current
      position, added/removed on timeupdate — see wireSentenceCues()/initAudio() in JS. */
   [data-cue-idx]{cursor:pointer;}
-  .cuePlaying{color:#F2CF72;}
+  .sentCue{color:#EEE8DC; font-weight:400; transition:color 150ms ease, font-weight 150ms ease;}
+  .cuePlaying{color:#FFFFFF; font-weight:600;}
   /* Temporary diagnostic line (v176) — reports whether the timing file loaded and how many
      sentences actually matched, directly on-screen since this build has no console access on
      the primary device it's used from. Safe to remove once sentence-sync is confirmed reliable
@@ -3547,7 +3566,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v198';
+const APP_VERSION = 'v200';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
