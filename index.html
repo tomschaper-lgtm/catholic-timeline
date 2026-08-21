@@ -1,4 +1,31 @@
 <!--
+VERSION: 206
+DATE: 2026-08-21T16:10:00-05:00
+CHANGES:
+- Fix: the v205 bottom playback bar jittered as the article text scrolled. Root cause: it was
+  rendered inside #artBody's per-article HTML, nested inside #article — which is both the
+  scrolling container (overflow-y:auto) AND, deliberately, a transform-established containing
+  block for position:fixed descendants (see #article's own CSS comment). That combination is
+  exactly what this codebase's own #flyPortrait comment already warns about: a position:fixed
+  element nested inside a scrolling+transformed ancestor can end up visibly lagging/catching up
+  during active touch-scroll on iOS Safari, even though it lands in the technically-correct spot
+  the instant scrolling stops. #pauseIndicator gets away with this because it's invisible except
+  for a brief flash; a PERSISTENTLY VISIBLE bar makes the lag constant and obvious.
+- Fix: moved #audioBottomBar to a persistent body-level element, a sibling of #article next to
+  #flyPortrait (same fix that element already needed for a related reason), rather than
+  re-rendering it inside every article. Its three buttons are now wired exactly once — every
+  handler they call reads the current audioEl/currentCues at click time rather than closing over
+  anything from a particular render, so there was nothing to re-wire per article anyway. Needed
+  a z-index bump to match (120, matching #flyPortrait) since as a sibling it now has to out-rank
+  #article's own z-index:100 to render on top of the open card, rather than inheriting that for
+  free as a descendant.
+- Changed: updateAudioBarPresence() now also checks currentEntry.audio directly (the bar's mere
+  existence in the DOM no longer implies the open entry has audio, now that it's persistent
+  rather than conditionally rendered) — and initAudio() explicitly resets the button back to
+  Play on every entry open, since the element (and therefore its icon) now persists across
+  articles instead of starting fresh each time.
+-->
+<!--
 VERSION: 205
 DATE: 2026-08-21T15:30:00-05:00
 CHANGES:
@@ -2463,12 +2490,18 @@ CHANGES:
   .factval a{color:var(--gold-bright);}
   /* Audio player: v205 replaced the old inline sticky scrubber with a fixed bottom bar (below).
      Per Tom's spec: no seek bar (section-jump buttons cover navigation), and it's always
-     present once the entry has audio and the full card is up — see updateAudioBarPresence(). */
+     present once the entry has audio and the full card is up — see updateAudioBarPresence().
+     v206: moved to a persistent body-level element (same reason as .flyPortrait — see its own
+     comment near the markup) after v205's version, nested inside #article, turned out to
+     visibly lag/jitter during active touch-scroll on iOS. The CSS itself didn't need to change
+     for that move — position:fixed + left/bottom/transform behaves the same whether its
+     containing block is the true viewport or a transformed ancestor; only where the element
+     LIVES in the DOM changed. */
   .audioBottomBar{
     position:fixed; left:50%; bottom:max(18px, env(safe-area-inset-bottom, 0px) + 10px);
     transform:translate(-50%, 14px);
     display:flex; align-items:center; gap:4px;
-    padding:6px; border-radius:999px; z-index:20;
+    padding:6px; border-radius:999px; z-index:120;
     background:rgba(10,20,48,.88); border:1px solid rgba(201,165,66,.4);
     box-shadow:0 6px 24px rgba(0,0,0,.5);
     -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
@@ -2985,6 +3018,21 @@ CHANGES:
   </div>
 </div>
 
+<!-- The audio playback bar (play/pause + jump-to-section). Lives at body level, outside the
+     article sheet, for the same reason flyPortrait (below) does: a position:fixed element
+     nested inside #article's own scrolling+transformed box can visibly lag/jitter during
+     active touch-scroll on iOS Safari — it's technically pinned correctly once scrolling
+     settles, but isn't kept in sync with the scroll gesture itself the way a true top-level
+     fixed element (handled natively by the OS's own scroll compositor) is. Persistent, not
+     re-rendered per article — its buttons are wired once, and its visibility/icon state are
+     kept in sync with whichever entry is open by updateAudioBarPresence() and
+     initAudio()/stopAudio(). Icons are filled in by JS once at load (see the ICON_* consts)
+     rather than duplicated here, so there's one source of truth for their markup. -->
+<div class="audioBottomBar" id="audioBottomBar">
+  <button class="audBarBtn audBarSide" id="audPrevBtn" aria-label="Previous section"></button>
+  <button class="audBarBtn audBarPlay" id="audPlayBtn" aria-label="Play"></button>
+  <button class="audBarBtn audBarSide" id="audNextBtn" aria-label="Next section"></button>
+</div>
 <!-- The photo that flies from its big inline position up into the corner of the story
      header. It lives at body level, outside the article sheet, because the sheet clips
      its contents and carries a transform — either of which would trap it inside and
@@ -3658,7 +3706,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v205';
+const APP_VERSION = 'v206';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5589,27 +5637,14 @@ function fillArticleBody(d, peek){
   // triple-tap-to-link), never shown to a visitor. wireSentenceCues() has populated this
   // element's text on every article load since v192; it was only ever the DOM element that
   // was removed in v196 once the sync bug was believed fixed. No longer nested inside a player
-  // strip (v205 removed the inline scrubber — see audioBottomBar below) — it's just its own
-  // quiet line now, in normal document flow, not sticky.
+  // strip (v205 removed the inline scrubber) — it's just its own quiet line now, in normal
+  // document flow, not sticky.
   if(d.audio && reviewMode && manageUnlocked()){
     html += '<div class="apCueStatus" id="apCueStatus">Sentence sync: \u2026</div>';
   }
-  // The floating playback bar (v205): play/pause plus jump-to-previous/next-SECTION, replacing
-  // the old inline scrubber entirely — no seek bar, since section-jumping covers the actual
-  // navigation need and a fixed pill needs to stay small. Always in the DOM whenever the entry
-  // has audio, and — per Tom's correction — visible any time the entry has audio AND the full
-  // card is up (not peeking, not mid-transition); it does NOT hide again just because playback
-  // is paused/stopped (see updateAudioBarPresence(), driven by card state, not play state).
-  // The center button is a real play/pause toggle; a double-tap on the story text is a shortcut
-  // to start it and a single tap a shortcut to stop it, but the bar itself is the persistent,
-  // always-available control (see toggleAudioPlayback()).
-  if(d.audio){
-    html += '<div class="audioBottomBar" id="audioBottomBar">' +
-      '<button class="audBarBtn audBarSide" id="audPrevBtn" aria-label="Previous section">' + ICON_PREV_SECTION + '</button>' +
-      '<button class="audBarBtn audBarPlay" id="audPlayBtn" aria-label="Play">' + ICON_PLAY + '</button>' +
-      '<button class="audBarBtn audBarSide" id="audNextBtn" aria-label="Next section">' + ICON_NEXT_SECTION + '</button>' +
-      '</div>';
-  }
+  // The floating playback bar itself is NOT rendered here — see the persistent #audioBottomBar
+  // element at body level (near #flyPortrait), and the comment on updateAudioBarPresence() for
+  // why it moved out of the per-article HTML in v206.
   if(isReview(d) && d.reviewNote){
     html += '<div class="reviewNoteBox"><div class="reviewNoteLabel">Notes to Reviewer</div>' +
       renderBody(d.reviewNote) + '</div>';
@@ -6259,7 +6294,11 @@ let audioEl = null;
 let currentCues = [];      // the raw cues array from the timing file (start/end/type/text/section)
 let cueEls = [];           // parallel array: cueEls[i] = the DOM element(s) matched for currentCues[i], or []
 let activeCueIdx = -1;     // index into currentCues currently highlighted, or -1
-let apPlayBtn = null; // kept for wireSentenceCues's follow-along code path, now points at #audPlayBtn
+// apPlayBtn itself is declared further down (const, resolved once against the persistent
+// #audPlayBtn button — see the wiring block near initAudio()), but is referenced by
+// wireSentenceCues()'s follow-along code path above that point in the file; since it's a plain
+// top-level const in the same script, that's just a value used before its own declaration
+// line, not a scoping problem — same pattern this file already uses for ICON_PLAY etc.
 // ---- Follow-along auto-scroll (v191) ----
 // While audio plays, keeps whichever section is currently being read on-screen — without
 // fighting the reader if they move the text around with their own finger. cueSectionHeading
@@ -6284,17 +6323,22 @@ const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="25" height="25" fill="curren
 // correctly even though these skip by SECTION rather than by time/track; see audJumpSection().
 const ICON_PREV_SECTION = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" pointer-events="none"><rect x="4" y="4" width="3" height="16"/><path d="M20 4v16L8 12z"/></svg>';
 const ICON_NEXT_SECTION = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" pointer-events="none"><rect x="17" y="4" width="3" height="16"/><path d="M4 4v16l12-8z"/></svg>';
-// Bottom bar presence follows the CARD's state, not playback state — per Tom's correction:
-// "always show if there is an audio file to play [but] not... until the full card is up." So
-// unlike a typical media player, this bar is NOT hidden when paused/stopped; it's hidden only
-// while there's genuinely nothing to show it over — peeking, or mid open/close/expand
-// transition. Called from the settle/done points of every card-state change (openArticle,
-// expandArticle, collapseArticle, closeArticle) rather than from play/pause, since those are
-// the actual moments its visibility should change.
+// Bottom bar presence follows the CARD's state AND whether the open entry has audio at all —
+// per Tom's correction: "always show if there is an audio file to play [but] not... until the
+// full card is up." So unlike a typical media player, this bar is NOT hidden when
+// paused/stopped; it's hidden only when there's genuinely nothing to show it over (no audio on
+// this entry at all, peeking, or mid open/close/expand transition). Called from the settle/done
+// points of every card-state change (openArticle, expandArticle, collapseArticle, closeArticle)
+// rather than from play/pause, since those are the actual moments its visibility should change.
+// v206: the bar itself is a persistent body-level element now (see its markup near
+// #flyPortrait, and that comment for why) rather than re-rendered inside each article — so
+// unlike v205, checking "does the bar exist" no longer doubles as "does this entry have audio";
+// that has to be asked directly.
 function updateAudioBarPresence(){
   const bar = document.getElementById('audioBottomBar');
-  if(!bar) return; // this entry has no audio — nothing was rendered
-  const show = article.classList.contains('open') &&
+  if(!bar) return;
+  const show = !!(currentEntry && currentEntry.audio) &&
+               article.classList.contains('open') &&
                !article.classList.contains('peek') &&
                !article.classList.contains('expanding');
   bar.classList.toggle('show', show);
@@ -6368,22 +6412,31 @@ function audJumpSection(dir){
   audioFollowLastHeading = null;
   driveAudioFollow(cueIndexForTime(target.start), true);
 }
+// The bar's three buttons are wired exactly ONCE here, not per-article — they're a persistent
+// element now (v206), and every handler they call (toggleAudioPlayback/audJumpSection) reads
+// the current audioEl/currentCues at CLICK time rather than capturing anything at wire time, so
+// there's nothing that needs re-wiring when the open entry changes.
+const apPlayBtn = document.getElementById('audPlayBtn');
+(function(){
+  const prev = document.getElementById('audPrevBtn');
+  const next = document.getElementById('audNextBtn');
+  apPlayBtn.innerHTML = ICON_PLAY;
+  prev.innerHTML = ICON_PREV_SECTION;
+  next.innerHTML = ICON_NEXT_SECTION;
+  apPlayBtn.addEventListener('click', toggleAudioPlayback);
+  prev.addEventListener('click', () => audJumpSection(-1));
+  next.addEventListener('click', () => audJumpSection(1));
+})();
 function initAudio(url, resumeTime){
   stopAudio();
   audioEl = new Audio(url);
   audioEl.preload = 'metadata';
-  const play = document.getElementById('audPlayBtn');
-  const prev = document.getElementById('audPrevBtn');
-  const next = document.getElementById('audNextBtn');
-  apPlayBtn = play;
+  apPlayBtn.innerHTML = ICON_PLAY; apPlayBtn.setAttribute('aria-label','Play'); // reset — a previous entry may have left this on Stop
   // Capture this entry's audio element locally. Listeners must not read the shared
   // `audioEl`, because a late event from the *previous* entry's audio can arrive after
   // stopAudio() has already nulled it out (which used to throw on every swipe).
   const a = audioEl;
 
-  if(play) play.addEventListener('click', toggleAudioPlayback);
-  if(prev) prev.addEventListener('click', () => audJumpSection(-1));
-  if(next) next.addEventListener('click', () => audJumpSection(1));
   a.addEventListener('loadedmetadata', () => {
     // Resume where a previous visit (this session or a past one, within the hour) left off,
     // already backed up a few seconds — see saveCurrentCardPosition(). Clamped to the actual
@@ -6401,7 +6454,7 @@ function initAudio(url, resumeTime){
     updateActiveCue(a.currentTime);
   });
   a.addEventListener('ended', () => {
-    if(play){ play.innerHTML = ICON_PLAY; play.setAttribute('aria-label','Play'); }
+    apPlayBtn.innerHTML = ICON_PLAY; apPlayBtn.setAttribute('aria-label','Play');
     setActiveCue(-1);
   });
   a.addEventListener('error', () => {
@@ -6413,10 +6466,10 @@ function stopAudio(){
   if(audioEl){ audioEl.pause(); audioEl.src = ''; audioEl = null; }
   currentCues = []; cueEls = []; activeCueIdx = -1;
   cueSectionHeading = []; audioFollowLastHeading = null; audioFollowSuppressUntil = 0; audioFollowToken++;
-  apPlayBtn = null;
   const bar = document.getElementById('audioActiveBar');
   if(bar) bar.classList.remove('on');
 }
+
 
 // ---- Sentence-sync: matches each entry's audioTiming cues into #artStoryText and lights the
 // active one up as the audio plays, or seeks on tap. Entirely additive — an entry with no
