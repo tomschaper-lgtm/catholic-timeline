@@ -39,7 +39,9 @@
 //   node scripts/repair-cue-gaps.mjs
 // Env vars (all optional):
 //   IDS               comma-separated entry ids to check; blank = every
-//                      entry that has audioTiming
+//                      entry with a timing file (audioTiming explicitly set,
+//                      or derivable from its audio path per the app's own
+//                      convention)
 //   DRY_RUN            'true' (default) previews without writing; 'false'
 //                      writes the repaired timing files
 //   HEADING_PAUSE_MS   default 500 — anchors a section's first missing
@@ -60,6 +62,23 @@ const HEADING_PAUSE_SEC = (parseInt(process.env.HEADING_PAUSE_MS || '500', 10) |
 const SECTION_PAUSE_SEC = (parseInt(process.env.SECTION_PAUSE_MS || '700', 10) || 0) / 1000;
 
 function round2(n) { return Math.round(n * 100) / 100; }
+
+// Mirrors index.html's own deriveTimingPath() exactly — since v194, most
+// entries DON'T carry an explicit audioTiming field at all; the path is
+// derived from the audio path the same way every time (same folder, same
+// base name, .json instead of .mp3/.wav). Checking entry.audioTiming alone
+// misses almost everything — this is what the app itself falls back to, so
+// the repair script needs to fall back the same way or it silently skips
+// the majority of entries that actually have a timing file on disk.
+function deriveTimingPath(audioPath) {
+  if (!audioPath) return null;
+  const m = audioPath.match(/\.[a-z0-9]+$/i);
+  if (!m) return null;
+  return audioPath.slice(0, -m[0].length) + '.json';
+}
+function resolveTimingPath(entry) {
+  return entry.audioTiming || deriveTimingPath(entry.audio) || null;
+}
 
 function sectionParts(entry) {
   const sections = (entry.art && entry.art.sections) || [];
@@ -117,13 +136,22 @@ function findGaps(expected, actualSentenceCues) {
 }
 
 async function processEntry(entry, warnings) {
-  const explicitPath = entry.audioTiming || null;
-  if (!explicitPath) return null; // nothing to check
+  const timingPath = resolveTimingPath(entry);
+  if (!timingPath) return null; // nothing to check
+  if (/^https?:\/\//i.test(timingPath)) {
+    // A handful of legacy entries (e.g. st-peter-67) point `audio` at a full
+    // external URL rather than a repo-relative path. This script only reads
+    // files out of the checked-out repo — an absolute URL isn't one, so
+    // it's flagged rather than attempted (a failed local fs.readFile on a
+    // URL would just be a confusing ENOENT otherwise).
+    warnings.push(`${entry.id}: audio path is an external URL (${timingPath}) — not a repo-relative timing file, skipped. Check this one by hand.`);
+    return null;
+  }
   let timing;
   try {
-    timing = JSON.parse(await fs.readFile(explicitPath, 'utf8'));
+    timing = JSON.parse(await fs.readFile(timingPath, 'utf8'));
   } catch (err) {
-    warnings.push(`${entry.id}: couldn't read/parse ${explicitPath} (${err.message}) — skipped`);
+    warnings.push(`${entry.id}: couldn't read/parse ${timingPath} (${err.message}) — skipped`);
     return null;
   }
   const cues = timing.cues || [];
@@ -234,18 +262,18 @@ async function processEntry(entry, warnings) {
   if (!rows.length) return null;
   cues.sort((a, b) => a.start - b.start);
   timing.cues = cues;
-  return { path: explicitPath, timing, rows, inserted };
+  return { path: timingPath, timing, rows, inserted };
 }
 
 async function main() {
   const db = JSON.parse(await fs.readFile(DATA_PATH, 'utf8'));
-  let targets = db.entries.filter(e => e.audioTiming);
+  let targets = db.entries.filter(e => resolveTimingPath(e));
   if (idFilter.length) {
     const set = new Set(idFilter);
     targets = targets.filter(e => set.has(e.id));
   }
   if (!targets.length) {
-    console.log('No entries with audioTiming matched — nothing to check.');
+    console.log('No entries with a timing file (explicit or derivable) matched — nothing to check.');
     return;
   }
 
