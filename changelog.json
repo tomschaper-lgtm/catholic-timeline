@@ -2,6 +2,28 @@
   "v": 1,
   "entries": [
     {
+      "version": "207",
+      "date": "2026-08-21T16:35:00-05:00",
+      "changes": [
+        "New: the bottom playback bar now also waits on a scroll-position gate, not just card state —",
+        "it fades in once Quick Facts (id=\"artFactBox\", new) has scrolled up to within \"an inch or two\"",
+        "of the bottom of the screen (AUDIO_BAR_REVEAL_MARGIN, 130px), rather than appearing the instant",
+        "the card finishes opening while the reader's still looking at the hero photo.",
+        "This is a one-way latch (audioBarScrollRevealed), not a continuous show/hide tied to live",
+        "scroll position: once revealed, it stays revealed for the rest of that entry's viewing, even",
+        "scrolling back up past Quick Facts. Toggling right at the threshold line on every scroll tick",
+        "would be far more distracting than useful. Resets on every fresh openArticle() so each entry",
+        "re-earns its own reveal; does NOT reset on a peek<->full round-trip within the same entry.",
+        "checkAudioBarScrollReveal() is folded into the existing scroll-driven rAF loop (queueFly(),",
+        "already used for the flying photo) rather than given its own scroll listener — reusing that",
+        "established, debounced mechanism instead of adding a second one, partly on general principle",
+        "and partly because a new per-scroll-tick listener is exactly the shape of thing that caused",
+        "v205's jitter bug.",
+        "Entries with no Quick Facts at all (rare) skip the gate entirely — nothing to wait for."
+      ],
+      "loggedAt": "2026-08-21T23:50:38.727290+00:00"
+    },
+    {
       "version": "206",
       "date": "2026-08-21T16:10:00-05:00",
       "changes": [
