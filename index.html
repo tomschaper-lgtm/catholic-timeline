@@ -1,4 +1,17 @@
 <!--
+VERSION: 204
+DATE: 2026-08-21T14:15:00-05:00
+CHANGES:
+- Restored: the diagnostic sentence-sync status line under the scrubber ("Sentence sync: X/Y
+  sentences linked · Z section(s) mapped for follow-scroll"), removed in v196 once the sync bug
+  was believed fixed. It's back — gated to Review Mode + Owner Tools only (same gate as
+  triple-tap-to-link), so it never shows to a visitor. wireSentenceCues() itself was never
+  touched by the v196 removal (per that changelog note) — it was only ever the #apCueStatus DOM
+  element that was gone, so this is purely a template + CSS change, not a logic change. Useful
+  again now that the repair-cue-gaps.mjs batch tool is fixing older timing files in bulk: this
+  is the fastest way to confirm, per entry, that a given repair actually took.
+-->
+<!--
 VERSION: 203
 DATE: 2026-08-20T16:30:00-05:00
 CHANGES:
@@ -2451,6 +2464,11 @@ CHANGES:
   .player input[type=range]::-moz-range-track{height:4px; background:rgba(201,165,66,.28); border-radius:2px;}
   .player input[type=range]::-moz-range-thumb{width:12px; height:12px; border-radius:50%; background:var(--gold); border:none; cursor:pointer;}
   .ptime{font-size:13px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums;}
+  /* Owner-only diagnostic line (Review Mode + Owner Tools) — see wireSentenceCues(). Sits under
+     the scrubber, small and quiet enough not to look like a visitor-facing element. */
+  .apCueStatus{
+    font-size:12px; color:var(--muted); line-height:1.4; margin:-14px 0 16px; opacity:.85;
+  }
   /* position:fixed (not absolute) so it centres on the VISIBLE card rather than on the full
      scroll height of the article — #article carries a transform, which makes fixed children
      anchor to the card's own box. The old absolute/top:50% put it halfway down the entire
@@ -3611,7 +3629,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v203';
+const APP_VERSION = 'v204';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5508,8 +5526,16 @@ function fillArticleBody(d, peek){
       '<button class="pbtn" id="apPlay" aria-label="Play">' + ICON_PLAY + '</button>' +
       '<input type="range" id="apSeek" min="0" max="100" value="0" step="0.1" aria-label="Seek">' +
       '<span class="ptime" id="apTime">0:00 / 0:00</span>' +
-      '</div>' +
       '</div>';
+    // Diagnostic sentence-sync line — Review Mode + Owner Tools only (same gate as
+    // triple-tap-to-link), never shown to a visitor. wireSentenceCues() has populated this
+    // element's text on every article load since v192; it was only ever the DOM element that
+    // was removed in v196 once the sync bug was believed fixed. Restoring it behind the owner
+    // gate, rather than removing the reporting code, is what that changelog note anticipated.
+    if(reviewMode && manageUnlocked()){
+      html += '<div class="apCueStatus" id="apCueStatus">Sentence sync: \u2026</div>';
+    }
+    html += '</div>';
   }
   if(isReview(d) && d.reviewNote){
     html += '<div class="reviewNoteBox"><div class="reviewNoteLabel">Notes to Reviewer</div>' +
