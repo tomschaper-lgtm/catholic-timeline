@@ -48,27 +48,29 @@ export function splitSentences(text) {
   return sentences;
 }
 
-// Loose text-equality check used when aligning a timing file's actual cues
+// Loose text-equality check used to align a timing file's actual cues
 // against the sentence list splitSentences() derives from an entry's
-// current article text. Strips exactly the artifacts THREE known
-// generation-time bugs leave behind, plus ordinary whitespace differences —
-// nothing broader than that, so a genuine wording difference still reads as
-// a real mismatch rather than being normalized away:
-//   1. a leaked backslash immediately before a quote (the v202
-//      double-escaping finding)
-//   2. a stray leading quote character inherited from a swallowed previous
-//      sentence (this bug)
-//   3. a stray space directly before punctuation, left wherever a
-//      cross-reference link (<a href="entry:…">) sits immediately before
-//      punctuation in the source prose — generate-audio.mjs's own
-//      tag-stripping leaves a space at that boundary (the v195 finding,
-//      shared verbatim with the app's own normalizeCueSearchText() so the
-//      two never disagree about what counts as "the same text")
-export function normalizeForMatch(s) {
+// current article text. Strips everything except letters and digits —
+// all punctuation, all quote styles (straight/curly), dashes, double
+// spaces, the leaked backslash/quote artifacts two separate generation
+// bugs leave behind — collapsing each sentence down to its bare words.
+//
+// This is deliberately much looser than a "diff": once two sentences agree
+// on their words, cosmetic differences (typography, a stray artifact
+// character, whitespace) shouldn't make a real cue look like a gap. Actual
+// content differences — different words, a sentence genuinely added or
+// removed — still fail to match, because the words themselves differ, not
+// just the punctuation around them.
+//
+// The repair script uses this ONLY to decide whether an actual cue
+// corresponds to a given expected sentence. Once it does, the cue's stored
+// text is overwritten with the current, exact expected text (see
+// repair-cue-gaps.mjs's "corrected" pass) — so matching loosely never
+// leaves loose text behind; it's the mechanism for making the file exact
+// again, not a replacement for exactness.
+export function normalizeLoose(s) {
   return (s || '')
-    .replace(/\\(?=["'\u201c\u201d\u2018\u2019])/g, '')
-    .replace(/^[\s"'\u201c\u201d\u2018\u2019]+/, '')
-    .replace(/\s+([,.;:!?)\]}'"\u201d\u2019])/g, '$1')
-    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 }
