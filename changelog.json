@@ -2,6 +2,35 @@
   "v": 1,
   "entries": [
     {
+      "version": "206",
+      "date": "2026-08-21T16:10:00-05:00",
+      "changes": [
+        "Fix: the v205 bottom playback bar jittered as the article text scrolled. Root cause: it was",
+        "rendered inside #artBody's per-article HTML, nested inside #article — which is both the",
+        "scrolling container (overflow-y:auto) AND, deliberately, a transform-established containing",
+        "block for position:fixed descendants (see #article's own CSS comment). That combination is",
+        "exactly what this codebase's own #flyPortrait comment already warns about: a position:fixed",
+        "element nested inside a scrolling+transformed ancestor can end up visibly lagging/catching up",
+        "during active touch-scroll on iOS Safari, even though it lands in the technically-correct spot",
+        "the instant scrolling stops. #pauseIndicator gets away with this because it's invisible except",
+        "for a brief flash; a PERSISTENTLY VISIBLE bar makes the lag constant and obvious.",
+        "Fix: moved #audioBottomBar to a persistent body-level element, a sibling of #article next to",
+        "#flyPortrait (same fix that element already needed for a related reason), rather than",
+        "re-rendering it inside every article. Its three buttons are now wired exactly once — every",
+        "handler they call reads the current audioEl/currentCues at click time rather than closing over",
+        "anything from a particular render, so there was nothing to re-wire per article anyway. Needed",
+        "a z-index bump to match (120, matching #flyPortrait) since as a sibling it now has to out-rank",
+        "#article's own z-index:100 to render on top of the open card, rather than inheriting that for",
+        "free as a descendant.",
+        "Changed: updateAudioBarPresence() now also checks currentEntry.audio directly (the bar's mere",
+        "existence in the DOM no longer implies the open entry has audio, now that it's persistent",
+        "rather than conditionally rendered) — and initAudio() explicitly resets the button back to",
+        "Play on every entry open, since the element (and therefore its icon) now persists across",
+        "articles instead of starting fresh each time."
+      ],
+      "loggedAt": "2026-08-21T23:38:53.494185+00:00"
+    },
+    {
       "version": "205",
       "date": "2026-08-21T15:30:00-05:00",
       "changes": [
