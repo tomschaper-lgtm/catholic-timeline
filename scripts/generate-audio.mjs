@@ -11,6 +11,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
+import { stripHtml, splitSentences } from './lib/text.mjs';
 
 const DATA_PATH = 'data.json';
 const LOG_PATH = 'audio-log.csv';
@@ -59,9 +60,6 @@ function fail(msg) { console.error('ERROR: ' + msg); process.exit(1); }
 if (!apiKey) fail('Missing ELEVENLABS_API_KEY secret (add it under repo Settings → Secrets → Actions).');
 if (!voiceId) fail('Missing voice_id input. Run the "List ElevenLabs Voices & Models" workflow to find one.');
 
-function stripHtml(html) {
-  return (html || '').replace(/<[^>]*>/g, ' ');
-}
 // One {heading, body} pair per section, whitespace-collapsed. Sections with
 // no body text are dropped (nothing to narrate).
 function sectionParts(entry) {
@@ -75,30 +73,6 @@ function sectionParts(entry) {
 }
 function hasNarratableText(entry) {
   return sectionParts(entry).length > 0;
-}
-
-// Naive but effective sentence splitter — splits after ./!/? + whitespace.
-// Returns {text, start, end} where start/end are character offsets into the
-// exact string that was sent to the TTS call, so they line up with the
-// alignment data ElevenLabs returns for that same string.
-function splitSentences(text) {
-  const re = /[^.!?]+[.!?]+(\s+|$)/g;
-  const sentences = [];
-  let m, lastIndex = 0;
-  while ((m = re.exec(text)) !== null) {
-    const raw = m[0];
-    const trimmedStart = m.index + (raw.length - raw.trimStart().length);
-    const trimmedEnd = m.index + raw.trimEnd().length;
-    sentences.push({ text: text.slice(trimmedStart, trimmedEnd), start: trimmedStart, end: trimmedEnd });
-    lastIndex = re.lastIndex;
-  }
-  if (lastIndex < text.length) {
-    const rest = text.slice(lastIndex);
-    const trimmedStart = lastIndex + (rest.length - rest.trimStart().length);
-    const trimmedEnd = text.length;
-    if (trimmedStart < trimmedEnd) sentences.push({ text: text.slice(trimmedStart, trimmedEnd), start: trimmedStart, end: trimmedEnd });
-  }
-  return sentences;
 }
 
 async function loadDb() {
