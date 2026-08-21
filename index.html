@@ -1,4 +1,15 @@
 <!--
+VERSION: 197
+DATE: 2026-08-20T15:20:00-05:00
+CHANGES:
+- Changed: the highlighted-sentence color switched from a cool silver (#E3E8F2) to a soft light
+  sky-blue (#AED8F0), color-matched from the owner's own reference screenshot — text color
+  only, no left-border accent bar (that bar belonged to a different, unrelated callout element
+  in the reference image, not something to carry over here).
+- New: a subtle dark text-shadow (0 1px 3px, 45% black) on the highlighted sentence, giving the
+  glyphs a touch of depth/pop against the page without any background tint or box-shadow.
+-->
+<!--
 VERSION: 196
 DATE: 2026-08-20T15:05:00-05:00
 CHANGES:
@@ -2151,7 +2162,7 @@ CHANGES:
      once cues actually loaded (data-cue-idx present); .cuePlaying tracks the audio's current
      position, added/removed on timeupdate — see wireSentenceCues()/initAudio() in JS. */
   [data-cue-idx]{cursor:pointer;}
-  .cuePlaying{color:#E3E8F2; transition:color .15s ease;}
+  .cuePlaying{color:#AED8F0; text-shadow:0 1px 3px rgba(0,0,0,.45); transition:color .15s ease;}
   /* Temporary diagnostic line (v176) — reports whether the timing file loaded and how many
      sentences actually matched, directly on-screen since this build has no console access on
      the primary device it's used from. Safe to remove once sentence-sync is confirmed reliable
@@ -3527,7 +3538,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v196';
+const APP_VERSION = 'v197';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
