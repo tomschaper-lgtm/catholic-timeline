@@ -2,6 +2,19 @@
   "v": 1,
   "entries": [
     {
+      "version": "203",
+      "date": "2026-08-20T16:30:00-05:00",
+      "changes": [
+        "Fix: v202 only stripped backslashes from the cue-text side of the comparison. Now the",
+        "article's own flattened search text (cueFlatMap()) drops any literal backslash character too",
+        "— never added to its flat string/DOM-offset map in the first place, so the two stay in",
+        "lockstep automatically, no separate cleanup pass needed. A stray backslash now breaks nothing",
+        "regardless of which side it turns up on — the article text, the cue text, or (per the",
+        "double-escaping bug this was chasing) both."
+      ],
+      "loggedAt": "2026-08-21T06:10:45.317636+00:00"
+    },
+    {
       "version": "201",
       "date": "2026-08-20T16:05:00-05:00",
       "changes": [
