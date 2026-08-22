@@ -1,4 +1,15 @@
 <!--
+VERSION: 208
+DATE: 2026-08-21T16:45:00-05:00
+CHANGES:
+- Changed: 20 more years of scroll room on the timeline's left/B.C. side, per Tom's follow-up
+  (START -40 -> -60; the boundary tick now reads "60 BC"). Right side (END, 2070) unchanged.
+  No other code changes needed — v205's zone-math rewrite and the boundary tick's label already
+  read START generically rather than hardcoding the old value, so this was just the one constant
+  plus its synced ERAS entry (see the comment there for why that one can't just reference START
+  directly).
+-->
+<!--
 VERSION: 207
 DATE: 2026-08-21T16:35:00-05:00
 CHANGES:
@@ -3699,7 +3710,7 @@ const ERAS = [
   // hand since ERAS is defined before START/END exist as consts (used at file-parse time, not
   // runtime, so it can't just reference them). If START changes, update this first entry's
   // start year to match.
-  [-40,0,"B.C."],
+  [-60,0,"B.C."],
   [0,100,"Apostolic Age"],[100,313,"Age of Martyrs"],[313,604,"Age of the Fathers"],
   [604,1054,"Early Middle Ages"],[1054,1300,"High Middle Ages"],[1300,1517,"Late Middle Ages"],
   [1517,1650,"Reformation"],[1650,1900,"Age of Revolutions"],
@@ -3726,7 +3737,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v207';
+const APP_VERSION = 'v208';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3821,12 +3832,13 @@ function carloDisplayName(name){
 }
 
 // ================= TIMELINE =================
-// Extra scroll room at both ends beyond actual content, per Tom's request: at least 35 years
-// of blank canvas before Pentecost (AD 1) and after the last-covered stretch, so the timeline
-// doesn't feel like it stops dead exactly where entries do. 40 years each side, comfortably
-// past the 35-year minimum, in round numbers. If these change, update ERAS's first/last
-// entries above to match (they can't reference these consts directly — see note there).
-const START = -40, END = 2070, SPAN = END - START;
+// Extra scroll room at both ends beyond actual content, so the timeline doesn't feel like it
+// stops dead exactly where entries do. Right side: 40 years past the last-covered stretch.
+// Left side: 60 years before Pentecost (AD 1) — originally 40, widened another 20 per Tom's
+// follow-up request for more room on the left specifically. If these change, update ERAS's
+// first/last entries above to match (they can't reference these consts directly — see note
+// there).
+const START = -60, END = 2070, SPAN = END - START;
 let ppy = 1.8;
 let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
 let activeRegion = "all";
