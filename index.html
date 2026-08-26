@@ -1,4 +1,21 @@
 <!--
+VERSION: 215
+DATE: 2026-08-25T22:30:00-05:00
+CHANGES:
+- Fixed: the floating audio play/pause bar (.audioBottomBar) could stay visible over the
+  Content Manager. Root cause: opening Manage never closes the article underneath it, it just
+  slides the CMS overlay on top — and the bar's z-index (120) is higher than the overlay's
+  (100), so a bar left showing from the article floated right over the CMS. Card-close itself
+  was already correct (closeArticle() already calls updateAudioBarPresence() after clearing
+  the open/peek/expanding classes) — this only affected the "still playing, then straight into
+  Manage" path.
+- Fix: updateAudioBarPresence() now also requires !manage.classList.contains('open'), and is
+  called at Manage's one open point (manageBtn click) and all three close points (Save & Exit,
+  its no-GitHub-token branch, and Discard). Single source of truth in the presence check itself,
+  so any future new way of opening/closing Manage stays correct without needing its own bar
+  call.
+-->
+<!--
 VERSION: 214
 DATE: 2026-08-25T22:15:00-05:00
 CHANGES:
@@ -3785,7 +3802,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v214';
+const APP_VERSION = 'v215';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6457,7 +6474,10 @@ function updateAudioBarPresence(){
                article.classList.contains('open') &&
                !article.classList.contains('peek') &&
                !article.classList.contains('expanding') &&
-               audioBarScrollRevealed;
+               audioBarScrollRevealed &&
+               !manage.classList.contains('open'); // the CMS overlay sits below the bar's
+               // z-index (120 vs 100), so without this the bar floats visibly over the CMS —
+               // Manage never closes the article underneath it, it just layers on top.
   bar.classList.toggle('show', show);
 }
 // Starts (or resumes) playback. Called from the bottom bar's own play/pause button (see
@@ -7593,6 +7613,8 @@ let mSnapshot = null; // deep copy of db taken when Manage is opened, for "Exit 
 
 document.getElementById('manageBtn').addEventListener('click', () => {
   manage.classList.add('open');
+  updateAudioBarPresence(); // Manage sits below the bar's z-index and never closes the
+  // article underneath it — without this the bar would float visibly over the CMS.
   mSnapshot = JSON.parse(JSON.stringify(db));
   switchMgmtTab('entries');
   // Land on the Entries tab with the search box, highlighted row, and editor form
@@ -7634,7 +7656,7 @@ document.getElementById('mgmtSaveExit').addEventListener('click', async () => {
   // only saved locally, which made changes look published when they hadn't left the browser.
   if(!ghConfigured()){
     msg.textContent = 'Saved on this device. (No GitHub token set, so the live site was not updated.)';
-    setTimeout(() => { mgmtExitModal.style.display = 'none'; manage.classList.remove('open'); msg.textContent = 'Exit the Content Manager?'; }, 1600);
+    setTimeout(() => { mgmtExitModal.style.display = 'none'; manage.classList.remove('open'); updateAudioBarPresence(); msg.textContent = 'Exit the Content Manager?'; }, 1600);
     return;
   }
   const wasLabel = btn.textContent;
@@ -7646,7 +7668,7 @@ document.getElementById('mgmtSaveExit').addEventListener('click', async () => {
   btn.textContent = wasLabel;
   if(ok){
     msg.textContent = 'Published \u2713 Your live site updates in about a minute.';
-    setTimeout(() => { mgmtExitModal.style.display = 'none'; manage.classList.remove('open'); msg.textContent = 'Exit the Content Manager?'; }, 1400);
+    setTimeout(() => { mgmtExitModal.style.display = 'none'; manage.classList.remove('open'); updateAudioBarPresence(); msg.textContent = 'Exit the Content Manager?'; }, 1400);
   } else {
     // Stay put on failure rather than closing — silently exiting after a failed publish is
     // exactly how edits get lost track of.
@@ -7663,6 +7685,7 @@ document.getElementById('mgmtDiscardExit').addEventListener('click', async () =>
   }
   mgmtExitModal.style.display = 'none';
   manage.classList.remove('open');
+  updateAudioBarPresence();
 });
 
 let editingId = null;
