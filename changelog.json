@@ -2,6 +2,30 @@
   "v": 1,
   "entries": [
     {
+      "version": "213",
+      "date": "2026-08-25T22:05:00-05:00",
+      "changes": [
+        "Added: Ken Burns drift on the article photo, Review Mode only (body.review-on class, synced",
+        "in setReviewMode() and on initial load from the stored review-mode preference). 16s,",
+        "ease-in-out, alternating, ~9% scale with a slight pan. Respects prefers-reduced-motion.",
+        "Root cause of v209-v212 doing nothing: the inline hero <img> (.artimg / #artHeroImg) is not",
+        "the photo the reader sees. measureFly() sets hero.style.opacity = '0' and hands the picture",
+        "off to the body-level #flyPortrait copy, which is what is on screen at every scroll position.",
+        "Animating .artimg animated an invisible element. In v209/v210 it also scaled the exact rect",
+        "measureFly() reads to size and place the visible copy, which is what knocked the photo out of",
+        "its frame (\"no longer centered with a border\"). The animation now targets .flyPortrait img",
+        "instead - the container already has overflow:hidden and the img is object-fit:cover at",
+        "100%/100%, so the zoom is clipped by the badge's own gold frame and the frame never moves.",
+        ".flyPortrait's own scroll-driven transform is on the container, this is on the img inside it,",
+        "so the corner flight and the drift compose rather than fight.",
+        "Reverted the v211 .artimgWrap experiment (wrapper div around the hero img, #artHeroImgEl):",
+        "it was only there to clip an animation that no longer lives on that element, so the hero",
+        "markup and all its JS references are back to their pre-v209 shape. Net change from v208 is",
+        "the CSS block above plus the two body.review-on lines."
+      ],
+      "loggedAt": "2026-08-26T02:34:09.047129+00:00"
+    },
+    {
       "version": "212",
       "date": "2026-08-25T21:35:00-05:00",
       "changes": [
