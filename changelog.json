@@ -2,6 +2,33 @@
   "v": 1,
   "entries": [
     {
+      "version": "225",
+      "date": "2026-08-26T03:10:00-05:00",
+      "changes": [
+        "Saints panel search box gets a clear (×) button, matching the existing house pattern used by",
+        "the timeline's own #tlSearch/#searchClear (bare × character, toggled via a .show class on",
+        "input) rather than a new design.",
+        "Every open of the Saints panel now resets to the canonical Feast + All + no-search view and",
+        "scrolls to today — whatever filter/sort/search was left over from a previous visit no longer",
+        "carries forward. If no saint's feast falls on today's date, a synthetic \"No feast day today\"",
+        "row is inserted at today's correct calendar position and highlighted the same as a real",
+        "today-row, so today's spot in the list is never just silently missing.",
+        "Patron is no longer a fifth chip in the All/Doctors/Popes/Martyrs group. It's now a",
+        "standalone toggle button beside the search box (search box narrowed to ~75% width, Patrons",
+        "button taking the remaining ~25%). Turning it on shows \"All\" as the active chip (patron view",
+        "still means \"no category restriction,\" just exploded by patron) rather than being one more",
+        "option inside that mutually-exclusive group; tapping any of the four chips turns Patron mode",
+        "back off. Internally still the same spFilter==='patron' state driving spRows()/",
+        "renderSaintsPanel() as before — only the entry point changed.",
+        "Column header bar (Feast/Name/Year) reverted from the flat dark-blue treatment back to a",
+        "white background with bold sans-serif black text, matching the \"Saints\" panel title's",
+        "register instead of the earlier gold-gradient or dark-blue experiments. Sort-column divider",
+        "lines switched from white-on-blue back to a light gray suited to the white background. The",
+        "active-sort triangle enlarged (10px -> 15px) so it's actually legible."
+      ],
+      "loggedAt": "2026-08-26T22:30:05.855463+00:00"
+    },
+    {
       "version": "223",
       "date": "2026-08-26T02:05:00-05:00",
       "changes": [
