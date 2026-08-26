@@ -1,4 +1,19 @@
 <!--
+VERSION: 222
+DATE: 2026-08-26T01:45:00-05:00
+CHANGES:
+- Infinite feast-order looping is now scoped to the true, complete calendar: only when the
+  All filter is active, sorted by Feast, and no search text is typed. Any chip filter
+  (Doctors/Popes/Martyrs/Patron) or search query now shows a plain finite list instead of
+  looping through a narrowed subset.
+- Patron mode: patron text is now title-cased ("fishermen" -> "Fishermen"), split on both
+  commas AND semicolons, and parenthetical asides are stripped before splitting — not after —
+  so a comma inside parentheses ("diseases (colds, flu)") doesn't get read as a second patron.
+- Patron column widened (58px -> 132px) while Patron mode is active — the original width was
+  sized for short feast dates ("Aug 25") and badly cramped longer patron phrases. Feast mode
+  keeps its original compact width; header and row widths still match exactly.
+-->
+<!--
 VERSION: 221
 DATE: 2026-08-26T01:20:00-05:00
 CHANGES:
@@ -2030,6 +2045,13 @@ CHANGES:
   #spSortFeast{flex:0 0 58px; border-right:1px solid rgba(255,255,255,.25); min-width:0;}
   #spSortName{flex:1 1 auto; border-right:1px solid rgba(255,255,255,.25); min-width:0;}
   #spSortYear{flex:0 0 56px; justify-content:flex-end; min-width:0;}
+  /* Patron mode swaps the shared first column from short feast dates ("Aug 25") to much
+     longer patron descriptions ("Expectant mothers"), so it needs meaningfully more room.
+     Only widened while .patronMode is set on the panel (toggled in renderSaintsPanel()) —
+     Feast mode keeps its original compact width. Header/row widths still have to match
+     exactly, same lesson as the plain Feast column. */
+  .saintsPanel.patronMode #spSortFeast{flex:0 0 132px;}
+  .saintsPanel.patronMode .spFeast{flex:0 0 132px;}
   .spCol.active{color:var(--gold-bright); font-weight:800;}
   .spCol .arrow{font-size:10px; visibility:hidden;}
   .spCol.active .arrow{visibility:visible;}
@@ -4068,7 +4090,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v221';
+const APP_VERSION = 'v222';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -9817,14 +9839,20 @@ function spMatchesFilter(e){
   if(spFilter === 'martyrs') return title.includes('martyr');
   return true;
 }
-// One saint's Patronage fact, split into individual patrons ("Popes, fishermen, netmakers" ->
-// ["Popes","fishermen","netmakers"]). A saint with no Patronage fact contributes no rows at
-// all under the Patron filter, same as "no feast day" simply not showing a date elsewhere.
+// One saint's Patronage fact, split into individual patrons ("Popes, fishermen; netmakers
+// (esp. rope)" -> ["Popes","Fishermen","Netmakers"]). Parenthetical asides are stripped before
+// splitting (not after), so a comma/semicolon INSIDE a parenthetical — "diseases (colds, flu)"
+// — doesn't get treated as a second patron. A saint with no Patronage fact contributes no rows
+// at all under the Patron filter, same as "no feast day" simply not showing a date elsewhere.
+function spTitleCase(s){
+  return String(s).replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1));
+}
 function spPatronsOf(e){
   if(!Array.isArray(e.facts)) return [];
   const f = e.facts.find(x => x && x.label === 'Patronage');
   if(!f || !f.value) return [];
-  return String(f.value).split(',').map(s => s.trim()).filter(Boolean);
+  const cleaned = String(f.value).replace(/\([^)]*\)/g, '');
+  return cleaned.split(/[,;]/).map(s => spTitleCase(s.trim())).filter(Boolean);
 }
 // Display-only: strips a leading "St. "/"Sts. " so the list reads "Peter", "Paul", "Perpetua
 // and Felicity" etc. The underlying e.n is never touched — the timeline, search, and article
@@ -9878,6 +9906,7 @@ function spRows(){
 }
 function renderSaintsPanel(){
   const isPatronMode = spFilter === 'patron';
+  saintsPanel.classList.toggle('patronMode', isPatronMode); // widens the shared first column for patron text — see CSS
   // The header's first column doubles as Feast or Patron depending on the active filter —
   // same button/id, just relabeled and re-sorted, rather than two separate buttons fighting
   // over one slot.
@@ -9891,12 +9920,11 @@ function renderSaintsPanel(){
   const N = baseRows.length;
   const isFeastSort = spSort === 'feast' && !isPatronMode;
   // Feast order genuinely loops the calendar (Dec -> Jan) instead of stopping dead at
-  // whatever happens to be first/last in the current (possibly filtered/searched) list — that
-  // dead-stop was also what put an incorrect "end of year" bar on the last row of every
-  // search, regardless of what month it actually was. Three back-to-back copies give scrolling
-  // something pixel-identical to teleport into at each end, so the loop itself is invisible;
-  // see the scroll listener below for the teleport.
-  const loopable = isFeastSort && N > 0;
+  // whatever happens to be first/last in the list — but only for the true, complete calendar:
+  // the All filter with no search text typed. Any chip filter (Doctors/Popes/Martyrs/Patron)
+  // or search query narrows the list to something that isn't the real year anymore, so those
+  // stay a plain finite list rather than looping through a filtered subset.
+  const loopable = isFeastSort && spFilter === 'all' && !spQuery.trim() && N > 0;
   const renderRows = loopable ? baseRows.concat(baseRows).concat(baseRows) : baseRows;
 
   const now = new Date();
@@ -9932,11 +9960,11 @@ function renderSaintsPanel(){
     spCopyHeight = spListEl.children[2 * N].offsetTop - spListEl.children[N].offsetTop;
   }
   if(loopable && spCopyHeight > 0){
-    // Default view (feast order, no search typed) centers on today's row inside the middle
-    // copy so the reader lands on "today" rather than January 1st. Otherwise, land at the
-    // start of the middle copy — the safe zone the scroll listener keeps scrolling centered
-    // on — rather than at absolute 0, which would immediately sit in the top clone.
-    if(todayIdx >= 0 && !spQuery){
+    // Default view (feast order, no search typed, All filter) centers on today's row inside
+    // the middle copy so the reader lands on "today" rather than January 1st. Otherwise, land
+    // at the start of the middle copy — the safe zone the scroll listener keeps scrolling
+    // centered on — rather than at absolute 0, which would immediately sit in the top clone.
+    if(todayIdx >= 0){
       const el = spListEl.children[todayIdx];
       spListEl.scrollTop = Math.max(0, el.offsetTop - (spListEl.clientHeight / 2) + (el.offsetHeight / 2));
     } else {
