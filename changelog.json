@@ -2,6 +2,25 @@
   "v": 1,
   "entries": [
     {
+      "version": "215",
+      "date": "2026-08-25T22:30:00-05:00",
+      "changes": [
+        "Fixed: the floating audio play/pause bar (.audioBottomBar) could stay visible over the",
+        "Content Manager. Root cause: opening Manage never closes the article underneath it, it just",
+        "slides the CMS overlay on top — and the bar's z-index (120) is higher than the overlay's",
+        "(100), so a bar left showing from the article floated right over the CMS. Card-close itself",
+        "was already correct (closeArticle() already calls updateAudioBarPresence() after clearing",
+        "the open/peek/expanding classes) — this only affected the \"still playing, then straight into",
+        "Manage\" path.",
+        "Fix: updateAudioBarPresence() now also requires !manage.classList.contains('open'), and is",
+        "called at Manage's one open point (manageBtn click) and all three close points (Save & Exit,",
+        "its no-GitHub-token branch, and Discard). Single source of truth in the presence check itself,",
+        "so any future new way of opening/closing Manage stays correct without needing its own bar",
+        "call."
+      ],
+      "loggedAt": "2026-08-26T02:52:54.014848+00:00"
+    },
+    {
       "version": "214",
       "date": "2026-08-25T22:15:00-05:00",
       "changes": [
