@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "226",
+      "date": "2026-08-26T03:45:00-05:00",
+      "changes": [
+        "Doctors/Popes/Martyrs chips now default their sort to Year on click (narrow, specific lists",
+        "where chronology usually matters more than the full calendar). All always resets sort back to",
+        "Feast on click, since it's the \"back to the real calendar\" option. Only fires on the click",
+        "itself — restoring a previous session (see below) doesn't retroactively re-force these.",
+        "The panel now remembers filter/sort/scroll position across close/reopen (spLastState) —",
+        "reopening lands back exactly where you left off instead of always resetting to Feast/All.",
+        "Search is deliberately excluded from this and always starts cleared on open, per spec. Only",
+        "the very first open of a session (nothing saved yet) falls back to the default Feast + All",
+        "view, centered on today.",
+        "New: Saints-panel recent-searches dropdown, shown when the search box is focused and empty —",
+        "same pattern as the timeline's own #tlSearch recent list (clock icon, × to drop an entry),",
+        "under its own storage key (ct-saints-recent-searches, last 5) so the two lists never mix. A",
+        "term is recorded, exactly as typed, when a row is tapped while a search is active — the",
+        "Saints-panel equivalent of \"picking a result.\""
+      ],
+      "loggedAt": "2026-08-26T23:16:25.841016+00:00"
+    },
+    {
       "version": "225",
       "date": "2026-08-26T03:10:00-05:00",
       "changes": [
