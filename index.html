@@ -1,4 +1,15 @@
 <!--
+VERSION: 209
+DATE: 2026-08-25T20:47:00-05:00
+CHANGES:
+- Added: Ken Burns test on the article hero image (.artimg) — slow (34s), subtle drift/zoom,
+  Review Mode only for now while it's being evaluated. Gated by a body.review-on class synced
+  in setReviewMode() and on initial load from the stored review-mode preference. Respects
+  prefers-reduced-motion. No changes to .flyPortrait or the hero-image fly/drag JS — the
+  animation targets .artimg's own transform only, so nothing that reads the hero's bounding
+  rect had to change.
+-->
+<!--
 VERSION: 208
 DATE: 2026-08-21T16:45:00-05:00
 CHANGES:
@@ -2372,6 +2383,18 @@ CHANGES:
   /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
      so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
   .artimg{width:100%; border-radius:14px; border:1.5px solid var(--gold); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
+  /* Ken Burns test (v207) — Review Mode only, for now, while the effect is being evaluated
+     before deciding whether to roll it out to visitors. Slow and subtle: a barely-there drift
+     rather than an obvious zoom, so it reads as "the photo is alive" not "the photo is moving."
+     Scoped to .artimg specifically (not the corner .flyPortrait) so it only plays while the
+     full hero photo is on screen. Respects reduced-motion. */
+  @media (prefers-reduced-motion: no-preference){
+    body.review-on .artimg{animation:kenBurnsHero 34s ease-in-out infinite alternate;}
+  }
+  @keyframes kenBurnsHero{
+    from{transform:scale(1) translate(0,0);}
+    to{transform:scale(1.07) translate(-1.5%,-1%);}
+  }
   .imgLightbox{
     position:fixed; inset:0; z-index:200; background:rgba(4,9,26,.97);
     display:none; align-items:center; justify-content:center; padding:24px;
@@ -3737,7 +3760,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v208';
+const APP_VERSION = 'v209';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4136,6 +4159,7 @@ let lastGesture = null;
 // This is a display filter, not a security boundary — the data still travels in data.json.
 let reviewMode = false;
 try{ reviewMode = localStorage.getItem('review-mode') === '1'; }catch(e){}
+document.body.classList.toggle('review-on', reviewMode);
 // Narrows the timeline to held-for-review entries only, ignoring the category/region chips —
 // a quick way to lay eyes on everything pending at once. Only meaningful while reviewMode is
 // on; deliberately not persisted to localStorage, since it's a transient "just show me the
@@ -7821,6 +7845,9 @@ function setReviewMode(on){
   // rather than leaving the owner on an empty, still-filtered canvas.
   if(!reviewMode) reviewOnlyMode = false;
   try{ localStorage.setItem('review-mode', reviewMode ? '1' : '0'); }catch(e){}
+  // Body-level flag so CSS (e.g. the Ken Burns hero-image test, v207) can key off review mode
+  // without every render call needing to know about it individually.
+  document.body.classList.toggle('review-on', reviewMode);
   updateReviewUI();
   renderMList(false);
   render();
