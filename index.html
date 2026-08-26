@@ -1,4 +1,19 @@
 <!--
+VERSION: 223
+DATE: 2026-08-26T02:05:00-05:00
+CHANGES:
+- Patron mode drops the Year column entirely (display:none, not just narrowed) so Name gets
+  its space back for longer saint names alongside the wider Patron column.
+- Patron sort now breaks ties by name — same patron, alphabetical by saint — instead of
+  leaving equal-patron rows in whatever order they happened to come out of the filter.
+- Panel widened (380px/92vw -> 410px/95vw) and chip spacing tightened slightly (gap 8px->6px,
+  padding 12px->10px horizontal) so all five chips — All/Doctors/Popes/Martyrs/Patron — sit on
+  one row instead of Patron wrapping to a second line.
+- Confirmed (no new code needed — already correct as of v222): clicking All while sorted by
+  Feast re-centers on today, since that transition is exactly when isFeastSort/loopable/
+  todayIdx all line up again in renderSaintsPanel().
+-->
+<!--
 VERSION: 222
 DATE: 2026-08-26T01:45:00-05:00
 CHANGES:
@@ -1981,7 +1996,7 @@ CHANGES:
   .spScrim.open{opacity:1; pointer-events:auto;}
   .saintsPanel{
     position:fixed; top:calc(46px + env(safe-area-inset-top)); left:0; z-index:145;
-    width:min(380px, 92vw);
+    width:min(410px, 95vw);
     max-height:calc(100vh - 78px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     overflow:hidden; display:flex; flex-direction:column;
     background:#fff;
@@ -2010,10 +2025,10 @@ CHANGES:
     background:#F8F7F2;
   }
   .spSearch:focus{outline:none; border-color:var(--panelBlue);}
-  .spChips{display:flex; gap:8px; flex-wrap:wrap; padding:0 22px 14px; flex:0 0 auto;}
+  .spChips{display:flex; gap:6px; flex-wrap:wrap; padding:0 22px 14px; flex:0 0 auto;}
   .spChip{
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13px;
-    padding:5px 12px; border-radius:999px; border:1px solid #D8DCE4;
+    padding:5px 10px; border-radius:999px; border:1px solid #D8DCE4;
     background:#fff; color:#4B5266; cursor:pointer; white-space:nowrap;
   }
   .spChip.active{background:#12203F; color:#fff; border-color:#12203F; font-weight:600;}
@@ -2052,6 +2067,11 @@ CHANGES:
      exactly, same lesson as the plain Feast column. */
   .saintsPanel.patronMode #spSortFeast{flex:0 0 132px;}
   .saintsPanel.patronMode .spFeast{flex:0 0 132px;}
+  /* Patron mode drops the Year column outright rather than shrinking it — a saint's patron
+     list is what matters here, not the year, and removing it (display:none, not just hiding
+     visually) lets .spName's flex:1 absorb the freed space automatically. */
+  .saintsPanel.patronMode #spSortYear{display:none;}
+  .saintsPanel.patronMode .spYear{display:none;}
   .spCol.active{color:var(--gold-bright); font-weight:800;}
   .spCol .arrow{font-size:10px; visibility:hidden;}
   .spCol.active .arrow{visibility:visible;}
@@ -4090,7 +4110,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v222';
+const APP_VERSION = 'v223';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -9899,7 +9919,7 @@ function spRows(){
     // raw "St. …" would otherwise cluster nearly everything under "S".
     if(spSort === 'name') return spDisplayName(a.e.n).localeCompare(spDisplayName(b.e.n));
     if(spSort === 'year') return a.e.y - b.e.y;
-    if(spSort === 'patron') return (a.patron || '').localeCompare(b.patron || '');
+    if(spSort === 'patron') return (a.patron || '').localeCompare(b.patron || '') || spDisplayName(a.e.n).localeCompare(spDisplayName(b.e.n));
     return (a.month - b.month) || (a.day - b.day) || spDisplayName(a.e.n).localeCompare(spDisplayName(b.e.n));
   });
   return out;
