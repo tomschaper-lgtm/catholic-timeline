@@ -1,4 +1,15 @@
 <!--
+VERSION: 212
+DATE: 2026-08-25T21:35:00-05:00
+CHANGES:
+- Debug: removed the body.review-on gate from the Ken Burns animation (temporarily
+  unconditional) to isolate why v211 showed no motion at all — border/centering was fixed by
+  v211, but that part isn't gated by review mode, so it never actually proved the gate was
+  working. If the photo now animates on ANY entry with a hero image (not just in Review Mode),
+  the gate/class wiring was the bug. If it still doesn't animate, the animation mechanism
+  itself is blocked by something else and the gate is unrelated.
+-->
+<!--
 VERSION: 211
 DATE: 2026-08-25T21:20:00-05:00
 CHANGES:
@@ -2421,10 +2432,11 @@ CHANGES:
      stays clipped inside the fixed frame instead of bleeding past the border. Respects
      reduced-motion. */
   @media (prefers-reduced-motion: no-preference){
-    /* TEMP for testing (v210) — sped way up and made obvious on purpose so it's unmistakable
-       whether the effect is firing at all. Once confirmed, dial back to the original slow
-       34s/7% version this replaced. */
-    body.review-on .artimgWrap > .artimg{animation:kenBurnsHero 5s ease-in-out infinite alternate;}
+    /* TEMP for testing (v212) — review-on gate removed for now, to isolate whether that gate
+       was the reason nothing moved (v211 still showed no motion even with Review Mode on and
+       Reduce Motion off). Unconditional until confirmed working, then both the gate and the
+       slow/subtle speed get restored. */
+    .artimgWrap > .artimg{animation:kenBurnsHero 5s ease-in-out infinite alternate;}
   }
   @keyframes kenBurnsHero{
     from{transform:scale(1) translate(0,0);}
@@ -3795,7 +3807,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v211';
+const APP_VERSION = 'v212';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
