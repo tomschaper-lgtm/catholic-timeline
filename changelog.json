@@ -2,6 +2,23 @@
   "v": 1,
   "entries": [
     {
+      "version": "223",
+      "date": "2026-08-26T02:05:00-05:00",
+      "changes": [
+        "Patron mode drops the Year column entirely (display:none, not just narrowed) so Name gets",
+        "its space back for longer saint names alongside the wider Patron column.",
+        "Patron sort now breaks ties by name — same patron, alphabetical by saint — instead of",
+        "leaving equal-patron rows in whatever order they happened to come out of the filter.",
+        "Panel widened (380px/92vw -> 410px/95vw) and chip spacing tightened slightly (gap 8px->6px,",
+        "padding 12px->10px horizontal) so all five chips — All/Doctors/Popes/Martyrs/Patron — sit on",
+        "one row instead of Patron wrapping to a second line.",
+        "Confirmed (no new code needed — already correct as of v222): clicking All while sorted by",
+        "Feast re-centers on today, since that transition is exactly when isFeastSort/loopable/",
+        "todayIdx all line up again in renderSaintsPanel()."
+      ],
+      "loggedAt": "2026-08-26T11:32:55.930430+00:00"
+    },
+    {
       "version": "222",
       "date": "2026-08-26T01:45:00-05:00",
       "changes": [
