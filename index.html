@@ -1,4 +1,28 @@
 <!--
+VERSION: 216
+DATE: 2026-08-25T23:15:00-05:00
+CHANGES:
+- New: Saints panel. Tapping the sticky Saints lane icon on the timeline (previously
+  decorative, pointer-events:none like every other lane icon) now opens a full list of every
+  saint in a new left-side sliding panel — mirrors .hamMenu's slide mechanics but anchored
+  left:0 / translateX(-100%) instead of right:0 / translateX(100%), so it's a genuinely new
+  drawer, not a reuse of the hamburger panel. Every other lane icon is untouched and still
+  non-interactive.
+- Panel: search-by-name box, filter chips (All/Doctors/Popes/Martyrs, matched by substring
+  against the "Title" Quick Fact — the only place that vocabulary exists in the schema today),
+  and three sort columns (Feast/Name/Year) that are always ascending only, no reverse-toggle,
+  reusing the existing parseFeastDate()/MONTH_NAMES from the feast-of-the-day feature so date
+  parsing matches exactly. Default sort is Feast day.
+- Feast-day order gets a bold rule at each month boundary and a heavier bar at the very start
+  and end of the year; both disappear under Name/Year sort, since the boundary they're marking
+  stops being meaningful once the list isn't in calendar order. On open (feast sort, no search
+  typed), the list scrolls to center today's feast, highlighted; plain scroll math with no
+  artificial data wraparound means a today near Jan 1 or Dec 31 naturally clamps to the
+  top/bottom of the list instead of centering, rather than being forced there.
+- Tapping a row closes the panel and travels to that saint's card on the timeline, same
+  centerAndFocus()+showDetail() path every other entry tap already uses.
+-->
+<!--
 VERSION: 215
 DATE: 2026-08-25T22:30:00-05:00
 CHANGES:
@@ -1825,6 +1849,83 @@ CHANGES:
   }
   .hamMenu .row{display:none;} /* filter rows retained in DOM, see markup note */
 
+  /* ---- Saints panel: opened by tapping the sticky Saints lane icon. Same slide-panel
+     mechanics as .hamMenu, mirrored to the left edge (anchored left:0, off-screen via
+     translateX(-100%) instead of the hamburger's translateX(100%) off the right edge, rounded
+     corners on the right side instead of the left). Kept as a fully separate element/scrim
+     rather than reusing .hamMenu so the two can never fight over open/close state. */
+  .spScrim{
+    position:fixed; inset:0; z-index:144;
+    background:rgba(9,16,34,.38);
+    opacity:0; pointer-events:none;
+    transition:opacity .48s cubic-bezier(.32,.72,.28,1);
+  }
+  .spScrim.open{opacity:1; pointer-events:auto;}
+  .saintsPanel{
+    position:fixed; top:calc(46px + env(safe-area-inset-top)); left:0; z-index:145;
+    width:min(380px, 92vw);
+    max-height:calc(100vh - 78px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow:hidden; display:flex; flex-direction:column;
+    background:#fff;
+    border-radius:0 26px 26px 0;
+    box-shadow:16px 0 46px rgba(7,15,34,.28);
+    padding:22px 0 10px;
+    transform:translateX(-100%);
+    transition:transform .48s cubic-bezier(.32,.72,.28,1), visibility 0s linear .48s;
+    visibility:hidden;
+  }
+  .saintsPanel.open{
+    transform:translateX(0); visibility:visible;
+    transition:transform .48s cubic-bezier(.32,.72,.28,1), visibility 0s linear 0s;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .saintsPanel, .spScrim{transition:none;}
+  }
+  .spSearch{
+    margin:0 22px 12px; padding:10px 14px; flex:0 0 auto;
+    border:1px solid #E3E1D8; border-radius:12px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:15px; color:#111827;
+    background:#F8F7F2;
+  }
+  .spSearch:focus{outline:none; border-color:var(--panelBlue);}
+  .spChips{display:flex; gap:8px; flex-wrap:wrap; padding:0 22px 14px; flex:0 0 auto;}
+  .spChip{
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13px;
+    padding:5px 12px; border-radius:999px; border:1px solid #D8DCE4;
+    background:#fff; color:#4B5266; cursor:pointer; white-space:nowrap;
+  }
+  .spChip.active{background:#12203F; color:#fff; border-color:#12203F; font-weight:600;}
+  .spHead{
+    display:flex; padding:9px 22px; border-top:1px solid #E9EAEE; border-bottom:1px solid #E9EAEE;
+    background:#F8F7F2; flex:0 0 auto;
+  }
+  .spCol{
+    background:none; border:none; padding:0; margin-right:22px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12px; font-weight:700;
+    letter-spacing:.06em; text-transform:uppercase; color:#8A90A0; cursor:pointer;
+    display:flex; align-items:center; gap:4px;
+  }
+  .spCol.active{color:#12203F;}
+  .spCol .arrow{font-size:10px; visibility:hidden;}
+  .spCol.active .arrow{visibility:visible;}
+  .spList{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+  .spRow{
+    display:flex; align-items:center; gap:14px; padding:11px 22px;
+    border-bottom:1px solid #EFEFEF; cursor:pointer;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  }
+  .spRow:active{background:#F5F4EE;}
+  /* Month-boundary rule and year-edge thick bar only mean anything under feast-day order —
+     renderSaintsPanel() only ever adds these classes when spSort==='feast', so switching to
+     Name/Year sort makes them disappear on its own rather than needing a separate CSS toggle. */
+  .spRow.monthStart{border-top:1px solid #C7CAD3;}
+  .spRow.yearEdge{border-top:3px solid #12203F;}
+  .spRow.today{background:#EAF1FF; font-weight:700;}
+  .spFeast{flex:0 0 54px; font-size:13px; color:#6B7280;}
+  .spName{flex:1 1 auto; font-size:15px; color:#111827; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .spYear{flex:0 0 auto; font-size:13px; color:#6B7280;}
+  .spEmpty{padding:30px 22px; text-align:center; color:#8A90A0; font-size:14px;}
+
   .panelHead{
     display:flex; align-items:center; justify-content:space-between;
     padding:0 22px 18px;
@@ -2018,6 +2119,9 @@ CHANGES:
   }
   .bandIconWrap svg{width:28px; height:28px;}
   .bandIconWrap img{width:100%; height:100%; object-fit:cover; display:block;}
+  /* Only the Saints lane icon opens anything right now (the new Saints panel below) — every
+     other lane icon stays purely decorative/pointer-events:none as before. */
+  .bandIconWrap.t-s{pointer-events:auto; cursor:pointer;}
   .bandyearwrap{position:absolute; z-index:3; pointer-events:none;}
   .bandyear{
     position:sticky; top:60px; display:inline-block;
@@ -3060,6 +3164,32 @@ CHANGES:
       <p class="pNote">Previews the hamburger pulse and the update-row glow — not a real check.</p>
     </div>
   </div>
+
+  <!-- Saints panel: full browsable/sortable list of every saint, opened by tapping the sticky
+       Saints lane icon on the timeline (see .bandIconWrap.t-s). Slides from the left, mirroring
+       .hamMenu's slide-from-right mechanics — see saintsPanel/spScrim in the JS below. -->
+  <div class="spScrim" id="spScrim"></div>
+  <div class="saintsPanel" id="saintsPanel" role="dialog" aria-label="Saints">
+    <div class="panelHead">
+      <span class="panelTitle">Saints</span>
+      <button class="panelClose" id="spClose" aria-label="Close saints list">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+    </div>
+    <input type="text" class="spSearch" id="spSearch" placeholder="Search saints" autocomplete="off">
+    <div class="spChips" id="spChips">
+      <button class="spChip active" data-filter="all">All</button>
+      <button class="spChip" data-filter="doctors">Doctors</button>
+      <button class="spChip" data-filter="popes">Popes</button>
+      <button class="spChip" data-filter="martyrs">Martyrs</button>
+    </div>
+    <div class="spHead">
+      <button class="spCol active" id="spSortFeast" data-sort="feast">Feast <span class="arrow">▲</span></button>
+      <button class="spCol" id="spSortName" data-sort="name">Name <span class="arrow">▲</span></button>
+      <button class="spCol" id="spSortYear" data-sort="year">Year <span class="arrow">▲</span></button>
+    </div>
+    <div class="spList" id="spList"></div>
+  </div>
 </header>
 
 <img id="heroLogo" src="Images/heroLogo.png" alt="" aria-hidden="true">
@@ -3802,7 +3932,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v215';
+const APP_VERSION = 'v216';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4376,9 +4506,10 @@ function render(){
     const bandIconContent = TYPE_BAND_IMG[t]
       ? '<img src="'+TYPE_BAND_IMG[t]+'" alt="'+TYPE_PLURALS[t]+'">'
       : ICONS[t];
+    const bandIconAttrs = (t === 's') ? ' role="button" tabindex="0" aria-label="Browse all Saints"' : '';
     lblWrap.innerHTML =
       '<span class="bandlbl t-'+t+'">'+TYPE_PLURALS[t]+'</span>' +
-      '<div class="bandIconWrap t-'+t+'" data-type="'+t+'">'+bandIconContent+'</div>';
+      '<div class="bandIconWrap t-'+t+'" data-type="'+t+'"'+bandIconAttrs+'>'+bandIconContent+'</div>';
     canvas.appendChild(lblWrap);
     for(let y = 100; y <= END; y += 100){
       const yw = document.createElement('div');
@@ -9512,6 +9643,139 @@ document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeHamMen
 document.getElementById('manageBtn').addEventListener('click', closeHamMenu);
 const tlSearchEl = document.getElementById('tlSearch');
 if(tlSearchEl) tlSearchEl.addEventListener('focus', closeHamMenu);
+
+// ---- Saints panel ----
+// Full list of every saint, opened from the sticky Saints lane icon on the timeline. Sorts are
+// always ascending only (Feast/Name/Year — no reverse-toggle), reusing the existing
+// parseFeastDate()/MONTH_NAMES from the feast-of-the-day feature above so "Aug 28" etc. parses
+// the same way in both places. Category filter chips (Doctors/Popes/Martyrs) read the saint's
+// "Title" Quick Fact by substring match, since that's the only place that vocabulary lives in
+// the schema today — a saint with no Title fact, or one that doesn't use those words, simply
+// won't match any chip but still shows under "All".
+const saintsPanel = document.getElementById('saintsPanel');
+const spScrim = document.getElementById('spScrim');
+const spListEl = document.getElementById('spList');
+let spSort = 'feast', spFilter = 'all', spQuery = '';
+
+function spTitleOf(e){
+  if(!Array.isArray(e.facts)) return '';
+  const f = e.facts.find(x => x && x.label === 'Title');
+  return f ? String(f.value) : '';
+}
+function spMatchesFilter(e){
+  if(spFilter === 'all') return true;
+  const title = spTitleOf(e).toLowerCase();
+  if(spFilter === 'doctors') return title.includes('doctor of the church');
+  if(spFilter === 'popes') return title.includes('pope');
+  if(spFilter === 'martyrs') return title.includes('martyr');
+  return true;
+}
+function spRows(){
+  const q = spQuery.trim().toLowerCase();
+  return db.entries
+    .filter(e => e.t === 's' && (reviewMode || !isReview(e)))
+    .filter(spMatchesFilter)
+    .filter(e => !q || e.n.toLowerCase().includes(q))
+    .map(e => {
+      const f = Array.isArray(e.facts) ? e.facts.find(x => x && x.label === 'Feast day') : null;
+      const parsed = f ? parseFeastDate(f.value) : null;
+      // No/unparsable feast day sorts to the very end under Feast order rather than being
+      // dropped from the list — month 12 is one past December (11), so it always lands last.
+      return {e: e, month: parsed ? parsed.month : 12, day: parsed ? parsed.day : 32};
+    })
+    .sort((a, b) => {
+      if(spSort === 'name') return a.e.n.localeCompare(b.e.n);
+      if(spSort === 'year') return a.e.y - b.e.y;
+      return (a.month - b.month) || (a.day - b.day) || a.e.n.localeCompare(b.e.n);
+    });
+}
+function renderSaintsPanel(){
+  document.querySelectorAll('.spCol').forEach(b => b.classList.toggle('active', b.dataset.sort === spSort));
+  const rows = spRows();
+  const now = new Date();
+  const todayMonth = now.getMonth(), todayDay = now.getDate();
+  const isFeastSort = spSort === 'feast';
+  let lastMonth = null, html = '';
+  rows.forEach((r, i) => {
+    const hasFeast = r.month < 12;
+    // Month-boundary rule and year-start/end thick bar only mean anything under feast-day
+    // order — under Name/Year they'd be marking a meaningless boundary, so they simply aren't
+    // added, per spec ("if they sort by name or year, the bold lines between months goes away").
+    const monthStart = isFeastSort && hasFeast && r.month !== lastMonth;
+    const yearEdge = isFeastSort && hasFeast && (i === 0 || (rows[i + 1] && rows[i + 1].month === 12) || i === rows.length - 1);
+    const isToday = isFeastSort && hasFeast && r.month === todayMonth && r.day === todayDay;
+    if(hasFeast) lastMonth = r.month;
+    const cls = ['spRow'];
+    if(monthStart) cls.push('monthStart');
+    if(yearEdge) cls.push('yearEdge');
+    if(isToday) cls.push('today');
+    const feastDisp = hasFeast ? (MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day) : '—';
+    html += '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'">' +
+      '<span class="spFeast">'+esc(feastDisp)+'</span>' +
+      '<span class="spName">'+esc(r.e.n)+'</span>' +
+      '<span class="spYear">'+r.e.y+'</span>' +
+      '</div>';
+  });
+  spListEl.innerHTML = html || '<div class="spEmpty">No saints match.</div>';
+  // Default view (feast order, no search typed) centers on today's row so the reader lands on
+  // "today" rather than January 1st. Plain scroll math with no artificial wraparound — a today
+  // near Jan 1 or Dec 31 naturally clamps to the top/bottom of the list instead of centering,
+  // which is the "forced to top or bottom near the beginning/end of year" behavior from spec.
+  if(isFeastSort && !spQuery){
+    const todayEl = spListEl.querySelector('.spRow.today');
+    if(todayEl){
+      spListEl.scrollTop = Math.max(0, todayEl.offsetTop - (spListEl.clientHeight / 2) + (todayEl.offsetHeight / 2));
+    } else {
+      spListEl.scrollTop = 0;
+    }
+  }
+}
+function openSaintsPanel(){
+  closeHamMenu();
+  saintsPanel.classList.add('open');
+  spScrim.classList.add('open');
+  renderSaintsPanel();
+}
+function closeSaintsPanel(){
+  saintsPanel.classList.remove('open');
+  spScrim.classList.remove('open');
+}
+// Delegated on the (stable) canvas element rather than the icon itself, since bandIconWrap
+// elements are recreated on every render() pass — see render() above.
+canvas.addEventListener('click', (e) => {
+  const icon = e.target.closest('.bandIconWrap[data-type="s"]');
+  if(!icon || dragMoved) return;
+  e.stopPropagation();
+  openSaintsPanel();
+});
+canvas.addEventListener('keydown', (e) => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  if(!e.target.closest('.bandIconWrap[data-type="s"]')) return;
+  e.preventDefault();
+  openSaintsPanel();
+});
+document.getElementById('spClose').addEventListener('click', (e) => { e.stopPropagation(); closeSaintsPanel(); });
+spScrim.addEventListener('click', closeSaintsPanel);
+document.getElementById('spSearch').addEventListener('input', (e) => { spQuery = e.target.value; renderSaintsPanel(); });
+document.getElementById('spChips').addEventListener('click', (e) => {
+  const btn = e.target.closest('.spChip');
+  if(!btn) return;
+  spFilter = btn.dataset.filter;
+  document.querySelectorAll('.spChip').forEach(c => c.classList.toggle('active', c === btn));
+  renderSaintsPanel();
+});
+document.querySelectorAll('.spCol').forEach(btn => {
+  btn.addEventListener('click', () => { spSort = btn.dataset.sort; renderSaintsPanel(); });
+});
+spListEl.addEventListener('click', (e) => {
+  const row = e.target.closest('.spRow[data-id]');
+  if(!row) return;
+  const d = db.entries.find(x => x.id === row.dataset.id);
+  if(!d) return;
+  closeSaintsPanel();
+  centerAndFocus(d, {onDone: () => showDetail(d)});
+});
+document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeSaintsPanel(); });
 
 // Owner-only preview of the update-glow behaviour: closes the panel, pulses the hamburger
 // once it's visible again, then fakes the row's text just long enough to show the row glow
