@@ -2,6 +2,41 @@
   "v": 1,
   "entries": [
     {
+      "version": "221",
+      "date": "2026-08-26T01:20:00-05:00",
+      "changes": [
+        "Fixed the real bug behind the Year header drifting: #spSortFeast/#spSortName/#spSortYear were",
+        "written as CLASS selectors (.spSortFeast etc.) but the markup only carries those strings as",
+        "id attributes — the buttons' actual class is just .spCol. The fixed-width column rules from",
+        "v219 were therefore never applying at all; the header was falling back to plain default flex",
+        "sizing (hug-left, no right alignment). Changed to id selectors (#spSortFeast etc.), which is",
+        "what actually matches the markup, plus min-width:0 on all three so button content can never",
+        "force extra width beyond the shared basis.",
+        "Fixed the incorrect bold line always landing near the end of the list: it was",
+        ".spRow.yearEdge marking the first/last row of whatever's currently rendered as if it were",
+        "Jan 1/Dec 31 — which is wrong the moment the list is filtered or searched, since \"last row",
+        "shown\" has nothing to do with the actual calendar boundary. Removed that concept entirely.",
+        "Feast order now genuinely loops (scroll past December into January, and past January back",
+        "into December) instead of just clamping at the ends. Renders three back-to-back copies of",
+        "the sorted list and teleports scrollTop by exactly one copy's height whenever scroll crosses",
+        "into the top or bottom clone — since the clones are pixel-identical, the teleport is",
+        "invisible. Month-boundary lines run continuously across the tripled sequence, so the",
+        "Dec->Jan seam gets its own line for free, no special-casing needed. Only applies to Feast",
+        "order (Name/Year/Patron have no wrap concept) and only once there's at least one row.",
+        "New: Patron filter chip. Unlike Doctors/Popes/Martyrs (which filter the same one-row-per-",
+        "saint list), Patron explodes each saint's \"Patronage\" Quick Fact into one row per patron, so",
+        "a saint with several patronages appears multiple times. Replaces the Feast column with a",
+        "Patron column (same header button, relabeled) while active, and is itself a fourth sortable",
+        "column. Switching into/out of Patron mode swaps the active sort off whichever column just",
+        "became hidden.",
+        "Search now matches name OR patron (when in Patron mode), and ignores punctuation on both",
+        "sides of the match — \"OCebreiro\" finds \"O'Cebreiro\", \"Edith Stein\" finds \"Teresa Benedicta",
+        "(Edith Stein)\" — via a shared spNormalize() that strips everything but letters/digits/spaces",
+        "before comparing."
+      ],
+      "loggedAt": "2026-08-26T05:14:56.683768+00:00"
+    },
+    {
       "version": "219",
       "date": "2026-08-26T00:15:00-05:00",
       "changes": [
