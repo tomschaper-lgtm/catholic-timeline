@@ -1,4 +1,22 @@
 <!--
+VERSION: 211
+DATE: 2026-08-25T21:20:00-05:00
+CHANGES:
+- Fixed: Ken Burns zoom was breaking out of the hero photo's border/centering — transform:
+  scale() on the bare <img> grows the whole box, border included, with nothing to clip it.
+  Restructured: the hero is now a wrapper div (.artimgWrap, keeps id="artHeroImg", carries the
+  border/radius/margin/clip/overflow:hidden) around the actual <img> (.artimg, new
+  id="artHeroImgEl", width:100%, no border of its own). Only the inner img animates; the
+  wrapper's frame stays fixed and clips the zoom, so the photo scales inside its border instead
+  of past it.
+- The two/three spots in JS that specifically need real <img> load/.complete behavior
+  (restoreArticleScroll's apply(), jumpAndRevealSection's settle(), and the fly-portrait load
+  listener) now target #artHeroImgEl. Everything else that reads #artHeroImg (opacity toggles,
+  heroRestingRect(), measureFly()) keeps using the wrapper — which is actually more correct
+  than before, since it now reads a stable frame rect rather than one that could fluctuate
+  mid zoom-animation.
+-->
+<!--
 VERSION: 210
 DATE: 2026-08-25T21:05:00-05:00
 CHANGES:
@@ -2389,18 +2407,24 @@ CHANGES:
   }
   #peekFade.show{display:block;}
   /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
-     so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
-  .artimg{width:100%; border-radius:14px; border:1.5px solid var(--gold); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
+     so the photo looks identical at both ends of the morph and nothing pops at the handoff.
+     v211: the frame (border/radius/margin/clip) now lives on .artimgWrap, the actual <img>
+     inside is what animates for Ken Burns — without a clipping parent, transform:scale() on
+     the img itself grew the whole box (border included) past its frame, which is what broke
+     the centered/bordered look in v209/v210. */
+  .artimgWrap{width:100%; border-radius:14px; border:1.5px solid var(--gold); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear; overflow:hidden;}
+  .artimg{width:100%; display:block;}
   /* Ken Burns test (v207) — Review Mode only, for now, while the effect is being evaluated
      before deciding whether to roll it out to visitors. Slow and subtle: a barely-there drift
      rather than an obvious zoom, so it reads as "the photo is alive" not "the photo is moving."
-     Scoped to .artimg specifically (not the corner .flyPortrait) so it only plays while the
-     full hero photo is on screen. Respects reduced-motion. */
+     Scoped to the inner .artimg (not the wrapper, not the corner .flyPortrait) so the zoom
+     stays clipped inside the fixed frame instead of bleeding past the border. Respects
+     reduced-motion. */
   @media (prefers-reduced-motion: no-preference){
     /* TEMP for testing (v210) — sped way up and made obvious on purpose so it's unmistakable
        whether the effect is firing at all. Once confirmed, dial back to the original slow
        34s/7% version this replaced. */
-    body.review-on .artimg{animation:kenBurnsHero 5s ease-in-out infinite alternate;}
+    body.review-on .artimgWrap > .artimg{animation:kenBurnsHero 5s ease-in-out infinite alternate;}
   }
   @keyframes kenBurnsHero{
     from{transform:scale(1) translate(0,0);}
@@ -3771,7 +3795,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v210';
+const APP_VERSION = 'v211';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3933,7 +3957,7 @@ function restoreArticleScroll(y, opts){
   };
   apply();
   requestAnimationFrame(apply);
-  const hero = document.getElementById('artHeroImg');
+  const hero = document.getElementById('artHeroImgEl');
   if(hero && !hero.complete) hero.addEventListener('load', apply, {once:true});
   setTimeout(apply, 120);
   setTimeout(apply, 420);
@@ -3957,7 +3981,7 @@ function jumpAndRevealSection(artEl, y, token){
   const settle = (cb) => {
     let done = false;
     const go = () => { if(done) return; done = true; cb(); };
-    const hero = document.getElementById('artHeroImg');
+    const hero = document.getElementById('artHeroImgEl');
     if(hero && !hero.complete) hero.addEventListener('load', go, {once:true});
     requestAnimationFrame(() => setTimeout(go, 60));
     setTimeout(go, 300); // safety net if neither of the above ever fires
@@ -5662,7 +5686,8 @@ function fillArticleBody(d, peek){
       '</div>';
   }
   if(hasImg){
-    html += '<img class="artimg" id="artHeroImg"' + (peek ? ' style="opacity:0"' : '') + ' src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="imgExtFallback(this)">';
+    html += '<div class="artimgWrap" id="artHeroImg"' + (peek ? ' style="opacity:0"' : '') + '>' +
+      '<img class="artimg" id="artHeroImgEl" src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="imgExtFallback(this)"></div>';
     if(d.imgCap) html += '<div class="artcap">' + esc(d.imgCap) + '</div>';
   }
   // Country now rides along in Quick Facts rather than as its own badge above the photo.
@@ -5779,7 +5804,7 @@ function fillArticleBody(d, peek){
       };
       flyImg.src = src;
     }
-    const heroImgEl = document.getElementById('artHeroImg');
+    const heroImgEl = document.getElementById('artHeroImgEl');
     // In peek mode the corner portrait is parked by placePeekFly(); calling measureFly()
     // here would bail out (it refuses to run while peeking) and strip the portrait off again.
     if(heroImgEl) heroImgEl.addEventListener('load', () => {
