@@ -2,6 +2,32 @@
   "v": 1,
   "entries": [
     {
+      "version": "216",
+      "date": "2026-08-25T23:15:00-05:00",
+      "changes": [
+        "New: Saints panel. Tapping the sticky Saints lane icon on the timeline (previously",
+        "decorative, pointer-events:none like every other lane icon) now opens a full list of every",
+        "saint in a new left-side sliding panel — mirrors .hamMenu's slide mechanics but anchored",
+        "left:0 / translateX(-100%) instead of right:0 / translateX(100%), so it's a genuinely new",
+        "drawer, not a reuse of the hamburger panel. Every other lane icon is untouched and still",
+        "non-interactive.",
+        "Panel: search-by-name box, filter chips (All/Doctors/Popes/Martyrs, matched by substring",
+        "against the \"Title\" Quick Fact — the only place that vocabulary exists in the schema today),",
+        "and three sort columns (Feast/Name/Year) that are always ascending only, no reverse-toggle,",
+        "reusing the existing parseFeastDate()/MONTH_NAMES from the feast-of-the-day feature so date",
+        "parsing matches exactly. Default sort is Feast day.",
+        "Feast-day order gets a bold rule at each month boundary and a heavier bar at the very start",
+        "and end of the year; both disappear under Name/Year sort, since the boundary they're marking",
+        "stops being meaningful once the list isn't in calendar order. On open (feast sort, no search",
+        "typed), the list scrolls to center today's feast, highlighted; plain scroll math with no",
+        "artificial data wraparound means a today near Jan 1 or Dec 31 naturally clamps to the",
+        "top/bottom of the list instead of centering, rather than being forced there.",
+        "Tapping a row closes the panel and travels to that saint's card on the timeline, same",
+        "centerAndFocus()+showDetail() path every other entry tap already uses."
+      ],
+      "loggedAt": "2026-08-26T04:20:22.903257+00:00"
+    },
+    {
       "version": "215",
       "date": "2026-08-25T22:30:00-05:00",
       "changes": [
