@@ -1,4 +1,30 @@
 <!--
+VERSION: 219
+DATE: 2026-08-26T00:15:00-05:00
+CHANGES:
+- Saints panel: replaced the gold-gradient/era-style column header with a flat dark-blue bar
+  (--panelBlue, the app's one saturated panel accent) and white text, per feedback that the
+  gradient treatment didn't belong here.
+- Saints panel: fixed the Year header actually drifting from the Year column. Root cause —
+  both used flex-basis "auto", which sizes a cell to its own text, not a shared width; the
+  header's "Year ▲" is wider than most 3–4 digit years, so the column boundary shifted per
+  row. Both now use the same fixed 56px flex-basis, right-aligned, so they line up regardless
+  of content length.
+- Saints panel: the title icon before "Saints" now sits in a solid rounded-square tile
+  (--panelBlue background, white glyph) — same icon-tile language as every row in the Settings
+  panel — instead of a bare gold stroke icon.
+- Saints panel: today's highlighted row changed from light blue to a light gold tint.
+-->
+<!--
+VERSION: 218
+DATE: 2026-08-25T23:58:00-05:00
+CHANGES:
+- Fixed: focusing the Saints panel's search box triggered iOS Safari's auto-zoom-on-focus —
+  .spSearch was the one input in the whole file left under the 16px floor (15px) that keeps
+  Safari from doing that; every other input already follows this rule (#tlSearch, Manage form
+  fields). Bumped to 16px.
+-->
+<!--
 VERSION: 217
 DATE: 2026-08-25T23:42:00-05:00
 CHANGES:
@@ -1904,7 +1930,11 @@ CHANGES:
   .spSearch{
     margin:0 22px 12px; padding:10px 14px; flex:0 0 auto;
     border:1px solid #E3E1D8; border-radius:12px;
-    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:15px; color:#111827;
+    /* 16px is the floor that keeps iOS Safari from auto-zooming the whole page on focus —
+       same rule as #tlSearch and the Manage form fields elsewhere in this file. This was the
+       one input in the Saints panel left under that floor (15px), so focusing it was the
+       "Safari zooming by accident" Tom hit. */
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:16px; color:#111827;
     background:#F8F7F2;
   }
   .spSearch:focus{outline:none; border-color:var(--panelBlue);}
@@ -1921,24 +1951,29 @@ CHANGES:
      particular used to hug the middle instead of lining up over the right-aligned year values.
      The border-right on Feast/Name is the era bar's own divider line, reused here to section
      off the columns the same way eras are sectioned off on the timeline. */
+  /* Column header bar: flat dark-blue "heading" treatment (matches the app's one saturated
+     panel accent, --panelBlue) with white text, rather than the earlier gold-gradient/era
+     treatment. Feast and Year use the *same* fixed flex-basis as their .spRow counterparts
+     below (58px / 56px) rather than "auto" — auto sizes a cell to its own text, so the header's
+     "Year ▲" (wider than most actual year numbers) was drifting left of where the numbers
+     themselves sit. Fixed, matching widths on both sides guarantee the columns line up
+     regardless of content length. */
   .spHead{
     display:flex; align-items:center; gap:14px; padding:9px 22px;
-    background:linear-gradient(180deg, #F6E8BC 0%, #E8CD7E 16%, #C9A542 52%, #9C7B32 82%, #7A611F 100%);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -3px 5px rgba(0,0,0,.35);
-    border-bottom:3px solid var(--navy-deep);
+    background:var(--panelBlue);
+    border-bottom:1px solid rgba(255,255,255,.18);
     flex:0 0 auto;
   }
   .spCol{
-    background:none; border:none; border-right:none; padding:0; margin:0;
+    background:none; border:none; padding:0; margin:0;
     font-family:'Cinzel',serif; font-size:12px; font-weight:700;
-    letter-spacing:.06em; text-transform:uppercase; color:var(--navy-deep);
-    text-shadow:0 1px 0 rgba(255,255,255,.4);
+    letter-spacing:.06em; text-transform:uppercase; color:#fff;
     cursor:pointer; display:flex; align-items:center; gap:4px;
   }
-  .spSortFeast{flex:0 0 58px; border-right:3px solid var(--navy-deep);}
-  .spSortName{flex:1 1 auto; border-right:3px solid var(--navy-deep);}
-  .spSortYear{flex:0 0 auto; justify-content:flex-end;}
-  .spCol.active{color:var(--navy-deep); font-weight:800;}
+  .spSortFeast{flex:0 0 58px; border-right:1px solid rgba(255,255,255,.25);}
+  .spSortName{flex:1 1 auto; border-right:1px solid rgba(255,255,255,.25);}
+  .spSortYear{flex:0 0 56px; justify-content:flex-end;}
+  .spCol.active{color:var(--gold-bright); font-weight:800;}
   .spCol .arrow{font-size:10px; visibility:hidden;}
   .spCol.active .arrow{visibility:visible;}
   .spList{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch;}
@@ -1953,10 +1988,10 @@ CHANGES:
      Name/Year sort makes them disappear on its own rather than needing a separate CSS toggle. */
   .spRow.monthStart{border-top:1px solid #C7CAD3;}
   .spRow.yearEdge{border-top:3px solid #12203F;}
-  .spRow.today{background:#EAF1FF; font-weight:700;}
+  .spRow.today{background:rgba(224,184,76,.25); font-weight:700;}
   .spFeast{flex:0 0 58px; font-size:13px; color:#6B7280;}
   .spName{flex:1 1 auto; font-size:15px; color:#111827; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .spYear{flex:0 0 auto; font-size:13px; color:#6B7280;}
+  .spYear{flex:0 0 56px; font-size:13px; color:#6B7280; text-align:right;}
   .spEmpty{padding:30px 22px; text-align:center; color:#8A90A0; font-size:14px;}
 
   .panelHead{
@@ -1967,8 +2002,16 @@ CHANGES:
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
     font-size:26px; font-weight:700; letter-spacing:-.01em; color:#111827;
   }
-  .spTitle{display:inline-flex; align-items:center; gap:9px;}
-  .spTitleIcon{width:24px; height:24px; flex:0 0 auto; color:var(--gold);}
+  .spTitle{display:inline-flex; align-items:center; gap:10px;}
+  /* Same tile treatment as .pTile in the Settings panel (rounded square, solid colour,
+     white glyph) rather than a bare gold stroke icon, so this reads as the same icon
+     language as the rest of the app's panels. */
+  .spTitleTile{
+    width:34px; height:34px; border-radius:10px; flex:0 0 auto;
+    background:var(--panelBlue); color:#fff;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .spTitleTile svg{width:20px; height:20px;}
   .panelClose{
     width:34px; height:34px; margin-right:-6px; padding:0;
     background:none; border:none; cursor:pointer; color:#111827;
@@ -3206,7 +3249,7 @@ CHANGES:
   <div class="spScrim" id="spScrim"></div>
   <div class="saintsPanel" id="saintsPanel" role="dialog" aria-label="Saints">
     <div class="panelHead">
-      <span class="panelTitle spTitle"><svg class="spTitleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>Saints</span>
+      <span class="panelTitle spTitle"><span class="spTitleTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg></span>Saints</span>
       <button class="panelClose" id="spClose" aria-label="Close saints list">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
       </button>
@@ -3967,7 +4010,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v217';
+const APP_VERSION = 'v219';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
