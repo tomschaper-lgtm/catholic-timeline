@@ -1,4 +1,53 @@
 <!--
+VERSION: 221
+DATE: 2026-08-26T01:20:00-05:00
+CHANGES:
+- Fixed the real bug behind the Year header drifting: #spSortFeast/#spSortName/#spSortYear were
+  written as CLASS selectors (.spSortFeast etc.) but the markup only carries those strings as
+  id attributes — the buttons' actual class is just .spCol. The fixed-width column rules from
+  v219 were therefore never applying at all; the header was falling back to plain default flex
+  sizing (hug-left, no right alignment). Changed to id selectors (#spSortFeast etc.), which is
+  what actually matches the markup, plus min-width:0 on all three so button content can never
+  force extra width beyond the shared basis.
+- Fixed the incorrect bold line always landing near the end of the list: it was
+  .spRow.yearEdge marking the first/last row of whatever's currently rendered as if it were
+  Jan 1/Dec 31 — which is wrong the moment the list is filtered or searched, since "last row
+  shown" has nothing to do with the actual calendar boundary. Removed that concept entirely.
+- Feast order now genuinely loops (scroll past December into January, and past January back
+  into December) instead of just clamping at the ends. Renders three back-to-back copies of
+  the sorted list and teleports scrollTop by exactly one copy's height whenever scroll crosses
+  into the top or bottom clone — since the clones are pixel-identical, the teleport is
+  invisible. Month-boundary lines run continuously across the tripled sequence, so the
+  Dec->Jan seam gets its own line for free, no special-casing needed. Only applies to Feast
+  order (Name/Year/Patron have no wrap concept) and only once there's at least one row.
+- New: Patron filter chip. Unlike Doctors/Popes/Martyrs (which filter the same one-row-per-
+  saint list), Patron explodes each saint's "Patronage" Quick Fact into one row per patron, so
+  a saint with several patronages appears multiple times. Replaces the Feast column with a
+  Patron column (same header button, relabeled) while active, and is itself a fourth sortable
+  column. Switching into/out of Patron mode swaps the active sort off whichever column just
+  became hidden.
+- Search now matches name OR patron (when in Patron mode), and ignores punctuation on both
+  sides of the match — "OCebreiro" finds "O'Cebreiro", "Edith Stein" finds "Teresa Benedicta
+  (Edith Stein)" — via a shared spNormalize() that strips everything but letters/digits/spaces
+  before comparing.
+-->
+<!--
+VERSION: 220
+DATE: 2026-08-26T00:35:00-05:00
+CHANGES:
+- Fixed: accidental double-tap-zoom, hard to back out of. body now defaults to
+  touch-action:manipulation app-wide, which specifically excludes the double-tap-zoom gesture
+  while leaving normal scrolling and deliberate two-finger pinch-zoom untouched (the viewport
+  meta tag still never sets user-scalable=no, so pinch-zoom stays available for accessibility).
+  Elements that need something stricter, like .artSticky/#artHandle's touch-action:none for the
+  header-drag gesture, already set their own value and are unaffected.
+- Fixed: dragging to select text in the article could misfire as a left/right navigate-story
+  swipe. Both horizontal-swipe checks (teaser card and full article — previously separate 55px
+  and 60px literals) now share one threshold, raised to 90px, and it's a new dxNav entry in
+  GESTURE_DEFAULTS/the Gesture Tuning HUD like every other swipe threshold, so it can be
+  dialed in further on a real device the same way the vertical ones already are.
+-->
+<!--
 VERSION: 219
 DATE: 2026-08-26T00:15:00-05:00
 CHANGES:
@@ -1777,6 +1826,14 @@ CHANGES:
     background:var(--navy-deep); color:var(--parchment);
     font-family:'EB Garamond', Georgia, serif;
     display:flex; flex-direction:column; overflow:hidden;
+    /* Kills iOS Safari's native double-tap-to-zoom everywhere in the app by default — that's
+       the gesture that was accidentally triggering and hard to back out of. "manipulation" is
+       pan-x/pan-y/pinch-zoom with double-tap-zoom specifically excluded, so normal scrolling
+       and deliberate two-finger pinch-zoom (left alone for accessibility — see the viewport
+       meta tag, which never sets user-scalable=no) both keep working. Elements that need
+       something stricter (.artSticky/#artHandle's touch-action:none for the header-drag
+       gesture) already set their own value, which overrides this default on them specifically. */
+    touch-action:manipulation;
   }
   header{
     padding:16px 14px 10px;
@@ -1970,9 +2027,9 @@ CHANGES:
     letter-spacing:.06em; text-transform:uppercase; color:#fff;
     cursor:pointer; display:flex; align-items:center; gap:4px;
   }
-  .spSortFeast{flex:0 0 58px; border-right:1px solid rgba(255,255,255,.25);}
-  .spSortName{flex:1 1 auto; border-right:1px solid rgba(255,255,255,.25);}
-  .spSortYear{flex:0 0 56px; justify-content:flex-end;}
+  #spSortFeast{flex:0 0 58px; border-right:1px solid rgba(255,255,255,.25); min-width:0;}
+  #spSortName{flex:1 1 auto; border-right:1px solid rgba(255,255,255,.25); min-width:0;}
+  #spSortYear{flex:0 0 56px; justify-content:flex-end; min-width:0;}
   .spCol.active{color:var(--gold-bright); font-weight:800;}
   .spCol .arrow{font-size:10px; visibility:hidden;}
   .spCol.active .arrow{visibility:visible;}
@@ -1983,11 +2040,11 @@ CHANGES:
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
   }
   .spRow:active{background:#F5F4EE;}
-  /* Month-boundary rule and year-edge thick bar only mean anything under feast-day order —
-     renderSaintsPanel() only ever adds these classes when spSort==='feast', so switching to
-     Name/Year sort makes them disappear on its own rather than needing a separate CSS toggle. */
+  /* Month-boundary rule only means anything under feast-day order — under Name/Year/Patron
+     they'd be marking a meaningless boundary, so they simply aren't added (see
+     renderSaintsPanel()). There is deliberately no "start/end of year" marker anymore: feast
+     order now genuinely loops (Dec -> Jan), so there is no real edge left to mark. */
   .spRow.monthStart{border-top:1px solid #C7CAD3;}
-  .spRow.yearEdge{border-top:3px solid #12203F;}
   .spRow.today{background:rgba(224,184,76,.25); font-weight:700;}
   .spFeast{flex:0 0 58px; font-size:13px; color:#6B7280;}
   .spName{flex:1 1 auto; font-size:15px; color:#111827; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -3260,9 +3317,10 @@ CHANGES:
       <button class="spChip" data-filter="doctors">Doctors</button>
       <button class="spChip" data-filter="popes">Popes</button>
       <button class="spChip" data-filter="martyrs">Martyrs</button>
+      <button class="spChip" data-filter="patron">Patron</button>
     </div>
     <div class="spHead">
-      <button class="spCol active" id="spSortFeast" data-sort="feast">Feast <span class="arrow">▲</span></button>
+      <button class="spCol active" id="spSortFeast" data-sort="feast"><span class="spColLabel">Feast</span> <span class="arrow">▲</span></button>
       <button class="spCol" id="spSortName" data-sort="name">Name <span class="arrow">▲</span></button>
       <button class="spCol" id="spSortYear" data-sort="year">Year <span class="arrow">▲</span></button>
     </div>
@@ -4010,7 +4068,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v219';
+const APP_VERSION = 'v221';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4384,9 +4442,14 @@ function animateScroll(toLeft, toTop, done, opts){
 //   dyExpand  px. Minimum upward travel to expand the preview card into the full story.
 //   sampleMs  ms. Window at the END of the gesture that velocity is measured over, so a slow
 //             drag finishing in a flick reads as a flick.
+//   dxNav     px. Minimum horizontal travel for a left/right swipe to navigate to the
+//             next/previous story. Was a bare 55/60px literal in two separate handlers;
+//             raised and unified here after that turned out low enough that dragging to
+//             select text in the article (an ordinary horizontal drag) could misfire as a
+//             navigation swipe.
 //   exitMs    ms. Length of the dismissal slide after a flick.
 const GESTURE_DEFAULTS = {
-  vFling: 1.15, vIntent: 0.22, dyFling: 40, dyStep: 55, dyExpand: 40, sampleMs: 90, exitMs: 190
+  vFling: 1.15, vIntent: 0.22, dyFling: 40, dyStep: 55, dyExpand: 40, dxNav: 90, sampleMs: 90, exitMs: 190
 };
 const GEST = Object.assign({}, GESTURE_DEFAULTS);
 try{
@@ -4730,7 +4793,7 @@ function attachVerticalSwipe(el, onSwipeUp, onSwipeDown, onSwipeLeft, onSwipeRig
     const endX = t ? t.clientX : startX;
     const dy = endY - startY, dx = endX - startX;
     startY = null;
-    if(Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5){
+    if(Math.abs(dx) > GEST.dxNav && Math.abs(dx) > Math.abs(dy) * 1.5){
       if(dx < 0){ if(onSwipeLeft) onSwipeLeft(); } else { if(onSwipeRight) onSwipeRight(); }
       return;
     }
@@ -4882,7 +4945,7 @@ function navigateStory(direction){
       closeArticle();
       return;
     }
-    if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)*1.5){
+    if(Math.abs(dx) > GEST.dxNav && Math.abs(dx) > Math.abs(dy)*1.5){
       recordGesture('navigate story');
       suppressArticleClick = true;
       setTimeout(() => { suppressArticleClick = false; }, 400);
@@ -9724,16 +9787,22 @@ if(tlSearchEl) tlSearchEl.addEventListener('focus', closeHamMenu);
 
 // ---- Saints panel ----
 // Full list of every saint, opened from the sticky Saints lane icon on the timeline. Sorts are
-// always ascending only (Feast/Name/Year — no reverse-toggle), reusing the existing
+// always ascending only (Feast/Name/Year/Patron — no reverse-toggle), reusing the existing
 // parseFeastDate()/MONTH_NAMES from the feast-of-the-day feature above so "Aug 28" etc. parses
 // the same way in both places. Category filter chips (Doctors/Popes/Martyrs) read the saint's
 // "Title" Quick Fact by substring match, since that's the only place that vocabulary lives in
 // the schema today — a saint with no Title fact, or one that doesn't use those words, simply
-// won't match any chip but still shows under "All".
+// won't match any chip but still shows under "All". Patron is a different kind of filter (see
+// spRows()) — it explodes each saint's "Patronage" fact into one row per patron, rather than
+// filtering the same one-row-per-saint list, so a saint can appear multiple times.
 const saintsPanel = document.getElementById('saintsPanel');
 const spScrim = document.getElementById('spScrim');
 const spListEl = document.getElementById('spList');
 let spSort = 'feast', spFilter = 'all', spQuery = '';
+// Set by renderSaintsPanel() each time it runs; read by the scroll listener below to do the
+// actual infinite-loop teleport. Feast order is the only mode that loops (Patron/Name/Year
+// have no calendar-wrap concept), and only once there's at least one row to loop through.
+let spLoopable = false, spCopyHeight = 0;
 
 function spTitleOf(e){
   if(!Array.isArray(e.facts)) return '';
@@ -9748,72 +9817,133 @@ function spMatchesFilter(e){
   if(spFilter === 'martyrs') return title.includes('martyr');
   return true;
 }
+// One saint's Patronage fact, split into individual patrons ("Popes, fishermen, netmakers" ->
+// ["Popes","fishermen","netmakers"]). A saint with no Patronage fact contributes no rows at
+// all under the Patron filter, same as "no feast day" simply not showing a date elsewhere.
+function spPatronsOf(e){
+  if(!Array.isArray(e.facts)) return [];
+  const f = e.facts.find(x => x && x.label === 'Patronage');
+  if(!f || !f.value) return [];
+  return String(f.value).split(',').map(s => s.trim()).filter(Boolean);
+}
 // Display-only: strips a leading "St. "/"Sts. " so the list reads "Peter", "Paul", "Perpetua
 // and Felicity" etc. The underlying e.n is never touched — the timeline, search, and article
 // title all still show the saint's full name as authored.
 function spDisplayName(name){
   return String(name).replace(/^Sts?\.\s+/, '');
 }
+// Lowercases and strips punctuation (keeping letters — including accented ones — digits, and
+// spaces) so a search ignores apostrophes, parentheses, ampersands etc.: "OCebreiro" still
+// finds "O'Cebreiro", "Edith Stein" still finds "Teresa Benedicta (Edith Stein)".
+function spNormalize(s){
+  return String(s).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+}
 function spRows(){
-  const q = spQuery.trim().toLowerCase();
-  return db.entries
-    .filter(e => e.t === 's' && (reviewMode || !isReview(e)))
-    .filter(spMatchesFilter)
-    .filter(e => !q || e.n.toLowerCase().includes(q))
-    .map(e => {
-      const f = Array.isArray(e.facts) ? e.facts.find(x => x && x.label === 'Feast day') : null;
-      const parsed = f ? parseFeastDate(f.value) : null;
-      // No/unparsable feast day sorts to the very end under Feast order rather than being
-      // dropped from the list — month 12 is one past December (11), so it always lands last.
-      return {e: e, month: parsed ? parsed.month : 12, day: parsed ? parsed.day : 32};
-    })
-    .sort((a, b) => {
-      // Name sort alphabetizes by the same stripped name the list displays — sorting by the
-      // raw "St. …" would otherwise cluster nearly everything under "S".
-      if(spSort === 'name') return spDisplayName(a.e.n).localeCompare(spDisplayName(b.e.n));
-      if(spSort === 'year') return a.e.y - b.e.y;
-      return (a.month - b.month) || (a.day - b.day) || spDisplayName(a.e.n).localeCompare(spDisplayName(b.e.n));
+  const q = spNormalize(spQuery);
+  const base = db.entries.filter(e => e.t === 's' && (reviewMode || !isReview(e)));
+  let out;
+  if(spFilter === 'patron'){
+    out = [];
+    base.forEach(e => {
+      spPatronsOf(e).forEach(p => {
+        const nameMatch = !q || spNormalize(e.n).includes(q);
+        const patronMatch = !q || spNormalize(p).includes(q);
+        if(q && !nameMatch && !patronMatch) return;
+        // month/day are unused in Patron mode (no feast column shown) — 12/32 just keeps the
+        // row shape consistent with the non-patron branch below.
+        out.push({e: e, patron: p, month: 12, day: 32});
+      });
     });
+  } else {
+    out = base
+      .filter(spMatchesFilter)
+      .filter(e => !q || spNormalize(e.n).includes(q))
+      .map(e => {
+        const f = Array.isArray(e.facts) ? e.facts.find(x => x && x.label === 'Feast day') : null;
+        const parsed = f ? parseFeastDate(f.value) : null;
+        // No/unparsable feast day sorts to the very end under Feast order rather than being
+        // dropped from the list — month 12 is one past December (11), so it always lands last.
+        return {e: e, month: parsed ? parsed.month : 12, day: parsed ? parsed.day : 32};
+      });
+  }
+  out.sort((a, b) => {
+    // Name sort alphabetizes by the same stripped name the list displays — sorting by the
+    // raw "St. …" would otherwise cluster nearly everything under "S".
+    if(spSort === 'name') return spDisplayName(a.e.n).localeCompare(spDisplayName(b.e.n));
+    if(spSort === 'year') return a.e.y - b.e.y;
+    if(spSort === 'patron') return (a.patron || '').localeCompare(b.patron || '');
+    return (a.month - b.month) || (a.day - b.day) || spDisplayName(a.e.n).localeCompare(spDisplayName(b.e.n));
+  });
+  return out;
 }
 function renderSaintsPanel(){
+  const isPatronMode = spFilter === 'patron';
+  // The header's first column doubles as Feast or Patron depending on the active filter —
+  // same button/id, just relabeled and re-sorted, rather than two separate buttons fighting
+  // over one slot.
+  const firstColBtn = document.getElementById('spSortFeast');
+  firstColBtn.dataset.sort = isPatronMode ? 'patron' : 'feast';
+  const firstColLabel = firstColBtn.querySelector('.spColLabel');
+  if(firstColLabel) firstColLabel.textContent = isPatronMode ? 'Patron' : 'Feast';
   document.querySelectorAll('.spCol').forEach(b => b.classList.toggle('active', b.dataset.sort === spSort));
-  const rows = spRows();
+
+  const baseRows = spRows();
+  const N = baseRows.length;
+  const isFeastSort = spSort === 'feast' && !isPatronMode;
+  // Feast order genuinely loops the calendar (Dec -> Jan) instead of stopping dead at
+  // whatever happens to be first/last in the current (possibly filtered/searched) list — that
+  // dead-stop was also what put an incorrect "end of year" bar on the last row of every
+  // search, regardless of what month it actually was. Three back-to-back copies give scrolling
+  // something pixel-identical to teleport into at each end, so the loop itself is invisible;
+  // see the scroll listener below for the teleport.
+  const loopable = isFeastSort && N > 0;
+  const renderRows = loopable ? baseRows.concat(baseRows).concat(baseRows) : baseRows;
+
   const now = new Date();
   const todayMonth = now.getMonth(), todayDay = now.getDate();
-  const isFeastSort = spSort === 'feast';
   let lastMonth = null, html = '';
-  rows.forEach((r, i) => {
-    const hasFeast = r.month < 12;
-    // Month-boundary rule and year-start/end thick bar only mean anything under feast-day
-    // order — under Name/Year they'd be marking a meaningless boundary, so they simply aren't
-    // added, per spec ("if they sort by name or year, the bold lines between months goes away").
+  let todayIdx = -1; // DOM index of the first "today" row inside the *middle* copy only
+  renderRows.forEach((r, i) => {
+    const hasFeast = !isPatronMode && r.month < 12;
+    // Month-boundary rule only means anything under feast-day order — under Name/Year/Patron
+    // it would be marking a meaningless boundary, so it simply isn't added. Running this over
+    // the full tripled sequence (not each copy separately) means the seam between one copy and
+    // the next naturally gets its own boundary line too, right where December rolls into
+    // January — no special-casing needed for that seam.
     const monthStart = isFeastSort && hasFeast && r.month !== lastMonth;
-    const yearEdge = isFeastSort && hasFeast && (i === 0 || (rows[i + 1] && rows[i + 1].month === 12) || i === rows.length - 1);
     const isToday = isFeastSort && hasFeast && r.month === todayMonth && r.day === todayDay;
-    if(hasFeast) lastMonth = r.month;
+    if(isFeastSort && hasFeast) lastMonth = r.month;
+    if(isToday && loopable && i >= N && i < 2 * N && todayIdx === -1) todayIdx = i;
     const cls = ['spRow'];
     if(monthStart) cls.push('monthStart');
-    if(yearEdge) cls.push('yearEdge');
     if(isToday) cls.push('today');
-    const feastDisp = hasFeast ? (MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day) : '—';
+    const firstColText = isPatronMode ? r.patron : (hasFeast ? (MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day) : '—');
     html += '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'">' +
-      '<span class="spFeast">'+esc(feastDisp)+'</span>' +
+      '<span class="spFeast">'+esc(firstColText)+'</span>' +
       '<span class="spName">'+esc(spDisplayName(r.e.n))+'</span>' +
       '<span class="spYear">'+r.e.y+'</span>' +
       '</div>';
   });
   spListEl.innerHTML = html || '<div class="spEmpty">No saints match.</div>';
-  // Default view (feast order, no search typed) centers on today's row so the reader lands on
-  // "today" rather than January 1st. Plain scroll math with no artificial wraparound — a today
-  // near Jan 1 or Dec 31 naturally clamps to the top/bottom of the list instead of centering,
-  // which is the "forced to top or bottom near the beginning/end of year" behavior from spec.
-  if(isFeastSort && !spQuery){
-    const todayEl = spListEl.querySelector('.spRow.today');
-    if(todayEl){
-      spListEl.scrollTop = Math.max(0, todayEl.offsetTop - (spListEl.clientHeight / 2) + (todayEl.offsetHeight / 2));
+
+  spLoopable = loopable;
+  spCopyHeight = 0;
+  if(loopable && spListEl.children.length === 3 * N){
+    spCopyHeight = spListEl.children[2 * N].offsetTop - spListEl.children[N].offsetTop;
+  }
+  if(loopable && spCopyHeight > 0){
+    // Default view (feast order, no search typed) centers on today's row inside the middle
+    // copy so the reader lands on "today" rather than January 1st. Otherwise, land at the
+    // start of the middle copy — the safe zone the scroll listener keeps scrolling centered
+    // on — rather than at absolute 0, which would immediately sit in the top clone.
+    if(todayIdx >= 0 && !spQuery){
+      const el = spListEl.children[todayIdx];
+      spListEl.scrollTop = Math.max(0, el.offsetTop - (spListEl.clientHeight / 2) + (el.offsetHeight / 2));
     } else {
-      spListEl.scrollTop = 0;
+      spListEl.scrollTop = spCopyHeight;
     }
+  } else {
+    spListEl.scrollTop = 0;
   }
 }
 function openSaintsPanel(){
@@ -9848,6 +9978,11 @@ document.getElementById('spChips').addEventListener('click', (e) => {
   if(!btn) return;
   spFilter = btn.dataset.filter;
   document.querySelectorAll('.spChip').forEach(c => c.classList.toggle('active', c === btn));
+  // Keep the active sort pointed at a column that's actually visible: entering Patron mode
+  // while sorted by the (now-hidden) Feast column switches to Patron; leaving it while sorted
+  // by Patron switches back to Feast.
+  if(spFilter === 'patron' && spSort === 'feast') spSort = 'patron';
+  else if(spFilter !== 'patron' && spSort === 'patron') spSort = 'feast';
   renderSaintsPanel();
 });
 document.querySelectorAll('.spCol').forEach(btn => {
@@ -9861,6 +9996,16 @@ spListEl.addEventListener('click', (e) => {
   closeSaintsPanel();
   centerAndFocus(d, {onDone: () => showDetail(d)});
 });
+// The actual infinite-loop illusion: teleport by exactly one copy's height whenever scroll
+// crosses into the top or bottom clone, landing on a pixel-identical row in the middle copy so
+// the jump is never visible. A plain threshold check on every scroll event is cheap enough not
+// to need debouncing.
+spListEl.addEventListener('scroll', () => {
+  if(!spLoopable || spCopyHeight <= 0) return;
+  const st = spListEl.scrollTop;
+  if(st < spCopyHeight) spListEl.scrollTop = st + spCopyHeight;
+  else if(st >= spCopyHeight * 2) spListEl.scrollTop = st - spCopyHeight;
+}, {passive:true});
 document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeSaintsPanel(); });
 
 // Owner-only preview of the update-glow behaviour: closes the panel, pulses the hamburger
@@ -10153,6 +10298,7 @@ const GT_FIELDS = [
   {k:'dyFling',  label:'Fling dy', min:10,   max:150,  step:5,    unit:' px'},
   {k:'dyStep',   label:'Step dy',  min:20,   max:200,  step:5,    unit:' px'},
   {k:'dyExpand', label:'Expand dy',min:10,   max:150,  step:5,    unit:' px'},
+  {k:'dxNav',    label:'Nav dx',   min:40,   max:220,  step:5,    unit:' px'},
   {k:'sampleMs', label:'Sample',   min:40,   max:250,  step:10,   unit:' ms'},
   {k:'exitMs',   label:'Exit',     min:80,   max:500,  step:10,   unit:' ms'}
 ];
