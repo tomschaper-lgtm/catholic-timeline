@@ -2,6 +2,26 @@
   "v": 1,
   "entries": [
     {
+      "version": "211",
+      "date": "2026-08-25T21:20:00-05:00",
+      "changes": [
+        "Fixed: Ken Burns zoom was breaking out of the hero photo's border/centering — transform:",
+        "scale() on the bare <img> grows the whole box, border included, with nothing to clip it.",
+        "Restructured: the hero is now a wrapper div (.artimgWrap, keeps id=\"artHeroImg\", carries the",
+        "border/radius/margin/clip/overflow:hidden) around the actual <img> (.artimg, new",
+        "id=\"artHeroImgEl\", width:100%, no border of its own). Only the inner img animates; the",
+        "wrapper's frame stays fixed and clips the zoom, so the photo scales inside its border instead",
+        "of past it.",
+        "The two/three spots in JS that specifically need real <img> load/.complete behavior",
+        "(restoreArticleScroll's apply(), jumpAndRevealSection's settle(), and the fly-portrait load",
+        "listener) now target #artHeroImgEl. Everything else that reads #artHeroImg (opacity toggles,",
+        "heroRestingRect(), measureFly()) keeps using the wrapper — which is actually more correct",
+        "than before, since it now reads a stable frame rect rather than one that could fluctuate",
+        "mid zoom-animation."
+      ],
+      "loggedAt": "2026-08-26T02:11:26.720199+00:00"
+    },
+    {
       "version": "210",
       "date": "2026-08-25T21:05:00-05:00",
       "changes": [
