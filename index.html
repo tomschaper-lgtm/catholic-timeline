@@ -1,4 +1,24 @@
 <!--
+VERSION: 217
+DATE: 2026-08-25T23:42:00-05:00
+CHANGES:
+- Saints panel: added the Saints halo/sun icon (same SVG as the lane icon and the hamburger's
+  filter chip) before the word "Saints" in the panel header.
+- Saints panel: column headers (Feast/Name/Year) now use the exact same flex-basis values as
+  the data rows below (58px / flex-1 / auto), so each header sits directly above its own
+  column instead of drifting — Year in particular now stays flush right over the actual year
+  values instead of hugging the middle.
+- Saints panel: column header bar restyled with the era band's exact gold gradient/inset
+  shadow (linear-gradient 180deg #F6E8BC→#E8CD7E→#C9A542→#9C7B32→#7A611F, same inset
+  highlight/shadow), with a 3px navy-deep border-right sectioning off Feast/Name from the next
+  column — the same divider technique the era bar uses between eras.
+- Saints panel: display-only "St."/"Sts." strip on list rows (spDisplayName()) — "St. Peter"
+  now reads as "Peter", "Sts. Marcellinus & Peter" as "Marcellinus & Peter". Underlying e.n is
+  untouched, so the timeline, search-by-name, and the article title all still show the full
+  "St. …" form as authored. Name sort alphabetizes by this same stripped form (sorting by the
+  raw "St. …" text would otherwise cluster nearly every saint under "S").
+-->
+<!--
 VERSION: 216
 DATE: 2026-08-25T23:15:00-05:00
 CHANGES:
@@ -1895,17 +1915,30 @@ CHANGES:
     background:#fff; color:#4B5266; cursor:pointer; white-space:nowrap;
   }
   .spChip.active{background:#12203F; color:#fff; border-color:#12203F; font-weight:600;}
+  /* Column header bar: same "one continuous gold surface" treatment as .era (identical
+     gradient/inset shadow), and the same flex-basis values as .spRow below (54px / flex-1 /
+     auto) so each header sits directly above its own column instead of drifting — Year in
+     particular used to hug the middle instead of lining up over the right-aligned year values.
+     The border-right on Feast/Name is the era bar's own divider line, reused here to section
+     off the columns the same way eras are sectioned off on the timeline. */
   .spHead{
-    display:flex; padding:9px 22px; border-top:1px solid #E9EAEE; border-bottom:1px solid #E9EAEE;
-    background:#F8F7F2; flex:0 0 auto;
+    display:flex; align-items:center; gap:14px; padding:9px 22px;
+    background:linear-gradient(180deg, #F6E8BC 0%, #E8CD7E 16%, #C9A542 52%, #9C7B32 82%, #7A611F 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -3px 5px rgba(0,0,0,.35);
+    border-bottom:3px solid var(--navy-deep);
+    flex:0 0 auto;
   }
   .spCol{
-    background:none; border:none; padding:0; margin-right:22px;
-    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12px; font-weight:700;
-    letter-spacing:.06em; text-transform:uppercase; color:#8A90A0; cursor:pointer;
-    display:flex; align-items:center; gap:4px;
+    background:none; border:none; border-right:none; padding:0; margin:0;
+    font-family:'Cinzel',serif; font-size:12px; font-weight:700;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--navy-deep);
+    text-shadow:0 1px 0 rgba(255,255,255,.4);
+    cursor:pointer; display:flex; align-items:center; gap:4px;
   }
-  .spCol.active{color:#12203F;}
+  .spSortFeast{flex:0 0 58px; border-right:3px solid var(--navy-deep);}
+  .spSortName{flex:1 1 auto; border-right:3px solid var(--navy-deep);}
+  .spSortYear{flex:0 0 auto; justify-content:flex-end;}
+  .spCol.active{color:var(--navy-deep); font-weight:800;}
   .spCol .arrow{font-size:10px; visibility:hidden;}
   .spCol.active .arrow{visibility:visible;}
   .spList{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch;}
@@ -1921,7 +1954,7 @@ CHANGES:
   .spRow.monthStart{border-top:1px solid #C7CAD3;}
   .spRow.yearEdge{border-top:3px solid #12203F;}
   .spRow.today{background:#EAF1FF; font-weight:700;}
-  .spFeast{flex:0 0 54px; font-size:13px; color:#6B7280;}
+  .spFeast{flex:0 0 58px; font-size:13px; color:#6B7280;}
   .spName{flex:1 1 auto; font-size:15px; color:#111827; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .spYear{flex:0 0 auto; font-size:13px; color:#6B7280;}
   .spEmpty{padding:30px 22px; text-align:center; color:#8A90A0; font-size:14px;}
@@ -1934,6 +1967,8 @@ CHANGES:
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
     font-size:26px; font-weight:700; letter-spacing:-.01em; color:#111827;
   }
+  .spTitle{display:inline-flex; align-items:center; gap:9px;}
+  .spTitleIcon{width:24px; height:24px; flex:0 0 auto; color:var(--gold);}
   .panelClose{
     width:34px; height:34px; margin-right:-6px; padding:0;
     background:none; border:none; cursor:pointer; color:#111827;
@@ -3171,7 +3206,7 @@ CHANGES:
   <div class="spScrim" id="spScrim"></div>
   <div class="saintsPanel" id="saintsPanel" role="dialog" aria-label="Saints">
     <div class="panelHead">
-      <span class="panelTitle">Saints</span>
+      <span class="panelTitle spTitle"><svg class="spTitleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>Saints</span>
       <button class="panelClose" id="spClose" aria-label="Close saints list">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
       </button>
@@ -3932,7 +3967,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v216';
+const APP_VERSION = 'v217';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -9670,6 +9705,12 @@ function spMatchesFilter(e){
   if(spFilter === 'martyrs') return title.includes('martyr');
   return true;
 }
+// Display-only: strips a leading "St. "/"Sts. " so the list reads "Peter", "Paul", "Perpetua
+// and Felicity" etc. The underlying e.n is never touched — the timeline, search, and article
+// title all still show the saint's full name as authored.
+function spDisplayName(name){
+  return String(name).replace(/^Sts?\.\s+/, '');
+}
 function spRows(){
   const q = spQuery.trim().toLowerCase();
   return db.entries
@@ -9684,9 +9725,11 @@ function spRows(){
       return {e: e, month: parsed ? parsed.month : 12, day: parsed ? parsed.day : 32};
     })
     .sort((a, b) => {
-      if(spSort === 'name') return a.e.n.localeCompare(b.e.n);
+      // Name sort alphabetizes by the same stripped name the list displays — sorting by the
+      // raw "St. …" would otherwise cluster nearly everything under "S".
+      if(spSort === 'name') return spDisplayName(a.e.n).localeCompare(spDisplayName(b.e.n));
       if(spSort === 'year') return a.e.y - b.e.y;
-      return (a.month - b.month) || (a.day - b.day) || a.e.n.localeCompare(b.e.n);
+      return (a.month - b.month) || (a.day - b.day) || spDisplayName(a.e.n).localeCompare(spDisplayName(b.e.n));
     });
 }
 function renderSaintsPanel(){
@@ -9712,7 +9755,7 @@ function renderSaintsPanel(){
     const feastDisp = hasFeast ? (MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day) : '—';
     html += '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'">' +
       '<span class="spFeast">'+esc(feastDisp)+'</span>' +
-      '<span class="spName">'+esc(r.e.n)+'</span>' +
+      '<span class="spName">'+esc(spDisplayName(r.e.n))+'</span>' +
       '<span class="spYear">'+r.e.y+'</span>' +
       '</div>';
   });
