@@ -2,6 +2,25 @@
   "v": 1,
   "entries": [
     {
+      "version": "219",
+      "date": "2026-08-26T00:15:00-05:00",
+      "changes": [
+        "Saints panel: replaced the gold-gradient/era-style column header with a flat dark-blue bar",
+        "(--panelBlue, the app's one saturated panel accent) and white text, per feedback that the",
+        "gradient treatment didn't belong here.",
+        "Saints panel: fixed the Year header actually drifting from the Year column. Root cause —",
+        "both used flex-basis \"auto\", which sizes a cell to its own text, not a shared width; the",
+        "header's \"Year ▲\" is wider than most 3–4 digit years, so the column boundary shifted per",
+        "row. Both now use the same fixed 56px flex-basis, right-aligned, so they line up regardless",
+        "of content length.",
+        "Saints panel: the title icon before \"Saints\" now sits in a solid rounded-square tile",
+        "(--panelBlue background, white glyph) — same icon-tile language as every row in the Settings",
+        "panel — instead of a bare gold stroke icon.",
+        "Saints panel: today's highlighted row changed from light blue to a light gold tint."
+      ],
+      "loggedAt": "2026-08-26T04:54:58.391158+00:00"
+    },
+    {
       "version": "217",
       "date": "2026-08-25T23:42:00-05:00",
       "changes": [
