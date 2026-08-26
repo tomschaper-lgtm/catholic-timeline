@@ -1,4 +1,43 @@
 <!--
+VERSION: 225
+DATE: 2026-08-26T03:10:00-05:00
+CHANGES:
+- Saints panel search box gets a clear (×) button, matching the existing house pattern used by
+  the timeline's own #tlSearch/#searchClear (bare × character, toggled via a .show class on
+  input) rather than a new design.
+- Every open of the Saints panel now resets to the canonical Feast + All + no-search view and
+  scrolls to today — whatever filter/sort/search was left over from a previous visit no longer
+  carries forward. If no saint's feast falls on today's date, a synthetic "No feast day today"
+  row is inserted at today's correct calendar position and highlighted the same as a real
+  today-row, so today's spot in the list is never just silently missing.
+- Patron is no longer a fifth chip in the All/Doctors/Popes/Martyrs group. It's now a
+  standalone toggle button beside the search box (search box narrowed to ~75% width, Patrons
+  button taking the remaining ~25%). Turning it on shows "All" as the active chip (patron view
+  still means "no category restriction," just exploded by patron) rather than being one more
+  option inside that mutually-exclusive group; tapping any of the four chips turns Patron mode
+  back off. Internally still the same spFilter==='patron' state driving spRows()/
+  renderSaintsPanel() as before — only the entry point changed.
+- Column header bar (Feast/Name/Year) reverted from the flat dark-blue treatment back to a
+  white background with bold sans-serif black text, matching the "Saints" panel title's
+  register instead of the earlier gold-gradient or dark-blue experiments. Sort-column divider
+  lines switched from white-on-blue back to a light gray suited to the white background. The
+  active-sort triangle enlarged (10px -> 15px) so it's actually legible.
+-->
+<!--
+VERSION: 224
+DATE: 2026-08-26T02:25:00-05:00
+CHANGES:
+- Saints panel now supports saints with more than one feast day, but only under Feast order —
+  sorted by Name/Year/Patron, a saint still shows once (its first-listed date). Replaced the
+  single-match parseFeastDate() with parseFeastDates(), which finds every "Month Day" mention
+  in a Feast day fact's value rather than just the first — no delimiter convention required,
+  it just reads every date the value actually contains. Each date may carry an optional
+  parenthetical note ("June 24 (Nativity); August 29 (Passion)") shown in muted text after the
+  name on that specific row, so two rows for the same saint are distinguishable at a glance.
+- findTodaysSaint() (the "today we celebrate…" welcome-back feature) now checks every one of a
+  saint's dates the same way, not just the first, for consistency with the panel.
+-->
+<!--
 VERSION: 223
 DATE: 2026-08-26T02:05:00-05:00
 CHANGES:
@@ -2014,8 +2053,12 @@ CHANGES:
   @media (prefers-reduced-motion: reduce){
     .saintsPanel, .spScrim{transition:none;}
   }
+  /* Search row: input + the standalone Patrons toggle button, roughly 3:1 so the input reads
+     as ~75% width and the button ~25%. This is a separate control from the All/Doctors/Popes/
+     Martyrs chips below — see .spPatronsBtn and its click handler for how the two interact. */
+  .spSearchRow{display:flex; gap:8px; padding:0 22px 12px; flex:0 0 auto; align-items:stretch;}
   .spSearch{
-    margin:0 22px 12px; padding:10px 14px; flex:0 0 auto;
+    min-width:0; margin:0; padding:10px 14px;
     border:1px solid #E3E1D8; border-radius:12px;
     /* 16px is the floor that keeps iOS Safari from auto-zooming the whole page on focus —
        same rule as #tlSearch and the Manage form fields elsewhere in this file. This was the
@@ -2025,6 +2068,27 @@ CHANGES:
     background:#F8F7F2;
   }
   .spSearch:focus{outline:none; border-color:var(--panelBlue);}
+  .spSearchClear{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%); z-index:2;
+    display:none; width:24px; height:24px; align-items:center; justify-content:center;
+    background:none; border:none; color:#8A90A0; font-size:19px; line-height:1; cursor:pointer;
+  }
+  .spSearchClear.show{display:flex;}
+  .spSearchClear:hover{color:var(--panelBlue);}
+  .spSearchWrap{position:relative; flex:3 1 0; min-width:0; display:flex;}
+  .spSearchWrap .spSearch{flex:1 1 auto; padding-right:34px;}
+  /* Deliberately not another .spChip — a standalone toggle next to the search box rather than
+     a member of the All/Doctors/Popes/Martyrs mutually-exclusive group, since it can layer on
+     top of "All" instead of just being one more option inside that group. */
+  .spPatronsBtn{
+    flex:1 1 0; min-width:0;
+    border:1.5px solid var(--panelBlue); border-radius:12px;
+    background:#fff; color:var(--panelBlue);
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; white-space:nowrap; padding:0 6px;
+  }
+  .spPatronsBtn.active{background:var(--panelBlue); color:#fff;}
   .spChips{display:flex; gap:6px; flex-wrap:wrap; padding:0 22px 14px; flex:0 0 auto;}
   .spChip{
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13px;
@@ -2032,33 +2096,27 @@ CHANGES:
     background:#fff; color:#4B5266; cursor:pointer; white-space:nowrap;
   }
   .spChip.active{background:#12203F; color:#fff; border-color:#12203F; font-weight:600;}
-  /* Column header bar: same "one continuous gold surface" treatment as .era (identical
-     gradient/inset shadow), and the same flex-basis values as .spRow below (54px / flex-1 /
-     auto) so each header sits directly above its own column instead of drifting — Year in
-     particular used to hug the middle instead of lining up over the right-aligned year values.
-     The border-right on Feast/Name is the era bar's own divider line, reused here to section
-     off the columns the same way eras are sectioned off on the timeline. */
-  /* Column header bar: flat dark-blue "heading" treatment (matches the app's one saturated
-     panel accent, --panelBlue) with white text, rather than the earlier gold-gradient/era
-     treatment. Feast and Year use the *same* fixed flex-basis as their .spRow counterparts
+  /* Column header bar: white background, bold sans-serif black text — same register as the
+     "Saints" panel title above — rather than the earlier gold-gradient or flat dark-blue
+     treatments. Feast and Year use the *same* fixed flex-basis as their .spRow counterparts
      below (58px / 56px) rather than "auto" — auto sizes a cell to its own text, so the header's
      "Year ▲" (wider than most actual year numbers) was drifting left of where the numbers
      themselves sit. Fixed, matching widths on both sides guarantee the columns line up
      regardless of content length. */
   .spHead{
     display:flex; align-items:center; gap:14px; padding:9px 22px;
-    background:var(--panelBlue);
-    border-bottom:1px solid rgba(255,255,255,.18);
+    background:#fff;
+    border-bottom:2px solid #111827;
     flex:0 0 auto;
   }
   .spCol{
     background:none; border:none; padding:0; margin:0;
-    font-family:'Cinzel',serif; font-size:12px; font-weight:700;
-    letter-spacing:.06em; text-transform:uppercase; color:#fff;
-    cursor:pointer; display:flex; align-items:center; gap:4px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12px; font-weight:800;
+    letter-spacing:.04em; text-transform:uppercase; color:#111827;
+    cursor:pointer; display:flex; align-items:center; gap:5px;
   }
-  #spSortFeast{flex:0 0 58px; border-right:1px solid rgba(255,255,255,.25); min-width:0;}
-  #spSortName{flex:1 1 auto; border-right:1px solid rgba(255,255,255,.25); min-width:0;}
+  #spSortFeast{flex:0 0 58px; border-right:1px solid #D8DCE4; min-width:0;}
+  #spSortName{flex:1 1 auto; border-right:1px solid #D8DCE4; min-width:0;}
   #spSortYear{flex:0 0 56px; justify-content:flex-end; min-width:0;}
   /* Patron mode swaps the shared first column from short feast dates ("Aug 25") to much
      longer patron descriptions ("Expectant mothers"), so it needs meaningfully more room.
@@ -2072,8 +2130,8 @@ CHANGES:
      visually) lets .spName's flex:1 absorb the freed space automatically. */
   .saintsPanel.patronMode #spSortYear{display:none;}
   .saintsPanel.patronMode .spYear{display:none;}
-  .spCol.active{color:var(--gold-bright); font-weight:800;}
-  .spCol .arrow{font-size:10px; visibility:hidden;}
+  .spCol.active{color:var(--panelBlue);}
+  .spCol .arrow{font-size:15px; line-height:1; visibility:hidden;}
   .spCol.active .arrow{visibility:visible;}
   .spList{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch;}
   .spRow{
@@ -2090,6 +2148,10 @@ CHANGES:
   .spRow.today{background:rgba(224,184,76,.25); font-weight:700;}
   .spFeast{flex:0 0 58px; font-size:13px; color:#6B7280;}
   .spName{flex:1 1 auto; font-size:15px; color:#111827; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  /* Distinguishes one saint's several feast-day rows from each other ("John the Baptist —
+     Nativity" vs "John the Baptist — Passion") when their Feast day fact names each date. A
+     saint whose multiple dates aren't individually named just shows the bare name twice. */
+  .spNoteInline{color:#8A90A0; font-weight:400;}
   .spYear{flex:0 0 56px; font-size:13px; color:#6B7280; text-align:right;}
   .spEmpty{padding:30px 22px; text-align:center; color:#8A90A0; font-size:14px;}
 
@@ -3353,13 +3415,18 @@ CHANGES:
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
       </button>
     </div>
-    <input type="text" class="spSearch" id="spSearch" placeholder="Search saints" autocomplete="off">
+    <div class="spSearchRow">
+      <div class="spSearchWrap">
+        <input type="text" class="spSearch" id="spSearch" placeholder="Search saints" autocomplete="off">
+        <button class="spSearchClear" id="spSearchClear" aria-label="Clear search" type="button">×</button>
+      </div>
+      <button class="spPatronsBtn" id="spPatronsBtn" type="button" aria-pressed="false">Patrons</button>
+    </div>
     <div class="spChips" id="spChips">
       <button class="spChip active" data-filter="all">All</button>
       <button class="spChip" data-filter="doctors">Doctors</button>
       <button class="spChip" data-filter="popes">Popes</button>
       <button class="spChip" data-filter="martyrs">Martyrs</button>
-      <button class="spChip" data-filter="patron">Patron</button>
     </div>
     <div class="spHead">
       <button class="spCol active" id="spSortFeast" data-sort="feast"><span class="spColLabel">Feast</span> <span class="arrow">▲</span></button>
@@ -4110,7 +4177,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v223';
+const APP_VERSION = 'v225';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5328,14 +5395,24 @@ function focusEntry(d){
 // ---- Feast of the day: on launch, find today's saint and travel to them ----
 const MONTH_NAMES = ['January','February','March','April','May','June','July',
   'August','September','October','November','December'];
-function parseFeastDate(value){
-  if(!value) return null;
-  const m = String(value).match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})/i);
-  if(!m) return null;
-  const month = MONTH_NAMES.findIndex(x => x.toLowerCase() === m[1].toLowerCase());
-  const day = parseInt(m[2], 10);
-  if(month < 0 || !day) return null;
-  return {month, day};
+// Finds every "Month Day" occurrence in a Feast day value, in order, each with an optional
+// parenthetical note immediately after it — "June 24 (Nativity); August 29 (Passion)" ->
+// [{month:5,day:24,note:'Nativity'}, {month:7,day:29,note:'Passion'}]. Delimiter-agnostic: it
+// doesn't require a semicolon/comma convention, it just finds every date mentioned, so a saint
+// with only one feast day still parses fine and one with several needs no special authoring
+// format beyond writing the dates out. A saint with no parseable date returns [].
+function parseFeastDates(value){
+  if(!value) return [];
+  const re = /(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:\s*\(([^)]*)\))?/gi;
+  const out = [];
+  let m;
+  while((m = re.exec(String(value))) !== null){
+    const month = MONTH_NAMES.findIndex(x => x.toLowerCase() === m[1].toLowerCase());
+    const day = parseInt(m[2], 10);
+    if(month < 0 || !day) continue;
+    out.push({month, day, note: m[3] ? m[3].trim() : ''});
+  }
+  return out;
 }
 function findTodaysSaint(){
   const now = new Date();
@@ -5345,8 +5422,8 @@ function findTodaysSaint(){
     if(e.t !== 's' || isReview(e) || !Array.isArray(e.facts)) continue;
     const f = e.facts.find(x => x && x.label === 'Feast day');
     if(!f) continue;
-    const parsed = parseFeastDate(f.value);
-    if(!parsed || parsed.month !== month || parsed.day !== day) continue;
+    const dates = parseFeastDates(f.value);
+    if(!dates.some(d => d.month === month && d.day === day)) continue;
     // Several saints can share a feast day — prefer the most prominent one (lowest tier).
     if(!best || (e.tier || 1) < (best.tier || 1)) best = e;
   }
@@ -9830,7 +9907,7 @@ if(tlSearchEl) tlSearchEl.addEventListener('focus', closeHamMenu);
 // ---- Saints panel ----
 // Full list of every saint, opened from the sticky Saints lane icon on the timeline. Sorts are
 // always ascending only (Feast/Name/Year/Patron — no reverse-toggle), reusing the existing
-// parseFeastDate()/MONTH_NAMES from the feast-of-the-day feature above so "Aug 28" etc. parses
+// parseFeastDates()/MONTH_NAMES from the feast-of-the-day feature above so "Aug 28" etc. parses
 // the same way in both places. Category filter chips (Doctors/Popes/Martyrs) read the saint's
 // "Title" Quick Fact by substring match, since that's the only place that vocabulary lives in
 // the schema today — a saint with no Title fact, or one that doesn't use those words, simply
@@ -9840,6 +9917,9 @@ if(tlSearchEl) tlSearchEl.addEventListener('focus', closeHamMenu);
 const saintsPanel = document.getElementById('saintsPanel');
 const spScrim = document.getElementById('spScrim');
 const spListEl = document.getElementById('spList');
+const spSearchInput = document.getElementById('spSearch');
+const spSearchClearBtn = document.getElementById('spSearchClear');
+const spPatronsBtn = document.getElementById('spPatronsBtn');
 let spSort = 'feast', spFilter = 'all', spQuery = '';
 // Set by renderSaintsPanel() each time it runs; read by the scroll listener below to do the
 // actual infinite-loop teleport. Feast order is the only mode that loops (Patron/Name/Year
@@ -9903,15 +9983,25 @@ function spRows(){
       });
     });
   } else {
-    out = base
+    out = [];
+    base
       .filter(spMatchesFilter)
       .filter(e => !q || spNormalize(e.n).includes(q))
-      .map(e => {
+      .forEach(e => {
         const f = Array.isArray(e.facts) ? e.facts.find(x => x && x.label === 'Feast day') : null;
-        const parsed = f ? parseFeastDate(f.value) : null;
-        // No/unparsable feast day sorts to the very end under Feast order rather than being
-        // dropped from the list — month 12 is one past December (11), so it always lands last.
-        return {e: e, month: parsed ? parsed.month : 12, day: parsed ? parsed.day : 32};
+        const dates = f ? parseFeastDates(f.value) : [];
+        if(spSort === 'feast' && dates.length > 1){
+          // Multiple feast days only fan out into separate rows under Feast order, one per
+          // date, each sorted into its own place in the calendar — Name/Year collapse back to
+          // a single row per saint below, since "sort by name" has no use for "this saint, but
+          // specifically their June date."
+          dates.forEach(d => out.push({e: e, month: d.month, day: d.day, note: d.note}));
+        } else {
+          const d = dates[0];
+          // No/unparsable feast day sorts to the very end under Feast order rather than being
+          // dropped from the list — month 12 is one past December (11), so it always lands last.
+          out.push({e: e, month: d ? d.month : 12, day: d ? d.day : 32, note: d ? d.note : ''});
+        }
       });
   }
   out.sort((a, b) => {
@@ -9937,18 +10027,28 @@ function renderSaintsPanel(){
   document.querySelectorAll('.spCol').forEach(b => b.classList.toggle('active', b.dataset.sort === spSort));
 
   const baseRows = spRows();
-  const N = baseRows.length;
   const isFeastSort = spSort === 'feast' && !isPatronMode;
+  const now = new Date();
+  const todayMonth = now.getMonth(), todayDay = now.getDate();
+  // Inject a "no feast day today" placeholder into the true full-calendar view (All filter, no
+  // search, Feast order) when nothing already occupies today's date, so today's spot is always
+  // visible and highlighted even on a day with no saint's feast — same condition as the loop
+  // eligibility below, since both only mean anything for the real, complete calendar.
+  const showTodayPlaceholder = isFeastSort && spFilter === 'all' && !spQuery.trim();
+  if(showTodayPlaceholder && !baseRows.some(r => r.month === todayMonth && r.day === todayDay)){
+    let insertAt = baseRows.findIndex(r => (r.month > todayMonth) || (r.month === todayMonth && r.day > todayDay));
+    if(insertAt === -1) insertAt = baseRows.length;
+    baseRows.splice(insertAt, 0, {e: null, month: todayMonth, day: todayDay, synthetic: true});
+  }
+  const N = baseRows.length;
   // Feast order genuinely loops the calendar (Dec -> Jan) instead of stopping dead at
   // whatever happens to be first/last in the list — but only for the true, complete calendar:
-  // the All filter with no search text typed. Any chip filter (Doctors/Popes/Martyrs/Patron)
-  // or search query narrows the list to something that isn't the real year anymore, so those
-  // stay a plain finite list rather than looping through a filtered subset.
+  // the All filter with no search text typed. Any chip filter (Doctors/Popes/Martyrs) or
+  // Patron mode or search query narrows the list to something that isn't the real year
+  // anymore, so those stay a plain finite list rather than looping through a filtered subset.
   const loopable = isFeastSort && spFilter === 'all' && !spQuery.trim() && N > 0;
   const renderRows = loopable ? baseRows.concat(baseRows).concat(baseRows) : baseRows;
 
-  const now = new Date();
-  const todayMonth = now.getMonth(), todayDay = now.getDate();
   let lastMonth = null, html = '';
   let todayIdx = -1; // DOM index of the first "today" row inside the *middle* copy only
   renderRows.forEach((r, i) => {
@@ -9965,10 +10065,19 @@ function renderSaintsPanel(){
     const cls = ['spRow'];
     if(monthStart) cls.push('monthStart');
     if(isToday) cls.push('today');
+    if(r.synthetic){
+      const feastDisp = MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day;
+      html += '<div class="'+cls.join(' ')+'">' +
+        '<span class="spFeast">'+esc(feastDisp)+'</span>' +
+        '<span class="spName">No feast day today</span>' +
+        '<span class="spYear"></span>' +
+        '</div>';
+      return;
+    }
     const firstColText = isPatronMode ? r.patron : (hasFeast ? (MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day) : '—');
     html += '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'">' +
       '<span class="spFeast">'+esc(firstColText)+'</span>' +
-      '<span class="spName">'+esc(spDisplayName(r.e.n))+'</span>' +
+      '<span class="spName">'+esc(spDisplayName(r.e.n))+(r.note ? ' <span class="spNoteInline">— '+esc(r.note)+'</span>' : '')+'</span>' +
       '<span class="spYear">'+r.e.y+'</span>' +
       '</div>';
   });
@@ -9996,6 +10105,17 @@ function renderSaintsPanel(){
 }
 function openSaintsPanel(){
   closeHamMenu();
+  // Every open lands on the canonical Feast + All + no-search view, centered on today (or a
+  // "no feast day today" placeholder) — whatever filter/sort/search was left over from a
+  // previous visit to the panel doesn't carry forward.
+  spSort = 'feast';
+  spFilter = 'all';
+  spQuery = '';
+  spSearchInput.value = '';
+  spSearchClearBtn.classList.remove('show');
+  document.querySelectorAll('.spChip').forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
+  spPatronsBtn.classList.remove('active');
+  spPatronsBtn.setAttribute('aria-pressed', 'false');
   saintsPanel.classList.add('open');
   spScrim.classList.add('open');
   renderSaintsPanel();
@@ -10020,15 +10140,39 @@ canvas.addEventListener('keydown', (e) => {
 });
 document.getElementById('spClose').addEventListener('click', (e) => { e.stopPropagation(); closeSaintsPanel(); });
 spScrim.addEventListener('click', closeSaintsPanel);
-document.getElementById('spSearch').addEventListener('input', (e) => { spQuery = e.target.value; renderSaintsPanel(); });
+spSearchInput.addEventListener('input', (e) => {
+  spQuery = e.target.value;
+  spSearchClearBtn.classList.toggle('show', spQuery.length > 0);
+  renderSaintsPanel();
+});
+spSearchClearBtn.addEventListener('click', () => {
+  spQuery = '';
+  spSearchInput.value = '';
+  spSearchClearBtn.classList.remove('show');
+  renderSaintsPanel();
+  spSearchInput.focus();
+});
 document.getElementById('spChips').addEventListener('click', (e) => {
   const btn = e.target.closest('.spChip');
   if(!btn) return;
   spFilter = btn.dataset.filter;
   document.querySelectorAll('.spChip').forEach(c => c.classList.toggle('active', c === btn));
-  // Keep the active sort pointed at a column that's actually visible: entering Patron mode
-  // while sorted by the (now-hidden) Feast column switches to Patron; leaving it while sorted
-  // by Patron switches back to Feast.
+  // Any of these four chips turns Patron mode off — it's a standalone toggle beside the
+  // search box, not a member of this mutually-exclusive group (see spPatronsBtn below).
+  spPatronsBtn.classList.remove('active');
+  spPatronsBtn.setAttribute('aria-pressed', 'false');
+  if(spSort === 'patron') spSort = 'feast';
+  renderSaintsPanel();
+});
+// Patrons toggles independently of the chip row above. Turning it on shows "All" as the
+// active chip (patron view still means "no Doctors/Popes/Martyrs restriction," just exploded
+// by patron) rather than adding a fifth option inside that mutually-exclusive group.
+spPatronsBtn.addEventListener('click', () => {
+  const turningOn = spFilter !== 'patron';
+  spFilter = turningOn ? 'patron' : 'all';
+  spPatronsBtn.classList.toggle('active', turningOn);
+  spPatronsBtn.setAttribute('aria-pressed', turningOn ? 'true' : 'false');
+  document.querySelectorAll('.spChip').forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
   if(spFilter === 'patron' && spSort === 'feast') spSort = 'patron';
   else if(spFilter !== 'patron' && spSort === 'patron') spSort = 'feast';
   renderSaintsPanel();
