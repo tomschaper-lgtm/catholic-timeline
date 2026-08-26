@@ -1,4 +1,10 @@
 <!--
+VERSION: 214
+DATE: 2026-08-25T22:15:00-05:00
+CHANGES:
+- Ken Burns cycle sped up 16s -> 8s per Tom's "working but slow" feedback. Same ~9% scale/pan.
+-->
+<!--
 VERSION: 213
 DATE: 2026-08-25T22:05:00-05:00
 CHANGES:
@@ -2408,7 +2414,7 @@ CHANGES:
      scroll-driven transform (updateFly) is untouched - that lives on .flyPortrait, this lives
      on the img inside it, so the flight and the drift compose instead of fighting. */
   @media (prefers-reduced-motion: no-preference){
-    body.review-on .flyPortrait img{animation:kenBurnsHero 16s ease-in-out infinite alternate;}
+    body.review-on .flyPortrait img{animation:kenBurnsHero 8s ease-in-out infinite alternate;}
   }
   @keyframes kenBurnsHero{
     from{transform:scale(1) translate(0,0);}
@@ -3779,7 +3785,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v213';
+const APP_VERSION = 'v214';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
