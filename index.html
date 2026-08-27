@@ -1,4 +1,17 @@
 <!--
+VERSION: 240
+DATE: 2026-08-27T13:10:00-05:00
+CHANGES:
+- FIXED a data-loss bug: importing a patch (or any Paste JSON import) while that same entry was
+  already open in the Manage → Entries editor left the editor's form fields showing stale
+  pre-import content, because nothing refreshed the open form after the import ran. Not visible
+  as a bug at Apply time — the underlying entry really was updated correctly in db.entries — but
+  "Save, Publish & Exit" runs saveCurrentEditorEntry() first, which writes the (still-stale) open
+  form back into db.entries unconditionally, silently reverting the import one step later, right
+  before publish. applyMerge() now re-runs openEditor(editingId) after every import if that entry
+  is still open, so the form can never go stale relative to db.entries again.
+-->
+<!--
 VERSION: 239
 DATE: 2026-08-27T12:05:00-05:00
 CHANGES:
@@ -4593,7 +4606,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v239';
+const APP_VERSION = 'v240';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -10076,6 +10089,14 @@ async function applyMerge(text, statusPrefix, localStatusElId){
   await saveDb();
   renderMList();
   render();
+  // If the entry this import just touched (patched, merged, or otherwise) happens to be sitting
+  // open in the editor form, refresh that form from the now-current db.entries. Without this,
+  // the open form keeps showing whatever it had at the moment it was last opened — and
+  // saveCurrentEditorEntry() (run automatically by "Save, Publish & Exit") writes the form's
+  // fields back into db.entries unconditionally, silently overwriting the very import that just
+  // ran with stale pre-import content. This is why a patch could report "applied" and still
+  // never survive to publish: the revert happened one step later, at Exit, not at Apply.
+  if(editingId && getEntry(editingId)) openEditor(editingId);
   const clSummary = touchedCarloLinks
     ? ' · Carlo links: ' + clResult.added + ' added, ' + clResult.updated + ' updated'
       + (clResult.skipped ? ', ' + clResult.skipped + ' skipped' : '')
