@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "234",
+      "date": "2026-08-26T08:40:00-05:00",
+      "changes": [
+        "FIXED the alternating \"every other name click does nothing\" bug. Root cause: a document-level",
+        "\"click anywhere outside the open card closes it\" handler (near navigateTeaser/navigateStory)",
+        "has an exclusion list for other overlays (#hamMenu, #manage, .ev, etc.) that #saintsPanel was",
+        "never added to. So tapping a row while a card was already open from a previous tap got read",
+        "as \"clicked outside the card\" — that handler fired closeArticle(), which (by design, for the",
+        "ordinary \"tap outside\" case) re-centers the timeline on currentEntry to leave a visual trace",
+        "of where the reader was. But currentEntry was still the OLD entry at that instant — the new",
+        "entry's own centerAndFocus()/showDetail() hadn't landed yet, since currentEntry only updates",
+        "once that entry's scroll-and-open finishes — so the stale re-center cancelled the fresh",
+        "animation before it could get there and land. That's exactly the every-other pattern: a tap",
+        "with no card open works cleanly; a tap with one open triggers the conflict and closes the",
+        "card outright, so the *next* tap has no card open again and works. Added #saintsPanel and",
+        "#spScrim to the exclusion list, matching how every other side-panel/overlay is already",
+        "handled there."
+      ],
+      "loggedAt": "2026-08-27T04:48:36.837788+00:00"
+    },
+    {
       "version": "233",
       "date": "2026-08-26T08:10:00-05:00",
       "changes": [
