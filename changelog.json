@@ -2,6 +2,21 @@
   "v": 1,
   "entries": [
     {
+      "version": "240",
+      "date": "2026-08-27T13:10:00-05:00",
+      "changes": [
+        "FIXED a data-loss bug: importing a patch (or any Paste JSON import) while that same entry was",
+        "already open in the Manage → Entries editor left the editor's form fields showing stale",
+        "pre-import content, because nothing refreshed the open form after the import ran. Not visible",
+        "as a bug at Apply time — the underlying entry really was updated correctly in db.entries — but",
+        "\"Save, Publish & Exit\" runs saveCurrentEditorEntry() first, which writes the (still-stale) open",
+        "form back into db.entries unconditionally, silently reverting the import one step later, right",
+        "before publish. applyMerge() now re-runs openEditor(editingId) after every import if that entry",
+        "is still open, so the form can never go stale relative to db.entries again."
+      ],
+      "loggedAt": "2026-08-27T17:50:07.550912+00:00"
+    },
+    {
       "version": "239",
       "date": "2026-08-27T12:05:00-05:00",
       "changes": [
