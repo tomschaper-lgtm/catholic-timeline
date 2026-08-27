@@ -1,4 +1,23 @@
 <!--
+VERSION: 234
+DATE: 2026-08-26T08:40:00-05:00
+CHANGES:
+- FIXED the alternating "every other name click does nothing" bug. Root cause: a document-level
+  "click anywhere outside the open card closes it" handler (near navigateTeaser/navigateStory)
+  has an exclusion list for other overlays (#hamMenu, #manage, .ev, etc.) that #saintsPanel was
+  never added to. So tapping a row while a card was already open from a previous tap got read
+  as "clicked outside the card" — that handler fired closeArticle(), which (by design, for the
+  ordinary "tap outside" case) re-centers the timeline on currentEntry to leave a visual trace
+  of where the reader was. But currentEntry was still the OLD entry at that instant — the new
+  entry's own centerAndFocus()/showDetail() hadn't landed yet, since currentEntry only updates
+  once that entry's scroll-and-open finishes — so the stale re-center cancelled the fresh
+  animation before it could get there and land. That's exactly the every-other pattern: a tap
+  with no card open works cleanly; a tap with one open triggers the conflict and closes the
+  card outright, so the *next* tap has no card open again and works. Added #saintsPanel and
+  #spScrim to the exclusion list, matching how every other side-panel/overlay is already
+  handled there.
+-->
+<!--
 VERSION: 233
 DATE: 2026-08-26T08:10:00-05:00
 CHANGES:
@@ -4458,7 +4477,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v233';
+const APP_VERSION = 'v234';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5372,7 +5391,7 @@ document.addEventListener('click', (e) => {
                      !!(e.target.isConnected && e.target.closest && e.target.closest(sel));
   // The floating audio bar is a no-close zone: a tap on it (or near it) is always a transport
   // control, never a "you clicked outside the card" dismissal.
-  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, .sresults, #hamMenu, .ev, .audioBottomBar, #linkPicker')) return;
+  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, .sresults, #hamMenu, .ev, .audioBottomBar, #linkPicker, #saintsPanel, #spScrim')) return;
   if(article.classList.contains('open')){
     if(!hit('#article')) closeArticle();
     return;
