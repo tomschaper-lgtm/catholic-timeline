@@ -2,6 +2,24 @@
   "v": 1,
   "entries": [
     {
+      "version": "235",
+      "date": "2026-08-26T09:05:00-05:00",
+      "changes": [
+        "FIXED the scrub-bubble math bug: it was reporting whatever row happened to be scrolled to the",
+        "TOP of the viewport (spFindRowLabelAtScrollTop), not the row the thumb's position actually",
+        "represents. Barely noticeable on a long list (adjacent rows are close together), but on a",
+        "short list — thumb dragged to the very bottom, list barely fills more than one screen — \"top",
+        "row of a nearly-full viewport\" and \"the true last row\" can be very different rows, which is",
+        "exactly the \"bottom of the list says 1980 but the bubble says 1130\" case. Replaced with",
+        "spLabelAtRel(): maps the thumb's proportional position directly to a row index (rel=0 -> the",
+        "true first row, rel=1 -> the true last row, verified against both a short list and the",
+        "tripled loopable Feast+All list), completely independent of how many rows fit on screen.",
+        "Active sort-column heading (label + triangle) recolored blue -> gold, matching the rest of",
+        "the panel's accent color."
+      ],
+      "loggedAt": "2026-08-27T04:54:51.836304+00:00"
+    },
+    {
       "version": "234",
       "date": "2026-08-26T08:40:00-05:00",
       "changes": [
