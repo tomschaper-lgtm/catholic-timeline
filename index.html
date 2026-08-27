@@ -1,4 +1,20 @@
 <!--
+VERSION: 237
+DATE: 2026-08-27T11:05:00-05:00
+CHANGES:
+- CLOSE BUTTON REDESIGNED per feedback: plain, larger × glyph (32px, no background/border/circle)
+  instead of the small circular button from v236 — just a bigger mark in the top-right corner,
+  with a soft text-shadow so it stays legible with nothing behind it.
+- On entries with a photo, the button now slides left IN SYNC with the corner portrait's own
+  flight, rather than jumping to its shifted position the instant an entry merely has an image.
+  New setArtXShift(t) is fed the exact same 0-to-1 progress value updateFly() already computes
+  for the portrait itself (same smoothstep easing), so the two arrive at the corner together —
+  the button starts at the plain corner position while the big hero photo is still on screen,
+  and only eases leftward as the flying copy approaches. In the peek card, where the portrait is
+  parked with no scroll-driven animation at all (see placePeekFlyNow()), the button jumps
+  straight to its shifted position too, matching the photo's own instant placement there.
+-->
+<!--
 VERSION: 236
 DATE: 2026-08-27T10:15:00-05:00
 CHANGES:
@@ -2959,23 +2975,19 @@ CHANGES:
      scroll depth. Zero height of its own: it's just a positioning anchor for its absolutely-
      positioned .artX child; #artHandle supplies its own height via its own (also sticky) box. */
   .artTopBar{position:sticky; top:0; left:0; right:0; height:0; z-index:21;}
+  /* No circle/box — a plain, larger glyph, since the request was specifically "bigger X without
+     the circle." Its "right" offset is NOT set here beyond a resting default: setArtXShift() (JS,
+     near the FLY_ARTX_* constants) drives it directly via inline style, sliding it left in step
+     with the corner portrait's own flight (see updateFly()/placePeekFlyNow()) rather than jumping
+     there the instant an entry merely has a photo. text-shadow keeps the white glyph legible with
+     no background of its own, over article art or the plain navy backdrop alike. */
   .artX{
-    position:absolute; top:10px; right:14px; z-index:22;
-    width:34px; height:34px; display:flex; align-items:center; justify-content:center;
-    background:rgba(10,20,48,.6); border:1.5px solid var(--gold); border-radius:50%;
-    color:#fff; font-size:22px; line-height:1; cursor:pointer;
-    transition:right .2s ease, background .15s ease, border-color .15s ease;
+    position:absolute; top:8px; right:14px; z-index:22;
+    width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+    background:none; border:none; color:#fff; font-size:32px; font-weight:300; line-height:1;
+    cursor:pointer; text-shadow:0 1px 5px rgba(0,0,0,.65), 0 0 12px rgba(0,0,0,.35);
   }
-  .artX:hover{background:var(--gold); border-color:var(--gold-bright); color:var(--navy-deep);}
-  /* The corner portrait (#flyPortrait) rides in this same top-right corner once an entry has a
-     photo — present from the very first frame in peek mode, not just after scrolling (see
-     placePeekFly()). Shifting the button left of it, keyed off the .hasPortrait class
-     fillArticleBody() toggles on #article itself, keeps the X from ever landing under the
-     photo. 136px clears the corner badge's typical ~104px width plus its 20px inset (FLY_INSET)
-     with a small buffer — same reasoning as the 120px reserved for text in
-     .artSticky.hasPortrait .ahHead below, just a little roomier since a button needs a clean
-     gap rather than just non-overlapping text. */
-  #article.hasPortrait .artX{right:136px;}
+  .artX:hover{color:var(--gold-bright);}
   /* Appears in the sticky header only while there's cross-reference navigation history to
      unwind (see articleBackStack); pops one level per tap, and is gone once the stack is
      empty or the article is closed. touch-action:auto so a tap isn't swallowed by the
@@ -4547,7 +4559,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v236';
+const APP_VERSION = 'v237';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6444,11 +6456,6 @@ function peekSnippet(html, maxLen){
 function fillArticleBody(d, peek){
   const art = d.art || {sections:[], quotes:[], links:[]};
   const hasImg = !!d.img;
-  // Lets the persistent #artClose button (outside this re-rendered HTML, see .artTopBar/.artX
-  // CSS) know whether the corner portrait is present on THIS entry, so it can shift itself out
-  // from under the photo. Mirrors the hasImg flag already used just below for .artSticky's own
-  // "hasPortrait" class on the (regenerated) sticky header.
-  article.classList.toggle('hasPortrait', hasImg);
   let html = '';
   // Sticky header — year, name, taper rule and corner portrait, laid out exactly like the
   // teaser card. It has no border of its own: the article sheet is already a bordered card.
@@ -6655,8 +6662,8 @@ function placePeekFlyNow(){
   if(morphing) return;                       // a morph owns the photo; don't fight it
   // The <img> keeps whatever src it was last given, so an entry with NO photo would happily
   // measure and re-park the previous entry's picture. Ask the entry itself, not the element.
-  if(!currentEntry || !currentEntry.img){ fly.classList.remove('on'); return; }
-  if(!img || !img.getAttribute('src')){ fly.classList.remove('on'); return; }
+  if(!currentEntry || !currentEntry.img){ fly.classList.remove('on'); setArtXShift(0); return; }
+  if(!img || !img.getAttribute('src')){ fly.classList.remove('on'); setArtXShift(0); return; }
   const box = peekFlyBox();
   if(!box) return;
   fly.style.transition = '';
@@ -6671,12 +6678,16 @@ function placePeekFlyNow(){
   fly.style.boxShadow = '0 14px 28px rgba(0,0,0,.5)';
   fly.style.pointerEvents = 'none';
   fly.classList.add('on');
+  // The peek card's portrait is parked straight into its resting spot — no scroll-driven
+  // flight to animate through — so the close button jumps straight to its shifted position
+  // too, rather than easing in like it does during the full-article flight (see updateFly).
+  setArtXShift(1);
 }
 function placePeekFly(hasImg){
   const fly = document.getElementById('flyPortrait');
   if(!fly) return;
   const img = document.getElementById('flyPortraitImg');
-  if(!hasImg || !img || !img.getAttribute('src')){ fly.classList.remove('on'); return; }
+  if(!hasImg || !img || !img.getAttribute('src')){ fly.classList.remove('on'); setArtXShift(0); return; }
   // Hook the image's own load/error ONCE per element. 'error' matters as much as 'load':
   // when data.json still names a .png that has been converted to .jpg, the first request
   // fails and the extension fallback swaps the src, so the picture only becomes measurable
@@ -7837,6 +7848,21 @@ const FLY_MIN = 70, FLY_MAX = 156; // clamp so extreme photo aspect ratios still
 const FLY_OVERHANG = 24;          // how far it rises above the card's top border
 const FLY_INSET = 20;             // gap from the card's right edge
 const FLY_DELAY = 48;             // scroll this far first, so a nudge doesn't start the flight
+// Where the close button (#artClose) rests when there's no corner portrait to dodge (BASE), and
+// how far left it slides once the portrait has fully landed (SHIFTED) — see setArtXShift().
+const FLY_ARTX_BASE = 14, FLY_ARTX_SHIFTED = 136;
+// Slides the close button out from under the corner portrait as the portrait itself arrives,
+// rather than jumping there the moment an entry merely has a photo. amt is 0 (photo not there
+// yet — or no photo at all — button sits at the plain top-right corner) through 1 (photo fully
+// landed, button all the way alongside it). Called with the SAME progress value the photo's own
+// flight uses (see updateFly()'s `t`), so the two arrive together, and with a flat 0 or 1 from
+// placePeekFlyNow() for the peek card, where the portrait is already parked with no animation.
+function setArtXShift(amt){
+  const btn = document.getElementById('artClose');
+  if(!btn) return;
+  const clamped = Math.max(0, Math.min(1, amt));
+  btn.style.right = (FLY_ARTX_BASE + clamped * (FLY_ARTX_SHIFTED - FLY_ARTX_BASE)) + 'px';
+}
 let flyGeo = null;
 let flyRAF = null;
 let flySuspended = false;   // true while a left/right slide is in flight
@@ -7938,6 +7964,7 @@ function updateFly(){
     // No photo on this entry, so there is no flight to gate the taper rule on.
     if(taper) taper.style.opacity = document.getElementById('artHeroImg') ? '0' : '1';
     setHeroLogoFade(0);
+    setArtXShift(0); // nothing flying up into the corner, so the close button has no reason to move
     return;
   }
   const artEl = document.getElementById('article');
@@ -7945,6 +7972,7 @@ function updateFly(){
   const raw = Math.min(1, Math.max(0, (s - FLY_DELAY) / flyGeo.dist));
   const t = raw * raw * (3 - 2 * raw); // smoothstep, so it eases in and out of the corner
   setHeroLogoFade(t); // fully at rest in the corner (t=1) is fully hidden; away from it, visible
+  setArtXShift(t); // close button slides left in step with the same progress, arriving together
   // Where the photo would be if it had simply scrolled with the page. Once the flight is
   // under way the scroll term is damped, otherwise the photo races past the corner and has
   // to drop back down into it; damped, it moves 1:1 with the text at first and then eases
