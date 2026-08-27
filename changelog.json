@@ -2,6 +2,31 @@
   "v": 1,
   "entries": [
     {
+      "version": "227",
+      "date": "2026-08-26T04:20:00-05:00",
+      "changes": [
+        "Formatting-only pass on the Saints panel per a visual reference — no filtering/sorting/",
+        "search/remember-state behavior changed, only how it's presented:",
+        "Removed the icon tile before \"Saints\" — plain bold title again, matching the reference.",
+        "Added a small decorative drag-handle bar at the top of the panel (reuses the same shared",
+        ".draghandle class as #artHandle elsewhere — visual only, no drag gesture attached).",
+        "Search box back to full width with a magnifying-glass icon inside on the left; the × clear",
+        "button and recent-searches dropdown are unchanged.",
+        "Patron is back inside the same group as All/Doctors/Popes/Martyrs — no longer a separate",
+        "toggle beside the search box — but restyled as a 5-item icon-over-label bar pinned to the",
+        "bottom of the panel (below the scrollable list) rather than pill-chips below the search box.",
+        "Internally still the exact same spFilter values driving spRows()/renderSaintsPanel() as",
+        "before; only the container and the active-item highlight changed. Doctors/Popes/Martyrs",
+        "still default sort to Year, All to Feast, Patron to its own column — unchanged.",
+        "Column header (Feast/Name/Year): removed the vertical divider lines between columns and",
+        "softened the bottom border from a bold 2px black rule to a thin 1px light gray one.",
+        "A row matching today's date — the real thing or the synthetic placeholder — now displays",
+        "\"Today\" in the Feast column instead of the date string; the placeholder's highlight color",
+        "also settled to a neutral light gray instead of the earlier gold tint."
+      ],
+      "loggedAt": "2026-08-27T00:37:53.952641+00:00"
+    },
+    {
       "version": "226",
       "date": "2026-08-26T03:45:00-05:00",
       "changes": [
