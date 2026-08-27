@@ -2,6 +2,31 @@
   "v": 1,
   "entries": [
     {
+      "version": "229",
+      "date": "2026-08-26T05:10:00-05:00",
+      "changes": [
+        "FIXED (regression introduced in v227): Patron view showed the previous filter's rows with",
+        "feast dates instead of patrons. Root cause: v227 hoisted the date-string build out of its",
+        "ternary into `const dateDisp` to add the \"Today\" label, making it evaluate for EVERY row.",
+        "Patron rows carry month:12 as filler (there is no 13th month), so MONTH_NAMES[12] is",
+        "undefined and .slice() threw a TypeError on the first patron row — aborting renderSaintsPanel()",
+        "before it ever assigned spListEl.innerHTML, which is why the prior list stayed frozen on",
+        "screen while the header label and column-hiding (which run earlier) updated correctly. The",
+        "expression is lazy again inside the ternary, with a comment warning not to hoist it back out.",
+        "Removed the gold drag-handle bar added in v227 — that was the stray \"yellow bar\"; the design",
+        "reference has no handle.",
+        "Today row now reads \"Today \\u00b7 Aug 26\" / \"No feast today\", matching the design wording. Feast",
+        "column widened 58px -> 104px (header and rows in tandem) so that label actually fits.",
+        "Bottom filter bar restyled as a floating rounded island: inset from the panel edges with its",
+        "own shadow and hairline, instead of a full-bleed bar with a top border. Active pill is a warm",
+        "parchment-gray with gold icon and label; inactive icons/labels near-black.",
+        "Search field: borderless filled style on a warmer gray (#F1F0EC), rounded 16px, slightly",
+        "taller, muted placeholder — closer to the reference than the outlined version.",
+        "Today-row highlight nudged to a warmer neutral gray (#F2F2F0)."
+      ],
+      "loggedAt": "2026-08-27T01:04:48.973875+00:00"
+    },
+    {
       "version": "227",
       "date": "2026-08-26T04:20:00-05:00",
       "changes": [
