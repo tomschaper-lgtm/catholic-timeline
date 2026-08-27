@@ -1,4 +1,20 @@
 <!--
+VERSION: 235
+DATE: 2026-08-26T09:05:00-05:00
+CHANGES:
+- FIXED the scrub-bubble math bug: it was reporting whatever row happened to be scrolled to the
+  TOP of the viewport (spFindRowLabelAtScrollTop), not the row the thumb's position actually
+  represents. Barely noticeable on a long list (adjacent rows are close together), but on a
+  short list — thumb dragged to the very bottom, list barely fills more than one screen — "top
+  row of a nearly-full viewport" and "the true last row" can be very different rows, which is
+  exactly the "bottom of the list says 1980 but the bubble says 1130" case. Replaced with
+  spLabelAtRel(): maps the thumb's proportional position directly to a row index (rel=0 -> the
+  true first row, rel=1 -> the true last row, verified against both a short list and the
+  tripled loopable Feast+All list), completely independent of how many rows fit on screen.
+- Active sort-column heading (label + triangle) recolored blue -> gold, matching the rest of
+  the panel's accent color.
+-->
+<!--
 VERSION: 234
 DATE: 2026-08-26T08:40:00-05:00
 CHANGES:
@@ -2357,7 +2373,7 @@ CHANGES:
      visually) lets .spName's flex:1 absorb the freed space automatically. */
   .saintsPanel.patronMode #spSortYear{display:none;}
   .saintsPanel.patronMode .spYear{display:none;}
-  .spCol.active{color:var(--panelBlue);}
+  .spCol.active{color:var(--gold-deep, #9A7B22);}
   .spCol .arrow{font-size:15px; line-height:1; visibility:hidden;}
   .spCol.active .arrow{visibility:visible;}
   .spListWrap{position:relative; flex:1 1 auto; min-height:0; display:flex;}
@@ -4477,7 +4493,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v234';
+const APP_VERSION = 'v235';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -10403,15 +10419,22 @@ function spSyncThumbPosition(){
   const rel = max > min ? (spListEl.scrollTop - min) / (max - min) : 0;
   spThumb.style.top = (Math.max(0, Math.min(1, rel)) * usable) + 'px';
 }
-// Each row carries its own data-label (set at render time — see renderSaintsPanel()) with
-// whatever the scrub bubble should show for the CURRENT sort: a letter, a year, or a date.
-// Reading it straight off the row is simpler and more robust than re-deriving it here.
-function spFindRowLabelAtScrollTop(scrollTop){
+// Maps the thumb's proportional position (0 = top, 1 = bottom) directly to a row's own
+// data-label, rather than reading whatever row happens to be scrolled to the TOP of the
+// viewport. That broke down badly on short lists: "topmost visible row once scrolled all the
+// way down" and "the actual last row" are very different things once the whole list barely
+// fills more than one screen — the thumb could sit at the very bottom of the track while the
+// bubble reported a row from well before the true end. This guarantees rel=0 is always the
+// first row's label and rel=1 is always the last row's, independent of row-count-per-screen.
+function spLabelAtRel(rel){
   const rows = spListEl.children;
-  for(let i = 0; i < rows.length; i++){
-    if(rows[i].offsetTop >= scrollTop - 2) return rows[i].dataset.label || '';
-  }
-  return rows.length ? (rows[rows.length - 1].dataset.label || '') : '';
+  const total = rows.length;
+  if(!total) return '';
+  const N = spLoopable ? total / 3 : total; // one logical copy's worth of rows
+  const base = spLoopable ? N : 0; // land inside the middle copy when looped
+  const idx = base + Math.max(0, Math.min(N - 1, Math.round(rel * (N - 1))));
+  const row = rows[idx];
+  return row ? (row.dataset.label || '') : '';
 }
 function spThumbDragTo(clientY){
   const trackRect = spThumbTrack.getBoundingClientRect();
@@ -10423,7 +10446,7 @@ function spThumbDragTo(clientY){
   spListEl.scrollTop = target;
   spThumb.style.top = (rel * usable) + 'px';
   const wrapRect = spListWrapEl.getBoundingClientRect();
-  spThumbLabel.textContent = spFindRowLabelAtScrollTop(target);
+  spThumbLabel.textContent = spLabelAtRel(rel);
   // Floated up ~1in above the fingertip (see .spThumbLabel's comment) rather than sitting
   // right on top of it, where the bubble would cover the very row it's describing.
   spThumbLabel.style.top = (clientY - wrapRect.top - 90) + 'px';
