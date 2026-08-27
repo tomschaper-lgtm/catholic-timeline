@@ -1,4 +1,19 @@
 <!--
+VERSION: 239
+DATE: 2026-08-27T12:05:00-05:00
+CHANGES:
+- FIXED: swiping down to close from the header band (the top-inch strip covering the drag
+  handle pill and the year/name) didn't reliably close the card — a slow, deliberate drag from
+  there could register as nothing at all instead of stepping the card down. Root cause: the step
+  dismissal (full → preview → gone) shared a minimum-velocity requirement with the "at the top of
+  the story" case, which exists to protect ordinary reading-scroll from being misread as a close.
+  That protection makes sense for the story text, where a drag might just be scrolling — it never
+  made sense for the header band, which is touch-action:none and never scrolls anything regardless
+  of speed. The header case is now its own condition with no velocity floor: any downward drag
+  past the existing distance threshold that STARTED on the handle/header steps the card down,
+  fast or slow. The at-the-top-of-the-story case is untouched, still speed-gated as before.
+-->
+<!--
 VERSION: 238
 DATE: 2026-08-27T11:35:00-05:00
 CHANGES:
@@ -4578,7 +4593,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v238';
+const APP_VERSION = 'v239';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5451,17 +5466,32 @@ function navigateStory(direction){
     // started at the top of the story (nothing left above to scroll to) or on the header band
     // itself. Without the (wasHeader || atTop) guard here, a fast flick used to scroll UP
     // through the middle of a long article — a completely ordinary reading gesture — read as
-    // "anywhere in the text" and dismissed the card out from under the reader. Matches the
-    // guard the slower "step" dismissal below already uses.
+    // "anywhere in the text" and dismissed the card out from under the reader.
     if(vertical && dy > GEST.dyFling && v >= GEST.vFling && (wasHeader || atTop)){
       recordGesture('dismiss (flick)');
       closeArticle({fast: true});
       return;
     }
-    // A measured drag at the top of the story unwinds one step: full → preview → gone.
-    // Below the top, this same drag is just the reader scrolling back up, so it is left
-    // to the browser.
-    if(vertical && dy > GEST.dyStep && v >= GEST.vIntent && (wasHeader || atTop)){
+    // A drag that STARTED on the header/handle band — the top-inch strip covering the drag
+    // handle pill and the year/name — is an unambiguous "operate the handle" gesture. Nothing
+    // in that band ever scrolls (it's touch-action:none, fixed text, not article content), so
+    // unlike a drag over the story text there's no "might just be reading" case to protect
+    // against by also requiring speed. Any deliberate downward drag from there steps the card
+    // down (full → preview → gone), however slowly or quickly it's dragged — previously this
+    // shared the vIntent speed floor below with the atTop case, which is what let a slow,
+    // careful drag on the handle register as nothing at all (silently absorbed by
+    // touch-action:none rather than falling back to a scroll) instead of closing the card.
+    if(vertical && dy > GEST.dyStep && wasHeader){
+      if(collapseArticle()){ recordGesture('step to preview (header)'); return; }
+      recordGesture('dismiss (step, header)');
+      closeArticle();
+      return;
+    }
+    // A measured drag starting AT THE TOP of the story (nothing left to scroll to) unwinds one
+    // step too, but this case stays speed-gated: unlike the header, the top of the text is
+    // still legitimate scrolling territory — a reader can simply arrive there mid-scroll — so
+    // only a reasonably decisive drag, not just a hand settling there, is read as a dismiss.
+    if(vertical && dy > GEST.dyStep && v >= GEST.vIntent && atTop){
       if(collapseArticle()){ recordGesture('step to preview'); return; }
       recordGesture('dismiss (step)');
       closeArticle();
