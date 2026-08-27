@@ -1,4 +1,27 @@
 <!--
+VERSION: 227
+DATE: 2026-08-26T04:20:00-05:00
+CHANGES:
+- Formatting-only pass on the Saints panel per a visual reference — no filtering/sorting/
+  search/remember-state behavior changed, only how it's presented:
+- Removed the icon tile before "Saints" — plain bold title again, matching the reference.
+- Added a small decorative drag-handle bar at the top of the panel (reuses the same shared
+  .draghandle class as #artHandle elsewhere — visual only, no drag gesture attached).
+- Search box back to full width with a magnifying-glass icon inside on the left; the × clear
+  button and recent-searches dropdown are unchanged.
+- Patron is back inside the same group as All/Doctors/Popes/Martyrs — no longer a separate
+  toggle beside the search box — but restyled as a 5-item icon-over-label bar pinned to the
+  bottom of the panel (below the scrollable list) rather than pill-chips below the search box.
+  Internally still the exact same spFilter values driving spRows()/renderSaintsPanel() as
+  before; only the container and the active-item highlight changed. Doctors/Popes/Martyrs
+  still default sort to Year, All to Feast, Patron to its own column — unchanged.
+- Column header (Feast/Name/Year): removed the vertical divider lines between columns and
+  softened the bottom border from a bold 2px black rule to a thin 1px light gray one.
+- A row matching today's date — the real thing or the synthetic placeholder — now displays
+  "Today" in the Feast column instead of the date string; the placeholder's highlight color
+  also settled to a neutral light gray instead of the earlier gold tint.
+-->
+<!--
 VERSION: 226
 DATE: 2026-08-26T03:45:00-05:00
 CHANGES:
@@ -2072,12 +2095,16 @@ CHANGES:
   @media (prefers-reduced-motion: reduce){
     .saintsPanel, .spScrim{transition:none;}
   }
-  /* Search row: input + the standalone Patrons toggle button, roughly 3:1 so the input reads
-     as ~75% width and the button ~25%. This is a separate control from the All/Doctors/Popes/
-     Martyrs chips below — see .spPatronsBtn and its click handler for how the two interact. */
-  .spSearchRow{display:flex; gap:8px; padding:0 22px 12px; flex:0 0 auto; align-items:stretch;}
+  /* Search box: full width, magnifying-glass icon inside on the left, × clear button on the
+     right when there's text. Patron now lives in the bottom .spChips tab bar again, not as a
+     separate control beside the search box. */
+  .spSearchWrap{position:relative; flex:0 0 auto; margin:0 22px 12px; display:flex;}
+  .spSearchIcon{
+    position:absolute; left:12px; top:50%; transform:translateY(-50%);
+    width:19px; height:19px; color:#9AA0AC; pointer-events:none;
+  }
   .spSearch{
-    min-width:0; margin:0; padding:10px 14px;
+    flex:1 1 auto; min-width:0; margin:0; padding:10px 14px 10px 38px;
     border:1px solid #E3E1D8; border-radius:12px;
     /* 16px is the floor that keeps iOS Safari from auto-zooming the whole page on focus —
        same rule as #tlSearch and the Manage form fields elsewhere in this file. This was the
@@ -2085,6 +2112,7 @@ CHANGES:
        "Safari zooming by accident" Tom hit. */
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:16px; color:#111827;
     background:#F8F7F2;
+    padding-right:34px;
   }
   .spSearch:focus{outline:none; border-color:var(--panelBlue);}
   .spSearchClear{
@@ -2094,8 +2122,6 @@ CHANGES:
   }
   .spSearchClear.show{display:flex;}
   .spSearchClear:hover{color:var(--panelBlue);}
-  .spSearchWrap{position:relative; flex:3 1 0; min-width:0; display:flex;}
-  .spSearchWrap .spSearch{flex:1 1 auto; padding-right:34px;}
   /* Recent-searches dropdown, shown when the box is focused and empty — same idea as the
      timeline's own #tlSearch recent list (clock icon, × to drop an entry), scoped to its own
      storage key/markup so the two never mix. */
@@ -2120,25 +2146,24 @@ CHANGES:
     line-height:1; cursor:pointer; padding:2px 4px;
   }
   .spRecentX:hover{color:var(--panelBlue);}
-  /* Deliberately not another .spChip — a standalone toggle next to the search box rather than
-     a member of the All/Doctors/Popes/Martyrs mutually-exclusive group, since it can layer on
-     top of "All" instead of just being one more option inside that group. */
-  .spPatronsBtn{
-    flex:1 1 0; min-width:0;
-    border:1.5px solid var(--panelBlue); border-radius:12px;
-    background:#fff; color:var(--panelBlue);
-    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13px; font-weight:700;
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer; white-space:nowrap; padding:0 6px;
+  /* Filter row: pinned to the bottom of the panel (last flex child, after .spList) as an
+     icon-over-label tab bar rather than a row of text pill-chips — All/Doctors/Popes/Martyrs/
+     Patrons all live here now as one group; Patron is no longer a separate toggle beside the
+     search box. Same spFilter values and click-handler logic as before (see the JS) — this is
+     a pure restyle of the same five options into a different container. */
+  .spChips{
+    display:flex; flex:0 0 auto; padding:8px 10px calc(10px + env(safe-area-inset-bottom));
+    border-top:1px solid #EDEDED; background:#fff;
   }
-  .spPatronsBtn.active{background:var(--panelBlue); color:#fff;}
-  .spChips{display:flex; gap:6px; flex-wrap:wrap; padding:0 22px 14px; flex:0 0 auto;}
   .spChip{
-    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13px;
-    padding:5px 10px; border-radius:999px; border:1px solid #D8DCE4;
-    background:#fff; color:#4B5266; cursor:pointer; white-space:nowrap;
+    flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:6px 2px; margin:0 2px; border-radius:14px; border:none;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:11px; font-weight:600;
+    background:none; color:#4B5266; cursor:pointer; white-space:nowrap;
   }
-  .spChip.active{background:#12203F; color:#fff; border-color:#12203F; font-weight:600;}
+  .spChip svg{width:22px; height:22px;}
+  .spChip.active{background:#F3EFE0; color:var(--gold-deep, #8A6A16);}
+  .spChip.active svg{color:var(--gold-bright, #C9A542);}
   /* Column header bar: white background, bold sans-serif black text — same register as the
      "Saints" panel title above — rather than the earlier gold-gradient or flat dark-blue
      treatments. Feast and Year use the *same* fixed flex-basis as their .spRow counterparts
@@ -2149,7 +2174,7 @@ CHANGES:
   .spHead{
     display:flex; align-items:center; gap:14px; padding:9px 22px;
     background:#fff;
-    border-bottom:2px solid #111827;
+    border-bottom:1px solid #E5E5E5;
     flex:0 0 auto;
   }
   .spCol{
@@ -2158,8 +2183,8 @@ CHANGES:
     letter-spacing:.04em; text-transform:uppercase; color:#111827;
     cursor:pointer; display:flex; align-items:center; gap:5px;
   }
-  #spSortFeast{flex:0 0 58px; border-right:1px solid #D8DCE4; min-width:0;}
-  #spSortName{flex:1 1 auto; border-right:1px solid #D8DCE4; min-width:0;}
+  #spSortFeast{flex:0 0 58px; min-width:0;}
+  #spSortName{flex:1 1 auto; min-width:0;}
   #spSortYear{flex:0 0 56px; justify-content:flex-end; min-width:0;}
   /* Patron mode swaps the shared first column from short feast dates ("Aug 25") to much
      longer patron descriptions ("Expectant mothers"), so it needs meaningfully more room.
@@ -2188,7 +2213,7 @@ CHANGES:
      renderSaintsPanel()). There is deliberately no "start/end of year" marker anymore: feast
      order now genuinely loops (Dec -> Jan), so there is no real edge left to mark. */
   .spRow.monthStart{border-top:1px solid #C7CAD3;}
-  .spRow.today{background:rgba(224,184,76,.25); font-weight:700;}
+  .spRow.today{background:#F4F4F4; font-weight:700;}
   .spFeast{flex:0 0 58px; font-size:13px; color:#6B7280;}
   .spName{flex:1 1 auto; font-size:15px; color:#111827; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   /* Distinguishes one saint's several feast-day rows from each other ("John the Baptist —
@@ -2206,16 +2231,6 @@ CHANGES:
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
     font-size:26px; font-weight:700; letter-spacing:-.01em; color:#111827;
   }
-  .spTitle{display:inline-flex; align-items:center; gap:10px;}
-  /* Same tile treatment as .pTile in the Settings panel (rounded square, solid colour,
-     white glyph) rather than a bare gold stroke icon, so this reads as the same icon
-     language as the rest of the app's panels. */
-  .spTitleTile{
-    width:34px; height:34px; border-radius:10px; flex:0 0 auto;
-    background:var(--panelBlue); color:#fff;
-    display:flex; align-items:center; justify-content:center;
-  }
-  .spTitleTile svg{width:20px; height:20px;}
   .panelClose{
     width:34px; height:34px; margin-right:-6px; padding:0;
     background:none; border:none; cursor:pointer; color:#111827;
@@ -3452,25 +3467,18 @@ CHANGES:
        .hamMenu's slide-from-right mechanics — see saintsPanel/spScrim in the JS below. -->
   <div class="spScrim" id="spScrim"></div>
   <div class="saintsPanel" id="saintsPanel" role="dialog" aria-label="Saints">
+    <div class="draghandle spDragHandle"></div>
     <div class="panelHead">
-      <span class="panelTitle spTitle"><span class="spTitleTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg></span>Saints</span>
+      <span class="panelTitle">Saints</span>
       <button class="panelClose" id="spClose" aria-label="Close saints list">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
       </button>
     </div>
-    <div class="spSearchRow">
-      <div class="spSearchWrap">
-        <input type="text" class="spSearch" id="spSearch" placeholder="Search saints" autocomplete="off">
-        <button class="spSearchClear" id="spSearchClear" aria-label="Clear search" type="button">×</button>
-        <div class="spRecentBox" id="spRecentBox"></div>
-      </div>
-      <button class="spPatronsBtn" id="spPatronsBtn" type="button" aria-pressed="false">Patrons</button>
-    </div>
-    <div class="spChips" id="spChips">
-      <button class="spChip active" data-filter="all">All</button>
-      <button class="spChip" data-filter="doctors">Doctors</button>
-      <button class="spChip" data-filter="popes">Popes</button>
-      <button class="spChip" data-filter="martyrs">Martyrs</button>
+    <div class="spSearchWrap">
+      <svg class="spSearchIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></svg>
+      <input type="text" class="spSearch" id="spSearch" placeholder="Search saints" autocomplete="off">
+      <button class="spSearchClear" id="spSearchClear" aria-label="Clear search" type="button">×</button>
+      <div class="spRecentBox" id="spRecentBox"></div>
     </div>
     <div class="spHead">
       <button class="spCol active" id="spSortFeast" data-sort="feast"><span class="spColLabel">Feast</span> <span class="arrow">▲</span></button>
@@ -3478,6 +3486,28 @@ CHANGES:
       <button class="spCol" id="spSortYear" data-sort="year">Year <span class="arrow">▲</span></button>
     </div>
     <div class="spList" id="spList"></div>
+    <div class="spChips" id="spChips">
+      <button class="spChip active" data-filter="all" aria-pressed="true">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="8" r="2.6"/><circle cx="16" cy="8" r="2.6"/><circle cx="8" cy="16" r="2.6"/><circle cx="16" cy="16" r="2.6"/></svg>
+        <span>All</span>
+      </button>
+      <button class="spChip" data-filter="doctors" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5c2.2-1 5-1 8 .3 3-1.3 5.8-1.3 8-.3v13c-2.2-1-5-1-8 .3-3-1.3-5.8-1.3-8-.3z"/><path d="M12 5.8v13"/></svg>
+        <span>Doctors</span>
+      </button>
+      <button class="spChip" data-filter="popes" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="8.5" r="2.6"/><path d="M9.4 10.4 18.5 19.5"/><path d="M16 17l2.2-2.2M18 19l2.2-2.2"/><circle cx="16.5" cy="15.5" r="2.6"/><path d="M14.6 13.6 5.5 4.5"/><path d="M8 6l-2.2 2.2M6 4l-2.2 2.2"/></svg>
+        <span>Popes</span>
+      </button>
+      <button class="spChip" data-filter="martyrs" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V7"/><path d="M12 7C9 7 6.5 5 6 2c3.5 0 6 1.5 6 5z"/><path d="M12 11c3 0 5.5-2 6-5-3.5 0-6 1.5-6 5z"/><path d="M12 15c2.4 0 4.4-1.6 4.8-4-2.8 0-4.8 1.2-4.8 4z"/></svg>
+        <span>Martyrs</span>
+      </button>
+      <button class="spChip" data-filter="patron" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 2.5v5.2c0 4.6-3 8.2-7 9.3-4-1.1-7-4.7-7-9.3V5.5z"/><path d="M12 8.3l1.1 2.3 2.5.3-1.8 1.7.4 2.5-2.2-1.2-2.2 1.2.4-2.5-1.8-1.7 2.5-.3z"/></svg>
+        <span>Patrons</span>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -4221,7 +4251,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v226';
+const APP_VERSION = 'v227';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -9963,7 +9993,6 @@ const spScrim = document.getElementById('spScrim');
 const spListEl = document.getElementById('spList');
 const spSearchInput = document.getElementById('spSearch');
 const spSearchClearBtn = document.getElementById('spSearchClear');
-const spPatronsBtn = document.getElementById('spPatronsBtn');
 const spRecentBox = document.getElementById('spRecentBox');
 let spSort = 'feast', spFilter = 'all', spQuery = '';
 // Filter/sort/scroll position from the last time the panel was closed, so reopening lands back
@@ -10171,15 +10200,15 @@ function renderSaintsPanel(){
     if(monthStart) cls.push('monthStart');
     if(isToday) cls.push('today');
     if(r.synthetic){
-      const feastDisp = MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day;
       html += '<div class="'+cls.join(' ')+'">' +
-        '<span class="spFeast">'+esc(feastDisp)+'</span>' +
+        '<span class="spFeast">Today</span>' +
         '<span class="spName">No feast day today</span>' +
         '<span class="spYear"></span>' +
         '</div>';
       return;
     }
-    const firstColText = isPatronMode ? r.patron : (hasFeast ? (MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day) : '—');
+    const dateDisp = isToday ? 'Today' : (MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day);
+    const firstColText = isPatronMode ? r.patron : (hasFeast ? dateDisp : '—');
     html += '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'">' +
       '<span class="spFeast">'+esc(firstColText)+'</span>' +
       '<span class="spName">'+esc(spDisplayName(r.e.n))+(r.note ? ' <span class="spNoteInline">— '+esc(r.note)+'</span>' : '')+'</span>' +
@@ -10225,12 +10254,11 @@ function openSaintsPanel(){
     spSort = 'feast';
     spFilter = 'all';
   }
-  // Patron mode always shows "All" as the active chip (see spPatronsBtn below) — everything
-  // else shows its own matching chip.
-  const chipToShow = spFilter === 'patron' ? 'all' : spFilter;
-  document.querySelectorAll('.spChip').forEach(c => c.classList.toggle('active', c.dataset.filter === chipToShow));
-  spPatronsBtn.classList.toggle('active', spFilter === 'patron');
-  spPatronsBtn.setAttribute('aria-pressed', spFilter === 'patron' ? 'true' : 'false');
+  document.querySelectorAll('.spChip').forEach(c => {
+    const active = c.dataset.filter === spFilter;
+    c.classList.toggle('active', active);
+    c.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
   saintsPanel.classList.add('open');
   spScrim.classList.add('open');
   renderSaintsPanel();
@@ -10281,33 +10309,26 @@ spSearchClearBtn.addEventListener('click', () => {
   spSearchInput.focus();
   spRenderRecent();
 });
+// All five filter options — All/Doctors/Popes/Martyrs/Patron — live in one bottom icon-tab
+// bar and share this one handler; exactly one is ever active. Patron behaves exactly as
+// before internally (spFilter==='patron' still drives the explode-by-patron logic in
+// spRows()/renderSaintsPanel()) — only the container it lives in changed.
 document.getElementById('spChips').addEventListener('click', (e) => {
   const btn = e.target.closest('.spChip');
   if(!btn) return;
   spFilter = btn.dataset.filter;
-  document.querySelectorAll('.spChip').forEach(c => c.classList.toggle('active', c === btn));
-  // Any of these four chips turns Patron mode off — it's a standalone toggle beside the
-  // search box, not a member of this mutually-exclusive group (see spPatronsBtn below).
-  spPatronsBtn.classList.remove('active');
-  spPatronsBtn.setAttribute('aria-pressed', 'false');
+  document.querySelectorAll('.spChip').forEach(c => {
+    const active = c === btn;
+    c.classList.toggle('active', active);
+    c.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
   // Doctors/Popes/Martyrs default to Year order — these are narrow, specific lists where
   // chronology usually matters more than the full-calendar Feast order. All always resets
-  // back to Feast, since it's the "back to the real calendar" option.
+  // back to Feast, since it's the "back to the real calendar" option. Patron defaults to its
+  // own Patron-column sort, same rule as before.
   if(spFilter === 'all') spSort = 'feast';
   else if(spFilter === 'doctors' || spFilter === 'popes' || spFilter === 'martyrs') spSort = 'year';
-  renderSaintsPanel();
-});
-// Patrons toggles independently of the chip row above. Turning it on shows "All" as the
-// active chip (patron view still means "no Doctors/Popes/Martyrs restriction," just exploded
-// by patron) rather than adding a fifth option inside that mutually-exclusive group.
-spPatronsBtn.addEventListener('click', () => {
-  const turningOn = spFilter !== 'patron';
-  spFilter = turningOn ? 'patron' : 'all';
-  spPatronsBtn.classList.toggle('active', turningOn);
-  spPatronsBtn.setAttribute('aria-pressed', turningOn ? 'true' : 'false');
-  document.querySelectorAll('.spChip').forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
-  if(spFilter === 'patron' && spSort === 'feast') spSort = 'patron';
-  else if(spFilter !== 'patron' && spSort === 'patron') spSort = 'feast';
+  else if(spFilter === 'patron') spSort = 'patron';
   renderSaintsPanel();
 });
 document.querySelectorAll('.spCol').forEach(btn => {
