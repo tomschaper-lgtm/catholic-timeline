@@ -1,4 +1,42 @@
 <!--
+VERSION: 229
+DATE: 2026-08-26T05:10:00-05:00
+CHANGES:
+- FIXED (regression introduced in v227): Patron view showed the previous filter's rows with
+  feast dates instead of patrons. Root cause: v227 hoisted the date-string build out of its
+  ternary into `const dateDisp` to add the "Today" label, making it evaluate for EVERY row.
+  Patron rows carry month:12 as filler (there is no 13th month), so MONTH_NAMES[12] is
+  undefined and .slice() threw a TypeError on the first patron row — aborting renderSaintsPanel()
+  before it ever assigned spListEl.innerHTML, which is why the prior list stayed frozen on
+  screen while the header label and column-hiding (which run earlier) updated correctly. The
+  expression is lazy again inside the ternary, with a comment warning not to hoist it back out.
+- Removed the gold drag-handle bar added in v227 — that was the stray "yellow bar"; the design
+  reference has no handle.
+- Today row now reads "Today \u00b7 Aug 26" / "No feast today", matching the design wording. Feast
+  column widened 58px -> 104px (header and rows in tandem) so that label actually fits.
+- Bottom filter bar restyled as a floating rounded island: inset from the panel edges with its
+  own shadow and hairline, instead of a full-bleed bar with a top border. Active pill is a warm
+  parchment-gray with gold icon and label; inactive icons/labels near-black.
+- Search field: borderless filled style on a warmer gray (#F1F0EC), rounded 16px, slightly
+  taller, muted placeholder — closer to the reference than the outlined version.
+- Today-row highlight nudged to a warmer neutral gray (#F2F2F0).
+-->
+<!--
+VERSION: 228
+DATE: 2026-08-26T04:40:00-05:00
+CHANGES:
+- Added -webkit-tap-highlight-color:transparent to .spRow — a defensive fix for the stray gold
+  left-edge accent on the "Today" row. No CSS rule anywhere in the file actually draws a
+  border-left there (searched the whole file), so this targets iOS Safari's own default tap-
+  highlight color as the likely source rather than a rule I could directly remove.
+- Patron-mode row content investigated: traced spRows()'s patron branch, spPatronsOf(), and
+  renderSaintsPanel()'s isPatronMode/firstColText logic, and ran the actual production logic
+  against mock saint data directly in Node — it correctly explodes by patron and shows patron
+  text, not dates, in isolation. Root cause not found from static review; needs a screenshot of
+  the actual broken Patron view (or exact repro steps) to pin down what's different in the live
+  app.
+-->
+<!--
 VERSION: 227
 DATE: 2026-08-26T04:20:00-05:00
 CHANGES:
@@ -2104,17 +2142,18 @@ CHANGES:
     width:19px; height:19px; color:#9AA0AC; pointer-events:none;
   }
   .spSearch{
-    flex:1 1 auto; min-width:0; margin:0; padding:10px 14px 10px 38px;
-    border:1px solid #E3E1D8; border-radius:12px;
+    flex:1 1 auto; min-width:0; margin:0; padding:12px 34px 12px 40px;
+    /* Borderless, filled — the design reads as a soft recessed field, not an outlined input. */
+    border:1px solid transparent; border-radius:16px;
     /* 16px is the floor that keeps iOS Safari from auto-zooming the whole page on focus —
        same rule as #tlSearch and the Manage form fields elsewhere in this file. This was the
        one input in the Saints panel left under that floor (15px), so focusing it was the
        "Safari zooming by accident" Tom hit. */
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:16px; color:#111827;
-    background:#F8F7F2;
-    padding-right:34px;
+    background:#F1F0EC;
   }
-  .spSearch:focus{outline:none; border-color:var(--panelBlue);}
+  .spSearch::placeholder{color:#9AA0AC;}
+  .spSearch:focus{outline:none; border-color:#DCD8CC;}
   .spSearchClear{
     position:absolute; right:6px; top:50%; transform:translateY(-50%); z-index:2;
     display:none; width:24px; height:24px; align-items:center; justify-content:center;
@@ -2146,24 +2185,28 @@ CHANGES:
     line-height:1; cursor:pointer; padding:2px 4px;
   }
   .spRecentX:hover{color:var(--panelBlue);}
-  /* Filter row: pinned to the bottom of the panel (last flex child, after .spList) as an
-     icon-over-label tab bar rather than a row of text pill-chips — All/Doctors/Popes/Martyrs/
-     Patrons all live here now as one group; Patron is no longer a separate toggle beside the
-     search box. Same spFilter values and click-handler logic as before (see the JS) — this is
-     a pure restyle of the same five options into a different container. */
+  /* Filter row: a floating rounded "island" sitting over the bottom of the panel — inset from
+     the edges with its own shadow, rather than a full-bleed bar with a top border. All five
+     options (All/Doctors/Popes/Martyrs/Patron) live here; same spFilter values and click
+     handler as before. */
   .spChips{
-    display:flex; flex:0 0 auto; padding:8px 10px calc(10px + env(safe-area-inset-bottom));
-    border-top:1px solid #EDEDED; background:#fff;
+    display:flex; flex:0 0 auto;
+    margin:6px 12px calc(10px + env(safe-area-inset-bottom));
+    padding:6px; border-radius:26px;
+    background:#fff; box-shadow:0 4px 18px rgba(20,25,40,.13), 0 0 0 1px rgba(20,25,40,.05);
   }
   .spChip{
-    flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:3px;
-    padding:6px 2px; margin:0 2px; border-radius:14px; border:none;
-    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:11px; font-weight:600;
-    background:none; color:#4B5266; cursor:pointer; white-space:nowrap;
+    flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding:8px 2px; margin:0; border-radius:20px; border:none;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:11.5px; font-weight:600;
+    background:none; color:#1B2233; cursor:pointer; white-space:nowrap;
+    -webkit-tap-highlight-color:transparent;
   }
-  .spChip svg{width:22px; height:22px;}
-  .spChip.active{background:#F3EFE0; color:var(--gold-deep, #8A6A16);}
-  .spChip.active svg{color:var(--gold-bright, #C9A542);}
+  .spChip svg{width:22px; height:22px; color:#1B2233;}
+  /* Active: warm parchment-gray pill, gold icon + label — the one place gold appears in this
+     otherwise black-on-white panel. */
+  .spChip.active{background:#F5F1E4; color:var(--gold-deep, #9A7B22);}
+  .spChip.active svg{color:var(--gold, #C9A542);}
   /* Column header bar: white background, bold sans-serif black text — same register as the
      "Saints" panel title above — rather than the earlier gold-gradient or flat dark-blue
      treatments. Feast and Year use the *same* fixed flex-basis as their .spRow counterparts
@@ -2183,7 +2226,9 @@ CHANGES:
     letter-spacing:.04em; text-transform:uppercase; color:#111827;
     cursor:pointer; display:flex; align-items:center; gap:5px;
   }
-  #spSortFeast{flex:0 0 58px; min-width:0;}
+  /* Wide enough for the "Today \u00b7 Aug 26" placeholder/today label, not just "Aug 26" —
+     header and row must stay identical or the columns drift apart. */
+  #spSortFeast{flex:0 0 104px; min-width:0;}
   #spSortName{flex:1 1 auto; min-width:0;}
   #spSortYear{flex:0 0 56px; justify-content:flex-end; min-width:0;}
   /* Patron mode swaps the shared first column from short feast dates ("Aug 25") to much
@@ -2206,6 +2251,7 @@ CHANGES:
     display:flex; align-items:center; gap:14px; padding:11px 22px;
     border-bottom:1px solid #EFEFEF; cursor:pointer;
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    -webkit-tap-highlight-color:transparent;
   }
   .spRow:active{background:#F5F4EE;}
   /* Month-boundary rule only means anything under feast-day order — under Name/Year/Patron
@@ -2213,8 +2259,8 @@ CHANGES:
      renderSaintsPanel()). There is deliberately no "start/end of year" marker anymore: feast
      order now genuinely loops (Dec -> Jan), so there is no real edge left to mark. */
   .spRow.monthStart{border-top:1px solid #C7CAD3;}
-  .spRow.today{background:#F4F4F4; font-weight:700;}
-  .spFeast{flex:0 0 58px; font-size:13px; color:#6B7280;}
+  .spRow.today{background:#F2F2F0; font-weight:700;}
+  .spFeast{flex:0 0 104px; font-size:13px; color:#6B7280;}
   .spName{flex:1 1 auto; font-size:15px; color:#111827; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   /* Distinguishes one saint's several feast-day rows from each other ("John the Baptist —
      Nativity" vs "John the Baptist — Passion") when their Feast day fact names each date. A
@@ -3467,7 +3513,6 @@ CHANGES:
        .hamMenu's slide-from-right mechanics — see saintsPanel/spScrim in the JS below. -->
   <div class="spScrim" id="spScrim"></div>
   <div class="saintsPanel" id="saintsPanel" role="dialog" aria-label="Saints">
-    <div class="draghandle spDragHandle"></div>
     <div class="panelHead">
       <span class="panelTitle">Saints</span>
       <button class="panelClose" id="spClose" aria-label="Close saints list">
@@ -4251,7 +4296,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v227';
+const APP_VERSION = 'v229';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -10201,14 +10246,19 @@ function renderSaintsPanel(){
     if(isToday) cls.push('today');
     if(r.synthetic){
       html += '<div class="'+cls.join(' ')+'">' +
-        '<span class="spFeast">Today</span>' +
-        '<span class="spName">No feast day today</span>' +
+        '<span class="spFeast">Today · '+esc(MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day)+'</span>' +
+        '<span class="spName">No feast today</span>' +
         '<span class="spYear"></span>' +
         '</div>';
       return;
     }
-    const dateDisp = isToday ? 'Today' : (MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day);
-    const firstColText = isPatronMode ? r.patron : (hasFeast ? dateDisp : '—');
+    // Kept lazy inside the ternary on purpose: patron rows carry month:12 as filler (see the
+    // patron branch of spRows()), and MONTH_NAMES has no index 12 — evaluating this eagerly
+    // for every row throws on the first patron row and aborts the render mid-flight, leaving
+    // the previous filter's list frozen on screen. Don't hoist it back out to a const.
+    const firstColText = isPatronMode
+      ? r.patron
+      : (hasFeast ? (isToday ? 'Today · ' + MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day : MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day) : '—');
     html += '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'">' +
       '<span class="spFeast">'+esc(firstColText)+'</span>' +
       '<span class="spName">'+esc(spDisplayName(r.e.n))+(r.note ? ' <span class="spNoteInline">— '+esc(r.note)+'</span>' : '')+'</span>' +
