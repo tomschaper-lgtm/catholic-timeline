@@ -1,4 +1,35 @@
 <!--
+VERSION: 236
+DATE: 2026-08-27T10:15:00-05:00
+CHANGES:
+- FIXED: tapping a Saints-panel filter chip (Doctors/Popes/Martyrs/Patron/All) now clears the
+  search box first. Previously a leftover typed term kept narrowing whichever list the chip just
+  switched to — e.g. searching "Aug" then tapping Popes showed an empty list instead of every
+  pope, which read as the chip doing nothing.
+- FIXED: swiping the article text down to scroll back up to something you'd already read could
+  accidentally close the whole card. Root cause: the fast-flick dismiss check fired on ANY hard
+  downward flick, anywhere in the story, with no check on scroll position — only the slower
+  "step" dismissal ever required being at the top of the article or on the header band. A quick
+  flick to scroll up through a long article reads exactly like that same downward flick, so it
+  was being misread as "get this card out of my way." Both dismiss paths now require the drag to
+  have STARTED at the top of the story or on the header/handle band — measured at touchstart,
+  not touchend, since passive native scrolling can already have carried scrollTop to 0 by the
+  time the finger lifts even when the gesture began mid-article. A swipe that begins scrolled
+  down into the text, however fast or however far it ends up scrolling, no longer closes the card.
+- NEW: visible circular × close button on the article card, top-right corner (#artClose /
+  .artX — the element already existed, wired to closeArticle(), but was force-hidden with
+  display:none since the card's only stated way to close was swipe-down). Swipe-to-dismiss still
+  works exactly as before; the button is just a second, more discoverable way to do the same
+  thing. Wrapped together with the existing drag-handle pill in a new zero-height sticky
+  container (.artTopBar) so the button stays pinned near the top of the card at any scroll
+  depth, the same technique #artHandle already used for the swipe band — a plain
+  position:absolute button, as it was written before, would have scrolled away with the rest of
+  the card's content the moment the reader scrolled past the first screen. On entries with a
+  photo, the button shifts left (fillArticleBody() toggles a .hasPortrait class on #article
+  itself) so the corner portrait — present from the very first frame in peek mode, not just
+  after scrolling — never covers it.
+-->
+<!--
 VERSION: 235
 DATE: 2026-08-26T09:05:00-05:00
 CHANGES:
@@ -2922,12 +2953,29 @@ CHANGES:
     border:1px solid var(--gold); border-radius:16px; padding:6px 14px; cursor:pointer;
   }
   .artback:hover{background:var(--gold); color:var(--navy-deep);}
+  /* Wraps #artHandle and #artClose together. Sticky (not the overlay's default static flow),
+     pinned to top:0 of #article's own scrollport — the exact same technique #artHandle already
+     relies on for the swipe-band, extended here to keep the close button visible too, at any
+     scroll depth. Zero height of its own: it's just a positioning anchor for its absolutely-
+     positioned .artX child; #artHandle supplies its own height via its own (also sticky) box. */
+  .artTopBar{position:sticky; top:0; left:0; right:0; height:0; z-index:21;}
   .artX{
-    position:absolute; top:10px; right:14px; z-index:20;
-    width:30px; height:30px; display:flex; align-items:center; justify-content:center;
-    background:none; border:none; color:#fff; font-size:23px; line-height:1; cursor:pointer;
+    position:absolute; top:10px; right:14px; z-index:22;
+    width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+    background:rgba(10,20,48,.6); border:1.5px solid var(--gold); border-radius:50%;
+    color:#fff; font-size:22px; line-height:1; cursor:pointer;
+    transition:right .2s ease, background .15s ease, border-color .15s ease;
   }
-  .artX:hover{color:var(--gold-bright);}
+  .artX:hover{background:var(--gold); border-color:var(--gold-bright); color:var(--navy-deep);}
+  /* The corner portrait (#flyPortrait) rides in this same top-right corner once an entry has a
+     photo — present from the very first frame in peek mode, not just after scrolling (see
+     placePeekFly()). Shifting the button left of it, keyed off the .hasPortrait class
+     fillArticleBody() toggles on #article itself, keeps the X from ever landing under the
+     photo. 136px clears the corner badge's typical ~104px width plus its 20px inset (FLY_INSET)
+     with a small buffer — same reasoning as the 120px reserved for text in
+     .artSticky.hasPortrait .ahHead below, just a little roomier since a button needs a clean
+     gap rather than just non-overlapping text. */
+  #article.hasPortrait .artX{right:136px;}
   /* Appears in the sticky header only while there's cross-reference navigation history to
      unwind (see articleBackStack); pops one level per tap, and is gone once the stack is
      empty or the article is closed. touch-action:auto so a tap isn't swallowed by the
@@ -2992,8 +3040,10 @@ CHANGES:
   #artStoryText{touch-action:manipulation;}
   /* v205: the old inline sticky scrubber (.artPlayerWrap/.player/.pbtn) is gone, replaced by
      the fixed .audioBottomBar below. */
-  /* Share and close buttons hidden for now — swipe down to close. */
-  .artShareBtn, .artX{display:none;}
+  /* Share button hidden for now — not yet implemented. Close (.artX) is visible — see its own
+     rule above — swipe-down-to-close still works too; the button is just a second, discoverable
+     way to do the same thing. */
+  .artShareBtn{display:none;}
   .artbadges{display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
   .artrule{width:min(360px,60%); height:1px; margin:18px auto; background:linear-gradient(90deg,transparent,var(--gold),transparent);}
   .arth{font-family:'Cinzel',serif; font-size:calc(15px * var(--txt)); letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:26px 0 8px; border-bottom:1px solid rgba(201,165,66,.35); padding-bottom:5px;}
@@ -3789,8 +3839,12 @@ CHANGES:
 
 <div class="overlay" id="article">
   <div class="audioActiveBar" id="audioActiveBar"></div>
-  <div class="draghandle" id="artHandle"></div>
-  <button class="artX" id="artClose" aria-label="Close">×</button>
+  <!-- Sticky (not absolute) so the close button stays pinned near the top of the card at any
+       scroll position, the same way #artHandle already does — see .artTopBar's CSS comment. -->
+  <div class="artTopBar" id="artTopBar">
+    <div class="draghandle" id="artHandle"></div>
+    <button class="artX" id="artClose" aria-label="Close">×</button>
+  </div>
   <button class="artShareBtn" id="artShareBtn" aria-label="Share">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 3v12"/>
@@ -4493,7 +4547,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v235';
+const APP_VERSION = 'v236';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5286,7 +5340,7 @@ function navigateStory(direction){
   // Distance alone cannot tell "put this away" from "read further up": both are a downward
   // drag. Speed can, so the card reads velocity as well as distance. Every threshold lives
   // in GEST (see "Card gesture tuning" above) so it can be adjusted on a real device.
-  let startY = null, startX = null, fromHeader = false, samples = [];
+  let startY = null, startX = null, fromHeader = false, samples = [], startScrollTop = 0;
 
   artEl.addEventListener('touchstart', (e) => {
     if(e.touches.length !== 1) return;
@@ -5299,6 +5353,15 @@ function navigateStory(direction){
     startY = e.touches[0].clientY;
     startX = e.touches[0].clientX;
     samples = [{y: startY, t: performance.now()}];
+    // Recorded at the START of the gesture, not read back at touchend: native scrolling during
+    // a passive touchmove has often already moved scrollTop by the time the finger lifts, so a
+    // reader mid-article who flicks down to scroll back UP toward the top can land at
+    // scrollTop≈0 by touchend even though the gesture began well below the top. Using the
+    // touchend scrollTop there made that ordinary "scroll to the top" flick misread as "already
+    // at the top, dismiss" and close the card out from under the reader. Basing atTop on where
+    // the drag STARTED fixes that: a swipe beginning mid-article is never treated as a dismiss,
+    // no matter how fast it ends up scrolling or where it happens to stop.
+    startScrollTop = artEl.scrollTop;
     // A gesture begun anywhere in the sticky header band — the year/name area, the quick-facts
     // strip, or the drag-handle pill and its padding above them — is treated as a handle drag:
     // that whole band doesn't scroll (touch-action:none on both .artSticky and #artHandle), so
@@ -5338,7 +5401,7 @@ function navigateStory(direction){
     const dy = endY - startY, dx = endX - startX;
     const v = endVelocity();
     const wasHeader = fromHeader;
-    const atTop = artEl.scrollTop <= 4;
+    const atTop = startScrollTop <= 4;
     startY = null; fromHeader = false; samples = [];
 
     // Flick up out of the peek card expands it to the full story — slower/smoother than a
@@ -5353,10 +5416,13 @@ function navigateStory(direction){
     }
 
     const vertical = Math.abs(dx) < Math.abs(dy);
-    // A hard downward fling means "get this out of my way": the card goes, wherever the
-    // reader happens to be in the text and without pausing at the preview. Dismissed fast,
-    // to match the force of the gesture.
-    if(vertical && dy > GEST.dyFling && v >= GEST.vFling){
+    // A hard downward fling means "get this out of my way" — but only when the drag actually
+    // started at the top of the story (nothing left above to scroll to) or on the header band
+    // itself. Without the (wasHeader || atTop) guard here, a fast flick used to scroll UP
+    // through the middle of a long article — a completely ordinary reading gesture — read as
+    // "anywhere in the text" and dismissed the card out from under the reader. Matches the
+    // guard the slower "step" dismissal below already uses.
+    if(vertical && dy > GEST.dyFling && v >= GEST.vFling && (wasHeader || atTop)){
       recordGesture('dismiss (flick)');
       closeArticle({fast: true});
       return;
@@ -6378,6 +6444,11 @@ function peekSnippet(html, maxLen){
 function fillArticleBody(d, peek){
   const art = d.art || {sections:[], quotes:[], links:[]};
   const hasImg = !!d.img;
+  // Lets the persistent #artClose button (outside this re-rendered HTML, see .artTopBar/.artX
+  // CSS) know whether the corner portrait is present on THIS entry, so it can shift itself out
+  // from under the photo. Mirrors the hasImg flag already used just below for .artSticky's own
+  // "hasPortrait" class on the (regenerated) sticky header.
+  article.classList.toggle('hasPortrait', hasImg);
   let html = '';
   // Sticky header — year, name, taper rule and corner portrait, laid out exactly like the
   // teaser card. It has no border of its own: the article sheet is already a bordered card.
@@ -10685,6 +10756,14 @@ spSearchClearBtn.addEventListener('click', () => {
 document.getElementById('spChips').addEventListener('click', (e) => {
   const btn = e.target.closest('.spChip');
   if(!btn) return;
+  // The search box must be cleared before a filter chip is applied — otherwise a leftover
+  // typed term keeps narrowing the newly-selected filter's list in a way that looks like the
+  // chip "did nothing" (e.g. searching "Aug" then tapping Popes shows zero rows instead of
+  // every pope). Mirrors spSearchClearBtn's own clear logic minus the refocus/recent-list bits,
+  // which don't belong here since the chip itself, not the search box, was what was tapped.
+  spQuery = '';
+  spSearchInput.value = '';
+  spSearchClearBtn.classList.remove('show');
   spFilter = btn.dataset.filter;
   document.querySelectorAll('.spChip').forEach(c => {
     const active = c === btn;
