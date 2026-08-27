@@ -1,4 +1,18 @@
 <!--
+VERSION: 232
+DATE: 2026-08-26T07:35:00-05:00
+CHANGES:
+- Title rework: the separate gray subtitle line under "Saints" is gone. Every filter/sort
+  combination now renders as one continuous two-font title line instead — "Saints" (or
+  "Saint's" for the feast case) in the original bold black, the rest in the same italic gold
+  script as "Timeline" in the header logo. Patron mode's "Saints Patrons" folds into this same
+  single computation rather than being a special case.
+- Thumb-slider widened ~4x (5px -> 16px) into a real pill, gold and translucent, matching a
+  provided mockup — it can now sit over the row's Year numbers on purpose, staying legible
+  underneath rather than avoiding them. Drag bubble switched from a rounded-rect chat-bubble
+  shape to a circle, matching the same mockup.
+-->
+<!--
 VERSION: 231
 DATE: 2026-08-26T07:00:00-05:00
 CHANGES:
@@ -2313,32 +2327,34 @@ CHANGES:
   .spCol.active .arrow{visibility:visible;}
   .spListWrap{position:relative; flex:1 1 auto; min-height:0; display:flex;}
   .spList{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch;}
-  /* Scrub track: a thin persistent rail on the right edge with a draggable thumb, working for
-     any sort order (Feast/Name/Year/Patron alike) since it's just a proportional position on
-     the scrollable range, not a fixed alphabet. Overlays the row's own existing right padding
-     rather than reserving new space. Shown whenever there's enough content to actually scroll
-     — see spThumbEligible(). */
+  /* Scrub track: a persistent rail on the right edge with a draggable thumb, working for any
+     sort order (Feast/Name/Year/Patron alike) since it's just a proportional position on the
+     scrollable range, not a fixed alphabet. Widened to a real pill per feedback — it can sit
+     over the row's Year numbers, translucent so they stay legible underneath. Shown whenever
+     there's enough content to actually scroll — see spThumbEligible(). */
   .spThumbTrack{
-    display:none; position:absolute; right:3px; top:4px; bottom:4px; width:5px;
-    border-radius:3px; background:rgba(20,25,40,.07); z-index:4; touch-action:none;
+    display:none; position:absolute; right:3px; top:4px; bottom:4px; width:16px;
+    border-radius:8px; background:rgba(20,25,40,.07); z-index:4; touch-action:none;
   }
   .saintsPanel.hasThumb .spThumbTrack{display:block;}
   .spThumb{
-    position:absolute; left:0; width:5px; height:40px; border-radius:3px;
-    background:var(--panelBlue); opacity:.5;
-    transition:width .15s, left .15s, opacity .15s;
+    position:absolute; left:0; width:16px; height:110px; border-radius:8px;
+    background:var(--gold, #C9A542); opacity:.5;
+    transition:opacity .15s;
   }
-  .spThumbTrack.dragging .spThumb{width:8px; left:-1.5px; opacity:.95;}
+  .spThumbTrack.dragging .spThumb{opacity:.85;}
   /* Large letter/year/date bubble that tracks the finger while dragging — hidden again on
      release, per spec, leaving just the thumb sitting at its resting position. */
   .spThumbLabel{
-    display:none; position:absolute; right:26px; z-index:5;
-    background:#1B2233; color:#fff; font-weight:700; font-size:21px;
-    padding:8px 16px; border-radius:14px; box-shadow:0 6px 18px rgba(0,0,0,.28);
+    display:none; position:absolute; right:22px; z-index:5;
+    width:46px; height:46px; border-radius:50%;
+    background:#1B2233; color:#fff; font-weight:700; font-size:18px;
+    align-items:center; justify-content:center;
+    box-shadow:0 6px 18px rgba(0,0,0,.28);
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
     white-space:nowrap; pointer-events:none; transform:translateY(-50%);
   }
-  .spThumbLabel.show{display:block;}
+  .spThumbLabel.show{display:flex;}
   .spRow{
     display:flex; align-items:center; gap:8px; padding:11px 22px;
     border-bottom:1px solid #EFEFEF; cursor:pointer;
@@ -2369,7 +2385,7 @@ CHANGES:
   .spEmpty{padding:30px 22px; text-align:center; color:#8A90A0; font-size:14px;}
 
   .panelHead{
-    display:flex; align-items:flex-start; justify-content:space-between;
+    display:flex; align-items:center; justify-content:space-between;
     padding:0 22px 18px;
   }
   .spTitleWrap{min-width:0;}
@@ -2378,20 +2394,16 @@ CHANGES:
     font-size:26px; font-weight:700; letter-spacing:-.01em; color:#111827;
   }
   /* Mirrors the header's own h1 .t1/.t2 treatment ("CATHOLIC" bold serif + "Timeline" italic
-     gold script) — hidden by default, shown only in Patron mode via the same .patronMode class
-     toggle renderSaintsPanel() already sets on .saintsPanel for the column-width rules. */
+     gold script), applied to every filter/sort combination now, not just Patron mode — the
+     whole title line ("Saints" + whatever the current view is) is one continuous sentence in
+     two fonts, replacing the separate gray subtitle line from a previous pass. JS sets
+     #spTitleSecond's text on every render (see renderSaintsPanel()); this class only carries
+     the font/color, no visibility toggle needed since it's always populated.
+  */
   .spTitleSecond{
     font-family:'EB Garamond',Georgia,serif; font-style:italic; font-weight:600;
-    color:var(--gold, #C9A542); display:none;
+    color:var(--gold, #C9A542);
   }
-  .saintsPanel.patronMode .spTitleSecond{display:inline;}
-  /* Only shown for the All filter (see renderSaintsPanel()) — a one-line description of the
-     current sort order: "Saint feast days" / "Saints by name" / "Saints through the ages". */
-  .spSubtitle{
-    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
-    font-size:12.5px; color:#9AA0AC; margin-top:3px; display:none;
-  }
-  .spSubtitle.show{display:block;}
   .panelClose{
     width:34px; height:34px; margin-right:-6px; padding:0; flex:0 0 auto;
     background:none; border:none; cursor:pointer; color:#111827;
@@ -3630,8 +3642,7 @@ CHANGES:
   <div class="saintsPanel" id="saintsPanel" role="dialog" aria-label="Saints">
     <div class="panelHead">
       <div class="spTitleWrap">
-        <span class="panelTitle">Saints<em class="spTitleSecond"> Patrons</em></span>
-        <div class="spSubtitle" id="spSubtitle"></div>
+        <span class="panelTitle"><span id="spTitleFirst">Saints</span><em class="spTitleSecond" id="spTitleSecond"></em></span>
       </div>
       <button class="panelClose" id="spClose" aria-label="Close saints list">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
@@ -4418,7 +4429,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v231';
+const APP_VERSION = 'v232';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -10165,7 +10176,8 @@ const spThumbTrack = document.getElementById('spThumbTrack');
 const spThumb = document.getElementById('spThumb');
 const spThumbLabel = document.getElementById('spThumbLabel');
 const spListWrapEl = document.getElementById('spListWrap');
-const spSubtitleEl = document.getElementById('spSubtitle');
+const spTitleFirstEl = document.getElementById('spTitleFirst');
+const spTitleSecondEl = document.getElementById('spTitleSecond');
 let spSort = 'feast', spFilter = 'all', spQuery = '';
 // Filter/sort/scroll position from the last time the panel was closed, so reopening lands back
 // where you left off rather than always resetting to the default view — search is deliberately
@@ -10418,21 +10430,28 @@ function renderSaintsPanel(){
     baseRows.splice(insertAt, 0, {e: null, month: todayMonth, day: todayDay, synthetic: true});
   }
   const N = baseRows.length;
-  // Subtitle: fixed per filter for Doctors/Popes/Martyrs regardless of sort; for All, it
-  // further varies by which of the three sorts is active.
-  let subtitle = '';
-  if(spFilter === 'doctors') subtitle = "Saints Doctors of the Church";
-  else if(spFilter === 'popes') subtitle = "Saints Vicar of Christ";
-  else if(spFilter === 'martyrs') subtitle = "Saints Martyrs of the Faith";
+  // Title: the whole "Saints [...]" line is one continuous sentence in two fonts (mirrors the
+  // header's "CATHOLIC Timeline" treatment) — fixed per filter for Doctors/Popes/Martyrs/
+  // Patron regardless of sort; for All, it further varies by which of the three sorts is
+  // active. "Saints" alone is the only fallback, never left blank.
+  let titlePhrase = 'Saints';
+  if(spFilter === 'doctors') titlePhrase = "Saints Doctors of the Church";
+  else if(spFilter === 'popes') titlePhrase = "Saints Vicar of Christ";
+  else if(spFilter === 'martyrs') titlePhrase = "Saints Martyrs of the Faith";
+  else if(spFilter === 'patron') titlePhrase = "Saints Patrons";
   else if(spFilter === 'all'){
     const map = {feast: "Saint's Feast Day", name: "Saints by Name", year: "Saints Through the Ages"};
-    subtitle = map[spSort] || '';
+    titlePhrase = map[spSort] || 'Saints';
   }
-  if(subtitle){
-    spSubtitleEl.textContent = subtitle;
-    spSubtitleEl.classList.add('show');
+  // Split on the first space: the first word ("Saints"/"Saint's") stays plain bold black, the
+  // rest becomes the italic gold second part.
+  const spaceIdx = titlePhrase.indexOf(' ');
+  if(spaceIdx === -1){
+    spTitleFirstEl.textContent = titlePhrase;
+    spTitleSecondEl.textContent = '';
   } else {
-    spSubtitleEl.classList.remove('show');
+    spTitleFirstEl.textContent = titlePhrase.slice(0, spaceIdx);
+    spTitleSecondEl.textContent = ' ' + titlePhrase.slice(spaceIdx + 1);
   }
   // Feast order genuinely loops the calendar (Dec -> Jan) instead of stopping dead at
   // whatever happens to be first/last in the list — but only for the true, complete calendar:
