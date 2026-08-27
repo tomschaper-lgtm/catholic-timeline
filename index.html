@@ -1,4 +1,14 @@
 <!--
+VERSION: 238
+DATE: 2026-08-27T11:35:00-05:00
+CHANGES:
+- Close button (.artX) tap target widened from 44x44 to 60x60 — the glyph itself is unchanged
+  (still 32px), only the invisible hit box around it grew, so the X looks identical but no
+  longer needs a finger placed precisely on the mark to register. top/right recomputed so the
+  glyph's on-screen center didn't visibly shift versus the old smaller box. FLY_ARTX_BASE (the
+  JS constant setArtXShift() uses as its resting "right" value) updated to match.
+-->
+<!--
 VERSION: 237
 DATE: 2026-08-27T11:05:00-05:00
 CHANGES:
@@ -2976,14 +2986,23 @@ CHANGES:
      positioned .artX child; #artHandle supplies its own height via its own (also sticky) box. */
   .artTopBar{position:sticky; top:0; left:0; right:0; height:0; z-index:21;}
   /* No circle/box — a plain, larger glyph, since the request was specifically "bigger X without
-     the circle." Its "right" offset is NOT set here beyond a resting default: setArtXShift() (JS,
-     near the FLY_ARTX_* constants) drives it directly via inline style, sliding it left in step
-     with the corner portrait's own flight (see updateFly()/placePeekFlyNow()) rather than jumping
-     there the instant an entry merely has a photo. text-shadow keeps the white glyph legible with
-     no background of its own, over article art or the plain navy backdrop alike. */
+     the circle." The GLYPH stays 32px (unchanged, since that's the look that was approved) but
+     the tappable box around it is considerably bigger than the glyph itself — flex-centered, so
+     the extra room is invisible padding on every side, not a visible enlargement. This is what
+     actually fixes "takes a few tries to hit": at 44x44 a finger landing even a few px off the
+     glyph itself (which visually reads as much smaller than that) could miss the box entirely;
+     60x60 gives real margin for error while the X on screen looks exactly the same size.
+     top/right recomputed so the GLYPH's on-screen center stays put versus the old 44x44 box
+     (old center: top 8+22=30, right 14+22=36 → new top 2+30=32, right 6+30=36), not shifted a
+     visible amount by growing the invisible box around it.
+     "right" offset is NOT set here beyond this resting default: setArtXShift() (JS, near the
+     FLY_ARTX_* constants) drives it via inline style, sliding it left in step with the corner
+     portrait's own flight (see updateFly()/placePeekFlyNow()) rather than jumping there the
+     instant an entry merely has a photo. text-shadow keeps the white glyph legible with no
+     background of its own, over article art or the plain navy backdrop alike. */
   .artX{
-    position:absolute; top:8px; right:14px; z-index:22;
-    width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+    position:absolute; top:2px; right:6px; z-index:22;
+    width:60px; height:60px; display:flex; align-items:center; justify-content:center;
     background:none; border:none; color:#fff; font-size:32px; font-weight:300; line-height:1;
     cursor:pointer; text-shadow:0 1px 5px rgba(0,0,0,.65), 0 0 12px rgba(0,0,0,.35);
   }
@@ -4559,7 +4578,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v237';
+const APP_VERSION = 'v238';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7848,9 +7867,11 @@ const FLY_MIN = 70, FLY_MAX = 156; // clamp so extreme photo aspect ratios still
 const FLY_OVERHANG = 24;          // how far it rises above the card's top border
 const FLY_INSET = 20;             // gap from the card's right edge
 const FLY_DELAY = 48;             // scroll this far first, so a nudge doesn't start the flight
-// Where the close button (#artClose) rests when there's no corner portrait to dodge (BASE), and
-// how far left it slides once the portrait has fully landed (SHIFTED) — see setArtXShift().
-const FLY_ARTX_BASE = 14, FLY_ARTX_SHIFTED = 136;
+// Where the close button (#artClose) rests when there's no corner portrait to dodge (BASE — must
+// match .artX's own CSS "right", since this JS value overrides it via inline style the moment
+// setArtXShift() first runs), and how far left it slides once the portrait has fully landed
+// (SHIFTED) — see setArtXShift().
+const FLY_ARTX_BASE = 6, FLY_ARTX_SHIFTED = 136;
 // Slides the close button out from under the corner portrait as the portrait itself arrives,
 // rather than jumping there the moment an entry merely has a photo. amt is 0 (photo not there
 // yet — or no photo at all — button sits at the plain top-right corner) through 1 (photo fully
