@@ -1,4 +1,24 @@
 <!--
+VERSION: 231
+DATE: 2026-08-26T07:00:00-05:00
+CHANGES:
+- FIXED: Name/data misalignment — #spSortFeast (header) had been narrowed to 64px in v230, but
+  the matching row rule .spFeast was never updated and was still sitting at the old 104px.
+  Header and row now both 64px again.
+- Subtitle line rewritten with exact copy and a filter-first rule: Doctors/Popes/Martyrs show a
+  fixed phrase regardless of sort ("Saints Doctors of the Church" / "Saints Vicar of Christ" /
+  "Saints Martyrs of the Faith"); All varies by sort ("Saint's Feast Day" / "Saints by Name" /
+  "Saints Through the Ages").
+- Replaced the A-Z letter list entirely with a thumb-slider: a thin persistent track with a
+  draggable handle. Dragging shows a large floating bubble above the finger with whatever's
+  relevant to the current sort — a letter for Name/Patron, the year for Year, the date for
+  Feast — each row now carries its own data-label at render time for the bubble to read.
+  Releasing hides the bubble but leaves the thumb sitting at its resting position, and it stays
+  in sync if the list is scrolled normally instead. Works for every sort order, not just the
+  alphabetical ones, so it's shown whenever there's simply enough content to scroll — no more
+  filter/sort eligibility rule.
+-->
+<!--
 VERSION: 230
 DATE: 2026-08-26T06:10:00-05:00
 CHANGES:
@@ -2293,21 +2313,32 @@ CHANGES:
   .spCol.active .arrow{visibility:visible;}
   .spListWrap{position:relative; flex:1 1 auto; min-height:0; display:flex;}
   .spList{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch;}
-  /* Overlays the row's own existing right padding (.spRow has 22px, nothing renders there past
-     the Year column) rather than reserving new space, so nothing else has to shift. Only shown
-     for the two alphabetically-sortable orders (Name/Patron) via .saintsPanel.hasIndex — see
-     the eligibility rule in renderSaintsPanel(). */
-  .spIndexBar{
-    display:none; position:absolute; right:1px; top:4px; bottom:4px; width:20px;
-    flex-direction:column; align-items:center; justify-content:center; z-index:3;
-    touch-action:none;
+  /* Scrub track: a thin persistent rail on the right edge with a draggable thumb, working for
+     any sort order (Feast/Name/Year/Patron alike) since it's just a proportional position on
+     the scrollable range, not a fixed alphabet. Overlays the row's own existing right padding
+     rather than reserving new space. Shown whenever there's enough content to actually scroll
+     — see spThumbEligible(). */
+  .spThumbTrack{
+    display:none; position:absolute; right:3px; top:4px; bottom:4px; width:5px;
+    border-radius:3px; background:rgba(20,25,40,.07); z-index:4; touch-action:none;
   }
-  .saintsPanel.hasIndex .spIndexBar{display:flex;}
-  .spIndexLetter{
+  .saintsPanel.hasThumb .spThumbTrack{display:block;}
+  .spThumb{
+    position:absolute; left:0; width:5px; height:40px; border-radius:3px;
+    background:var(--panelBlue); opacity:.5;
+    transition:width .15s, left .15s, opacity .15s;
+  }
+  .spThumbTrack.dragging .spThumb{width:8px; left:-1.5px; opacity:.95;}
+  /* Large letter/year/date bubble that tracks the finger while dragging — hidden again on
+     release, per spec, leaving just the thumb sitting at its resting position. */
+  .spThumbLabel{
+    display:none; position:absolute; right:26px; z-index:5;
+    background:#1B2233; color:#fff; font-weight:700; font-size:21px;
+    padding:8px 16px; border-radius:14px; box-shadow:0 6px 18px rgba(0,0,0,.28);
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
-    font-size:10px; font-weight:700; color:#9AA0AC; line-height:1; padding:1.5px 0;
+    white-space:nowrap; pointer-events:none; transform:translateY(-50%);
   }
-  .spIndexLetter.active{color:var(--panelBlue);}
+  .spThumbLabel.show{display:block;}
   .spRow{
     display:flex; align-items:center; gap:8px; padding:11px 22px;
     border-bottom:1px solid #EFEFEF; cursor:pointer;
@@ -2328,7 +2359,7 @@ CHANGES:
      order now genuinely loops (Dec -> Jan), so there is no real edge left to mark. */
   .spRow.monthStart{border-top:1px solid #C7CAD3;}
   .spRow.today{background:#F2F2F0; font-weight:700;}
-  .spFeast{flex:0 0 104px; font-size:13px; color:#6B7280;}
+  .spFeast{flex:0 0 64px; font-size:13px; color:#6B7280;}
   .spName{flex:1 1 auto; font-size:15px; color:#111827; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   /* Distinguishes one saint's several feast-day rows from each other ("John the Baptist —
      Nativity" vs "John the Baptist — Passion") when their Feast day fact names each date. A
@@ -3617,9 +3648,10 @@ CHANGES:
       <button class="spCol" id="spSortName" data-sort="name">Name <span class="arrow">▲</span></button>
       <button class="spCol" id="spSortYear" data-sort="year">Year <span class="arrow">▲</span></button>
     </div>
-    <div class="spListWrap">
+    <div class="spListWrap" id="spListWrap">
       <div class="spList" id="spList"></div>
-      <div class="spIndexBar" id="spIndexBar"></div>
+      <div class="spThumbTrack" id="spThumbTrack"><div class="spThumb" id="spThumb"></div></div>
+      <div class="spThumbLabel" id="spThumbLabel"></div>
     </div>
     <div class="spChips" id="spChips">
       <button class="spChip active" data-filter="all" aria-pressed="true">
@@ -4386,7 +4418,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v230';
+const APP_VERSION = 'v231';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -10129,7 +10161,10 @@ const spListEl = document.getElementById('spList');
 const spSearchInput = document.getElementById('spSearch');
 const spSearchClearBtn = document.getElementById('spSearchClear');
 const spRecentBox = document.getElementById('spRecentBox');
-const spIndexBar = document.getElementById('spIndexBar');
+const spThumbTrack = document.getElementById('spThumbTrack');
+const spThumb = document.getElementById('spThumb');
+const spThumbLabel = document.getElementById('spThumbLabel');
+const spListWrapEl = document.getElementById('spListWrap');
 const spSubtitleEl = document.getElementById('spSubtitle');
 let spSort = 'feast', spFilter = 'all', spQuery = '';
 // Filter/sort/scroll position from the last time the panel was closed, so reopening lands back
@@ -10285,50 +10320,77 @@ function spRows(){
   });
   return out;
 }
-// ---- A-Z index scroll (like iOS Contacts) ----
-// Only meaningful for the two alphabetically-sortable orders — Feast order isn't alphabetical,
-// and Doctors/Popes/Martyrs are narrow enough lists that a jump-index doesn't earn its keep.
-function spIndexEligible(){
-  return (spSort === 'name' || spSort === 'patron')
-    && spFilter !== 'doctors' && spFilter !== 'popes' && spFilter !== 'martyrs';
+// ---- Scrub thumb-slider (works for any sort order) ----
+// A drag on the track scrolls proportionally and shows a large label — the letter for Name/
+// Patron, the year for Year, the date for Feast — above the finger. On release the label
+// disappears but the thumb stays put at its resting position, like a normal scrollbar thumb.
+function spThumbEligible(){
+  return spListEl.scrollHeight > spListEl.clientHeight + 20;
 }
-// One entry per distinct first letter, pointing at that letter's first row — baseRows is
-// already sorted, so every row sharing a letter is contiguous and this only needs to watch for
-// the letter changing, not build/sort a separate structure.
-function spBuildIndex(baseRows, isPatronMode){
-  const out = [];
-  let last = '';
-  baseRows.forEach((r, i) => {
-    const key = isPatronMode ? (r.patron || '') : spDisplayName(r.e.n);
-    const first = key.trim().charAt(0).toUpperCase();
-    if(first && first !== last){
-      out.push({letter: first, index: i});
-      last = first;
-    }
-  });
-  return out;
+// The scrollable range the thumb represents. Feast+All+no-search loops through three
+// back-to-back copies of the list (see the loop comment in renderSaintsPanel()) — the thumb
+// should represent one trip through the real calendar, not the 3x-duplicated DOM, so it maps
+// to the middle copy's own range specifically rather than spListEl's full scrollHeight.
+function spThumbRange(){
+  if(spLoopable && spCopyHeight > 0){
+    return {min: spCopyHeight, max: Math.max(spCopyHeight, 2 * spCopyHeight - spListEl.clientHeight)};
+  }
+  return {min: 0, max: Math.max(0, spListEl.scrollHeight - spListEl.clientHeight)};
 }
-function spScrollToIndexAtY(clientY){
-  const letters = spIndexBar.querySelectorAll('.spIndexLetter');
-  if(!letters.length) return;
-  const rect = spIndexBar.getBoundingClientRect();
-  let rel = (clientY - rect.top) / rect.height;
-  rel = Math.max(0, Math.min(0.999, rel));
-  const el = letters[Math.floor(rel * letters.length)];
-  if(!el) return;
-  const rowEl = spListEl.children[parseInt(el.dataset.idx, 10)];
-  if(rowEl) spListEl.scrollTop = rowEl.offsetTop;
-  letters.forEach(l => l.classList.toggle('active', l === el));
+function spSyncThumbPosition(){
+  const {min, max} = spThumbRange();
+  const usable = Math.max(1, spThumbTrack.clientHeight - spThumb.offsetHeight);
+  const rel = max > min ? (spListEl.scrollTop - min) / (max - min) : 0;
+  spThumb.style.top = (Math.max(0, Math.min(1, rel)) * usable) + 'px';
 }
-spIndexBar.addEventListener('touchstart', (e) => { spScrollToIndexAtY(e.touches[0].clientY); e.preventDefault(); }, {passive: false});
-spIndexBar.addEventListener('touchmove', (e) => { spScrollToIndexAtY(e.touches[0].clientY); e.preventDefault(); }, {passive: false});
-spIndexBar.addEventListener('touchend', () => { spIndexBar.querySelectorAll('.spIndexLetter.active').forEach(l => l.classList.remove('active')); });
-spIndexBar.addEventListener('click', (e) => {
-  const el = e.target.closest('.spIndexLetter');
-  if(!el) return;
-  const rowEl = spListEl.children[parseInt(el.dataset.idx, 10)];
-  if(rowEl) spListEl.scrollTop = rowEl.offsetTop;
-});
+// Each row carries its own data-label (set at render time — see renderSaintsPanel()) with
+// whatever the scrub bubble should show for the CURRENT sort: a letter, a year, or a date.
+// Reading it straight off the row is simpler and more robust than re-deriving it here.
+function spFindRowLabelAtScrollTop(scrollTop){
+  const rows = spListEl.children;
+  for(let i = 0; i < rows.length; i++){
+    if(rows[i].offsetTop >= scrollTop - 2) return rows[i].dataset.label || '';
+  }
+  return rows.length ? (rows[rows.length - 1].dataset.label || '') : '';
+}
+function spThumbDragTo(clientY){
+  const trackRect = spThumbTrack.getBoundingClientRect();
+  const usable = Math.max(1, trackRect.height - spThumb.offsetHeight);
+  let rel = (clientY - trackRect.top - spThumb.offsetHeight / 2) / usable;
+  rel = Math.max(0, Math.min(1, rel));
+  const {min, max} = spThumbRange();
+  const target = min + rel * (max - min);
+  spListEl.scrollTop = target;
+  spThumb.style.top = (rel * usable) + 'px';
+  const wrapRect = spListWrapEl.getBoundingClientRect();
+  spThumbLabel.textContent = spFindRowLabelAtScrollTop(target);
+  spThumbLabel.style.top = (clientY - wrapRect.top) + 'px';
+}
+let spThumbDragging = false;
+function spThumbStart(e){
+  spThumbDragging = true;
+  spThumbTrack.classList.add('dragging');
+  spThumbLabel.classList.add('show');
+  spThumbDragTo(e.touches ? e.touches[0].clientY : e.clientY);
+  e.preventDefault();
+}
+function spThumbMove(e){
+  if(!spThumbDragging) return;
+  spThumbDragTo(e.touches ? e.touches[0].clientY : e.clientY);
+  e.preventDefault();
+}
+function spThumbEnd(){
+  spThumbDragging = false;
+  spThumbTrack.classList.remove('dragging');
+  spThumbLabel.classList.remove('show');
+}
+spThumbTrack.addEventListener('touchstart', spThumbStart, {passive: false});
+spThumbTrack.addEventListener('touchmove', spThumbMove, {passive: false});
+spThumbTrack.addEventListener('touchend', spThumbEnd);
+spThumbTrack.addEventListener('touchcancel', spThumbEnd);
+// Keeps the thumb in sync when the list is scrolled normally (a swipe on the rows themselves,
+// not a drag on the thumb) — cheap enough to run on every scroll event.
+spListEl.addEventListener('scroll', () => { if(!spThumbDragging) spSyncThumbPosition(); }, {passive: true});
 function renderSaintsPanel(){
   const isPatronMode = spFilter === 'patron';
   saintsPanel.classList.toggle('patronMode', isPatronMode); // widens the shared first column for patron text — see CSS
@@ -10356,17 +10418,18 @@ function renderSaintsPanel(){
     baseRows.splice(insertAt, 0, {e: null, month: todayMonth, day: todayDay, synthetic: true});
   }
   const N = baseRows.length;
-  // A-Z index scroll — only for Name/Patron order (never Feast, which isn't loopable anyway
-  // when this is eligible, so baseRows' indices map 1:1 to actual DOM children below).
-  const indexEligible = spIndexEligible();
-  saintsPanel.classList.toggle('hasIndex', indexEligible);
-  spIndexBar.innerHTML = indexEligible
-    ? spBuildIndex(baseRows, isPatronMode).map(e => '<span class="spIndexLetter" data-idx="' + e.index + '">' + esc(e.letter) + '</span>').join('')
-    : '';
-  // Subtitle: only for the All filter, describing the current sort order in plain language.
-  const subtitleMap = {feast: 'Saint feast days', name: 'Saints by name', year: 'Saints through the ages'};
-  if(spFilter === 'all' && subtitleMap[spSort]){
-    spSubtitleEl.textContent = subtitleMap[spSort];
+  // Subtitle: fixed per filter for Doctors/Popes/Martyrs regardless of sort; for All, it
+  // further varies by which of the three sorts is active.
+  let subtitle = '';
+  if(spFilter === 'doctors') subtitle = "Saints Doctors of the Church";
+  else if(spFilter === 'popes') subtitle = "Saints Vicar of Christ";
+  else if(spFilter === 'martyrs') subtitle = "Saints Martyrs of the Faith";
+  else if(spFilter === 'all'){
+    const map = {feast: "Saint's Feast Day", name: "Saints by Name", year: "Saints Through the Ages"};
+    subtitle = map[spSort] || '';
+  }
+  if(subtitle){
+    spSubtitleEl.textContent = subtitle;
     spSubtitleEl.classList.add('show');
   } else {
     spSubtitleEl.classList.remove('show');
@@ -10396,8 +10459,9 @@ function renderSaintsPanel(){
     if(monthStart) cls.push('monthStart');
     if(isToday) cls.push('today');
     if(r.synthetic){
-      html += '<div class="'+cls.join(' ')+'">' +
-        '<span class="spFeast">'+esc(MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day)+'</span>' +
+      const label = MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day;
+      html += '<div class="'+cls.join(' ')+'" data-label="'+esc(label)+'">' +
+        '<span class="spFeast">'+esc(label)+'</span>' +
         '<span class="spName">No feast today</span>' +
         '<span class="spYear"></span>' +
         '</div>';
@@ -10410,7 +10474,14 @@ function renderSaintsPanel(){
     const firstColText = isPatronMode
       ? r.patron
       : (hasFeast ? (MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day) : '—');
-    html += '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'">' +
+    // What the scrub bubble shows while dragging the thumb — branches on the actual sort key
+    // in use, not on patron-mode itself, since you can sort by Name while still in Patron
+    // filter (in which case the scrub label should be the name's letter, not the patron's).
+    const scrubLabel = spSort === 'year' ? String(r.e.y)
+      : spSort === 'name' ? spDisplayName(r.e.n).trim().charAt(0).toUpperCase()
+      : spSort === 'patron' ? (r.patron || '').trim().charAt(0).toUpperCase()
+      : firstColText; // spSort === 'feast'
+    html += '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'" data-label="'+esc(scrubLabel)+'">' +
       '<span class="spFeast">'+esc(firstColText)+'</span>' +
       '<span class="spName">'+esc(spDisplayName(r.e.n))+(r.note ? ' <span class="spNoteInline">— '+esc(r.note)+'</span>' : '')+'</span>' +
       '<span class="spYear">'+r.e.y+'</span>' +
@@ -10437,6 +10508,8 @@ function renderSaintsPanel(){
   } else {
     spListEl.scrollTop = 0;
   }
+  saintsPanel.classList.toggle('hasThumb', spThumbEligible());
+  spSyncThumbPosition();
 }
 function openSaintsPanel(){
   closeHamMenu();
