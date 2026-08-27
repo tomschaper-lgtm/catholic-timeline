@@ -2,6 +2,39 @@
   "v": 1,
   "entries": [
     {
+      "version": "236",
+      "date": "2026-08-27T10:15:00-05:00",
+      "changes": [
+        "FIXED: tapping a Saints-panel filter chip (Doctors/Popes/Martyrs/Patron/All) now clears the",
+        "search box first. Previously a leftover typed term kept narrowing whichever list the chip just",
+        "switched to — e.g. searching \"Aug\" then tapping Popes showed an empty list instead of every",
+        "pope, which read as the chip doing nothing.",
+        "FIXED: swiping the article text down to scroll back up to something you'd already read could",
+        "accidentally close the whole card. Root cause: the fast-flick dismiss check fired on ANY hard",
+        "downward flick, anywhere in the story, with no check on scroll position — only the slower",
+        "\"step\" dismissal ever required being at the top of the article or on the header band. A quick",
+        "flick to scroll up through a long article reads exactly like that same downward flick, so it",
+        "was being misread as \"get this card out of my way.\" Both dismiss paths now require the drag to",
+        "have STARTED at the top of the story or on the header/handle band — measured at touchstart,",
+        "not touchend, since passive native scrolling can already have carried scrollTop to 0 by the",
+        "time the finger lifts even when the gesture began mid-article. A swipe that begins scrolled",
+        "down into the text, however fast or however far it ends up scrolling, no longer closes the card.",
+        "NEW: visible circular × close button on the article card, top-right corner (#artClose /",
+        ".artX — the element already existed, wired to closeArticle(), but was force-hidden with",
+        "display:none since the card's only stated way to close was swipe-down). Swipe-to-dismiss still",
+        "works exactly as before; the button is just a second, more discoverable way to do the same",
+        "thing. Wrapped together with the existing drag-handle pill in a new zero-height sticky",
+        "container (.artTopBar) so the button stays pinned near the top of the card at any scroll",
+        "depth, the same technique #artHandle already used for the swipe band — a plain",
+        "position:absolute button, as it was written before, would have scrolled away with the rest of",
+        "the card's content the moment the reader scrolled past the first screen. On entries with a",
+        "photo, the button shifts left (fillArticleBody() toggles a .hasPortrait class on #article",
+        "itself) so the corner portrait — present from the very first frame in peek mode, not just",
+        "after scrolling — never covers it."
+      ],
+      "loggedAt": "2026-08-27T16:06:58.772205+00:00"
+    },
+    {
       "version": "235",
       "date": "2026-08-26T09:05:00-05:00",
       "changes": [
