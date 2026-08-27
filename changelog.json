@@ -2,6 +2,36 @@
   "v": 1,
   "entries": [
     {
+      "version": "230",
+      "date": "2026-08-26T06:10:00-05:00",
+      "changes": [
+        "Real icon art: replaced all five hand-drawn SVG chip icons with Tom's actual approved PNGs",
+        "(all/doctors/popes/martyrs/patrons), tightly cropped and embedded as base64 data URIs, used",
+        "as a CSS mask (background-color:currentColor) rather than a plain <img> so they still recolor",
+        "gold on the active state exactly like the SVGs did.",
+        "Fixed: tapping blank space after a short name (inside .spName's own stretched flex box, but",
+        "not on the visible text) sometimes didn't register as a row tap. .spRow's direct-child spans",
+        "now have pointer-events:none, so every tap anywhere in the row's bounds resolves to the row",
+        "div itself, matching what the click handler's closest('.spRow[data-id]') expects.",
+        "Feast column shrunk 104px -> 64px (no longer needs to fit a \"Today · Aug 26\" label — see",
+        "below) and the column gap tightened 14px -> 8px, both in tandem on header and rows, so Name",
+        "starts further left and gets more room before truncating.",
+        "Dropped the \"Today · \" prefix — a matching row (real or the \"No feast today\" placeholder)",
+        "just shows the plain date again; the highlight alone conveys \"today.\"",
+        "New: A-Z index-scroll bar (tap or drag, like iOS Contacts), shown only when sorted by Name or",
+        "Patron — never for Feast (not alphabetical) or the Doctors/Popes/Martyrs chips (narrow lists",
+        "where it doesn't earn its keep). Overlays the row's own existing right padding rather than",
+        "reserving new space, so no columns had to shift.",
+        "New: subtitle line under the title, shown only for the All filter, describing the current",
+        "sort in plain language — \"Saint feast days\" / \"Saints by name\" / \"Saints through the ages.\"",
+        "New: panel title reads \"Saints Patrons\" in Patron mode, with \"Patrons\" in the same italic",
+        "gold-script treatment as \"Timeline\" in the main header's \"Catholic Timeline\" logo (reuses the",
+        "h1 .t1/.t2 font pairing) — best-effort interpretation of a genuinely ambiguous instruction,",
+        "flagged as such in the reply."
+      ],
+      "loggedAt": "2026-08-27T03:26:13.419120+00:00"
+    },
+    {
       "version": "229",
       "date": "2026-08-26T05:10:00-05:00",
       "changes": [
