@@ -2,6 +2,23 @@
   "v": 1,
   "entries": [
     {
+      "version": "239",
+      "date": "2026-08-27T12:05:00-05:00",
+      "changes": [
+        "FIXED: swiping down to close from the header band (the top-inch strip covering the drag",
+        "handle pill and the year/name) didn't reliably close the card — a slow, deliberate drag from",
+        "there could register as nothing at all instead of stepping the card down. Root cause: the step",
+        "dismissal (full → preview → gone) shared a minimum-velocity requirement with the \"at the top of",
+        "the story\" case, which exists to protect ordinary reading-scroll from being misread as a close.",
+        "That protection makes sense for the story text, where a drag might just be scrolling — it never",
+        "made sense for the header band, which is touch-action:none and never scrolls anything regardless",
+        "of speed. The header case is now its own condition with no velocity floor: any downward drag",
+        "past the existing distance threshold that STARTED on the handle/header steps the card down,",
+        "fast or slow. The at-the-top-of-the-story case is untouched, still speed-gated as before."
+      ],
+      "loggedAt": "2026-08-27T16:46:03.341044+00:00"
+    },
+    {
       "version": "238",
       "date": "2026-08-27T11:35:00-05:00",
       "changes": [
