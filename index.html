@@ -1,4 +1,20 @@
 <!--
+VERSION: 233
+DATE: 2026-08-26T08:10:00-05:00
+CHANGES:
+- Title copy: Popes now "Saints Our Holy Fathers" (was "Saints Vicar of Christ"); Patron now
+  "Saints Patrons of Intercession" (was "Saints Patrons").
+- Scrub bubble redesigned: one stadium shape (fixed height, fully-rounded ends, height-matched
+  min-width) does double duty as both requested shapes — a single letter has nothing to push it
+  past min-width so it renders as a circle, a year or spelled-out date pushes it wider into a
+  real pill, no separate circle/pill logic needed. Floated up ~1in (90px) above the actual
+  touch point instead of sitting right on it, with a short speech-bubble-style stem pointing
+  back down to where the finger actually is.
+- Feast scrub label now spells the month out in full ("August 26") rather than reusing the
+  abbreviated column text ("Aug 26") — the row's own Feast column display is unchanged, only
+  the drag bubble spells it out, since it has the room and reads better large.
+-->
+<!--
 VERSION: 232
 DATE: 2026-08-26T07:35:00-05:00
 CHANGES:
@@ -2344,10 +2360,17 @@ CHANGES:
   }
   .spThumbTrack.dragging .spThumb{opacity:.85;}
   /* Large letter/year/date bubble that tracks the finger while dragging — hidden again on
-     release, per spec, leaving just the thumb sitting at its resting position. */
+     release, per spec, leaving just the thumb sitting at its resting position. One stadium
+     shape (fixed height, fully-rounded ends, auto width with a height-matched min-width) does
+     double duty as both requested shapes: a single letter (Name/Patron) has nothing to push
+     the width past min-width, so it renders as a plain circle; a year or a spelled-out
+     "August 26" (see the feast scrub-label rule below) pushes it wider into a real pill —
+     no separate circle/pill logic needed, just consistent padding. Floated up ~1in (90px)
+     above the actual touch point with a short stem pointing back down to it, rather than
+     sitting right at the fingertip where it would cover what you're trying to read. */
   .spThumbLabel{
     display:none; position:absolute; right:22px; z-index:5;
-    width:46px; height:46px; border-radius:50%;
+    min-width:46px; height:46px; padding:0 15px; border-radius:23px;
     background:#1B2233; color:#fff; font-weight:700; font-size:18px;
     align-items:center; justify-content:center;
     box-shadow:0 6px 18px rgba(0,0,0,.28);
@@ -2355,6 +2378,12 @@ CHANGES:
     white-space:nowrap; pointer-events:none; transform:translateY(-50%);
   }
   .spThumbLabel.show{display:flex;}
+  .spThumbLabel::after{
+    content:''; position:absolute; right:12px; bottom:-7px;
+    width:0; height:0;
+    border-left:7px solid transparent; border-right:7px solid transparent;
+    border-top:8px solid #1B2233;
+  }
   .spRow{
     display:flex; align-items:center; gap:8px; padding:11px 22px;
     border-bottom:1px solid #EFEFEF; cursor:pointer;
@@ -4429,7 +4458,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v232';
+const APP_VERSION = 'v233';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -10376,7 +10405,9 @@ function spThumbDragTo(clientY){
   spThumb.style.top = (rel * usable) + 'px';
   const wrapRect = spListWrapEl.getBoundingClientRect();
   spThumbLabel.textContent = spFindRowLabelAtScrollTop(target);
-  spThumbLabel.style.top = (clientY - wrapRect.top) + 'px';
+  // Floated up ~1in above the fingertip (see .spThumbLabel's comment) rather than sitting
+  // right on top of it, where the bubble would cover the very row it's describing.
+  spThumbLabel.style.top = (clientY - wrapRect.top - 90) + 'px';
 }
 let spThumbDragging = false;
 function spThumbStart(e){
@@ -10436,9 +10467,9 @@ function renderSaintsPanel(){
   // active. "Saints" alone is the only fallback, never left blank.
   let titlePhrase = 'Saints';
   if(spFilter === 'doctors') titlePhrase = "Saints Doctors of the Church";
-  else if(spFilter === 'popes') titlePhrase = "Saints Vicar of Christ";
+  else if(spFilter === 'popes') titlePhrase = "Saints Our Holy Fathers";
   else if(spFilter === 'martyrs') titlePhrase = "Saints Martyrs of the Faith";
-  else if(spFilter === 'patron') titlePhrase = "Saints Patrons";
+  else if(spFilter === 'patron') titlePhrase = "Saints Patrons of Intercession";
   else if(spFilter === 'all'){
     const map = {feast: "Saint's Feast Day", name: "Saints by Name", year: "Saints Through the Ages"};
     titlePhrase = map[spSort] || 'Saints';
@@ -10478,9 +10509,10 @@ function renderSaintsPanel(){
     if(monthStart) cls.push('monthStart');
     if(isToday) cls.push('today');
     if(r.synthetic){
-      const label = MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day;
-      html += '<div class="'+cls.join(' ')+'" data-label="'+esc(label)+'">' +
-        '<span class="spFeast">'+esc(label)+'</span>' +
+      const dispDate = MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day;
+      const scrubDate = MONTH_NAMES[r.month] + ' ' + r.day; // spelled out for the drag bubble only
+      html += '<div class="'+cls.join(' ')+'" data-label="'+esc(scrubDate)+'">' +
+        '<span class="spFeast">'+esc(dispDate)+'</span>' +
         '<span class="spName">No feast today</span>' +
         '<span class="spYear"></span>' +
         '</div>';
@@ -10496,10 +10528,12 @@ function renderSaintsPanel(){
     // What the scrub bubble shows while dragging the thumb — branches on the actual sort key
     // in use, not on patron-mode itself, since you can sort by Name while still in Patron
     // filter (in which case the scrub label should be the name's letter, not the patron's).
+    // Feast spells the month out in full ("August 26") rather than reusing the abbreviated
+    // column text ("Aug 26") — the bubble has room for it and it reads better large.
     const scrubLabel = spSort === 'year' ? String(r.e.y)
       : spSort === 'name' ? spDisplayName(r.e.n).trim().charAt(0).toUpperCase()
       : spSort === 'patron' ? (r.patron || '').trim().charAt(0).toUpperCase()
-      : firstColText; // spSort === 'feast'
+      : (hasFeast ? MONTH_NAMES[r.month] + ' ' + r.day : firstColText); // spSort === 'feast'
     html += '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'" data-label="'+esc(scrubLabel)+'">' +
       '<span class="spFeast">'+esc(firstColText)+'</span>' +
       '<span class="spName">'+esc(spDisplayName(r.e.n))+(r.note ? ' <span class="spNoteInline">— '+esc(r.note)+'</span>' : '')+'</span>' +
