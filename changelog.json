@@ -2,6 +2,24 @@
   "v": 1,
   "entries": [
     {
+      "version": "237",
+      "date": "2026-08-27T11:05:00-05:00",
+      "changes": [
+        "CLOSE BUTTON REDESIGNED per feedback: plain, larger × glyph (32px, no background/border/circle)",
+        "instead of the small circular button from v236 — just a bigger mark in the top-right corner,",
+        "with a soft text-shadow so it stays legible with nothing behind it.",
+        "On entries with a photo, the button now slides left IN SYNC with the corner portrait's own",
+        "flight, rather than jumping to its shifted position the instant an entry merely has an image.",
+        "New setArtXShift(t) is fed the exact same 0-to-1 progress value updateFly() already computes",
+        "for the portrait itself (same smoothstep easing), so the two arrive at the corner together —",
+        "the button starts at the plain corner position while the big hero photo is still on screen,",
+        "and only eases leftward as the flying copy approaches. In the peek card, where the portrait is",
+        "parked with no scroll-driven animation at all (see placePeekFlyNow()), the button jumps",
+        "straight to its shifted position too, matching the photo's own instant placement there."
+      ],
+      "loggedAt": "2026-08-27T16:15:09.795183+00:00"
+    },
+    {
       "version": "236",
       "date": "2026-08-27T10:15:00-05:00",
       "changes": [
