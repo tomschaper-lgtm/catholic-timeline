@@ -2,6 +2,28 @@
   "v": 1,
   "entries": [
     {
+      "version": "231",
+      "date": "2026-08-26T07:00:00-05:00",
+      "changes": [
+        "FIXED: Name/data misalignment — #spSortFeast (header) had been narrowed to 64px in v230, but",
+        "the matching row rule .spFeast was never updated and was still sitting at the old 104px.",
+        "Header and row now both 64px again.",
+        "Subtitle line rewritten with exact copy and a filter-first rule: Doctors/Popes/Martyrs show a",
+        "fixed phrase regardless of sort (\"Saints Doctors of the Church\" / \"Saints Vicar of Christ\" /",
+        "\"Saints Martyrs of the Faith\"); All varies by sort (\"Saint's Feast Day\" / \"Saints by Name\" /",
+        "\"Saints Through the Ages\").",
+        "Replaced the A-Z letter list entirely with a thumb-slider: a thin persistent track with a",
+        "draggable handle. Dragging shows a large floating bubble above the finger with whatever's",
+        "relevant to the current sort — a letter for Name/Patron, the year for Year, the date for",
+        "Feast — each row now carries its own data-label at render time for the bubble to read.",
+        "Releasing hides the bubble but leaves the thumb sitting at its resting position, and it stays",
+        "in sync if the list is scrolled normally instead. Works for every sort order, not just the",
+        "alphabetical ones, so it's shown whenever there's simply enough content to scroll — no more",
+        "filter/sort eligibility rule."
+      ],
+      "loggedAt": "2026-08-27T03:48:50.617450+00:00"
+    },
+    {
       "version": "230",
       "date": "2026-08-26T06:10:00-05:00",
       "changes": [
