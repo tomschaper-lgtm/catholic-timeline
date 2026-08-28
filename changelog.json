@@ -2,6 +2,32 @@
   "v": 1,
   "entries": [
     {
+      "version": "254",
+      "date": "2026-08-28T11:05:00-05:00",
+      "changes": [
+        "Fixed the v253 sticky group label failing to hand off: a label stayed stuck a full row past",
+        "the end of its own group, sitting on top of the NEXT group's first row and hiding that row's",
+        "real first-column value behind its white background (screen recording: \"Sep 30\" still pinned",
+        "while Thérèse of Lisieux — Oct 1 — was the row under it, her own \"Oct 1\" invisible).",
+        "Root cause was v253's own fix. Giving .spGroupLabel a real row height was right, but the",
+        "margin-bottom:calc(-1 * var(--rowH)) used to cancel that height back out of the flow was put",
+        "on the label itself — and CSS resolves sticky containment against the sticky element's MARGIN",
+        "box, not its border box. The negative margin therefore subtracted exactly the height that sets",
+        "the push-off point, moving the clamp boundary a full row lower: measured, the label's maximum",
+        "travel came out equal to the whole group height instead of (n-1) rows, letting it overhang one",
+        "row past its group in every case (verified for runs of 2, 3 and 5).",
+        "The negative margin now sits on the first row instead (.spGroupLabel + .spRow{margin-top}),",
+        "which cancels the same height out of the flow — group height is still exactly n rows — while",
+        "leaving the label's margin box a clean rowH, so it begins being pushed exactly one row's",
+        "height before its group ends and hands off cleanly with no overlap window.",
+        ".spGroupLabel now carries border-bottom matching .spRow so the separator runs unbroken under",
+        "the label, and mirrors .monthStart from the row it overlays (in a run every row shares one",
+        "feast date, so only the first row can be a month boundary) — otherwise the month rule was",
+        "half-hidden behind the label's background."
+      ],
+      "loggedAt": "2026-08-28T16:50:21.897830+00:00"
+    },
+    {
       "version": "253",
       "date": "2026-08-28T10:15:00-05:00",
       "changes": [
