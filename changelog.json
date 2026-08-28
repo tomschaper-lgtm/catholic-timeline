@@ -2,6 +2,21 @@
   "v": 1,
   "entries": [
     {
+      "version": "250",
+      "date": "2026-08-27T18:20:00-05:00",
+      "changes": [
+        "Hid the native scroll indicator inside .spList. With the custom gold scrub thumb sitting on",
+        "the right edge doing the same job, the grey system bar was landing almost on top of it and",
+        "competing for attention. Suppressed across all three engines (scrollbar-width for",
+        "Firefox/standards, -ms-overflow-style for old Edge, ::-webkit-scrollbar for iOS Safari and",
+        "Chrome) since the app is used primarily on iPhone but also opens on desktop.",
+        "Scrolling behaviour itself is unchanged — only the indicator is hidden, and the gold thumb",
+        "already gives a continuous position readout, so no feedback is lost. Applies to the Saints",
+        "panel and all five Browse panels, which share .spList."
+      ],
+      "loggedAt": "2026-08-28T01:52:59.515074+00:00"
+    },
+    {
       "version": "249",
       "date": "2026-08-27T18:05:00-05:00",
       "changes": [
