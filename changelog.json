@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "247",
+      "date": "2026-08-27T17:25:00-05:00",
+      "changes": [
+        "Councils: the left column now shows the COUNTRY for particular/regional councils instead of",
+        "the literal word \"Regional\", which only restated what the council's own name already said",
+        "(\"Synod of Whitby\" — Regional). The twenty-one ecumenical councils still show their rank.",
+        "Falls back to \"Regional\" only where an entry has no country set at all.",
+        "Because that column now holds two kinds of value, its header follows the active filter rather",
+        "than being fixed: \"Rank / Place\" under All, \"Rank\" under Ecumenical, \"Place\" under Regional.",
+        "lastLabel may now be a function of the filter, not just a string.",
+        "Sorting that column uses a new optional lastCompare() hook (replacing the narrower lastSort):",
+        "ecumenical councils sort by numeric rank and always precede the particular ones, which then",
+        "group by country. A plain string sort on the displayed text would have interleaved the two",
+        "kinds and put \"10th\" before \"2nd\".",
+        "Column width is now per-config via a --brLastW custom property that BOTH the header button and",
+        "the row cell read, so widening it for Councils (128px, to fit \"Rank / Place\") can't drift the",
+        "two out of alignment — the class-vs-id width mismatch that has bitten this panel before."
+      ],
+      "loggedAt": "2026-08-28T01:30:54.264931+00:00"
+    },
+    {
       "version": "246",
       "date": "2026-08-27T17:05:00-05:00",
       "changes": [
