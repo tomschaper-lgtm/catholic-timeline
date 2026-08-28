@@ -1,4 +1,17 @@
 <!--
+VERSION: 250
+DATE: 2026-08-27T18:20:00-05:00
+CHANGES:
+- Hid the native scroll indicator inside .spList. With the custom gold scrub thumb sitting on
+  the right edge doing the same job, the grey system bar was landing almost on top of it and
+  competing for attention. Suppressed across all three engines (scrollbar-width for
+  Firefox/standards, -ms-overflow-style for old Edge, ::-webkit-scrollbar for iOS Safari and
+  Chrome) since the app is used primarily on iPhone but also opens on desktop.
+- Scrolling behaviour itself is unchanged — only the indicator is hidden, and the gold thumb
+  already gives a continuous position readout, so no feedback is lost. Applies to the Saints
+  panel and all five Browse panels, which share .spList.
+-->
+<!--
 VERSION: 249
 DATE: 2026-08-27T18:05:00-05:00
 CHANGES:
@@ -2618,7 +2631,16 @@ CHANGES:
   .spCol .arrow{font-size:15px; line-height:1; visibility:hidden;}
   .spCol.active .arrow{visibility:visible;}
   .spListWrap{position:relative; flex:1 1 auto; min-height:0; display:flex;}
-  .spList{flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+  /* Native scroll indicator suppressed across all three engines — with the custom gold thumb on
+     the right doing the same job, the grey system bar just competes with it for attention and
+     the two sit almost on top of each other. Scrolling itself is untouched; only the indicator
+     is hidden. Firefox/standards use scrollbar-width, old Edge -ms-overflow-style, WebKit the
+     pseudo-element, so all three are needed to cover iOS Safari plus desktop. */
+  .spList{
+    flex:1 1 auto; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    scrollbar-width:none; -ms-overflow-style:none;
+  }
+  .spList::-webkit-scrollbar{width:0; height:0; display:none;}
   /* Scrub track: a persistent rail on the right edge with a draggable thumb, working for any
      sort order (Feast/Name/Year/Patron alike) since it's just a proportional position on the
      scrollable range, not a fixed alphabet. Widened to a real pill per feedback — it can sit
@@ -4871,7 +4893,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v249';
+const APP_VERSION = 'v250';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
