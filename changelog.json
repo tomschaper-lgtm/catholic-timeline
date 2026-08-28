@@ -2,6 +2,19 @@
   "v": 1,
   "entries": [
     {
+      "version": "252",
+      "date": "2026-08-28T09:30:00-05:00",
+      "changes": [
+        "Fixed the sticky group label (v251) rendering in the page's default serif (EB Garamond)",
+        "instead of the row's own sans-serif: .spGroupLabel sits inside .spGroup, a sibling of .spRow",
+        "rather than a descendant of it, so it never inherited the system-ui font-family .spRow sets on",
+        "itself — it fell back to whatever the ambient body font was instead. .spGroupLabel > span now",
+        "sets font-family:system-ui,-apple-system,'Segoe UI',sans-serif explicitly, matching",
+        ".spFeast/.brLast exactly."
+      ],
+      "loggedAt": "2026-08-28T14:15:33.398336+00:00"
+    },
+    {
       "version": "251",
       "date": "2026-08-28T09:00:00-05:00",
       "changes": [
