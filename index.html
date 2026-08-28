@@ -1,4 +1,28 @@
 <!--
+VERSION: 254
+DATE: 2026-08-28T11:05:00-05:00
+CHANGES:
+- Fixed the v253 sticky group label failing to hand off: a label stayed stuck a full row past
+  the end of its own group, sitting on top of the NEXT group's first row and hiding that row's
+  real first-column value behind its white background (screen recording: "Sep 30" still pinned
+  while Thérèse of Lisieux — Oct 1 — was the row under it, her own "Oct 1" invisible).
+- Root cause was v253's own fix. Giving .spGroupLabel a real row height was right, but the
+  margin-bottom:calc(-1 * var(--rowH)) used to cancel that height back out of the flow was put
+  on the label itself — and CSS resolves sticky containment against the sticky element's MARGIN
+  box, not its border box. The negative margin therefore subtracted exactly the height that sets
+  the push-off point, moving the clamp boundary a full row lower: measured, the label's maximum
+  travel came out equal to the whole group height instead of (n-1) rows, letting it overhang one
+  row past its group in every case (verified for runs of 2, 3 and 5).
+- The negative margin now sits on the first row instead (.spGroupLabel + .spRow{margin-top}),
+  which cancels the same height out of the flow — group height is still exactly n rows — while
+  leaving the label's margin box a clean rowH, so it begins being pushed exactly one row's
+  height before its group ends and hands off cleanly with no overlap window.
+- .spGroupLabel now carries border-bottom matching .spRow so the separator runs unbroken under
+  the label, and mirrors .monthStart from the row it overlays (in a run every row shares one
+  feast date, so only the first row can be a month boundary) — otherwise the month rule was
+  half-hidden behind the label's background.
+-->
+<!--
 VERSION: 253
 DATE: 2026-08-28T10:15:00-05:00
 CHANGES:
@@ -2799,23 +2823,36 @@ CHANGES:
      live .spRow after every render — see renderSaintsPanel()/renderBrowsePanel()) rather than
      height:0. A sticky element's push-off point is governed by its own box's height against its
      parent's remaining height, so a 0-height box only ever gets pushed off at the exact instant
-     the group's last pixel clears — any text rendered past that box's own edge (as the earlier
+     the group's last pixel clears — any text rendered past that box's own edge (as the earliest
      height:0 + absolutely-positioned-text version did) keeps showing after the box itself has
      already been pushed, overlapping the next group's label that's just started sticking.
-     margin-bottom:-100% of that same height pulls row 1 back up to cancel the box's own height
-     back out of the flow, so nothing shifts in the group's *unstuck* resting position — the
-     label still visually sits exactly over row 1 (whose own first-column cell renders blank)
-     when not stuck, and only the *sticky* clamp math sees the real row-height box. */
+     The row-height box must be cancelled back out of the flow so the group still occupies
+     exactly n rows — but that negative margin goes on the FIRST ROW (.spGroupLabel + .spRow),
+     never on the label itself. Sticky containment is resolved against the sticky element's
+     MARGIN box, not its border box, so a margin-bottom:-rowH sitting on the label silently
+     subtracts the very height that sets the push-off point: the clamp boundary lands a full row
+     too low and the label hangs one row past its own group, covering the next group's first row
+     (which is exactly what v253 shipped — "Sep 30" still stuck over Thérèse of Lisieux's Oct 1).
+     Pulling the row up instead leaves the label's margin box a clean rowH, so it starts being
+     pushed exactly one row's height before the group ends and hands off with no overlap.
+     border-bottom matches .spRow's own so the separator line runs unbroken under the label,
+     which paints its white background over the left ~92px of the row it overlays. */
   .spGroup{height:auto;}
   .spGroupLabel{
     position:sticky; top:0; z-index:3; pointer-events:none;
-    height:var(--rowH, 43px); margin-bottom:calc(-1 * var(--rowH, 43px));
+    height:var(--rowH, 43px);
     box-sizing:border-box; display:flex; align-items:center;
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
     font-size:13px; color:#6B7280; background:#fff;
+    border-bottom:1px solid #EFEFEF;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     padding-left:22px; padding-right:6px;
   }
+  /* A group's first row is the only one that can carry .monthStart (every row in a run shares
+     the same feast date, so they're all the same month) — the label overlays that row, so it
+     has to carry the month rule itself or the line would be half-hidden behind it. */
+  .spGroupLabel.monthStart{border-top:1px solid #C7CAD3;}
+  .spGroupLabel + .spRow{margin-top:calc(-1 * var(--rowH, 43px));}
   /* Total box width = the live column's width plus the row's own 22px left inset and this
      label's 6px right buffer, so the text area inside the padding lands on exactly the same
      64px/132px/--brLastW the row's own .spFeast/.brLast cell would use — matching the column
@@ -4987,7 +5024,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v253';
+const APP_VERSION = 'v254';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -11097,7 +11134,8 @@ function groupStickyRows(items){
     if(runLen === 1){
       html += items[i].render(true);
     } else {
-      html += '<div class="spGroup"><div class="spGroupLabel" aria-hidden="true">' + esc(items[i].label) + '</div>';
+      const lblCls = 'spGroupLabel' + (items[i].monthStart ? ' monthStart' : '');
+      html += '<div class="spGroup"><div class="' + lblCls + '" aria-hidden="true">' + esc(items[i].label) + '</div>';
       for(let k = i; k < j; k++) html += items[k].render(false);
       html += '</div>';
     }
@@ -11216,6 +11254,7 @@ function renderSaintsPanel(){
       : (hasFeast ? MONTH_NAMES[r.month] + ' ' + r.day : firstColText); // spSort === 'feast'
     items.push({
       label: firstColText,
+      monthStart: monthStart,
       render: (showLabel) => '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'" data-label="'+esc(scrubLabel)+'">' +
         '<span class="spFeast">'+(showLabel ? esc(firstColText) : '')+'</span>' +
         '<span class="spName">'+esc(spDisplayName(r.e.n))+(r.note ? ' <span class="spNoteInline">— '+esc(r.note)+'</span>' : '')+'</span>' +
