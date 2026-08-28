@@ -1,4 +1,23 @@
 <!--
+VERSION: 249
+DATE: 2026-08-27T18:05:00-05:00
+CHANGES:
+- Councils' left column is now consistently the COUNTRY for every row, ecumenical and particular
+  alike, matching every other category. v247's approach — rank for the twenty-one, country for
+  the rest — put two different kinds of value under one header and read as an unreadable jumble
+  ("Spain / France / 1st / 2nd / Italy"). That was the wrong call; reverted.
+- The ecumenical rank moves into the Name cell as a muted note ("Nicaea I — 1st Ecumenical"),
+  reusing .spNoteInline exactly as the Saints panel already does for a saint's several feast
+  days. Nothing is lost: the rank is still visible on every ecumenical council, and now it sits
+  next to the name it qualifies rather than competing with the country.
+- The dynamic "Rank / Place" header and the lastCompare() rank sort are both gone with it; the
+  header is a plain "Country" again and the column sorts alphabetically like the others. Sorting
+  by Year already produces rank order for the ecumenical councils, since rank and chronology run
+  together, so a dedicated rank sort was redundant.
+- brLastLabel()'s function-or-string shim is retained (unused for now) so a future category can
+  still vary its header by active filter without reintroducing the plumbing.
+-->
+<!--
 VERSION: 248
 DATE: 2026-08-27T17:45:00-05:00
 CHANGES:
@@ -4852,7 +4871,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v248';
+const APP_VERSION = 'v249';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -11207,6 +11226,7 @@ document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeSaints
 function brYearLabel(y){ return y < 0 ? (-y) + ' BC' : String(y); }
 // lastLabel may be a plain string or a function of the current filter (see Councils).
 function brLastLabel(cfg){ return typeof cfg.lastLabel === 'function' ? cfg.lastLabel() : cfg.lastLabel; }
+// (kept as a function-or-string shim so a future category can still vary its header by filter)
 // Every category gets the same three sortable columns — the category-specific one (Region or
 // Country) on the left, Name in the middle, Year on the right, defaulting to Year. Each config
 // only supplies the *value* for its left column; the comparators are built generically below,
@@ -11216,41 +11236,24 @@ const BROWSE_CONFIGS = {
   p: { title: 'Persecutions', title2: 'Witness in Blood',  lastLabel: 'Region',  lastValue: e => REGION_NAMES[e.r] || e.r },
   u: { title: 'Eucharistic', title2: 'Miracles',      lastLabel: 'Country', lastValue: e => e.country || '' },
   e: { title: 'Events', title2: 'That Shaped the Church', lastLabel: 'Region', lastValue: e => REGION_NAMES[e.r] || e.r },
-  // Councils show their ecumenical rank ("1st", "21st") in the left column, falling back to
-  // "Regional" for the particular/local councils. That reuses isEcumenical()'s existing
-  // fact-presence test rather than introducing a parallel field — the same test already drives
-  // the .ecu styling on the timeline itself, so the two can never disagree. Sorting by that
-  // column is numeric by rank (not the displayed string, which would order "10th" before
-  // "2nd"), with the regional councils collected at the end in year order.
+  // Councils keep ONE kind of value in the left column — the country, same as every other
+  // category — rather than mixing ranks and places, which made the column unreadable. The
+  // ecumenical rank moves into the Name cell as a muted note ("Nicaea I — 1st Ecumenical"),
+  // reusing the same .spNoteInline treatment the Saints panel already uses to distinguish a
+  // saint's several feast days. Sorting by Year already yields rank order for the ecumenical
+  // councils, since the two run together chronologically, so no separate rank sort is needed.
+  // The ecumenical test is isEcumenical(), which already drives .ecu styling on the timeline,
+  // so the panel and the timeline can never disagree about which councils are ecumenical.
   c: {
-    title: 'Councils', title2: 'of the Church',
-    // The left column carries two different kinds of value — an ecumenical rank for the
-    // twenty-one, a country for the particular councils (where "Regional" would just have
-    // restated what the council's own name already says). The header therefore follows the
-    // active filter rather than being fixed: both kinds visible under All, one kind under
-    // either chip. Slightly wider than the default column to fit "Rank / Place".
-    lastLabel: () => brFilter === 'ecumenical' ? 'Rank' : brFilter === 'regional' ? 'Place' : 'Rank / Place',
-    lastWidth: '128px',
-    lastValue: e => { const n = councilRank(e); return n ? ordinal(n) : (e.country || 'Regional'); },
-    // Ecumenical councils sort by numeric rank and always precede the particular ones, which
-    // then group by country. A plain string sort on the displayed text would interleave the
-    // two kinds and order "10th" before "2nd".
-    lastCompare: (a, b) => {
-      const ra = councilRank(a), rb = councilRank(b);
-      if(ra && rb) return ra - rb;
-      if(ra !== rb) return ra ? -1 : 1;
-      return String(a.country || '').localeCompare(String(b.country || '')) || (a.y - b.y);
-    },
+    title: 'Councils', title2: 'of the Church', lastLabel: 'Country',
+    lastValue: e => e.country || '',
+    nameNote: e => { const n = councilRank(e); return n ? ordinal(n) + ' Ecumenical' : ''; },
     chips: [
       {id: 'all',        label: 'All',        test: () => true},
       {id: 'ecumenical', label: 'Ecumenical', test: e => isEcumenical(e)},
       {id: 'regional',   label: 'Regional',   test: e => !isEcumenical(e)}
     ]
   },
-  // Marian Apparitions use Country (a real structured field) rather than the "Approval status"
-  // fact, which is free prose ("Approved by the Holy See, 1862") — displayable but not
-  // reliably sortable or bucketable. Approval chips (Papal / Diocesan / Not approved) are the
-  // planned follow-up once an `approvalTier` field is added and backfilled.
   m: { title: 'Marian', title2: 'Apparitions', lastLabel: 'Country', lastValue: e => e.country || '' }
 };
 // "21st ecumenical" -> 21. Returns 0 for a particular council (no such fact at all).
@@ -11395,12 +11398,13 @@ function renderBrowsePanel(){
   let html = '';
   rows.forEach(e => {
     const lastText = cfg.lastValue(e) || '';
+    const note = cfg.nameNote ? cfg.nameNote(e) : '';
     const label = brSort === 'last' ? lastText
       : brSort === 'name' ? String(e.n).trim().charAt(0).toUpperCase()
       : brYearLabel(e.y);
     html += '<div class="spRow brRow" data-id="' + esc(e.id) + '" data-label="' + esc(label) + '">' +
       '<span class="brLast">' + esc(lastText) + '</span>' +
-      '<span class="spName">' + esc(e.n) + '</span>' +
+      '<span class="spName">' + esc(e.n) + (note ? ' <span class="spNoteInline">— ' + esc(note) + '</span>' : '') + '</span>' +
       '<span class="brYear">' + esc(brYearLabel(e.y)) + '</span>' +
       '</div>';
   });
