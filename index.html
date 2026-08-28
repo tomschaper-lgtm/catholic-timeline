@@ -1,4 +1,25 @@
 <!--
+VERSION: 242
+DATE: 2026-08-27T14:55:00-05:00
+CHANGES:
+- FIXED the v241 Browse panel rendering as an unstyled full-width inline block (no white card,
+  no rounded corners, no slide-in, transparent over the timeline) instead of matching the
+  Saints panel. Root cause was not layout at all but a CSS *comment* bug: the v241 block
+  comment described the reused selectors as ".spListWrap/.spList/.spThumb*/.spEmpty", and that
+  "*/" terminated the comment ~6 lines early. The remaining prose then parsed as garbage CSS,
+  and the parser's error recovery swallowed the entire ".browsePanel{...}" rule that followed
+  it — so the panel got literally zero styling while ".spHead" (defined earlier, untouched)
+  still rendered its white column bar, which is exactly the half-styled state seen on device.
+  Comment reworded to avoid the "*/" sequence. Lesson worth keeping: a wildcard-looking
+  shorthand like ".spThumb*" is never safe inside a CSS comment.
+- Added a CSS validation step to the pre-delivery checks alongside the existing `node --check`
+  and HTMLParser tag-balance passes: strip comments the way a parser would, then assert brace
+  balance is 0, that no stray "*/" or "/*" survives the strip, that every newly-added selector
+  still exists as a real rule afterward, and that no rule's selector contains English prose
+  (the tell-tale signature of a wrecked comment). This bug was invisible to both existing
+  checks — the JS was fine and the HTML tags balanced.
+-->
+<!--
 VERSION: 241
 DATE: 2026-08-27T14:30:00-05:00
 CHANGES:
@@ -2585,7 +2606,8 @@ CHANGES:
      shell chrome. One physical panel is reconfigured per open by renderBrowsePanel() (see JS)
      rather than tripling this markup/CSS three times — the trigger is each category's own
      sticky lane icon (.bandIconWrap[data-type]), same discovery pattern as Saints. .panelHead/
-     .panelTitle/.panelClose/.spHead/.spCol/.spListWrap/.spList/.spThumb*/.spEmpty are all
+     .panelTitle/.panelClose/.spHead/.spCol/.spListWrap/.spList, the thumb rules, and .spEmpty
+     are all
      already generic (not scoped under .saintsPanel), so they're reused directly below with no
      new rules needed — only the outer positioned container, its row cells, and the
      hasThumb-visibility rule (which .saintsPanel scopes to its own class) need restating. */
@@ -4701,7 +4723,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v241';
+const APP_VERSION = 'v242';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
