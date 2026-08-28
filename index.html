@@ -1,4 +1,15 @@
 <!--
+VERSION: 252
+DATE: 2026-08-28T09:30:00-05:00
+CHANGES:
+- Fixed the sticky group label (v251) rendering in the page's default serif (EB Garamond)
+  instead of the row's own sans-serif: .spGroupLabel sits inside .spGroup, a sibling of .spRow
+  rather than a descendant of it, so it never inherited the system-ui font-family .spRow sets on
+  itself — it fell back to whatever the ambient body font was instead. .spGroupLabel > span now
+  sets font-family:system-ui,-apple-system,'Segoe UI',sans-serif explicitly, matching
+  .spFeast/.brLast exactly.
+-->
+<!--
 VERSION: 251
 DATE: 2026-08-28T09:00:00-05:00
 CHANGES:
@@ -2771,6 +2782,7 @@ CHANGES:
   }
   .spGroupLabel > span{
     position:absolute; left:22px; top:11px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
     font-size:13px; color:#6B7280; background:#fff;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     padding-right:6px;
@@ -4943,7 +4955,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v251';
+const APP_VERSION = 'v252';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
