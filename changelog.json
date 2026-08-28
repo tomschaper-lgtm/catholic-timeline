@@ -2,6 +2,33 @@
   "v": 1,
   "entries": [
     {
+      "version": "243",
+      "date": "2026-08-27T15:40:00-05:00",
+      "changes": [
+        "Browse panel columns reordered to match the Saints panel's own layout: the category-specific",
+        "column (Region / Country) on the LEFT, Name in the middle, Year on the FAR RIGHT. Was",
+        "Year|Name|Region.",
+        "All three columns are now sortable in every category, defaulting to Year. Previously each",
+        "category declared its own comparator map and Persecutions only ever declared \"year\", so its",
+        "Name and Region headers had nothing behind them and Eucharistic Miracles had no Name sort at",
+        "all. Comparators are now built generically per column (brComparator()) from the config's",
+        "lastValue, so a category can no longer ship missing a sort. Ties fall back to year then name.",
+        "FIXED the scrub slider being hard to engage — reported as \"doesn't work\" unless you aimed",
+        "slightly LEFT of the rail. The track's touch target was only 16px wide, well under Apple's",
+        "44px HIG minimum and much smaller than a fingertip's contact patch. The element is now 46px",
+        "wide while the rail you actually see stays 16px (drawn by ::before at the original geometry),",
+        "so nothing changes visually but the grab zone roughly triples, extending left where there's",
+        "room rather than right into iOS's reserved screen-edge gesture strip.",
+        "Because that wider zone overlaps the right end of each row, touches there are now",
+        "disambiguated instead of always being claimed as a scrub: landing on the visible rail drags",
+        "immediately as before, while landing in the widened strip stays pending — a vertical move",
+        "turns it into a drag, and a clean tap is forwarded down to the row underneath so tapping an",
+        "entry near the right edge still opens it. Applies to the Saints panel and all three Browse",
+        "panels, which share the .spThumbTrack markup."
+      ],
+      "loggedAt": "2026-08-28T00:50:46.731897+00:00"
+    },
+    {
       "version": "242",
       "date": "2026-08-27T14:55:00-05:00",
       "changes": [
