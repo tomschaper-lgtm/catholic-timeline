@@ -1,4 +1,45 @@
 <!--
+VERSION: 246
+DATE: 2026-08-27T17:05:00-05:00
+CHANGES:
+- Browse panel titles now use the same two-font treatment as the Saints panel (and the header's
+  own "CATHOLIC Timeline"): category word in plain bold black, subtitle in italic gold serif,
+  reusing .spTitleSecond directly so the two panels can never drift apart stylistically. Both
+  halves come from the config (title / title2), so each category carries its own phrasing:
+  Eucharistic *Miracles* · Marian *Apparitions* · Councils *of the Church* · Persecutions
+  *Witness in Blood* · Events *That Shaped the Church*.
+- Persecutions settled on *Witness in Blood* rather than the "Holy Trials" first floated: it
+  leans on martys/"witness" and puts the holiness on the endurance rather than on the
+  persecution itself. All five subtitles are now confirmed; none are placeholders.
+  (Supersedes the briefly-delivered v245, which carried the placeholder wording.)
+-->
+<!--
+VERSION: 244
+DATE: 2026-08-27T16:20:00-05:00
+CHANGES:
+- Browse panels completed for the last two categories: Councils and Marian Apparitions. Every
+  one of the six lane icons now opens a list; none are decorative anymore.
+- Councils: Rank | Name | Year. The left column shows the ecumenical rank ("1st" … "21st") and
+  falls back to "Regional" for the particular councils, derived from the EXISTING isEcumenical()
+  fact-presence test rather than a new field — that same test already drives the .ecu styling on
+  the timeline, so the panel and the timeline can never disagree about which councils are
+  ecumenical. Sorting that column is numeric by rank via a new optional lastSort() hook on the
+  config (the displayed text would sort "10th" before "2nd"), with regional councils collected
+  at the end in year order.
+- Councils also ship with a working filter row (All / Ecumenical / Regional) — no schema change
+  was needed after all, since isEcumenical() was already a trusted convention in this file. The
+  chip row is generic: any config can now declare `chips: [{id, label, test}]` and get a filter
+  bar, which is the same mechanism the planned Eucharistic Miracles Type chips and Marian
+  Apparitions approval chips will use. `.brChips:empty` hides the bar for types without chips,
+  so no empty floating island renders.
+- Marian Apparitions: Country | Name | Year, no chips yet. Deliberately uses the structured
+  `country` field rather than the "Approval status" fact, which is free prose ("Approved by the
+  Holy See, 1862") — fine to display, but not reliably sortable or bucketable into
+  Papal/Diocesan/None. Those chips remain the follow-up, pending an `approvalTier` field.
+- Browse panel filter state is now remembered per type alongside sort and scroll position, and
+  the scroll restore only applies when BOTH the sort and the filter match what was saved.
+-->
+<!--
 VERSION: 243
 DATE: 2026-08-27T15:40:00-05:00
 CHANGES:
@@ -2691,6 +2732,12 @@ CHANGES:
   #brSortLast{flex:0 0 104px; min-width:0;}
   #brSortName{flex:1 1 auto; min-width:0;}
   #brSortYear{flex:0 0 62px; justify-content:flex-end; min-width:0;}
+  /* The Browse panel's chip row reuses .spChips/.spChip wholesale, but its chips are text-only
+     (no icon art commissioned for Ecumenical/Regional yet), so the label needs the vertical
+     padding the icon would otherwise have contributed. Hidden outright for the types that have
+     no chips defined, so the panel doesn't render an empty floating island. */
+  .brChips:empty{display:none;}
+  .brChips .spChip{padding:12px 2px;}
 
   .pRow{
     display:flex; align-items:center; gap:16px;
@@ -2870,10 +2917,9 @@ CHANGES:
   }
   .bandIconWrap svg{width:28px; height:28px;}
   .bandIconWrap img{width:100%; height:100%; object-fit:cover; display:block;}
-  /* Saints, Persecutions, Eucharistic Miracles, and Events lane icons all open a browse panel
-     now (see .saintsPanel / .browsePanel below) — Councils and Marian Apparitions icons remain
-     purely decorative/pointer-events:none until they get the same treatment. */
-  .bandIconWrap.t-s, .bandIconWrap.t-p, .bandIconWrap.t-u, .bandIconWrap.t-e{pointer-events:auto; cursor:pointer;}
+  /* Every one of the six lane icons now opens a browse panel (see .saintsPanel /
+     .browsePanel below), so all of them take pointer events. */
+  .bandIconWrap.t-s, .bandIconWrap.t-p, .bandIconWrap.t-u, .bandIconWrap.t-e, .bandIconWrap.t-c, .bandIconWrap.t-m{pointer-events:auto; cursor:pointer;}
   .bandyearwrap{position:absolute; z-index:3; pointer-events:none;}
   .bandyear{
     position:sticky; top:60px; display:inline-block;
@@ -4005,7 +4051,7 @@ CHANGES:
   <div class="browsePanel" id="browsePanel" role="dialog" aria-label="Browse">
     <div class="panelHead">
       <div class="spTitleWrap">
-        <span class="panelTitle" id="brTitle">Persecutions</span>
+        <span class="panelTitle"><span id="brTitleFirst">Persecutions</span><em class="spTitleSecond" id="brTitleSecond"></em></span>
       </div>
       <button class="panelClose" id="brClose" aria-label="Close list">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
@@ -4017,6 +4063,7 @@ CHANGES:
       <div class="spThumbTrack" id="brThumbTrack"><div class="spThumb" id="brThumb"></div></div>
       <div class="spThumbLabel" id="brThumbLabel"></div>
     </div>
+    <div class="spChips brChips" id="brChips"></div>
   </div>
 </header>
 
@@ -4764,7 +4811,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v243';
+const APP_VERSION = 'v246';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -11123,17 +11170,55 @@ function brYearLabel(y){ return y < 0 ? (-y) + ' BC' : String(y); }
 // so no type can accidentally end up missing a sort (Persecutions previously shipped with only
 // a year comparator, which is why its Name/Region headers had nothing to do).
 const BROWSE_CONFIGS = {
-  p: { title: 'Persecutions',          lastLabel: 'Region',  lastValue: e => REGION_NAMES[e.r] || e.r },
-  u: { title: 'Eucharistic Miracles',  lastLabel: 'Country', lastValue: e => e.country || '' },
-  e: { title: 'Events',                lastLabel: 'Region',  lastValue: e => REGION_NAMES[e.r] || e.r }
+  p: { title: 'Persecutions', title2: 'Witness in Blood',  lastLabel: 'Region',  lastValue: e => REGION_NAMES[e.r] || e.r },
+  u: { title: 'Eucharistic', title2: 'Miracles',      lastLabel: 'Country', lastValue: e => e.country || '' },
+  e: { title: 'Events', title2: 'That Shaped the Church', lastLabel: 'Region', lastValue: e => REGION_NAMES[e.r] || e.r },
+  // Councils show their ecumenical rank ("1st", "21st") in the left column, falling back to
+  // "Regional" for the particular/local councils. That reuses isEcumenical()'s existing
+  // fact-presence test rather than introducing a parallel field — the same test already drives
+  // the .ecu styling on the timeline itself, so the two can never disagree. Sorting by that
+  // column is numeric by rank (not the displayed string, which would order "10th" before
+  // "2nd"), with the regional councils collected at the end in year order.
+  c: {
+    title: 'Councils', title2: 'of the Church', lastLabel: 'Rank',
+    lastValue: e => { const n = councilRank(e); return n ? ordinal(n) : 'Regional'; },
+    lastSort: e => councilRank(e) || Infinity,
+    chips: [
+      {id: 'all',        label: 'All',        test: () => true},
+      {id: 'ecumenical', label: 'Ecumenical', test: e => isEcumenical(e)},
+      {id: 'regional',   label: 'Regional',   test: e => !isEcumenical(e)}
+    ]
+  },
+  // Marian Apparitions use Country (a real structured field) rather than the "Approval status"
+  // fact, which is free prose ("Approved by the Holy See, 1862") — displayable but not
+  // reliably sortable or bucketable. Approval chips (Papal / Diocesan / Not approved) are the
+  // planned follow-up once an `approvalTier` field is added and backfilled.
+  m: { title: 'Marian', title2: 'Apparitions', lastLabel: 'Country', lastValue: e => e.country || '' }
 };
+// "21st ecumenical" -> 21. Returns 0 for a particular council (no such fact at all).
+function councilRank(e){
+  if(!Array.isArray(e.facts)) return 0;
+  const f = e.facts.find(x => x && x.label === 'Ecumenical number');
+  if(!f) return 0;
+  const m = String(f.value).match(/\d+/);
+  return m ? parseInt(m[0], 10) : 0;
+}
+function ordinal(n){
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
 // Ties fall back to year, then name, so any sort produces a stable, sensible reading order
 // rather than leaving equal-keyed rows in arbitrary db order.
 function brComparator(cfg, sort){
   if(sort === 'name') return (a, b) => String(a.n).localeCompare(String(b.n)) || (a.y - b.y);
-  if(sort === 'last') return (a, b) =>
-    String(cfg.lastValue(a) || '').localeCompare(String(cfg.lastValue(b) || '')) ||
-    (a.y - b.y) || String(a.n).localeCompare(String(b.n));
+  if(sort === 'last'){
+    // A config may supply lastSort() to sort by something other than the displayed text —
+    // Councils sorts by numeric ecumenical rank so "2nd" precedes "10th".
+    if(cfg.lastSort) return (a, b) => (cfg.lastSort(a) - cfg.lastSort(b)) || (a.y - b.y) || String(a.n).localeCompare(String(b.n));
+    return (a, b) =>
+      String(cfg.lastValue(a) || '').localeCompare(String(cfg.lastValue(b) || '')) ||
+      (a.y - b.y) || String(a.n).localeCompare(String(b.n));
+  }
   return (a, b) => (a.y - b.y) || String(a.n).localeCompare(String(b.n)); // 'year', the default
 }
 const browsePanel = document.getElementById('browsePanel');
@@ -11143,13 +11228,17 @@ const brThumbTrack = document.getElementById('brThumbTrack');
 const brThumb = document.getElementById('brThumb');
 const brThumbLabel = document.getElementById('brThumbLabel');
 const brListWrapEl = document.getElementById('brListWrap');
-let brType = null, brSort = 'year';
+let brType = null, brSort = 'year', brFilter = 'all';
 // Remembers sort + scroll position per type independently (same idea as Saints' spLastState),
 // so switching between, say, Persecutions and Events and back doesn't reset either one.
 let brLastState = {};
 function brRows(){
   const cfg = BROWSE_CONFIGS[brType];
-  return db.entries.filter(e => e.t === brType && (reviewMode || !isReview(e))).slice().sort(brComparator(cfg, brSort));
+  const chip = cfg.chips ? cfg.chips.find(c => c.id === brFilter) : null;
+  return db.entries
+    .filter(e => e.t === brType && (reviewMode || !isReview(e)))
+    .filter(e => !chip || chip.test(e))
+    .sort(brComparator(cfg, brSort));
 }
 function brThumbEligible(){
   return brListEl.scrollHeight > brListEl.clientHeight + 20;
@@ -11225,12 +11314,21 @@ brThumbTrack.addEventListener('touchcancel', brThumbEnd);
 brListEl.addEventListener('scroll', () => { if(!brThumbDragging) brSyncThumbPosition(); }, {passive: true});
 function renderBrowsePanel(){
   const cfg = BROWSE_CONFIGS[brType];
-  document.getElementById('brTitle').textContent = cfg.title;
+  // Same two-font treatment as the Saints panel title (and the header's own "CATHOLIC
+  // Timeline"): the category word stays plain bold black, the subtitle is italic gold
+  // serif. Both come from the config so each category can carry its own phrasing.
+  document.getElementById('brTitleFirst').textContent = cfg.title;
+  document.getElementById('brTitleSecond').textContent = cfg.title2 ? ' ' + cfg.title2 : '';
   const headEl = document.getElementById('brHead');
   headEl.innerHTML =
     '<button class="spCol' + (brSort === 'last' ? ' active' : '') + '" id="brSortLast" data-sort="last">' + esc(cfg.lastLabel) + ' <span class="arrow">▲</span></button>' +
     '<button class="spCol' + (brSort === 'name' ? ' active' : '') + '" id="brSortName" data-sort="name">Name <span class="arrow">▲</span></button>' +
     '<button class="spCol' + (brSort === 'year' ? ' active' : '') + '" id="brSortYear" data-sort="year">Year <span class="arrow">▲</span></button>';
+  const chipsEl = document.getElementById('brChips');
+  chipsEl.innerHTML = (cfg.chips || []).map(c =>
+    '<button class="spChip' + (c.id === brFilter ? ' active' : '') + '" data-filter="' + esc(c.id) + '"' +
+    ' aria-pressed="' + (c.id === brFilter ? 'true' : 'false') + '"><span>' + esc(c.label) + '</span></button>'
+  ).join('');
   const rows = brRows();
   let html = '';
   rows.forEach(e => {
@@ -11245,7 +11343,8 @@ function renderBrowsePanel(){
       '</div>';
   });
   brListEl.innerHTML = html || '<div class="spEmpty">Nothing matches.</div>';
-  brListEl.scrollTop = (brLastState[brType] && brLastState[brType].sort === brSort) ? (brLastState[brType].scrollTop || 0) : 0;
+  const st0 = brLastState[brType];
+  brListEl.scrollTop = (st0 && st0.sort === brSort && st0.filter === brFilter) ? (st0.scrollTop || 0) : 0;
   browsePanel.classList.toggle('hasThumb', brThumbEligible());
   brSyncThumbPosition();
 }
@@ -11254,15 +11353,22 @@ function openBrowsePanel(type){
   brType = type;
   const saved = brLastState[type];
   brSort = saved ? saved.sort : 'year';
+  brFilter = saved ? saved.filter : 'all';
   renderBrowsePanel();
   browsePanel.classList.add('open');
   brScrim.classList.add('open');
 }
 function closeBrowsePanel(){
-  if(brType) brLastState[brType] = {sort: brSort, scrollTop: brListEl.scrollTop};
+  if(brType) brLastState[brType] = {sort: brSort, filter: brFilter, scrollTop: brListEl.scrollTop};
   browsePanel.classList.remove('open');
   brScrim.classList.remove('open');
 }
+document.getElementById('brChips').addEventListener('click', (e) => {
+  const btn = e.target.closest('.spChip[data-filter]');
+  if(!btn) return;
+  brFilter = btn.dataset.filter;
+  renderBrowsePanel();
+});
 document.getElementById('brClose').addEventListener('click', (e) => { e.stopPropagation(); closeBrowsePanel(); });
 brScrim.addEventListener('click', closeBrowsePanel);
 document.getElementById('brHead').addEventListener('click', (e) => {
@@ -11280,14 +11386,14 @@ brListEl.addEventListener('click', (e) => {
   centerAndFocus(d, {onDone: () => showDetail(d)});
 });
 canvas.addEventListener('click', (e) => {
-  const icon = e.target.closest('.bandIconWrap[data-type="p"], .bandIconWrap[data-type="u"], .bandIconWrap[data-type="e"]');
+  const icon = e.target.closest('.bandIconWrap[data-type="p"], .bandIconWrap[data-type="u"], .bandIconWrap[data-type="e"], .bandIconWrap[data-type="c"], .bandIconWrap[data-type="m"]');
   if(!icon || dragMoved) return;
   e.stopPropagation();
   openBrowsePanel(icon.dataset.type);
 });
 canvas.addEventListener('keydown', (e) => {
   if(e.key !== 'Enter' && e.key !== ' ') return;
-  const icon = e.target.closest('.bandIconWrap[data-type="p"], .bandIconWrap[data-type="u"], .bandIconWrap[data-type="e"]');
+  const icon = e.target.closest('.bandIconWrap[data-type="p"], .bandIconWrap[data-type="u"], .bandIconWrap[data-type="e"], .bandIconWrap[data-type="c"], .bandIconWrap[data-type="m"]');
   if(!icon) return;
   e.preventDefault();
   openBrowsePanel(icon.dataset.type);
