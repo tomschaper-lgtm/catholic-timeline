@@ -1,4 +1,23 @@
 <!--
+VERSION: 247
+DATE: 2026-08-27T17:25:00-05:00
+CHANGES:
+- Councils: the left column now shows the COUNTRY for particular/regional councils instead of
+  the literal word "Regional", which only restated what the council's own name already said
+  ("Synod of Whitby" — Regional). The twenty-one ecumenical councils still show their rank.
+  Falls back to "Regional" only where an entry has no country set at all.
+- Because that column now holds two kinds of value, its header follows the active filter rather
+  than being fixed: "Rank / Place" under All, "Rank" under Ecumenical, "Place" under Regional.
+  lastLabel may now be a function of the filter, not just a string.
+- Sorting that column uses a new optional lastCompare() hook (replacing the narrower lastSort):
+  ecumenical councils sort by numeric rank and always precede the particular ones, which then
+  group by country. A plain string sort on the displayed text would have interleaved the two
+  kinds and put "10th" before "2nd".
+- Column width is now per-config via a --brLastW custom property that BOTH the header button and
+  the row cell read, so widening it for Councils (128px, to fit "Rank / Place") can't drift the
+  two out of alignment — the class-vs-id width mismatch that has bitten this panel before.
+-->
+<!--
 VERSION: 246
 DATE: 2026-08-27T17:05:00-05:00
 CHANGES:
@@ -2723,13 +2742,13 @@ CHANGES:
   /* Column order matches the Saints panel's own Feast|Name|Year layout: the category-specific
      column (Region/Country here, Feast day there) on the LEFT, Name in the middle, Year on the
      far right. All three are sortable; Year is the default. */
-  .brLast{flex:0 0 104px; font-size:13px; color:#6B7280; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .brLast{flex:0 0 var(--brLastW, 104px); font-size:13px; color:#6B7280; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .brYear{flex:0 0 62px; font-size:13px; color:#6B7280; text-align:right;}
   .brColLabel{
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12px; font-weight:800;
     letter-spacing:.04em; text-transform:uppercase; color:#111827;
   }
-  #brSortLast{flex:0 0 104px; min-width:0;}
+  #brSortLast{flex:0 0 var(--brLastW, 104px); min-width:0;}
   #brSortName{flex:1 1 auto; min-width:0;}
   #brSortYear{flex:0 0 62px; justify-content:flex-end; min-width:0;}
   /* The Browse panel's chip row reuses .spChips/.spChip wholesale, but its chips are text-only
@@ -4811,7 +4830,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v246';
+const APP_VERSION = 'v247';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -11164,6 +11183,8 @@ document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeSaints
 // has one). One physical DOM panel is reconfigured per open (brType) rather than tripling the
 // Saints markup three times.
 function brYearLabel(y){ return y < 0 ? (-y) + ' BC' : String(y); }
+// lastLabel may be a plain string or a function of the current filter (see Councils).
+function brLastLabel(cfg){ return typeof cfg.lastLabel === 'function' ? cfg.lastLabel() : cfg.lastLabel; }
 // Every category gets the same three sortable columns — the category-specific one (Region or
 // Country) on the left, Name in the middle, Year on the right, defaulting to Year. Each config
 // only supplies the *value* for its left column; the comparators are built generically below,
@@ -11180,9 +11201,24 @@ const BROWSE_CONFIGS = {
   // column is numeric by rank (not the displayed string, which would order "10th" before
   // "2nd"), with the regional councils collected at the end in year order.
   c: {
-    title: 'Councils', title2: 'of the Church', lastLabel: 'Rank',
-    lastValue: e => { const n = councilRank(e); return n ? ordinal(n) : 'Regional'; },
-    lastSort: e => councilRank(e) || Infinity,
+    title: 'Councils', title2: 'of the Church',
+    // The left column carries two different kinds of value — an ecumenical rank for the
+    // twenty-one, a country for the particular councils (where "Regional" would just have
+    // restated what the council's own name already says). The header therefore follows the
+    // active filter rather than being fixed: both kinds visible under All, one kind under
+    // either chip. Slightly wider than the default column to fit "Rank / Place".
+    lastLabel: () => brFilter === 'ecumenical' ? 'Rank' : brFilter === 'regional' ? 'Place' : 'Rank / Place',
+    lastWidth: '128px',
+    lastValue: e => { const n = councilRank(e); return n ? ordinal(n) : (e.country || 'Regional'); },
+    // Ecumenical councils sort by numeric rank and always precede the particular ones, which
+    // then group by country. A plain string sort on the displayed text would interleave the
+    // two kinds and order "10th" before "2nd".
+    lastCompare: (a, b) => {
+      const ra = councilRank(a), rb = councilRank(b);
+      if(ra && rb) return ra - rb;
+      if(ra !== rb) return ra ? -1 : 1;
+      return String(a.country || '').localeCompare(String(b.country || '')) || (a.y - b.y);
+    },
     chips: [
       {id: 'all',        label: 'All',        test: () => true},
       {id: 'ecumenical', label: 'Ecumenical', test: e => isEcumenical(e)},
@@ -11212,9 +11248,9 @@ function ordinal(n){
 function brComparator(cfg, sort){
   if(sort === 'name') return (a, b) => String(a.n).localeCompare(String(b.n)) || (a.y - b.y);
   if(sort === 'last'){
-    // A config may supply lastSort() to sort by something other than the displayed text —
-    // Councils sorts by numeric ecumenical rank so "2nd" precedes "10th".
-    if(cfg.lastSort) return (a, b) => (cfg.lastSort(a) - cfg.lastSort(b)) || (a.y - b.y) || String(a.n).localeCompare(String(b.n));
+    // A config may supply lastCompare() to sort by something other than the displayed text —
+    // Councils needs it because its column mixes ranks and countries.
+    if(cfg.lastCompare) return (a, b) => cfg.lastCompare(a, b) || (a.y - b.y) || String(a.n).localeCompare(String(b.n));
     return (a, b) =>
       String(cfg.lastValue(a) || '').localeCompare(String(cfg.lastValue(b) || '')) ||
       (a.y - b.y) || String(a.n).localeCompare(String(b.n));
@@ -11317,11 +11353,15 @@ function renderBrowsePanel(){
   // Same two-font treatment as the Saints panel title (and the header's own "CATHOLIC
   // Timeline"): the category word stays plain bold black, the subtitle is italic gold
   // serif. Both come from the config so each category can carry its own phrasing.
+  // Column width is per-config so a category whose left column needs more room (Councils)
+  // can widen it without affecting the others. Header and row read the same custom
+  // property, so the two can't drift out of alignment.
+  browsePanel.style.setProperty('--brLastW', cfg.lastWidth || '104px');
   document.getElementById('brTitleFirst').textContent = cfg.title;
   document.getElementById('brTitleSecond').textContent = cfg.title2 ? ' ' + cfg.title2 : '';
   const headEl = document.getElementById('brHead');
   headEl.innerHTML =
-    '<button class="spCol' + (brSort === 'last' ? ' active' : '') + '" id="brSortLast" data-sort="last">' + esc(cfg.lastLabel) + ' <span class="arrow">▲</span></button>' +
+    '<button class="spCol' + (brSort === 'last' ? ' active' : '') + '" id="brSortLast" data-sort="last">' + esc(brLastLabel(cfg)) + ' <span class="arrow">▲</span></button>' +
     '<button class="spCol' + (brSort === 'name' ? ' active' : '') + '" id="brSortName" data-sort="name">Name <span class="arrow">▲</span></button>' +
     '<button class="spCol' + (brSort === 'year' ? ' active' : '') + '" id="brSortYear" data-sort="year">Year <span class="arrow">▲</span></button>';
   const chipsEl = document.getElementById('brChips');
