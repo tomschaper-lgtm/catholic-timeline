@@ -2,6 +2,30 @@
   "v": 1,
   "entries": [
     {
+      "version": "253",
+      "date": "2026-08-28T10:15:00-05:00",
+      "changes": [
+        "Fixed the sticky group label (v251) overlapping the next group's label for a brief window at",
+        "the handoff instead of cleanly getting pushed off first. Root cause: .spGroupLabel used",
+        "height:0 + overflow:visible with its text absolutely positioned 11px below that (to reach into",
+        "the row it visually sits over) — but a sticky element's push-off point is governed by its own",
+        "box's height, not its visible content, so a 0-height box only unsticks at the exact instant the",
+        "group's last pixel clears, while its text (11px further down, thanks to that offset) kept",
+        "rendering for another 11px of scroll — right as the next group's label had already started",
+        "sticking underneath it.",
+        ".spGroupLabel now gets a real height matching an actual row — --rowH, measured off a live",
+        ".spRow/.brRow fresh after every render (renderSaintsPanel()/renderBrowsePanel()) rather than",
+        "hardcoded, so it can't drift out of sync if a row's padding/font-size changes later — paired",
+        "with an equal negative margin-bottom that pulls row 1 back up so nothing shifts in the group's",
+        "unstuck resting position. The sticky clamp now sees the label's true footprint, so it gets",
+        "pushed off exactly one row's height before the next group's label takes over — no overlap",
+        "window, no double-render.",
+        "Text now sits directly in .spGroupLabel (display:flex; align-items:center) instead of a nested",
+        "absolutely-positioned <span> — no longer needed once the box itself carries real dimensions."
+      ],
+      "loggedAt": "2026-08-28T16:38:06.509265+00:00"
+    },
+    {
       "version": "252",
       "date": "2026-08-28T09:30:00-05:00",
       "changes": [
