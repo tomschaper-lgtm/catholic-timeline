@@ -2,6 +2,33 @@
   "v": 1,
   "entries": [
     {
+      "version": "251",
+      "date": "2026-08-28T09:00:00-05:00",
+      "changes": [
+        "Sticky first-column grouping, first column only, all slide-out panels (Saints + the five",
+        "Browse panels): when a run of 2+ consecutive rows shares the exact same first-column text —",
+        "three saints all patron of \"Lawyers,\" a run of Eucharistic Miracles all in \"Italy\" — the label",
+        "now renders once, at the top of that run, as a position:sticky overlay that stays pinned near",
+        "the top of the list for as long as any row of that run is still on screen, instead of repeating",
+        "on every row and scrolling fully out of view the moment its own row does. New shared",
+        "groupStickyRows() (JS) wraps such a run in a .spGroup, with the sticky label as .spGroupLabel",
+        "and the individual rows' own .spFeast/.brLast cells left blank underneath. A run of exactly one",
+        "row is untouched — no wrapper, no sticky, label inline exactly as before.",
+        "Scoped strictly to whichever sort key the first column IS — Saints: Patron sort, or Feast",
+        "order; Browse: sorted by Region/Country (\"last\"). Under Name/Year sort the first column still",
+        "shows the same feast-date/Region/Country text, but it's incidental to the sort rather than what",
+        "the list is grouped by, so a coincidental repeat there renders exactly as it always has —",
+        "nothing new triggers outside those sort modes.",
+        ".spLabelAtRel()/.brLabelAtRel() and the Feast-order loop's copy-height/today-centering math",
+        "switched from indexing spListEl.children/brListEl.children directly to",
+        "querySelectorAll('.spRow')/('.brRow') — a grouped run now nests its rows inside a .spGroup",
+        "wrapper, so a raw child-index lookup would drift out of sync with the row count the moment any",
+        "run collapses. querySelectorAll flattens back to the same row sequence, same count, same order",
+        "regardless of grouping, so this is a like-for-like swap, not a behavior change."
+      ],
+      "loggedAt": "2026-08-28T14:05:50.291769+00:00"
+    },
+    {
       "version": "250",
       "date": "2026-08-27T18:20:00-05:00",
       "changes": [
