@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "249",
+      "date": "2026-08-27T18:05:00-05:00",
+      "changes": [
+        "Councils' left column is now consistently the COUNTRY for every row, ecumenical and particular",
+        "alike, matching every other category. v247's approach — rank for the twenty-one, country for",
+        "the rest — put two different kinds of value under one header and read as an unreadable jumble",
+        "(\"Spain / France / 1st / 2nd / Italy\"). That was the wrong call; reverted.",
+        "The ecumenical rank moves into the Name cell as a muted note (\"Nicaea I — 1st Ecumenical\"),",
+        "reusing .spNoteInline exactly as the Saints panel already does for a saint's several feast",
+        "days. Nothing is lost: the rank is still visible on every ecumenical council, and now it sits",
+        "next to the name it qualifies rather than competing with the country.",
+        "The dynamic \"Rank / Place\" header and the lastCompare() rank sort are both gone with it; the",
+        "header is a plain \"Country\" again and the column sorts alphabetically like the others. Sorting",
+        "by Year already produces rank order for the ecumenical councils, since rank and chronology run",
+        "together, so a dedicated rank sort was redundant.",
+        "brLastLabel()'s function-or-string shim is retained (unused for now) so a future category can",
+        "still vary its header by active filter without reintroducing the plumbing."
+      ],
+      "loggedAt": "2026-08-28T01:42:46.238752+00:00"
+    },
+    {
       "version": "248",
       "date": "2026-08-27T17:45:00-05:00",
       "changes": [
