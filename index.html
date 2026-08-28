@@ -1,4 +1,16 @@
 <!--
+VERSION: 248
+DATE: 2026-08-27T17:45:00-05:00
+CHANGES:
+- The scrub channel (the pale rail behind the gold thumb) is now only drawn while a drag is
+  actually in progress, fading in when the gesture commits and out on release. At rest just the
+  gold thumb shows, floating against the rows. Applies to the Saints panel and all five Browse
+  panels, which share .spThumbTrack.
+- Only the pseudo-element's paint is toggled, never the track element itself — the 46px touch
+  zone and its tap-vs-drag handling are untouched, so hiding the channel costs no grab area and
+  the slider stays exactly as easy to catch as it was in v243.
+-->
+<!--
 VERSION: 247
 DATE: 2026-08-27T17:25:00-05:00
 CHANGES:
@@ -2604,9 +2616,19 @@ CHANGES:
     display:none; position:absolute; right:0; top:4px; bottom:4px; width:46px;
     background:none; z-index:4; touch-action:none;
   }
+  /* The channel itself is only drawn while a drag is in progress — at rest just the gold thumb
+     shows, floating against the rows. Fades rather than snapping, and .dragging is set for the
+     whole gesture (see spThumbBeginDrag/spThumbEnd), so it appears the moment the drag commits
+     and clears on release. Only the pseudo-element's paint is affected; the track element and
+     its 46px touch zone stay put, so hiding the channel never costs any grab area. */
   .spThumbTrack::before{
     content:''; position:absolute; right:3px; top:0; bottom:0; width:16px;
     border-radius:8px; background:rgba(20,25,40,.07);
+    opacity:0; transition:opacity .18s ease;
+  }
+  .spThumbTrack.dragging::before{opacity:1;}
+  @media (prefers-reduced-motion: reduce){
+    .spThumbTrack::before{transition:none;}
   }
   .saintsPanel.hasThumb .spThumbTrack{display:block;}
   .spThumb{
@@ -4830,7 +4852,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v247';
+const APP_VERSION = 'v248';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
