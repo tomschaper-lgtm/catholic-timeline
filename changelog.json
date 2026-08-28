@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "241",
+      "date": "2026-08-27T14:30:00-05:00",
+      "changes": [
+        "NEW: generic Browse panel for Persecutions, Eucharistic Miracles, and Events — same",
+        "left-slide-in shell/CSS as the Saints panel (.browsePanel/.brScrim mirror .saintsPanel/",
+        ".spScrim), but without Saints' calendar-loop or Patron-mode specialness, since none of these",
+        "three types need it. One shared, config-driven panel (BROWSE_CONFIGS, renderBrowsePanel())",
+        "is reconfigured per open rather than tripling the Saints markup three times over. Opened the",
+        "same way Saints already is — tapping that category's own sticky lane icon on the timeline",
+        "(.bandIconWrap[data-type=\"p\"|\"u\"|\"e\"]) — so there's no new UI chrome to discover.",
+        "Columns/sorts, per type: Persecutions (Year·Name·Region, Chronological only — 14 entries",
+        "didn't need more); Eucharistic Miracles (Year·Name·Country, Chronological + By Country — a",
+        "Blood/Protection/Desecration/Other filter chip row is planned once the \"Type\" Quick Fact",
+        "backfill lands, same pattern as Saints' Doctors/Popes/Martyrs chips); Events (Year·Name·",
+        "Region, Chronological + By Region). No filter chips or search box on any of the three for",
+        "this pass — none were asked for, and the existing thumb-slider scrubber covers quick",
+        "navigation through even the largest of the three (108 Eucharistic Miracles)."
+      ],
+      "loggedAt": "2026-08-28T00:07:38.946734+00:00"
+    },
+    {
       "version": "240",
       "date": "2026-08-27T13:10:00-05:00",
       "changes": [
