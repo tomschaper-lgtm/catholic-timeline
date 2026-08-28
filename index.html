@@ -1,4 +1,29 @@
 <!--
+VERSION: 243
+DATE: 2026-08-27T15:40:00-05:00
+CHANGES:
+- Browse panel columns reordered to match the Saints panel's own layout: the category-specific
+  column (Region / Country) on the LEFT, Name in the middle, Year on the FAR RIGHT. Was
+  Year|Name|Region.
+- All three columns are now sortable in every category, defaulting to Year. Previously each
+  category declared its own comparator map and Persecutions only ever declared "year", so its
+  Name and Region headers had nothing behind them and Eucharistic Miracles had no Name sort at
+  all. Comparators are now built generically per column (brComparator()) from the config's
+  lastValue, so a category can no longer ship missing a sort. Ties fall back to year then name.
+- FIXED the scrub slider being hard to engage — reported as "doesn't work" unless you aimed
+  slightly LEFT of the rail. The track's touch target was only 16px wide, well under Apple's
+  44px HIG minimum and much smaller than a fingertip's contact patch. The element is now 46px
+  wide while the rail you actually see stays 16px (drawn by ::before at the original geometry),
+  so nothing changes visually but the grab zone roughly triples, extending left where there's
+  room rather than right into iOS's reserved screen-edge gesture strip.
+- Because that wider zone overlaps the right end of each row, touches there are now
+  disambiguated instead of always being claimed as a scrub: landing on the visible rail drags
+  immediately as before, while landing in the widened strip stays pending — a vertical move
+  turns it into a drag, and a clean tap is forwarded down to the row underneath so tapping an
+  entry near the right edge still opens it. Applies to the Saints panel and all three Browse
+  panels, which share the .spThumbTrack markup.
+-->
+<!--
 VERSION: 242
 DATE: 2026-08-27T14:55:00-05:00
 CHANGES:
@@ -2507,14 +2532,25 @@ CHANGES:
      sort order (Feast/Name/Year/Patron alike) since it's just a proportional position on the
      scrollable range, not a fixed alphabet. Widened to a real pill per feedback — it can sit
      over the row's Year numbers, translucent so they stay legible underneath. Shown whenever
-     there's enough content to actually scroll — see spThumbEligible(). */
+     there's enough content to actually scroll — see spThumbEligible().
+     TOUCH TARGET: the *visible* rail stays 16px, but the element itself is 46px wide (Apple's
+     44px HIG minimum, plus the 3px inset), extending LEFT from the right edge, because a 16px
+     target is far smaller than a fingertip's contact patch and readers were reporting the
+     slider "not working" unless they aimed slightly left of it. The rail is drawn by ::before
+     at its original right:3px/16px geometry so nothing changes visually. Because that wider
+     zone now overlaps the right end of each row, the drag handler discriminates tap-from-drag
+     (see spThumbStart/spThumbEnd) so a plain tap there still opens the entry as before. */
   .spThumbTrack{
-    display:none; position:absolute; right:3px; top:4px; bottom:4px; width:16px;
-    border-radius:8px; background:rgba(20,25,40,.07); z-index:4; touch-action:none;
+    display:none; position:absolute; right:0; top:4px; bottom:4px; width:46px;
+    background:none; z-index:4; touch-action:none;
+  }
+  .spThumbTrack::before{
+    content:''; position:absolute; right:3px; top:0; bottom:0; width:16px;
+    border-radius:8px; background:rgba(20,25,40,.07);
   }
   .saintsPanel.hasThumb .spThumbTrack{display:block;}
   .spThumb{
-    position:absolute; left:0; width:16px; height:110px; border-radius:8px;
+    position:absolute; right:3px; width:16px; height:110px; border-radius:8px;
     background:var(--gold, #C9A542); opacity:.5;
     transition:opacity .15s;
   }
@@ -2643,13 +2679,18 @@ CHANGES:
      styling verbatim — a bare year fits the same width a "Aug 27" date did. The right-hand
      column varies by type (Region/Country) and needs more room than Saints' plain Year number,
      so it gets its own class rather than reusing .spYear's narrower 56px. */
-  .brLast{flex:0 0 100px; font-size:13px; color:#6B7280; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  /* Column order matches the Saints panel's own Feast|Name|Year layout: the category-specific
+     column (Region/Country here, Feast day there) on the LEFT, Name in the middle, Year on the
+     far right. All three are sortable; Year is the default. */
+  .brLast{flex:0 0 104px; font-size:13px; color:#6B7280; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .brYear{flex:0 0 62px; font-size:13px; color:#6B7280; text-align:right;}
   .brColLabel{
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12px; font-weight:800;
     letter-spacing:.04em; text-transform:uppercase; color:#111827;
   }
-  #brSortYear{flex:0 0 64px; min-width:0;}
-  #brSortLast{flex:0 0 100px; justify-content:flex-end; min-width:0;}
+  #brSortLast{flex:0 0 104px; min-width:0;}
+  #brSortName{flex:1 1 auto; min-width:0;}
+  #brSortYear{flex:0 0 62px; justify-content:flex-end; min-width:0;}
 
   .pRow{
     display:flex; align-items:center; gap:16px;
@@ -4723,7 +4764,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v242';
+const APP_VERSION = 'v243';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -10739,20 +10780,64 @@ function spThumbDragTo(clientY){
   // right on top of it, where the bubble would cover the very row it's describing.
   spThumbLabel.style.top = (clientY - wrapRect.top - 90) + 'px';
 }
-let spThumbDragging = false;
-function spThumbStart(e){
+// The scrub track's touch zone is deliberately wider than the rail you can see (46px vs 16px —
+// see .spThumbTrack's CSS note), because a 16px target is smaller than a fingertip and readers
+// were reporting the slider simply not responding. That extra width overlaps the right end of
+// every row, so a touch landing there has to be disambiguated rather than always claimed as a
+// scrub:
+//   • lands ON the visible rail  -> drag immediately, exactly as before
+//   • lands in the widened strip -> stay pending; a vertical move turns it into a drag, while a
+//     clean tap is forwarded to whatever row sits underneath, so tapping an entry near the
+//     right edge still opens it.
+const THUMB_RAIL_HIT = 24; // px inward from the track's right edge counted as "on the rail"
+const THUMB_DRAG_SLOP = 5; // px of movement before a pending touch commits to being a drag
+function thumbOnRail(track, clientX){
+  return (track.getBoundingClientRect().right - clientX) <= THUMB_RAIL_HIT;
+}
+// Re-dispatches a tap that the (invisible) track intercepted down to the row beneath it. The
+// track is momentarily made click-through so elementFromPoint can see past it; .spRow's own
+// delegated click handler on the list then runs normally.
+function thumbForwardTap(track, x, y){
+  const prev = track.style.pointerEvents;
+  track.style.pointerEvents = 'none';
+  const el = document.elementFromPoint(x, y);
+  track.style.pointerEvents = prev;
+  const row = el && el.closest ? el.closest('.spRow[data-id]') : null;
+  if(row) row.click();
+}
+let spThumbDragging = false, spThumbPending = false, spThumbDownX = 0, spThumbDownY = 0;
+function spThumbBeginDrag(clientY){
   spThumbDragging = true;
+  spThumbPending = false;
   spThumbTrack.classList.add('dragging');
   spThumbLabel.classList.add('show');
-  spThumbDragTo(e.touches ? e.touches[0].clientY : e.clientY);
-  e.preventDefault();
+  spThumbDragTo(clientY);
+}
+function spThumbStart(e){
+  const t = e.touches ? e.touches[0] : e;
+  spThumbDownX = t.clientX; spThumbDownY = t.clientY;
+  if(thumbOnRail(spThumbTrack, t.clientX)){
+    spThumbBeginDrag(t.clientY);
+    e.preventDefault();
+  } else {
+    spThumbPending = true; // might still be a tap on the row underneath — decided on move/end
+  }
 }
 function spThumbMove(e){
+  const t = e.touches ? e.touches[0] : e;
+  if(spThumbPending){
+    if(Math.abs(t.clientY - spThumbDownY) > THUMB_DRAG_SLOP || Math.abs(t.clientX - spThumbDownX) > THUMB_DRAG_SLOP) spThumbBeginDrag(t.clientY);
+    else return;
+  }
   if(!spThumbDragging) return;
-  spThumbDragTo(e.touches ? e.touches[0].clientY : e.clientY);
+  spThumbDragTo(t.clientY);
   e.preventDefault();
 }
 function spThumbEnd(){
+  if(spThumbPending){
+    spThumbPending = false;
+    thumbForwardTap(spThumbTrack, spThumbDownX, spThumbDownY);
+  }
   spThumbDragging = false;
   spThumbTrack.classList.remove('dragging');
   spThumbLabel.classList.remove('show');
@@ -11032,32 +11117,25 @@ document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeSaints
 // has one). One physical DOM panel is reconfigured per open (brType) rather than tripling the
 // Saints markup three times.
 function brYearLabel(y){ return y < 0 ? (-y) + ' BC' : String(y); }
+// Every category gets the same three sortable columns — the category-specific one (Region or
+// Country) on the left, Name in the middle, Year on the right, defaulting to Year. Each config
+// only supplies the *value* for its left column; the comparators are built generically below,
+// so no type can accidentally end up missing a sort (Persecutions previously shipped with only
+// a year comparator, which is why its Name/Region headers had nothing to do).
 const BROWSE_CONFIGS = {
-  p: {
-    title: 'Persecutions',
-    lastLabel: 'Region',
-    lastValue: e => REGION_NAMES[e.r] || e.r,
-    sorts: { year: (a, b) => a.y - b.y }
-  },
-  u: {
-    title: 'Eucharistic Miracles',
-    lastLabel: 'Country',
-    lastValue: e => e.country || '',
-    sorts: {
-      year: (a, b) => a.y - b.y,
-      last: (a, b) => String(a.country || '').localeCompare(String(b.country || '')) || (a.y - b.y)
-    }
-  },
-  e: {
-    title: 'Events',
-    lastLabel: 'Region',
-    lastValue: e => REGION_NAMES[e.r] || e.r,
-    sorts: {
-      year: (a, b) => a.y - b.y,
-      last: (a, b) => String(REGION_NAMES[a.r] || '').localeCompare(String(REGION_NAMES[b.r] || '')) || (a.y - b.y)
-    }
-  }
+  p: { title: 'Persecutions',          lastLabel: 'Region',  lastValue: e => REGION_NAMES[e.r] || e.r },
+  u: { title: 'Eucharistic Miracles',  lastLabel: 'Country', lastValue: e => e.country || '' },
+  e: { title: 'Events',                lastLabel: 'Region',  lastValue: e => REGION_NAMES[e.r] || e.r }
 };
+// Ties fall back to year, then name, so any sort produces a stable, sensible reading order
+// rather than leaving equal-keyed rows in arbitrary db order.
+function brComparator(cfg, sort){
+  if(sort === 'name') return (a, b) => String(a.n).localeCompare(String(b.n)) || (a.y - b.y);
+  if(sort === 'last') return (a, b) =>
+    String(cfg.lastValue(a) || '').localeCompare(String(cfg.lastValue(b) || '')) ||
+    (a.y - b.y) || String(a.n).localeCompare(String(b.n));
+  return (a, b) => (a.y - b.y) || String(a.n).localeCompare(String(b.n)); // 'year', the default
+}
 const browsePanel = document.getElementById('browsePanel');
 const brScrim = document.getElementById('brScrim');
 const brListEl = document.getElementById('brList');
@@ -11071,8 +11149,7 @@ let brType = null, brSort = 'year';
 let brLastState = {};
 function brRows(){
   const cfg = BROWSE_CONFIGS[brType];
-  const cmp = cfg.sorts[brSort] || cfg.sorts.year;
-  return db.entries.filter(e => e.t === brType && (reviewMode || !isReview(e))).slice().sort(cmp);
+  return db.entries.filter(e => e.t === brType && (reviewMode || !isReview(e))).slice().sort(brComparator(cfg, brSort));
 }
 function brThumbEligible(){
   return brListEl.scrollHeight > brListEl.clientHeight + 20;
@@ -11104,20 +11181,39 @@ function brThumbDragTo(clientY){
   brThumbLabel.textContent = brLabelAtRel(rel);
   brThumbLabel.style.top = (clientY - wrapRect.top - 90) + 'px';
 }
-let brThumbDragging = false;
-function brThumbStart(e){
+let brThumbDragging = false, brThumbPending = false, brThumbDownX = 0, brThumbDownY = 0;
+function brThumbBeginDrag(clientY){
   brThumbDragging = true;
+  brThumbPending = false;
   brThumbTrack.classList.add('dragging');
   brThumbLabel.classList.add('show');
-  brThumbDragTo(e.touches ? e.touches[0].clientY : e.clientY);
-  e.preventDefault();
+  brThumbDragTo(clientY);
+}
+function brThumbStart(e){
+  const t = e.touches ? e.touches[0] : e;
+  brThumbDownX = t.clientX; brThumbDownY = t.clientY;
+  if(thumbOnRail(brThumbTrack, t.clientX)){
+    brThumbBeginDrag(t.clientY);
+    e.preventDefault();
+  } else {
+    brThumbPending = true; // see the shared note above spThumbStart()
+  }
 }
 function brThumbMove(e){
+  const t = e.touches ? e.touches[0] : e;
+  if(brThumbPending){
+    if(Math.abs(t.clientY - brThumbDownY) > THUMB_DRAG_SLOP || Math.abs(t.clientX - brThumbDownX) > THUMB_DRAG_SLOP) brThumbBeginDrag(t.clientY);
+    else return;
+  }
   if(!brThumbDragging) return;
-  brThumbDragTo(e.touches ? e.touches[0].clientY : e.clientY);
+  brThumbDragTo(t.clientY);
   e.preventDefault();
 }
 function brThumbEnd(){
+  if(brThumbPending){
+    brThumbPending = false;
+    thumbForwardTap(brThumbTrack, brThumbDownX, brThumbDownY);
+  }
   brThumbDragging = false;
   brThumbTrack.classList.remove('dragging');
   brThumbLabel.classList.remove('show');
@@ -11130,23 +11226,22 @@ brListEl.addEventListener('scroll', () => { if(!brThumbDragging) brSyncThumbPosi
 function renderBrowsePanel(){
   const cfg = BROWSE_CONFIGS[brType];
   document.getElementById('brTitle').textContent = cfg.title;
-  const hasLastSort = !!cfg.sorts.last;
   const headEl = document.getElementById('brHead');
   headEl.innerHTML =
-    '<button class="spCol' + (brSort === 'year' ? ' active' : '') + '" id="brSortYear" data-sort="year">Year <span class="arrow">▲</span></button>' +
-    '<span class="brColLabel" style="flex:1 1 auto">Name</span>' +
-    (hasLastSort
-      ? '<button class="spCol' + (brSort === 'last' ? ' active' : '') + '" id="brSortLast" data-sort="last">' + esc(cfg.lastLabel) + ' <span class="arrow">▲</span></button>'
-      : '<span class="brColLabel" id="brSortLast" style="flex:0 0 100px; text-align:right">' + esc(cfg.lastLabel) + '</span>');
+    '<button class="spCol' + (brSort === 'last' ? ' active' : '') + '" id="brSortLast" data-sort="last">' + esc(cfg.lastLabel) + ' <span class="arrow">▲</span></button>' +
+    '<button class="spCol' + (brSort === 'name' ? ' active' : '') + '" id="brSortName" data-sort="name">Name <span class="arrow">▲</span></button>' +
+    '<button class="spCol' + (brSort === 'year' ? ' active' : '') + '" id="brSortYear" data-sort="year">Year <span class="arrow">▲</span></button>';
   const rows = brRows();
   let html = '';
   rows.forEach(e => {
     const lastText = cfg.lastValue(e) || '';
-    const label = brSort === 'last' ? lastText : brYearLabel(e.y);
+    const label = brSort === 'last' ? lastText
+      : brSort === 'name' ? String(e.n).trim().charAt(0).toUpperCase()
+      : brYearLabel(e.y);
     html += '<div class="spRow brRow" data-id="' + esc(e.id) + '" data-label="' + esc(label) + '">' +
-      '<span class="spFeast">' + esc(brYearLabel(e.y)) + '</span>' +
-      '<span class="spName">' + esc(e.n) + '</span>' +
       '<span class="brLast">' + esc(lastText) + '</span>' +
+      '<span class="spName">' + esc(e.n) + '</span>' +
+      '<span class="brYear">' + esc(brYearLabel(e.y)) + '</span>' +
       '</div>';
   });
   brListEl.innerHTML = html || '<div class="spEmpty">Nothing matches.</div>';
