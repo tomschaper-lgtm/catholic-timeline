@@ -1,4 +1,23 @@
 <!--
+VERSION: 241
+DATE: 2026-08-27T14:30:00-05:00
+CHANGES:
+- NEW: generic Browse panel for Persecutions, Eucharistic Miracles, and Events — same
+  left-slide-in shell/CSS as the Saints panel (.browsePanel/.brScrim mirror .saintsPanel/
+  .spScrim), but without Saints' calendar-loop or Patron-mode specialness, since none of these
+  three types need it. One shared, config-driven panel (BROWSE_CONFIGS, renderBrowsePanel())
+  is reconfigured per open rather than tripling the Saints markup three times over. Opened the
+  same way Saints already is — tapping that category's own sticky lane icon on the timeline
+  (.bandIconWrap[data-type="p"|"u"|"e"]) — so there's no new UI chrome to discover.
+  Columns/sorts, per type: Persecutions (Year·Name·Region, Chronological only — 14 entries
+  didn't need more); Eucharistic Miracles (Year·Name·Country, Chronological + By Country — a
+  Blood/Protection/Desecration/Other filter chip row is planned once the "Type" Quick Fact
+  backfill lands, same pattern as Saints' Doctors/Popes/Martyrs chips); Events (Year·Name·
+  Region, Chronological + By Region). No filter chips or search box on any of the three for
+  this pass — none were asked for, and the existing thumb-slider scrubber covers quick
+  navigation through even the largest of the three (108 Eucharistic Miracles).
+-->
+<!--
 VERSION: 240
 DATE: 2026-08-27T13:10:00-05:00
 CHANGES:
@@ -2560,6 +2579,56 @@ CHANGES:
   }
   .panelClose svg{width:22px; height:22px;}
 
+  /* ---- Generic Browse panel: Persecutions / Eucharistic Miracles / Events -----------------
+     Same left-slide-panel mechanics as .saintsPanel/.spScrim (mirrored, same z-index band,
+     same open/close transition), reused wholesale rather than duplicated, since it's identical
+     shell chrome. One physical panel is reconfigured per open by renderBrowsePanel() (see JS)
+     rather than tripling this markup/CSS three times — the trigger is each category's own
+     sticky lane icon (.bandIconWrap[data-type]), same discovery pattern as Saints. .panelHead/
+     .panelTitle/.panelClose/.spHead/.spCol/.spListWrap/.spList/.spThumb*/.spEmpty are all
+     already generic (not scoped under .saintsPanel), so they're reused directly below with no
+     new rules needed — only the outer positioned container, its row cells, and the
+     hasThumb-visibility rule (which .saintsPanel scopes to its own class) need restating. */
+  .browsePanel{
+    position:fixed; top:calc(46px + env(safe-area-inset-top)); left:0; z-index:145;
+    width:min(410px, 95vw);
+    max-height:calc(100vh - 78px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow:hidden; display:flex; flex-direction:column;
+    background:#fff;
+    border-radius:0 26px 26px 0;
+    box-shadow:16px 0 46px rgba(7,15,34,.28);
+    padding:22px 0 10px;
+    transform:translateX(-100%);
+    transition:transform .48s cubic-bezier(.32,.72,.28,1), visibility 0s linear .48s;
+    visibility:hidden;
+  }
+  .browsePanel.open{
+    transform:translateX(0); visibility:visible;
+    transition:transform .48s cubic-bezier(.32,.72,.28,1), visibility 0s linear 0s;
+  }
+  .browsePanel.hasThumb .spThumbTrack{display:block;}
+  .brScrim{
+    position:fixed; inset:0; z-index:144;
+    background:rgba(9,16,34,.38);
+    opacity:0; pointer-events:none;
+    transition:opacity .48s cubic-bezier(.32,.72,.28,1);
+  }
+  .brScrim.open{opacity:1; pointer-events:auto;}
+  @media (prefers-reduced-motion: reduce){
+    .browsePanel, .brScrim{transition:none;}
+  }
+  /* Row cells reuse Saints' .spFeast (short left column, 64px) and .spName (flexible, ellipsis)
+     styling verbatim — a bare year fits the same width a "Aug 27" date did. The right-hand
+     column varies by type (Region/Country) and needs more room than Saints' plain Year number,
+     so it gets its own class rather than reusing .spYear's narrower 56px. */
+  .brLast{flex:0 0 100px; font-size:13px; color:#6B7280; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .brColLabel{
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12px; font-weight:800;
+    letter-spacing:.04em; text-transform:uppercase; color:#111827;
+  }
+  #brSortYear{flex:0 0 64px; min-width:0;}
+  #brSortLast{flex:0 0 100px; justify-content:flex-end; min-width:0;}
+
   .pRow{
     display:flex; align-items:center; gap:16px;
     width:100%; min-height:64px; padding:10px 22px;
@@ -2738,9 +2807,10 @@ CHANGES:
   }
   .bandIconWrap svg{width:28px; height:28px;}
   .bandIconWrap img{width:100%; height:100%; object-fit:cover; display:block;}
-  /* Only the Saints lane icon opens anything right now (the new Saints panel below) — every
-     other lane icon stays purely decorative/pointer-events:none as before. */
-  .bandIconWrap.t-s{pointer-events:auto; cursor:pointer;}
+  /* Saints, Persecutions, Eucharistic Miracles, and Events lane icons all open a browse panel
+     now (see .saintsPanel / .browsePanel below) — Councils and Marian Apparitions icons remain
+     purely decorative/pointer-events:none until they get the same treatment. */
+  .bandIconWrap.t-s, .bandIconWrap.t-p, .bandIconWrap.t-u, .bandIconWrap.t-e{pointer-events:auto; cursor:pointer;}
   .bandyearwrap{position:absolute; z-index:3; pointer-events:none;}
   .bandyear{
     position:sticky; top:60px; display:inline-block;
@@ -3860,6 +3930,31 @@ CHANGES:
       </button>
     </div>
   </div>
+
+  <!-- Generic Browse panel: Persecutions / Eucharistic Miracles / Events. One shared panel
+       reconfigured per open by renderBrowsePanel(brType) — see BROWSE_CONFIGS in the JS below —
+       rather than three separate panels. Opened the same way Saints is: tapping that category's
+       own sticky lane icon (.bandIconWrap[data-type="p"|"u"|"e"]). No search box and no filter
+       chips for now (none of the three currently need them — see brChips's empty state note in
+       the JS if that changes later, e.g. Eucharistic Miracles' Blood/Protection/Desecration/
+       Other chips once the Type backfill lands). -->
+  <div class="brScrim" id="brScrim"></div>
+  <div class="browsePanel" id="browsePanel" role="dialog" aria-label="Browse">
+    <div class="panelHead">
+      <div class="spTitleWrap">
+        <span class="panelTitle" id="brTitle">Persecutions</span>
+      </div>
+      <button class="panelClose" id="brClose" aria-label="Close list">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+    </div>
+    <div class="spHead" id="brHead"></div>
+    <div class="spListWrap" id="brListWrap">
+      <div class="spList" id="brList"></div>
+      <div class="spThumbTrack" id="brThumbTrack"><div class="spThumb" id="brThumb"></div></div>
+      <div class="spThumbLabel" id="brThumbLabel"></div>
+    </div>
+  </div>
 </header>
 
 <img id="heroLogo" src="Images/heroLogo.png" alt="" aria-hidden="true">
@@ -4606,7 +4701,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v240';
+const APP_VERSION = 'v241';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5547,7 +5642,7 @@ document.addEventListener('click', (e) => {
                      !!(e.target.isConnected && e.target.closest && e.target.closest(sel));
   // The floating audio bar is a no-close zone: a tap on it (or near it) is always a transport
   // control, never a "you clicked outside the card" dismissal.
-  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, .sresults, #hamMenu, .ev, .audioBottomBar, #linkPicker, #saintsPanel, #spScrim')) return;
+  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, .sresults, #hamMenu, .ev, .audioBottomBar, #linkPicker, #saintsPanel, #spScrim, #browsePanel, #brScrim')) return;
   if(article.classList.contains('open')){
     if(!hit('#article')) closeArticle();
     return;
@@ -10905,6 +11000,182 @@ spListEl.addEventListener('scroll', () => {
   else if(st >= spCopyHeight * 2) spListEl.scrollTop = st - spCopyHeight;
 }, {passive:true});
 document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeSaintsPanel(); });
+
+// ---- Generic Browse panel: Persecutions / Eucharistic Miracles / Events ---------------------
+// Config-driven single-list browser sharing the Saints panel's slide-in shell/CSS (.browsePanel/
+// .brScrim mirror .saintsPanel/.spScrim) but with none of Saints' calendar-loop or Patron-mode
+// specialness — these three types are just Chronological, optionally + one more sort, no filter
+// chips (see json-import-skill.md discussion: a Eucharistic Miracles Type filter is planned once
+// its backfill lands, at which point this gets a spChips-style row added the same way Saints
+// has one). One physical DOM panel is reconfigured per open (brType) rather than tripling the
+// Saints markup three times.
+function brYearLabel(y){ return y < 0 ? (-y) + ' BC' : String(y); }
+const BROWSE_CONFIGS = {
+  p: {
+    title: 'Persecutions',
+    lastLabel: 'Region',
+    lastValue: e => REGION_NAMES[e.r] || e.r,
+    sorts: { year: (a, b) => a.y - b.y }
+  },
+  u: {
+    title: 'Eucharistic Miracles',
+    lastLabel: 'Country',
+    lastValue: e => e.country || '',
+    sorts: {
+      year: (a, b) => a.y - b.y,
+      last: (a, b) => String(a.country || '').localeCompare(String(b.country || '')) || (a.y - b.y)
+    }
+  },
+  e: {
+    title: 'Events',
+    lastLabel: 'Region',
+    lastValue: e => REGION_NAMES[e.r] || e.r,
+    sorts: {
+      year: (a, b) => a.y - b.y,
+      last: (a, b) => String(REGION_NAMES[a.r] || '').localeCompare(String(REGION_NAMES[b.r] || '')) || (a.y - b.y)
+    }
+  }
+};
+const browsePanel = document.getElementById('browsePanel');
+const brScrim = document.getElementById('brScrim');
+const brListEl = document.getElementById('brList');
+const brThumbTrack = document.getElementById('brThumbTrack');
+const brThumb = document.getElementById('brThumb');
+const brThumbLabel = document.getElementById('brThumbLabel');
+const brListWrapEl = document.getElementById('brListWrap');
+let brType = null, brSort = 'year';
+// Remembers sort + scroll position per type independently (same idea as Saints' spLastState),
+// so switching between, say, Persecutions and Events and back doesn't reset either one.
+let brLastState = {};
+function brRows(){
+  const cfg = BROWSE_CONFIGS[brType];
+  const cmp = cfg.sorts[brSort] || cfg.sorts.year;
+  return db.entries.filter(e => e.t === brType && (reviewMode || !isReview(e))).slice().sort(cmp);
+}
+function brThumbEligible(){
+  return brListEl.scrollHeight > brListEl.clientHeight + 20;
+}
+function brThumbRange(){
+  return {min: 0, max: Math.max(0, brListEl.scrollHeight - brListEl.clientHeight)};
+}
+function brSyncThumbPosition(){
+  const {min, max} = brThumbRange();
+  const usable = Math.max(1, brThumbTrack.clientHeight - brThumb.offsetHeight);
+  const rel = max > min ? (brListEl.scrollTop - min) / (max - min) : 0;
+  brThumb.style.top = (Math.max(0, Math.min(1, rel)) * usable) + 'px';
+}
+function brLabelAtRel(rel){
+  const rows = brListEl.children;
+  if(!rows.length) return '';
+  const idx = Math.max(0, Math.min(rows.length - 1, Math.round(rel * (rows.length - 1))));
+  return rows[idx] ? (rows[idx].dataset.label || '') : '';
+}
+function brThumbDragTo(clientY){
+  const trackRect = brThumbTrack.getBoundingClientRect();
+  const usable = Math.max(1, trackRect.height - brThumb.offsetHeight);
+  let rel = (clientY - trackRect.top - brThumb.offsetHeight / 2) / usable;
+  rel = Math.max(0, Math.min(1, rel));
+  const {min, max} = brThumbRange();
+  brListEl.scrollTop = min + rel * (max - min);
+  brThumb.style.top = (rel * usable) + 'px';
+  const wrapRect = brListWrapEl.getBoundingClientRect();
+  brThumbLabel.textContent = brLabelAtRel(rel);
+  brThumbLabel.style.top = (clientY - wrapRect.top - 90) + 'px';
+}
+let brThumbDragging = false;
+function brThumbStart(e){
+  brThumbDragging = true;
+  brThumbTrack.classList.add('dragging');
+  brThumbLabel.classList.add('show');
+  brThumbDragTo(e.touches ? e.touches[0].clientY : e.clientY);
+  e.preventDefault();
+}
+function brThumbMove(e){
+  if(!brThumbDragging) return;
+  brThumbDragTo(e.touches ? e.touches[0].clientY : e.clientY);
+  e.preventDefault();
+}
+function brThumbEnd(){
+  brThumbDragging = false;
+  brThumbTrack.classList.remove('dragging');
+  brThumbLabel.classList.remove('show');
+}
+brThumbTrack.addEventListener('touchstart', brThumbStart, {passive: false});
+brThumbTrack.addEventListener('touchmove', brThumbMove, {passive: false});
+brThumbTrack.addEventListener('touchend', brThumbEnd);
+brThumbTrack.addEventListener('touchcancel', brThumbEnd);
+brListEl.addEventListener('scroll', () => { if(!brThumbDragging) brSyncThumbPosition(); }, {passive: true});
+function renderBrowsePanel(){
+  const cfg = BROWSE_CONFIGS[brType];
+  document.getElementById('brTitle').textContent = cfg.title;
+  const hasLastSort = !!cfg.sorts.last;
+  const headEl = document.getElementById('brHead');
+  headEl.innerHTML =
+    '<button class="spCol' + (brSort === 'year' ? ' active' : '') + '" id="brSortYear" data-sort="year">Year <span class="arrow">▲</span></button>' +
+    '<span class="brColLabel" style="flex:1 1 auto">Name</span>' +
+    (hasLastSort
+      ? '<button class="spCol' + (brSort === 'last' ? ' active' : '') + '" id="brSortLast" data-sort="last">' + esc(cfg.lastLabel) + ' <span class="arrow">▲</span></button>'
+      : '<span class="brColLabel" id="brSortLast" style="flex:0 0 100px; text-align:right">' + esc(cfg.lastLabel) + '</span>');
+  const rows = brRows();
+  let html = '';
+  rows.forEach(e => {
+    const lastText = cfg.lastValue(e) || '';
+    const label = brSort === 'last' ? lastText : brYearLabel(e.y);
+    html += '<div class="spRow brRow" data-id="' + esc(e.id) + '" data-label="' + esc(label) + '">' +
+      '<span class="spFeast">' + esc(brYearLabel(e.y)) + '</span>' +
+      '<span class="spName">' + esc(e.n) + '</span>' +
+      '<span class="brLast">' + esc(lastText) + '</span>' +
+      '</div>';
+  });
+  brListEl.innerHTML = html || '<div class="spEmpty">Nothing matches.</div>';
+  brListEl.scrollTop = (brLastState[brType] && brLastState[brType].sort === brSort) ? (brLastState[brType].scrollTop || 0) : 0;
+  browsePanel.classList.toggle('hasThumb', brThumbEligible());
+  brSyncThumbPosition();
+}
+function openBrowsePanel(type){
+  closeHamMenu();
+  brType = type;
+  const saved = brLastState[type];
+  brSort = saved ? saved.sort : 'year';
+  renderBrowsePanel();
+  browsePanel.classList.add('open');
+  brScrim.classList.add('open');
+}
+function closeBrowsePanel(){
+  if(brType) brLastState[brType] = {sort: brSort, scrollTop: brListEl.scrollTop};
+  browsePanel.classList.remove('open');
+  brScrim.classList.remove('open');
+}
+document.getElementById('brClose').addEventListener('click', (e) => { e.stopPropagation(); closeBrowsePanel(); });
+brScrim.addEventListener('click', closeBrowsePanel);
+document.getElementById('brHead').addEventListener('click', (e) => {
+  const btn = e.target.closest('.spCol[data-sort]');
+  if(!btn) return;
+  brSort = btn.dataset.sort;
+  renderBrowsePanel();
+});
+brListEl.addEventListener('click', (e) => {
+  const row = e.target.closest('.brRow[data-id]');
+  if(!row) return;
+  const d = db.entries.find(x => x.id === row.dataset.id);
+  if(!d) return;
+  closeBrowsePanel();
+  centerAndFocus(d, {onDone: () => showDetail(d)});
+});
+canvas.addEventListener('click', (e) => {
+  const icon = e.target.closest('.bandIconWrap[data-type="p"], .bandIconWrap[data-type="u"], .bandIconWrap[data-type="e"]');
+  if(!icon || dragMoved) return;
+  e.stopPropagation();
+  openBrowsePanel(icon.dataset.type);
+});
+canvas.addEventListener('keydown', (e) => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const icon = e.target.closest('.bandIconWrap[data-type="p"], .bandIconWrap[data-type="u"], .bandIconWrap[data-type="e"]');
+  if(!icon) return;
+  e.preventDefault();
+  openBrowsePanel(icon.dataset.type);
+});
+document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && browsePanel.classList.contains('open')) closeBrowsePanel(); });
 
 // Owner-only preview of the update-glow behaviour: closes the panel, pulses the hamburger
 // once it's visible again, then fakes the row's text just long enough to show the row glow
