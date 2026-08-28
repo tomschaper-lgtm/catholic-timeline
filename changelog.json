@@ -2,6 +2,20 @@
   "v": 1,
   "entries": [
     {
+      "version": "248",
+      "date": "2026-08-27T17:45:00-05:00",
+      "changes": [
+        "The scrub channel (the pale rail behind the gold thumb) is now only drawn while a drag is",
+        "actually in progress, fading in when the gesture commits and out on release. At rest just the",
+        "gold thumb shows, floating against the rows. Applies to the Saints panel and all five Browse",
+        "panels, which share .spThumbTrack.",
+        "Only the pseudo-element's paint is toggled, never the track element itself — the 46px touch",
+        "zone and its tap-vs-drag handling are untouched, so hiding the channel costs no grab area and",
+        "the slider stays exactly as easy to catch as it was in v243."
+      ],
+      "loggedAt": "2026-08-28T01:39:35.997197+00:00"
+    },
+    {
       "version": "247",
       "date": "2026-08-27T17:25:00-05:00",
       "changes": [
