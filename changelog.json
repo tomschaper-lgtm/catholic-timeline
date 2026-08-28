@@ -2,6 +2,29 @@
   "v": 1,
   "entries": [
     {
+      "version": "242",
+      "date": "2026-08-27T14:55:00-05:00",
+      "changes": [
+        "FIXED the v241 Browse panel rendering as an unstyled full-width inline block (no white card,",
+        "no rounded corners, no slide-in, transparent over the timeline) instead of matching the",
+        "Saints panel. Root cause was not layout at all but a CSS *comment* bug: the v241 block",
+        "comment described the reused selectors as \".spListWrap/.spList/.spThumb*/.spEmpty\", and that",
+        "\"*/\" terminated the comment ~6 lines early. The remaining prose then parsed as garbage CSS,",
+        "and the parser's error recovery swallowed the entire \".browsePanel{...}\" rule that followed",
+        "it — so the panel got literally zero styling while \".spHead\" (defined earlier, untouched)",
+        "still rendered its white column bar, which is exactly the half-styled state seen on device.",
+        "Comment reworded to avoid the \"*/\" sequence. Lesson worth keeping: a wildcard-looking",
+        "shorthand like \".spThumb*\" is never safe inside a CSS comment.",
+        "Added a CSS validation step to the pre-delivery checks alongside the existing `node --check`",
+        "and HTMLParser tag-balance passes: strip comments the way a parser would, then assert brace",
+        "balance is 0, that no stray \"*/\" or \"/*\" survives the strip, that every newly-added selector",
+        "still exists as a real rule afterward, and that no rule's selector contains English prose",
+        "(the tell-tale signature of a wrecked comment). This bug was invisible to both existing",
+        "checks — the JS was fine and the HTML tags balanced."
+      ],
+      "loggedAt": "2026-08-28T00:14:54.996429+00:00"
+    },
+    {
       "version": "241",
       "date": "2026-08-27T14:30:00-05:00",
       "changes": [
