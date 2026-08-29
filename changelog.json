@@ -2,6 +2,34 @@
   "v": 1,
   "entries": [
     {
+      "version": "260",
+      "date": "2026-08-29T17:40:00-05:00",
+      "changes": [
+        "FIXED the Back button overlapping scrolled-up section headings (\"...LLY GIVEN\" showing beside",
+        "\"← Back\") — .artback was just a bare sticky pill with nothing behind it, narrower than the",
+        "line it sits on, so a heading scrolling up to that same sticky y-position showed through the",
+        "gap beside the button instead of being covered. Wrapped #aboutBack in a new full-width sticky",
+        "band (.aboutStickyHead, background matching the overlay's own top gradient color) and made",
+        ".artback itself position:static inside it — the band is what's sticky now, and it's wide",
+        "enough to fully hide whatever scrolls underneath.",
+        "More breathing room throughout, addressing \"too cluttered\" generally: section headings",
+        "(.arth) bigger and given more top margin, the pull-quote bigger with more margin above/below,",
+        "more gap between individual Q&A pairs.",
+        "\"Questions & Answers\" (and every other section heading in this panel, same .arth class)",
+        "sized up.",
+        "Quote text (\"Be holy, for I am holy.\") sized up.",
+        "Q&A questions switched off Cinzel (the bold display face used for section headings, which",
+        "read as too heavy at full sentence length) to italic EB Garamond — the body serif, same",
+        "family used elsewhere for warmth/readability, still bold and gold to stand apart from its",
+        "answer underneath.",
+        "All of the above scoped to #aboutPanel specifically (new #aboutPanel .arth/.artquote/",
+        ".aboutQ rules, plus the new .aboutStickyHead), not edits to .arth/.artquote themselves —",
+        "those are shared with the full article view and would have changed every real entry's",
+        "section headings and quote blocks along with it."
+      ],
+      "loggedAt": "2026-08-29T22:23:49.307529+00:00"
+    },
+    {
       "version": "259",
       "date": "2026-08-29T17:05:00-05:00",
       "changes": [
