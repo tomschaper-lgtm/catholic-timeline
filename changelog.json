@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "255",
+      "date": "2026-08-29T12:00:00-05:00",
+      "changes": [
+        "Single border per sticky group, not one per row inside it. A run of rows sharing the same",
+        "feast date (Saints, Feast order), Patron (Saints, Patron sort), or Region/Country (any Browse",
+        "panel, sorted by that column) now reads as one bordered block — a line under the run's LAST",
+        "row only — instead of a line under every row in the run, which is what made three saints who",
+        "all fall on Sep 16 look like three separately-bordered rows rather than one \"Sep 16\" group.",
+        ".spGroupLabel no longer carries its own border-bottom. The label overlays the group's first",
+        "row (see the existing negative-margin trick below), so its border was effectively drawing the",
+        "same first/second-row seam line the first row's own border-bottom already drew — removing just",
+        "one of the two left a partial line rendered from the other. Both had to go together.",
+        "groupStickyRows() now tells each row in a run whether it's the run's last row (previously it",
+        "only ever told a row whether to show its own label). Saints-panel and Browse-panel row",
+        "rendering both read that flag and add a new .groupMid class (border-bottom:none) to every row",
+        "but the last. A run of exactly one row is untouched, as before — it never passes through this",
+        "path at all."
+      ],
+      "loggedAt": "2026-08-29T14:43:31.476525+00:00"
+    },
+    {
       "version": "254",
       "date": "2026-08-28T11:05:00-05:00",
       "changes": [
