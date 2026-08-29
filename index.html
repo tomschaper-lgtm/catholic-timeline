@@ -1,31 +1,84 @@
 <!--
-VERSION: 252
-DATE: 2026-08-27T19:10:00-05:00
+VERSION: 254
+DATE: 2026-08-28T11:05:00-05:00
 CHANGES:
-- Councils, Ecumenical filter: the rank now LEADS the row as a numbered list ("7. Nicaea II")
-  instead of trailing as a note. Right-aligned in a fixed 26px cell with tabular figures, so
-  single- and double-digit ranks still leave every name starting on the same vertical line.
-- The redundant word "Council" is dropped from the displayed name under that filter — the panel
-  is already titled "Councils of the Church" and the list is filtered to councils, so the word
-  earned none of the width it cost. "Council of Vienne" renders as "Vienne", "First Lateran
-  Council" as "First Lateran", "Fourth Council of Constantinople" as "Fourth Constantinople".
-  Applied uniformly rather than only-when-too-long, so the column can't look arbitrarily
-  inconsistent row to row. Display only — the underlying entry names are untouched, so search,
-  the timeline, and the article header all still show the full name.
-- Country column narrowed to 88px for Councils (its values are short: Italy, France, Turkey),
-  shifting the whole name column left. Between that and the two changes above, the longest name
-  in the set — Basel-Ferrara-Florence — now fits without ellipsis.
+- Fixed the v253 sticky group label failing to hand off: a label stayed stuck a full row past
+  the end of its own group, sitting on top of the NEXT group's first row and hiding that row's
+  real first-column value behind its white background (screen recording: "Sep 30" still pinned
+  while Thérèse of Lisieux — Oct 1 — was the row under it, her own "Oct 1" invisible).
+- Root cause was v253's own fix. Giving .spGroupLabel a real row height was right, but the
+  margin-bottom:calc(-1 * var(--rowH)) used to cancel that height back out of the flow was put
+  on the label itself — and CSS resolves sticky containment against the sticky element's MARGIN
+  box, not its border box. The negative margin therefore subtracted exactly the height that sets
+  the push-off point, moving the clamp boundary a full row lower: measured, the label's maximum
+  travel came out equal to the whole group height instead of (n-1) rows, letting it overhang one
+  row past its group in every case (verified for runs of 2, 3 and 5).
+- The negative margin now sits on the first row instead (.spGroupLabel + .spRow{margin-top}),
+  which cancels the same height out of the flow — group height is still exactly n rows — while
+  leaving the label's margin box a clean rowH, so it begins being pushed exactly one row's
+  height before its group ends and hands off cleanly with no overlap window.
+- .spGroupLabel now carries border-bottom matching .spRow so the separator runs unbroken under
+  the label, and mirrors .monthStart from the row it overlays (in a run every row shares one
+  feast date, so only the first row can be a month boundary) — otherwise the month rule was
+  half-hidden behind the label's background.
+-->
+<!--
+VERSION: 253
+DATE: 2026-08-28T10:15:00-05:00
+CHANGES:
+- Fixed the sticky group label (v251) overlapping the next group's label for a brief window at
+  the handoff instead of cleanly getting pushed off first. Root cause: .spGroupLabel used
+  height:0 + overflow:visible with its text absolutely positioned 11px below that (to reach into
+  the row it visually sits over) — but a sticky element's push-off point is governed by its own
+  box's height, not its visible content, so a 0-height box only unsticks at the exact instant the
+  group's last pixel clears, while its text (11px further down, thanks to that offset) kept
+  rendering for another 11px of scroll — right as the next group's label had already started
+  sticking underneath it.
+- .spGroupLabel now gets a real height matching an actual row — --rowH, measured off a live
+  .spRow/.brRow fresh after every render (renderSaintsPanel()/renderBrowsePanel()) rather than
+  hardcoded, so it can't drift out of sync if a row's padding/font-size changes later — paired
+  with an equal negative margin-bottom that pulls row 1 back up so nothing shifts in the group's
+  unstuck resting position. The sticky clamp now sees the label's true footprint, so it gets
+  pushed off exactly one row's height before the next group's label takes over — no overlap
+  window, no double-render.
+- Text now sits directly in .spGroupLabel (display:flex; align-items:center) instead of a nested
+  absolutely-positioned <span> — no longer needed once the box itself carries real dimensions.
+-->
+<!--
+VERSION: 252
+DATE: 2026-08-28T09:30:00-05:00
+CHANGES:
+- Fixed the sticky group label (v251) rendering in the page's default serif (EB Garamond)
+  instead of the row's own sans-serif: .spGroupLabel sits inside .spGroup, a sibling of .spRow
+  rather than a descendant of it, so it never inherited the system-ui font-family .spRow sets on
+  itself — it fell back to whatever the ambient body font was instead. .spGroupLabel > span now
+  sets font-family:system-ui,-apple-system,'Segoe UI',sans-serif explicitly, matching
+  .spFeast/.brLast exactly.
 -->
 <!--
 VERSION: 251
-DATE: 2026-08-27T18:45:00-05:00
+DATE: 2026-08-28T09:00:00-05:00
 CHANGES:
-- Councils: the ecumenical rank note in the Name cell now appears ONLY when the Ecumenical chip
-  is active. In the All view it was noise — present on some rows and absent on others, and long
-  enough to push the bigger council names into ellipsis ("First Lateran Council — 9...", "Council
-  of Basel-Ferrara..."). The All view is now clean Country | Name | Year like every other panel.
-- Under the Ecumenical filter the chip itself already supplies the word "Ecumenical", so the note
-  is just the ordinal ("Nicaea I — 1st") rather than repeating it on all twenty-one rows.
+- Sticky first-column grouping, first column only, all slide-out panels (Saints + the five
+  Browse panels): when a run of 2+ consecutive rows shares the exact same first-column text —
+  three saints all patron of "Lawyers," a run of Eucharistic Miracles all in "Italy" — the label
+  now renders once, at the top of that run, as a position:sticky overlay that stays pinned near
+  the top of the list for as long as any row of that run is still on screen, instead of repeating
+  on every row and scrolling fully out of view the moment its own row does. New shared
+  groupStickyRows() (JS) wraps such a run in a .spGroup, with the sticky label as .spGroupLabel
+  and the individual rows' own .spFeast/.brLast cells left blank underneath. A run of exactly one
+  row is untouched — no wrapper, no sticky, label inline exactly as before.
+- Scoped strictly to whichever sort key the first column IS — Saints: Patron sort, or Feast
+  order; Browse: sorted by Region/Country ("last"). Under Name/Year sort the first column still
+  shows the same feast-date/Region/Country text, but it's incidental to the sort rather than what
+  the list is grouped by, so a coincidental repeat there renders exactly as it always has —
+  nothing new triggers outside those sort modes.
+- .spLabelAtRel()/.brLabelAtRel() and the Feast-order loop's copy-height/today-centering math
+  switched from indexing spListEl.children/brListEl.children directly to
+  querySelectorAll('.spRow')/('.brRow') — a grouped run now nests its rows inside a .spGroup
+  wrapper, so a raw child-index lookup would drift out of sync with the row count the moment any
+  run collapses. querySelectorAll flattens back to the same row sequence, same count, same order
+  regardless of grouping, so this is a like-for-like swap, not a behavior change.
 -->
 <!--
 VERSION: 250
@@ -2760,6 +2813,55 @@ CHANGES:
   .spNoteInline{color:#8A90A0; font-weight:400;}
   .spYear{flex:0 0 56px; font-size:13px; color:#6B7280; text-align:right;}
   .spEmpty{padding:30px 22px; text-align:center; color:#8A90A0; font-size:14px;}
+  /* Sticky first-column grouping (see groupStickyRows() in the JS) — wraps a run of 2+ rows
+     that share the same Patron/Feast (Saints) or Region/Country (Browse) text. .spGroup itself
+     carries no layout styling; it just gives the sticky label a bounded parent to stick within
+     (a position:sticky child can't stray past its own parent's box), so the label naturally
+     hands off to the next group's label the moment this group's last row scrolls past, instead
+     of sticking forever.
+     .spGroupLabel is given the SAME real height as an actual row (--rowH, measured fresh off a
+     live .spRow after every render — see renderSaintsPanel()/renderBrowsePanel()) rather than
+     height:0. A sticky element's push-off point is governed by its own box's height against its
+     parent's remaining height, so a 0-height box only ever gets pushed off at the exact instant
+     the group's last pixel clears — any text rendered past that box's own edge (as the earliest
+     height:0 + absolutely-positioned-text version did) keeps showing after the box itself has
+     already been pushed, overlapping the next group's label that's just started sticking.
+     The row-height box must be cancelled back out of the flow so the group still occupies
+     exactly n rows — but that negative margin goes on the FIRST ROW (.spGroupLabel + .spRow),
+     never on the label itself. Sticky containment is resolved against the sticky element's
+     MARGIN box, not its border box, so a margin-bottom:-rowH sitting on the label silently
+     subtracts the very height that sets the push-off point: the clamp boundary lands a full row
+     too low and the label hangs one row past its own group, covering the next group's first row
+     (which is exactly what v253 shipped — "Sep 30" still stuck over Thérèse of Lisieux's Oct 1).
+     Pulling the row up instead leaves the label's margin box a clean rowH, so it starts being
+     pushed exactly one row's height before the group ends and hands off with no overlap.
+     border-bottom matches .spRow's own so the separator line runs unbroken under the label,
+     which paints its white background over the left ~92px of the row it overlays. */
+  .spGroup{height:auto;}
+  .spGroupLabel{
+    position:sticky; top:0; z-index:3; pointer-events:none;
+    height:var(--rowH, 43px);
+    box-sizing:border-box; display:flex; align-items:center;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:13px; color:#6B7280; background:#fff;
+    border-bottom:1px solid #EFEFEF;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    padding-left:22px; padding-right:6px;
+  }
+  /* A group's first row is the only one that can carry .monthStart (every row in a run shares
+     the same feast date, so they're all the same month) — the label overlays that row, so it
+     has to carry the month rule itself or the line would be half-hidden behind it. */
+  .spGroupLabel.monthStart{border-top:1px solid #C7CAD3;}
+  .spGroupLabel + .spRow{margin-top:calc(-1 * var(--rowH, 43px));}
+  /* Total box width = the live column's width plus the row's own 22px left inset and this
+     label's 6px right buffer, so the text area inside the padding lands on exactly the same
+     64px/132px/--brLastW the row's own .spFeast/.brLast cell would use — matching the column
+     it's standing in for, on both sides (Saints: 64px normal / 132px Patron mode; Browse: the
+     per-category --brLastW custom property), or the label and the column it overlays drift out
+     of alignment the moment a run has 2+ rows. */
+  .saintsPanel .spGroupLabel{width:calc(64px + 22px + 6px);}
+  .saintsPanel.patronMode .spGroupLabel{width:calc(132px + 22px + 6px);}
+  .browsePanel .spGroupLabel{width:calc(var(--brLastW, 104px) + 22px + 6px);}
 
   .panelHead{
     display:flex; align-items:center; justify-content:space-between;
@@ -2835,14 +2937,6 @@ CHANGES:
      column (Region/Country here, Feast day there) on the LEFT, Name in the middle, Year on the
      far right. All three are sortable; Year is the default. */
   .brLast{flex:0 0 var(--brLastW, 104px); font-size:13px; color:#6B7280; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  /* Rank prefix for the Councils list under its Ecumenical filter. Fixed min-width and
-     right-alignment so single- and double-digit ranks ("7." / "21.") still leave every council
-     name starting on the same vertical line, and tabular figures so the digits themselves don't
-     jitter between rows. */
-  .brRank{
-    display:inline-block; min-width:26px; margin-right:8px;
-    text-align:right; color:#6B7280; font-variant-numeric:tabular-nums;
-  }
   .brYear{flex:0 0 62px; font-size:13px; color:#6B7280; text-align:right;}
   .brColLabel{
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12px; font-weight:800;
@@ -4930,7 +5024,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v252';
+const APP_VERSION = 'v254';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -10922,7 +11016,10 @@ function spSyncThumbPosition(){
 // bubble reported a row from well before the true end. This guarantees rel=0 is always the
 // first row's label and rel=1 is always the last row's, independent of row-count-per-screen.
 function spLabelAtRel(rel){
-  const rows = spListEl.children;
+  // .spRow, not .children — sticky-grouped runs (see groupStickyRows()) nest rows inside a
+  // .spGroup wrapper, so a plain child-index lookup would skip past those wrappers and miscount.
+  // querySelectorAll flattens back to the same row sequence, same count, same order as before.
+  const rows = spListEl.querySelectorAll('.spRow');
   const total = rows.length;
   if(!total) return '';
   const N = spLoopable ? total / 3 : total; // one logical copy's worth of rows
@@ -11015,6 +11112,37 @@ spThumbTrack.addEventListener('touchcancel', spThumbEnd);
 // Keeps the thumb in sync when the list is scrolled normally (a swipe on the rows themselves,
 // not a drag on the thumb) — cheap enough to run on every scroll event.
 spListEl.addEventListener('scroll', () => { if(!spThumbDragging) spSyncThumbPosition(); }, {passive: true});
+// ---- Sticky first-column grouping (shared by the Saints panel + generic Browse panel) --------
+// Only ever invoked while a panel is actually SORTED BY its first column (Patron/Feast sort in
+// Saints, "last" sort in Browse) — see the `grouped` flag at each call site. A run of 2+
+// consecutive rows sharing that column's exact display text collapses: the label renders once,
+// as a position:sticky overlay pinned to the top of the scrollable list, and the individual rows
+// underneath render a blank first-column cell (keeping Name/Year in their usual position without
+// repeating the label). A run of exactly one row is untouched — rendered inline, no wrapper, no
+// sticky — so nothing changes for a row whose first-column value doesn't repeat.
+// `items`: array of {label, render(showLabel)} — render() builds one row's HTML; showLabel
+// tells it whether to print its own label inline (true, the pre-existing behavior) or leave that
+// cell blank (false, because the group's sticky header is carrying it instead). Comparison is by
+// `===` on `label`, so a caller that needs a value to never merge with its neighbors (the "no
+// feast today" placeholder) can pass a fresh object literal instead of a string.
+function groupStickyRows(items){
+  let html = '', i = 0;
+  while(i < items.length){
+    let j = i + 1;
+    while(j < items.length && items[j].label === items[i].label) j++;
+    const runLen = j - i;
+    if(runLen === 1){
+      html += items[i].render(true);
+    } else {
+      const lblCls = 'spGroupLabel' + (items[i].monthStart ? ' monthStart' : '');
+      html += '<div class="spGroup"><div class="' + lblCls + '" aria-hidden="true">' + esc(items[i].label) + '</div>';
+      for(let k = i; k < j; k++) html += items[k].render(false);
+      html += '</div>';
+    }
+    i = j;
+  }
+  return html;
+}
 function renderSaintsPanel(){
   const isPatronMode = spFilter === 'patron';
   saintsPanel.classList.toggle('patronMode', isPatronMode); // widens the shared first column for patron text — see CSS
@@ -11072,9 +11200,15 @@ function renderSaintsPanel(){
   // anymore, so those stay a plain finite list rather than looping through a filtered subset.
   const loopable = isFeastSort && spFilter === 'all' && !spQuery.trim() && N > 0;
   const renderRows = loopable ? baseRows.concat(baseRows).concat(baseRows) : baseRows;
+  // Sticky first-column grouping only applies while the panel is actually SORTED BY that column
+  // — Patron sort, or Feast order. Under Name/Year sort the first column still displays feast-
+  // date text, but it's incidental to the sort (not what the list is ordered by), so a
+  // coincidental repeat there is left exactly as it's always rendered. See groupStickyRows().
+  const grouped = isFeastSort || spSort === 'patron';
 
-  let lastMonth = null, html = '';
+  let lastMonth = null;
   let todayIdx = -1; // DOM index of the first "today" row inside the *middle* copy only
+  const items = [];
   renderRows.forEach((r, i) => {
     const hasFeast = !isPatronMode && r.month < 12;
     // Month-boundary rule only means anything under feast-day order — under Name/Year/Patron
@@ -11092,11 +11226,14 @@ function renderSaintsPanel(){
     if(r.synthetic){
       const dispDate = MONTH_NAMES[r.month].slice(0, 3) + ' ' + r.day;
       const scrubDate = MONTH_NAMES[r.month] + ' ' + r.day; // spelled out for the drag bubble only
-      html += '<div class="'+cls.join(' ')+'" data-label="'+esc(scrubDate)+'">' +
-        '<span class="spFeast">'+esc(dispDate)+'</span>' +
-        '<span class="spName">No feast today</span>' +
-        '<span class="spYear"></span>' +
-        '</div>';
+      items.push({
+        label: {}, // fresh object each time — never merges into a group, even with itself
+        render: () => '<div class="'+cls.join(' ')+'" data-label="'+esc(scrubDate)+'">' +
+          '<span class="spFeast">'+esc(dispDate)+'</span>' +
+          '<span class="spName">No feast today</span>' +
+          '<span class="spYear"></span>' +
+          '</div>'
+      });
       return;
     }
     // Kept lazy inside the ternary on purpose: patron rows carry month:12 as filler (see the
@@ -11115,18 +11252,33 @@ function renderSaintsPanel(){
       : spSort === 'name' ? spDisplayName(r.e.n).trim().charAt(0).toUpperCase()
       : spSort === 'patron' ? (r.patron || '').trim().charAt(0).toUpperCase()
       : (hasFeast ? MONTH_NAMES[r.month] + ' ' + r.day : firstColText); // spSort === 'feast'
-    html += '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'" data-label="'+esc(scrubLabel)+'">' +
-      '<span class="spFeast">'+esc(firstColText)+'</span>' +
-      '<span class="spName">'+esc(spDisplayName(r.e.n))+(r.note ? ' <span class="spNoteInline">— '+esc(r.note)+'</span>' : '')+'</span>' +
-      '<span class="spYear">'+r.e.y+'</span>' +
-      '</div>';
+    items.push({
+      label: firstColText,
+      monthStart: monthStart,
+      render: (showLabel) => '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'" data-label="'+esc(scrubLabel)+'">' +
+        '<span class="spFeast">'+(showLabel ? esc(firstColText) : '')+'</span>' +
+        '<span class="spName">'+esc(spDisplayName(r.e.n))+(r.note ? ' <span class="spNoteInline">— '+esc(r.note)+'</span>' : '')+'</span>' +
+        '<span class="spYear">'+r.e.y+'</span>' +
+        '</div>'
+    });
   });
+  const html = grouped ? groupStickyRows(items) : items.map(it => it.render(true)).join('');
   spListEl.innerHTML = html || '<div class="spEmpty">No saints match.</div>';
+  // .spGroupLabel's push-off point depends on it having the SAME real height as an actual row
+  // (see the CSS comment on .spGroupLabel) — measured fresh off a live row rather than
+  // hardcoded, so it can't silently drift out of sync if a row's padding/font-size ever changes.
+  const sampleRow = spListEl.querySelector('.spRow');
+  if(sampleRow) spListEl.style.setProperty('--rowH', sampleRow.offsetHeight + 'px');
 
   spLoopable = loopable;
   spCopyHeight = 0;
-  if(loopable && spListEl.children.length === 3 * N){
-    spCopyHeight = spListEl.children[2 * N].offsetTop - spListEl.children[N].offsetTop;
+  // .spRow, not .children — a sticky-grouped run nests its rows inside a .spGroup wrapper, so
+  // indexing straight into spListEl's children would drift out of sync with N/todayIdx (both
+  // counted in real rows). querySelectorAll flattens back to the same row sequence regardless
+  // of grouping.
+  const domRows = spListEl.querySelectorAll('.spRow');
+  if(loopable && domRows.length === 3 * N){
+    spCopyHeight = domRows[2 * N].offsetTop - domRows[N].offsetTop;
   }
   if(loopable && spCopyHeight > 0){
     // Default view (feast order, no search typed, All filter) centers on today's row inside
@@ -11134,7 +11286,7 @@ function renderSaintsPanel(){
     // at the start of the middle copy — the safe zone the scroll listener keeps scrolling
     // centered on — rather than at absolute 0, which would immediately sit in the top clone.
     if(todayIdx >= 0){
-      const el = spListEl.children[todayIdx];
+      const el = domRows[todayIdx];
       spListEl.scrollTop = Math.max(0, el.offsetTop - (spListEl.clientHeight / 2) + (el.offsetHeight / 2));
     } else {
       spListEl.scrollTop = spCopyHeight;
@@ -11306,17 +11458,7 @@ const BROWSE_CONFIGS = {
   c: {
     title: 'Councils', title2: 'of the Church', lastLabel: 'Country',
     lastValue: e => e.country || '',
-    // Under the Ecumenical chip the rank leads the row as a numbered list ("7. Nicaea II"),
-    // which reads far better than a trailing note and costs almost no width. In the All view
-    // there's no prefix at all — it would appear on some rows and not others.
-    namePrefix: e => { if(brFilter !== 'ecumenical') return ''; const n = councilRank(e); return n ? n + '.' : ''; },
-    // Also under that filter only, the redundant "Council" is dropped from the display name:
-    // the panel is already titled "Councils of the Church" and the list is filtered to
-    // councils, so the word earns none of the width it costs, and it was pushing the longer
-    // names into ellipsis. Applied uniformly rather than only-when-too-long, so the column
-    // doesn't look arbitrarily inconsistent row to row. Underlying entry names are untouched.
-    displayName: e => brFilter === 'ecumenical' ? shortCouncilName(e.n) : e.n,
-    lastWidth: '88px',
+    nameNote: e => { const n = councilRank(e); return n ? ordinal(n) + ' Ecumenical' : ''; },
     chips: [
       {id: 'all',        label: 'All',        test: () => true},
       {id: 'ecumenical', label: 'Ecumenical', test: e => isEcumenical(e)},
@@ -11332,15 +11474,6 @@ function councilRank(e){
   if(!f) return 0;
   const m = String(f.value).match(/\d+/);
   return m ? parseInt(m[0], 10) : 0;
-}
-// "Council of Vienne" -> "Vienne", "First Lateran Council" -> "First Lateran",
-// "Fourth Council of Constantinople" -> "Fourth Constantinople". Display only.
-function shortCouncilName(n){
-  return String(n)
-    .replace(/^Council of\s+/i, '')
-    .replace(/^(\S+)\s+Council of\s+/i, '$1 ')
-    .replace(/\s+Council$/i, '')
-    .trim();
 }
 function ordinal(n){
   const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
@@ -11392,7 +11525,10 @@ function brSyncThumbPosition(){
   brThumb.style.top = (Math.max(0, Math.min(1, rel)) * usable) + 'px';
 }
 function brLabelAtRel(rel){
-  const rows = brListEl.children;
+  // .brRow, not .children — a sticky-grouped run (see groupStickyRows()) nests its rows inside
+  // a .spGroup wrapper, so a plain child-index lookup would miscount. querySelectorAll flattens
+  // back to the same row sequence, same count, same order as before.
+  const rows = brListEl.querySelectorAll('.brRow');
   if(!rows.length) return '';
   const idx = Math.max(0, Math.min(rows.length - 1, Math.round(rel * (rows.length - 1))));
   return rows[idx] ? (rows[idx].dataset.label || '') : '';
@@ -11473,21 +11609,36 @@ function renderBrowsePanel(){
     ' aria-pressed="' + (c.id === brFilter ? 'true' : 'false') + '"><span>' + esc(c.label) + '</span></button>'
   ).join('');
   const rows = brRows();
-  let html = '';
-  rows.forEach(e => {
+  // Sticky first-column grouping only applies while the panel is actually SORTED BY that column
+  // (Region/Country) — under Name/Year sort, .brLast still displays Region/Country text, but
+  // it's incidental to the sort, so a coincidental repeat there renders exactly as it always
+  // has. See groupStickyRows().
+  const grouped = brSort === 'last';
+  const items = rows.map(e => {
     const lastText = cfg.lastValue(e) || '';
-    const prefix = cfg.namePrefix ? cfg.namePrefix(e) : '';
-    const dispName = cfg.displayName ? cfg.displayName(e) : e.n;
-    const label = brSort === 'last' ? lastText
+    const note = cfg.nameNote ? cfg.nameNote(e) : '';
+    // Scrub-bubble text while dragging the thumb — a different concept from the grouping label
+    // above (lastText): this varies with the active sort (Region/Country text, a name initial,
+    // or the year), while the grouping label is always lastText regardless of sort.
+    const scrubLabel = brSort === 'last' ? lastText
       : brSort === 'name' ? String(e.n).trim().charAt(0).toUpperCase()
       : brYearLabel(e.y);
-    html += '<div class="spRow brRow" data-id="' + esc(e.id) + '" data-label="' + esc(label) + '">' +
-      '<span class="brLast">' + esc(lastText) + '</span>' +
-      '<span class="spName">' + (prefix ? '<span class="brRank">' + esc(prefix) + '</span>' : '') + esc(dispName) + '</span>' +
-      '<span class="brYear">' + esc(brYearLabel(e.y)) + '</span>' +
-      '</div>';
+    return {
+      label: lastText,
+      render: (showLabel) => '<div class="spRow brRow" data-id="' + esc(e.id) + '" data-label="' + esc(scrubLabel) + '">' +
+        '<span class="brLast">' + (showLabel ? esc(lastText) : '') + '</span>' +
+        '<span class="spName">' + esc(e.n) + (note ? ' <span class="spNoteInline">— ' + esc(note) + '</span>' : '') + '</span>' +
+        '<span class="brYear">' + esc(brYearLabel(e.y)) + '</span>' +
+        '</div>'
+    };
   });
+  const html = grouped ? groupStickyRows(items) : items.map(it => it.render(true)).join('');
   brListEl.innerHTML = html || '<div class="spEmpty">Nothing matches.</div>';
+  // .spGroupLabel's push-off point depends on it having the SAME real height as an actual row
+  // (see the CSS comment on .spGroupLabel) — measured fresh off a live row rather than
+  // hardcoded, so it can't silently drift out of sync if a row's padding/font-size ever changes.
+  const sampleRow = brListEl.querySelector('.brRow');
+  if(sampleRow) brListEl.style.setProperty('--rowH', sampleRow.offsetHeight + 'px');
   const st0 = brLastState[brType];
   brListEl.scrollTop = (st0 && st0.sort === brSort && st0.filter === brFilter) ? (st0.scrollTop || 0) : 0;
   browsePanel.classList.toggle('hasThumb', brThumbEligible());
