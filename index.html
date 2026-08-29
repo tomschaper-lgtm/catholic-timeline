@@ -1,4 +1,38 @@
 <!--
+VERSION: 258
+DATE: 2026-08-29T16:10:00-05:00
+CHANGES:
+- FIXED the real bug behind "Learn More shows Coming Soon after importing About Saints/
+  Councils": mergeEntries()'s fresh-entry constructor (the branch that runs on a first-time add,
+  as opposed to updating an id that already exists) builds the new entry from an explicit field
+  whitelist — id/y/n/t/r/country/offset/displayLabel/d/art/img/imgCap/audio/facts/tier/alt/tags/
+  review/reviewNote — that never included category or qa, the two fields t:"i" info entries need.
+  Both got silently dropped on import, so getInfoEntry()'s category lookup never matched and the
+  panel always fell through to its "Coming Soon" fallback, even though the entries themselves
+  imported and published without any error. Fixed by adding category/qa to that whitelist.
+  (The update branch, for an id that already exists, was never affected — it copies every key
+  unconditionally — which is why simply re-pasting the same JSON a second time also fixes
+  already-imported data without needing this update at all, since the second paste takes that
+  branch instead.)
+- FIXED a second, more serious latent bug found while tracing the first one: the manual entry
+  editor's Save button (saveCurrentEditorEntry()) fully replaces the stored entry object with one
+  built purely from form fields — db.entries[idx] = obj, not a merge. Since the form has no
+  fields for category/qa, opening an info entry there and hitting Save would have silently wiped
+  both permanently. Fixed by carrying ex.category/ex.qa forward from the existing record when
+  present, so the form's blind spot can no longer delete data it doesn't know about.
+- Added an "Info" option to the Type dropdown (#fType) — previously, loading a t:"i" entry into
+  the manual editor set the select to a value with no matching <option>, which browsers show as
+  blank/unselected. Harmless to view, but combined with the full-replace save behavior above,
+  it also meant an untouched Save could have silently corrupted the entry's own type. It's still
+  not a real editing surface for category/qa (no form fields for either yet — Paste JSON remains
+  the only way to set them), but it's now at least safe to open and inspect without data loss.
+- TYPE_NAMES gets an i:"Info" label — the Entries-tab list (Manage → Entries) shows ALL entries
+  regardless of type, unfiltered, so About Saints/About Councils were always going to be sitting
+  right there (sorted to the very top, since both carry y:0) — TYPE_NAMES[e.t] being undefined
+  for "i" just meant that row's type badge rendered the literal text "undefined" instead of a
+  category name, which read as broken/unsupported rather than just unlabeled.
+-->
+<!--
 VERSION: 257
 DATE: 2026-08-29T15:20:00-05:00
 CHANGES:
@@ -4605,6 +4639,7 @@ CHANGES:
               <option value="s">Saint</option><option value="c">Council</option>
               <option value="p">Persecution</option><option value="m">Marian Apparition</option>
               <option value="u">Eucharistic Miracle</option><option value="e">Event</option>
+              <option value="i">Info (About panel — see category field via JSON, not editable here yet)</option>
             </select>
           </div>
           <div class="mfield"><label>Region</label>
@@ -5170,7 +5205,7 @@ const ERAS = [
   // Same sync note as the B.C. entry above — this end year must match END below.
   [1900,2070,"Modern Era"]
 ];
-const TYPE_NAMES = {s:"Saint", c:"Council", p:"Persecution", e:"Event", m:"Marian Apparition", u:"Eucharistic Miracle"};
+const TYPE_NAMES = {s:"Saint", c:"Council", p:"Persecution", e:"Event", m:"Marian Apparition", u:"Eucharistic Miracle", i:"Info"};
 const REGION_NAMES = {rome:"Rome & Italy", west:"Western Europe", brit:"Britain & Ireland", east:"Byzantium & E. Europe", holy:"Holy Land & Mid-East", africa:"Africa", americas:"Americas", asia:"Asia & Oceania"};
 const ICONS = {
   s:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3L16.9 7.1M7.1 16.9l-1.8 1.8"/></svg>',
@@ -5190,7 +5225,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v257';
+const APP_VERSION = 'v258';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -9517,6 +9552,7 @@ async function saveCurrentEditorEntry(){
   const n = document.getElementById('fName').value.trim();
   const y = parseInt(document.getElementById('fYear').value, 10);
   if(!n || isNaN(y)) return false;
+  const ex = editingId ? getEntry(editingId) : null;
   const obj = {
     id: editingId || slug(n, y),
     y: y, n: n,
@@ -9545,6 +9581,12 @@ async function saveCurrentEditorEntry(){
   // it was never flagged) there's nothing for it to annotate, so don't carry an empty or
   // orphaned note forward in the data.
   if(!obj.reviewNote || !obj.review) delete obj.reviewNote;
+  // category/qa (t:"i" info entries — see #aboutPanel above) have no field of their own in this
+  // form. saveCurrentEditorEntry() otherwise fully replaces the stored object (db.entries[idx] =
+  // obj below), so without this they'd be silently deleted the moment someone opens one of these
+  // entries here and hits Save. Carried forward from the existing record instead.
+  if(ex && ex.category != null) obj.category = ex.category;
+  if(ex && Array.isArray(ex.qa)) obj.qa = ex.qa;
   const idx = db.entries.findIndex(e => e.id === obj.id);
   if(idx >= 0) db.entries[idx] = obj; else db.entries.push(obj);
   editingId = obj.id;
@@ -10261,6 +10303,14 @@ function mergeEntries(list){
         img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
         tier: inc.tier || 1, alt: inc.alt || [], tags: inc.tags || []
       };
+      // Fields specific to t:"i" info entries (see #aboutPanel/renderAboutPanel() above) — not
+      // part of the six real categories' shape, so they were missing from the whitelist above
+      // and got silently dropped on a first-time add (update already worked fine, since that
+      // branch above copies every key unconditionally). Fixed in v258 after About Saints/
+      // Councils imported clean but showed "Coming Soon" — category never made it into the
+      // stored entry, so getInfoEntry()'s lookup never matched.
+      if(inc.category != null) fresh.category = inc.category;
+      if(Array.isArray(inc.qa)) fresh.qa = inc.qa;
       if(inc.review === true || inc.review === 'true') fresh.review = true;
       if(fresh.review && inc.reviewNote) fresh.reviewNote = String(inc.reviewNote);
       db.entries.push(fresh);
