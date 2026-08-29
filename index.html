@@ -1,4 +1,22 @@
 <!--
+VERSION: 252
+DATE: 2026-08-27T19:10:00-05:00
+CHANGES:
+- Councils, Ecumenical filter: the rank now LEADS the row as a numbered list ("7. Nicaea II")
+  instead of trailing as a note. Right-aligned in a fixed 26px cell with tabular figures, so
+  single- and double-digit ranks still leave every name starting on the same vertical line.
+- The redundant word "Council" is dropped from the displayed name under that filter — the panel
+  is already titled "Councils of the Church" and the list is filtered to councils, so the word
+  earned none of the width it cost. "Council of Vienne" renders as "Vienne", "First Lateran
+  Council" as "First Lateran", "Fourth Council of Constantinople" as "Fourth Constantinople".
+  Applied uniformly rather than only-when-too-long, so the column can't look arbitrarily
+  inconsistent row to row. Display only — the underlying entry names are untouched, so search,
+  the timeline, and the article header all still show the full name.
+- Country column narrowed to 88px for Councils (its values are short: Italy, France, Turkey),
+  shifting the whole name column left. Between that and the two changes above, the longest name
+  in the set — Basel-Ferrara-Florence — now fits without ellipsis.
+-->
+<!--
 VERSION: 251
 DATE: 2026-08-27T18:45:00-05:00
 CHANGES:
@@ -2817,6 +2835,14 @@ CHANGES:
      column (Region/Country here, Feast day there) on the LEFT, Name in the middle, Year on the
      far right. All three are sortable; Year is the default. */
   .brLast{flex:0 0 var(--brLastW, 104px); font-size:13px; color:#6B7280; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  /* Rank prefix for the Councils list under its Ecumenical filter. Fixed min-width and
+     right-alignment so single- and double-digit ranks ("7." / "21.") still leave every council
+     name starting on the same vertical line, and tabular figures so the digits themselves don't
+     jitter between rows. */
+  .brRank{
+    display:inline-block; min-width:26px; margin-right:8px;
+    text-align:right; color:#6B7280; font-variant-numeric:tabular-nums;
+  }
   .brYear{flex:0 0 62px; font-size:13px; color:#6B7280; text-align:right;}
   .brColLabel{
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12px; font-weight:800;
@@ -4904,7 +4930,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v251';
+const APP_VERSION = 'v252';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -11280,12 +11306,17 @@ const BROWSE_CONFIGS = {
   c: {
     title: 'Councils', title2: 'of the Church', lastLabel: 'Country',
     lastValue: e => e.country || '',
-    // The rank note only appears under the Ecumenical chip. In the All view it was noise —
-    // it appeared on some rows and not others, and pushed the longer council names into
-    // ellipsis ("First Lateran Council — 9..."). Once the list is filtered to the
-    // ecumenical councils the chip itself supplies the word "Ecumenical", so the note is
-    // just the ordinal.
-    nameNote: e => { if(brFilter !== 'ecumenical') return ''; const n = councilRank(e); return n ? ordinal(n) : ''; },
+    // Under the Ecumenical chip the rank leads the row as a numbered list ("7. Nicaea II"),
+    // which reads far better than a trailing note and costs almost no width. In the All view
+    // there's no prefix at all — it would appear on some rows and not others.
+    namePrefix: e => { if(brFilter !== 'ecumenical') return ''; const n = councilRank(e); return n ? n + '.' : ''; },
+    // Also under that filter only, the redundant "Council" is dropped from the display name:
+    // the panel is already titled "Councils of the Church" and the list is filtered to
+    // councils, so the word earns none of the width it costs, and it was pushing the longer
+    // names into ellipsis. Applied uniformly rather than only-when-too-long, so the column
+    // doesn't look arbitrarily inconsistent row to row. Underlying entry names are untouched.
+    displayName: e => brFilter === 'ecumenical' ? shortCouncilName(e.n) : e.n,
+    lastWidth: '88px',
     chips: [
       {id: 'all',        label: 'All',        test: () => true},
       {id: 'ecumenical', label: 'Ecumenical', test: e => isEcumenical(e)},
@@ -11301,6 +11332,15 @@ function councilRank(e){
   if(!f) return 0;
   const m = String(f.value).match(/\d+/);
   return m ? parseInt(m[0], 10) : 0;
+}
+// "Council of Vienne" -> "Vienne", "First Lateran Council" -> "First Lateran",
+// "Fourth Council of Constantinople" -> "Fourth Constantinople". Display only.
+function shortCouncilName(n){
+  return String(n)
+    .replace(/^Council of\s+/i, '')
+    .replace(/^(\S+)\s+Council of\s+/i, '$1 ')
+    .replace(/\s+Council$/i, '')
+    .trim();
 }
 function ordinal(n){
   const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
@@ -11436,13 +11476,14 @@ function renderBrowsePanel(){
   let html = '';
   rows.forEach(e => {
     const lastText = cfg.lastValue(e) || '';
-    const note = cfg.nameNote ? cfg.nameNote(e) : '';
+    const prefix = cfg.namePrefix ? cfg.namePrefix(e) : '';
+    const dispName = cfg.displayName ? cfg.displayName(e) : e.n;
     const label = brSort === 'last' ? lastText
       : brSort === 'name' ? String(e.n).trim().charAt(0).toUpperCase()
       : brYearLabel(e.y);
     html += '<div class="spRow brRow" data-id="' + esc(e.id) + '" data-label="' + esc(label) + '">' +
       '<span class="brLast">' + esc(lastText) + '</span>' +
-      '<span class="spName">' + esc(e.n) + (note ? ' <span class="spNoteInline">— ' + esc(note) + '</span>' : '') + '</span>' +
+      '<span class="spName">' + (prefix ? '<span class="brRank">' + esc(prefix) + '</span>' : '') + esc(dispName) + '</span>' +
       '<span class="brYear">' + esc(brYearLabel(e.y)) + '</span>' +
       '</div>';
   });
