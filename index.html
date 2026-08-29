@@ -1,4 +1,30 @@
 <!--
+VERSION: 260
+DATE: 2026-08-29T17:40:00-05:00
+CHANGES:
+- FIXED the Back button overlapping scrolled-up section headings ("...LLY GIVEN" showing beside
+  "← Back") — .artback was just a bare sticky pill with nothing behind it, narrower than the
+  line it sits on, so a heading scrolling up to that same sticky y-position showed through the
+  gap beside the button instead of being covered. Wrapped #aboutBack in a new full-width sticky
+  band (.aboutStickyHead, background matching the overlay's own top gradient color) and made
+  .artback itself position:static inside it — the band is what's sticky now, and it's wide
+  enough to fully hide whatever scrolls underneath.
+- More breathing room throughout, addressing "too cluttered" generally: section headings
+  (.arth) bigger and given more top margin, the pull-quote bigger with more margin above/below,
+  more gap between individual Q&A pairs.
+- "Questions & Answers" (and every other section heading in this panel, same .arth class)
+  sized up.
+- Quote text ("Be holy, for I am holy.") sized up.
+- Q&A questions switched off Cinzel (the bold display face used for section headings, which
+  read as too heavy at full sentence length) to italic EB Garamond — the body serif, same
+  family used elsewhere for warmth/readability, still bold and gold to stand apart from its
+  answer underneath.
+- All of the above scoped to #aboutPanel specifically (new #aboutPanel .arth/.artquote/
+  .aboutQ rules, plus the new .aboutStickyHead), not edits to .arth/.artquote themselves —
+  those are shared with the full article view and would have changed every real entry's
+  section headings and quote blocks along with it.
+-->
+<!--
 VERSION: 259
 DATE: 2026-08-29T17:05:00-05:00
 CHANGES:
@@ -3721,6 +3747,24 @@ CHANGES:
   #aboutPanel .artsub{font-size:20px;}
   #aboutPanel .artp{font-size:calc(21.5px * var(--txt));}
   #aboutPanel .aboutA{font-size:calc(19.5px * var(--txt));}
+  /* Solid full-width sticky band behind the Back button, replacing .artback's own bare sticky
+     positioning (a narrow pill with nothing behind it) — without this, a long scrolling page of
+     section headings eventually scrolls a heading up to sit at the exact same sticky y-position
+     as the button, and since the pill is narrower than the line, the heading's text shows
+     through/around it rather than being cleanly covered. Background is the overlay gradient's
+     own top color, so the band is invisible as a band and just reads as "the button has room." */
+  #aboutPanel .aboutStickyHead{position:sticky; top:0; z-index:6; background:#0A1430; margin:-18px -20px 14px; padding:18px 20px 10px;}
+  #aboutPanel .artback{position:static;}
+  /* More air throughout — the panel read as cluttered with the base article spacing, which was
+     tuned for prose broken up by portraits/quick-facts rather than a denser run of headings,
+     a pull-quote, and a Q&A list back to back. */
+  #aboutPanel .arth{font-size:calc(18px * var(--txt)); margin-top:36px;}
+  #aboutPanel .artquote{font-size:calc(20px * var(--txt)); margin:22px 0 30px;}
+  #aboutPanel .aboutQA{margin:0 0 28px;}
+  /* Questions in Cinzel at 700 weight (the display face used for section headings) read as too
+     heavy for full sentence-length text — swapped to the body serif, italic, still bold enough
+     to stand apart from its answer without the blocky small-caps-adjacent weight of Cinzel. */
+  #aboutPanel .aboutQ{font-family:'EB Garamond', Georgia, serif; font-style:italic; font-size:calc(19.5px * var(--txt)); margin-bottom:8px;}
   /* The peek-state preview: first heading + a text snippet, shown only while .peek is active.
      On expand it fades and collapses out of flow, which is what lets the hero photo (sitting
      right after it in the DOM, already opacity:0) slide up into its place and fade in —
@@ -4470,7 +4514,9 @@ CHANGES:
        matching t:"i" entry. -->
   <div class="overlay" id="aboutPanel" style="z-index:150;" role="dialog" aria-label="About">
     <div class="artwrap">
-      <button class="artback" id="aboutBack">&larr; Back</button>
+      <div class="aboutStickyHead">
+        <button class="artback" id="aboutBack">&larr; Back</button>
+      </div>
       <div class="arttitle" id="aboutTitle"></div>
       <div class="artsub" id="aboutSub"></div>
       <div id="aboutBody"></div>
@@ -5249,7 +5295,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v259';
+const APP_VERSION = 'v260';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
