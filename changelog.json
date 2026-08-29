@@ -2,6 +2,42 @@
   "v": 1,
   "entries": [
     {
+      "version": "258",
+      "date": "2026-08-29T16:10:00-05:00",
+      "changes": [
+        "FIXED the real bug behind \"Learn More shows Coming Soon after importing About Saints/",
+        "Councils\": mergeEntries()'s fresh-entry constructor (the branch that runs on a first-time add,",
+        "as opposed to updating an id that already exists) builds the new entry from an explicit field",
+        "whitelist — id/y/n/t/r/country/offset/displayLabel/d/art/img/imgCap/audio/facts/tier/alt/tags/",
+        "review/reviewNote — that never included category or qa, the two fields t:\"i\" info entries need.",
+        "Both got silently dropped on import, so getInfoEntry()'s category lookup never matched and the",
+        "panel always fell through to its \"Coming Soon\" fallback, even though the entries themselves",
+        "imported and published without any error. Fixed by adding category/qa to that whitelist.",
+        "(The update branch, for an id that already exists, was never affected — it copies every key",
+        "unconditionally — which is why simply re-pasting the same JSON a second time also fixes",
+        "already-imported data without needing this update at all, since the second paste takes that",
+        "branch instead.)",
+        "FIXED a second, more serious latent bug found while tracing the first one: the manual entry",
+        "editor's Save button (saveCurrentEditorEntry()) fully replaces the stored entry object with one",
+        "built purely from form fields — db.entries[idx] = obj, not a merge. Since the form has no",
+        "fields for category/qa, opening an info entry there and hitting Save would have silently wiped",
+        "both permanently. Fixed by carrying ex.category/ex.qa forward from the existing record when",
+        "present, so the form's blind spot can no longer delete data it doesn't know about.",
+        "Added an \"Info\" option to the Type dropdown (#fType) — previously, loading a t:\"i\" entry into",
+        "the manual editor set the select to a value with no matching <option>, which browsers show as",
+        "blank/unselected. Harmless to view, but combined with the full-replace save behavior above,",
+        "it also meant an untouched Save could have silently corrupted the entry's own type. It's still",
+        "not a real editing surface for category/qa (no form fields for either yet — Paste JSON remains",
+        "the only way to set them), but it's now at least safe to open and inspect without data loss.",
+        "TYPE_NAMES gets an i:\"Info\" label — the Entries-tab list (Manage → Entries) shows ALL entries",
+        "regardless of type, unfiltered, so About Saints/About Councils were always going to be sitting",
+        "right there (sorted to the very top, since both carry y:0) — TYPE_NAMES[e.t] being undefined",
+        "for \"i\" just meant that row's type badge rendered the literal text \"undefined\" instead of a",
+        "category name, which read as broken/unsupported rather than just unlabeled."
+      ],
+      "loggedAt": "2026-08-29T21:34:07.177353+00:00"
+    },
+    {
       "version": "256",
       "date": "2026-08-29T14:38:37-05:00",
       "changes": [
