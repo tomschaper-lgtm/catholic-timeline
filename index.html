@@ -1,4 +1,23 @@
 <!--
+VERSION: 255
+DATE: 2026-08-29T12:00:00-05:00
+CHANGES:
+- Single border per sticky group, not one per row inside it. A run of rows sharing the same
+  feast date (Saints, Feast order), Patron (Saints, Patron sort), or Region/Country (any Browse
+  panel, sorted by that column) now reads as one bordered block — a line under the run's LAST
+  row only — instead of a line under every row in the run, which is what made three saints who
+  all fall on Sep 16 look like three separately-bordered rows rather than one "Sep 16" group.
+- .spGroupLabel no longer carries its own border-bottom. The label overlays the group's first
+  row (see the existing negative-margin trick below), so its border was effectively drawing the
+  same first/second-row seam line the first row's own border-bottom already drew — removing just
+  one of the two left a partial line rendered from the other. Both had to go together.
+- groupStickyRows() now tells each row in a run whether it's the run's last row (previously it
+  only ever told a row whether to show its own label). Saints-panel and Browse-panel row
+  rendering both read that flag and add a new .groupMid class (border-bottom:none) to every row
+  but the last. A run of exactly one row is untouched, as before — it never passes through this
+  path at all.
+-->
+<!--
 VERSION: 254
 DATE: 2026-08-28T11:05:00-05:00
 CHANGES:
@@ -2844,7 +2863,6 @@ CHANGES:
     box-sizing:border-box; display:flex; align-items:center;
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
     font-size:13px; color:#6B7280; background:#fff;
-    border-bottom:1px solid #EFEFEF;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     padding-left:22px; padding-right:6px;
   }
@@ -2853,6 +2871,16 @@ CHANGES:
      has to carry the month rule itself or the line would be half-hidden behind it. */
   .spGroupLabel.monthStart{border-top:1px solid #C7CAD3;}
   .spGroupLabel + .spRow{margin-top:calc(-1 * var(--rowH, 43px));}
+  /* Single border per group, not one per row inside it (v255). A whole group shares one feast
+     date/Patron/Region/Country — visually it should read as one bordered block, with the line
+     only under the group's LAST row, not under every row that happens to share the label.
+     .spGroupLabel no longer carries its own border-bottom (removed above) for the same reason:
+     it overlays the group's first row, so the two together would otherwise still draw a line at
+     the first/second-row seam even with .groupMid in place. groupStickyRows() (JS) tags every
+     row in a run except the last with .groupMid; the last row keeps .spRow's normal border and
+     marks the bottom edge of the whole block. Rows outside any group (a run of exactly one) are
+     never given this class and are unaffected. */
+  .spRow.groupMid{border-bottom:none;}
   /* Total box width = the live column's width plus the row's own 22px left inset and this
      label's 6px right buffer, so the text area inside the padding lands on exactly the same
      64px/132px/--brLastW the row's own .spFeast/.brLast cell would use — matching the column
@@ -5024,7 +5052,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v254';
+const APP_VERSION = 'v255';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -11136,7 +11164,10 @@ function groupStickyRows(items){
     } else {
       const lblCls = 'spGroupLabel' + (items[i].monthStart ? ' monthStart' : '');
       html += '<div class="spGroup"><div class="' + lblCls + '" aria-hidden="true">' + esc(items[i].label) + '</div>';
-      for(let k = i; k < j; k++) html += items[k].render(false);
+      // isLast (k === j-1) tells render() whether to draw this row's own border — see the
+      // .spRow.groupMid CSS comment: every row but the group's last one should render border-
+      // free so the run reads as a single bordered block instead of one line per row.
+      for(let k = i; k < j; k++) html += items[k].render(false, k === j - 1);
       html += '</div>';
     }
     i = j;
@@ -11255,7 +11286,10 @@ function renderSaintsPanel(){
     items.push({
       label: firstColText,
       monthStart: monthStart,
-      render: (showLabel) => '<div class="'+cls.join(' ')+'" data-id="'+esc(r.e.id)+'" data-label="'+esc(scrubLabel)+'">' +
+      // isLast is only ever passed by groupStickyRows(), for a row inside a multi-row group;
+      // a standalone row calls render(true) with no second argument, so isLast stays undefined
+      // and never picks up .groupMid — see the .spRow.groupMid CSS comment.
+      render: (showLabel, isLast) => '<div class="'+cls.concat(isLast === false ? ['groupMid'] : []).join(' ')+'" data-id="'+esc(r.e.id)+'" data-label="'+esc(scrubLabel)+'">' +
         '<span class="spFeast">'+(showLabel ? esc(firstColText) : '')+'</span>' +
         '<span class="spName">'+esc(spDisplayName(r.e.n))+(r.note ? ' <span class="spNoteInline">— '+esc(r.note)+'</span>' : '')+'</span>' +
         '<span class="spYear">'+r.e.y+'</span>' +
@@ -11625,7 +11659,9 @@ function renderBrowsePanel(){
       : brYearLabel(e.y);
     return {
       label: lastText,
-      render: (showLabel) => '<div class="spRow brRow" data-id="' + esc(e.id) + '" data-label="' + esc(scrubLabel) + '">' +
+      // isLast is only ever passed by groupStickyRows(), for a row inside a multi-row group —
+      // see the .spRow.groupMid CSS comment and the matching Saints-panel render() above.
+      render: (showLabel, isLast) => '<div class="spRow brRow' + (isLast === false ? ' groupMid' : '') + '" data-id="' + esc(e.id) + '" data-label="' + esc(scrubLabel) + '">' +
         '<span class="brLast">' + (showLabel ? esc(lastText) : '') + '</span>' +
         '<span class="spName">' + esc(e.n) + (note ? ' <span class="spNoteInline">— ' + esc(note) + '</span>' : '') + '</span>' +
         '<span class="brYear">' + esc(brYearLabel(e.y)) + '</span>' +
