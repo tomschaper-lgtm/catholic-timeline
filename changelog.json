@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "267",
+      "date": "2026-08-30T10:00:00-05:00",
+      "changes": [
+        "Record Audio Narration (Manage → Import) now records by feast day: with Category set to",
+        "Saint, the Start field switches from a year to a month/day (\"Aug 15\" or \"8/15\"), the pool",
+        "sorts by feast date (earliest date per saint, via the existing parseFeastDates()/entryFeastDates())",
+        "instead of year, and the Start/Will-record preview lines show the feast date instead of the",
+        "year. Every other category is unchanged — still year-based, oldest first. New",
+        "updateAudioStartFieldMode() swaps the field's label/type/placeholder on category change and on",
+        "Manage open (audioCategory is restored from localStorage, so it may already be 's' on open).",
+        "Export tab: new \"Feast Day (Saints only)\" range row below Years, taking the same month/day",
+        "text format (\"Aug 15\") as the audio tool above and sharing its parseMonthDay()/feastInRange()",
+        "helpers, including calendar wraparound (Dec 26 – Jan 2). Only narrows Saints — every other",
+        "category passes through untouched — so it can ride alongside the existing category/region/",
+        "status/year filters. Feeds mExportFilteredEntries(), so it applies consistently across",
+        "JSON — Filtered, Excel, CSV-fallback export, and the cross-reference scan/apply tools, same as",
+        "every other Export filter. Reset now also clears both new fields."
+      ],
+      "loggedAt": "2026-08-30T12:57:52.614676+00:00"
+    },
+    {
       "version": "266",
       "date": "2026-08-29T17:00:00-05:00",
       "changes": [
