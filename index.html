@@ -1,4 +1,21 @@
 <!--
+VERSION: 265
+DATE: 2026-08-29T16:00:00-05:00
+CHANGES:
+- Councils browse panel: the rank marker (number under Ecumenical, bullet under All — added
+  v264) moves out of the Name cell into its own fixed-width, right-aligned column (.brRank),
+  present in both the header (as an empty, unlabeled spacer — nothing to sort) and each row, for
+  any BROWSE_CONFIGS entry that defines nameRank; every other category's layout is completely
+  unaffected (zero DOM for that column when nameRank isn't defined). Fixes two things at once:
+  the Name column's left edge was drifting row to row because "1." and "13." are different
+  widths when embedded as a variable-width text prefix, and the "Name" header label was sitting
+  over the marker rather than over the actual name text below it.
+- Country column widened back 78px -> 94px (BROWSE_CONFIGS.c.lastWidth) — 78px was too
+  aggressive and clipped "United Kingdom" (Synod of Whitby). The marker's own column now frees
+  space for Name independently of this one, so Country didn't need to stay squeezed as hard as
+  the v264 pass left it.
+-->
+<!--
 VERSION: 264
 DATE: 2026-08-29T15:00:00-05:00
 CHANGES:
@@ -3265,6 +3282,16 @@ CHANGES:
   #brSortLast{flex:0 0 var(--brLastW, 104px); min-width:0;}
   #brSortName{flex:1 1 auto; min-width:0;}
   #brSortYear{flex:0 0 62px; justify-content:flex-end; min-width:0;}
+  /* Councils' ecumenical-rank marker (a leading number under the Ecumenical chip, a bullet
+     under All — see showRankNumber in renderBrowsePanel()) gets its OWN fixed-width column,
+     right-aligned, rather than being embedded as a variable-width prefix inside .spName —
+     "1." and "13." are different widths, which was throwing the Name column's left edge out of
+     alignment from row to row. Present in the header as an empty, unlabeled spacer (same width,
+     no button, nothing to sort) and in each row, for any config that defines nameRank;
+     omitted entirely — zero DOM, zero width — for every other category, so their layout is
+     unaffected. font-variant-numeric keeps every digit the same width so "1." through "21."
+     all sit flush against the same right edge. */
+  .brRank{flex:0 0 24px; font-size:13px; color:#8A90A0; text-align:right; font-variant-numeric:tabular-nums; min-width:0;}
   /* The Browse panel's chip row reuses .spChips/.spChip wholesale, now with real icon art
      (Councils' All/Ecumenical/Regional \u2014 see .spChipIcon-ecumenical/-regional above), so no
      padding compensation is needed anymore; the base .spChip padding applies as-is. Hidden
@@ -5446,7 +5473,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v264';
+const APP_VERSION = 'v265';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -12054,9 +12081,10 @@ const BROWSE_CONFIGS = {
   c: {
     title: 'Councils', title2: 'of the Church', lastLabel: 'Country',
     lastValue: e => e.country || '',
-    lastWidth: '78px', // Country column narrowed from the 104px default — council country names
-    // (Turkey, Italy, France, Germany…) never need that much room, and every freed pixel goes
-    // straight to the Name column (flex:1 1 auto), which is the one actually running tight.
+    lastWidth: '94px', // Narrowed from the 104px default, but only a little — 78px (an earlier
+    // pass) clipped "United Kingdom" (Synod of Whitby's country). The rank marker moving into
+    // its own dedicated column (see nameRank/.brRank below) freed up Name's space independently
+    // of this column, so there was no need to squeeze Country as hard as before.
     nameRank: e => councilRank(e), // 0 for a regional (non-ecumenical) council — no marker at all, in any view
     // Dropped from a council's name, but ONLY on a row whose name is actually truncating even
     // after the rank-number change above ("First Council of Lyon", "Council of Vienne", "Fourth
@@ -12207,6 +12235,11 @@ function renderBrowsePanel(){
   const headEl = document.getElementById('brHead');
   headEl.innerHTML =
     '<button class="spCol' + (brSort === 'last' ? ' active' : '') + '" id="brSortLast" data-sort="last">' + esc(brLastLabel(cfg)) + ' <span class="arrow">▲</span></button>' +
+    // Unlabeled spacer matching .brRank's width in the rows below — nothing to sort, nothing to
+    // click, it exists purely so "Name" lines up over the actual name text rather than over the
+    // rank marker in front of it. Omitted for any category without nameRank, matching the row
+    // template exactly (see renderBrowsePanel's row map below).
+    (cfg.nameRank ? '<span class="brRank" aria-hidden="true"></span>' : '') +
     '<button class="spCol' + (brSort === 'name' ? ' active' : '') + '" id="brSortName" data-sort="name">Name <span class="arrow">▲</span></button>' +
     '<button class="spCol' + (brSort === 'year' ? ' active' : '') + '" id="brSortYear" data-sort="year">Year <span class="arrow">▲</span></button>';
   const chipsEl = document.getElementById('brChips');
@@ -12247,12 +12280,13 @@ function renderBrowsePanel(){
       label: lastText,
       // isLast is only ever passed by groupStickyRows(), for a row inside a multi-row group —
       // see the .spRow.groupMid CSS comment and the matching Saints-panel render() above.
-      // .brNameText wraps just the name (not the rank marker) — fixOverflowingNames() below
-      // targets it specifically, so a truncation fix only ever rewrites the actual name text,
-      // never the "1." or "•" in front of it.
+      // .brRank (fixed-width, right-aligned — see its CSS comment) holds the marker; .spName now
+      // holds ONLY the name — .brNameText inside it is what fixOverflowingNames() below targets,
+      // so a truncation fix only ever rewrites the actual name text.
       render: (showLabel, isLast) => '<div class="spRow brRow' + (isLast === false ? ' groupMid' : '') + '" data-id="' + esc(e.id) + '" data-label="' + esc(scrubLabel) + '">' +
         '<span class="brLast">' + (showLabel ? esc(lastText) : '') + '</span>' +
-        '<span class="spName">' + (marker ? '<span class="spNoteInline">' + marker + '</span> ' : '') + '<span class="brNameText">' + esc(e.n) + '</span></span>' +
+        (cfg.nameRank ? '<span class="brRank">' + (marker || '') + '</span>' : '') +
+        '<span class="spName"><span class="brNameText">' + esc(e.n) + '</span></span>' +
         '<span class="brYear">' + esc(brYearLabel(e.y)) + '</span>' +
         '</div>'
     };
