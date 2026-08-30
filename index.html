@@ -1,4 +1,44 @@
 <!--
+VERSION: 263
+DATE: 2026-08-29T14:00:00-05:00
+CHANGES:
+- About panel (#aboutPanel — Sainthood/Councils/etc.) can now carry audio narration, same
+  bottom playback bar and sentence-by-sentence glow highlight as the real article view, for any
+  info entry (t:"i") whose `audio` field is set. Previously the whole sentence-sync system
+  (#audioBottomBar, #audioActiveBar, wireSentenceCues/applyCueMarkup/driveAudioFollow, etc.)
+  only ever knew how to target #article's DOM.
+- Generalized rather than duplicated: a new `audioHost` switch ('article' | 'about') plus four
+  small resolver helpers (audioScrollEl/audioStoryEl/audioActiveBarEl/audioStickyEl) let the
+  existing functions — updateAudioActiveBar, applyCueMarkup, computeCueSectionHeadings,
+  driveAudioFollow, followAudioSection, ensureActiveCueVisible, wireSentenceCues,
+  updateAudioBarPresence — resolve to whichever panel is actually hosting playback, instead of
+  each being hardcoded to #article/#artStoryText/#artSticky. Only one panel can narrate at a
+  time, same as only one saint article could before.
+- New #aboutActiveBar element (child of #aboutPanel, same .audioActiveBar class/positioning
+  technique as #article's own) — the glow bar needs to be an actual DOM descendant of whichever
+  panel is scrolling for its content-space positioning math to work, so it couldn't be a single
+  shared element the way the bottom bar is.
+- New #aboutStoryText wrapper inside #aboutBody (mirrors #artStoryText) — wraps just the section
+  headings/prose, the only content sentence cues get matched against; quotes/links/Q&A stay
+  outside it, same as Quick Facts/quotes/links stay outside #artStoryText in the real article.
+- wireSentenceCues(d, host) now takes an explicit host and bumps a new audioSessionToken on
+  every call, so a timing-file fetch from a call that's since been superseded — by a newer call
+  to the same host, or a switch to the OTHER host — detects that on return and discards its
+  result instead of wrongly applying stale cues into the wrong panel's DOM.
+- updateAudioBarPresence() now shows the bottom bar for either panel. No scroll-reveal gate on
+  the About panel side (that gate exists purely to wait for Quick Facts to scroll into view,
+  which the About panel doesn't have) and no peek/expanding checks (states #aboutPanel never
+  enters) — the bar simply appears as soon as the panel is open and its entry has audio.
+- .audioBottomBar z-index raised 120 -> 151 so it now floats above #aboutPanel (z-index:150)
+  too — it only ever needed to clear #article/#manage (both the base .overlay z-index:100)
+  before.
+- renderAboutPanel() now sets currentAboutEntry (parallel to currentEntry) and calls
+  initAudio()/wireSentenceCues(e,'about') when the entry has audio, or stopAudio() when it
+  doesn't; openAboutPanel()/closeAboutPanel() call updateAudioBarPresence() at the right moments
+  and closeAboutPanel() tears the session down (stopAudio(), currentAboutEntry = null) the same
+  way closeArticle() already did.
+-->
+<!--
 VERSION: 262
 DATE: 2026-08-29T13:00:00-05:00
 CHANGES:
@@ -4035,12 +4075,15 @@ CHANGES:
      visibly lag/jitter during active touch-scroll on iOS. The CSS itself didn't need to change
      for that move — position:fixed + left/bottom/transform behaves the same whether its
      containing block is the true viewport or a transformed ancestor; only where the element
-     LIVES in the DOM changed. */
+     LIVES in the DOM changed.
+     z-index bumped 120 -> 151 so this bar also floats above #aboutPanel (z-index:150) now that
+     the About panel can carry audio too — 120 was only ever high enough to clear #article/
+     #manage (both the base .overlay z-index:100). */
   .audioBottomBar{
     position:fixed; left:50%; bottom:max(18px, env(safe-area-inset-bottom, 0px) + 10px);
     transform:translate(-50%, 14px);
     display:flex; align-items:center; gap:4px;
-    padding:6px; border-radius:999px; z-index:120;
+    padding:6px; border-radius:999px; z-index:151;
     background:rgba(10,20,48,.88); border:1px solid rgba(201,165,66,.4);
     box-shadow:0 6px 24px rgba(0,0,0,.5);
     -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
@@ -4573,6 +4616,12 @@ CHANGES:
        categories can reuse the same panel and functions by adding their own chip plus a
        matching t:"i" entry. -->
   <div class="overlay" id="aboutPanel" style="z-index:150;" role="dialog" aria-label="About">
+    <!-- Sentence-sync glow bar for THIS panel — see #audioActiveBar's own comment in #article
+         for the full explanation of the content-space positioning technique. A separate element
+         (not a shared/reused one) because position:absolute needs its containing block to be
+         the panel actually scrolling, and #article/#aboutPanel are two different scroll
+         containers; audioActiveBarEl() (JS) picks the right one to update based on audioHost. -->
+    <div class="audioActiveBar" id="aboutActiveBar"></div>
     <!-- Plain white × close button, same sticky-topbar technique as #article's #artClose, so it
          stays pinned in the top-right corner of the screen at any scroll depth. Replaces the old
          "← Back" pill — that button and its .aboutStickyHead band are gone. -->
@@ -5366,7 +5415,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v262';
+const APP_VERSION = 'v263';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7427,7 +7476,7 @@ function fillArticleBody(d, peek){
     });
   }
 
-  if(d.audio){ initAudio(resolveAsset(d.audio, db.settings && db.settings.audioBase), pendingAudioResume); wireSentenceCues(d); }
+  if(d.audio){ initAudio(resolveAsset(d.audio, db.settings && db.settings.audioBase), pendingAudioResume); wireSentenceCues(d, 'article'); }
   else stopAudio();
   pendingAudioResume = null; // consumed (or there was none) — never leak into a later entry
   syncStickyBackdrops();
@@ -8007,6 +8056,21 @@ let audioEl = null;
 let currentCues = [];      // the raw cues array from the timing file (start/end/type/text/section)
 let cueEls = [];           // parallel array: cueEls[i] = the DOM element(s) matched for currentCues[i], or []
 let activeCueIdx = -1;     // index into currentCues currently highlighted, or -1
+// v263: the whole sentence-sync system (audioEl/currentCues/cueEls/the bottom bar/the glow bar)
+// is shared by TWO possible hosts now — the real article (#article) and the About panel
+// (#aboutPanel), only one of which is ever actively narrating at a time. audioHost is the single
+// switch every DOM-touching function below reads instead of duplicating the whole system per
+// panel; the audioXxxEl() helpers resolve it to the right concrete element. audioSessionToken is
+// bumped on every wireSentenceCues() call (either host) so a stale in-flight timing-file fetch
+// from a call that's since been superseded — by a NEW call to the same host, or a switch to the
+// other one — can detect that and bail instead of applying its (now-wrong) result.
+let audioHost = 'article'; // 'article' | 'about'
+let currentAboutEntry = null; // parallel to currentEntry, but for whichever About-panel info entry currently has audio wired
+let audioSessionToken = 0;
+function audioScrollEl(){ return document.getElementById(audioHost === 'about' ? 'aboutPanel' : 'article'); }
+function audioStoryEl(){ return document.getElementById(audioHost === 'about' ? 'aboutStoryText' : 'artStoryText'); }
+function audioActiveBarEl(){ return document.getElementById(audioHost === 'about' ? 'aboutActiveBar' : 'audioActiveBar'); }
+function audioStickyEl(){ return document.getElementById(audioHost === 'about' ? 'aboutStickyHead' : 'artSticky'); }
 // apPlayBtn itself is declared further down (const, resolved once against the persistent
 // #audPlayBtn button — see the wiring block near initAudio()), but is referenced by
 // wireSentenceCues()'s follow-along code path above that point in the file; since it's a plain
@@ -8078,17 +8142,26 @@ function checkAudioBarScrollReveal(){
 // #flyPortrait, and that comment for why) rather than re-rendered inside each article — so
 // unlike v205, checking "does the bar exist" no longer doubles as "does this entry have audio";
 // that has to be asked directly.
+// v263: also shows for the About panel, once it's open and its info entry has audio — no
+// scroll-reveal gate on that side (audioBarScrollRevealed/AUDIO_BAR_REVEAL_MARGIN exist purely
+// to wait for #artFactBox, Quick Facts, to scroll into view, and the About panel has no Quick
+// Facts box at all), and no peek/expanding states to check either (the About panel never gets
+// those classes — see openAboutPanel/closeAboutPanel, which just toggle 'open').
 function updateAudioBarPresence(){
   const bar = document.getElementById('audioBottomBar');
   if(!bar) return;
-  const show = !!(currentEntry && currentEntry.audio) &&
+  const articleShow = !!(currentEntry && currentEntry.audio) &&
                article.classList.contains('open') &&
                !article.classList.contains('peek') &&
                !article.classList.contains('expanding') &&
-               audioBarScrollRevealed &&
+               audioBarScrollRevealed;
+  const aboutPanelEl = document.getElementById('aboutPanel');
+  const aboutShow = !!(currentAboutEntry && currentAboutEntry.audio) &&
+               !!aboutPanelEl && aboutPanelEl.classList.contains('open');
+  const show = (articleShow || aboutShow) &&
                !manage.classList.contains('open'); // the CMS overlay sits below the bar's
-               // z-index (120 vs 100), so without this the bar floats visibly over the CMS —
-               // Manage never closes the article underneath it, it just layers on top.
+               // z-index, so without this the bar floats visibly over the CMS — Manage never
+               // closes the article/About panel underneath it, it just layers on top.
   bar.classList.toggle('show', show);
 }
 // Starts (or resumes) playback. Called from the bottom bar's own play/pause button (see
@@ -8216,6 +8289,8 @@ function stopAudio(){
   cueSectionHeading = []; audioFollowLastHeading = null; audioFollowSuppressUntil = 0; audioFollowToken++;
   const bar = document.getElementById('audioActiveBar');
   if(bar) bar.classList.remove('on');
+  const aboutBar = document.getElementById('aboutActiveBar');
+  if(aboutBar) aboutBar.classList.remove('on');
 }
 
 
@@ -8224,18 +8299,18 @@ function stopAudio(){
 // audioTiming (or a fetch/match failure) just falls back to the plain scrubber, same as before. ----
 
 // Points to whichever sentence is currently playing without touching the text itself — a
-// glowing bar flush against the true screen edge (left:0 of #article, not the narrower
-// centered .artwrap column), its top/height spanning the active cue's actual rendered extent
-// in content-space (so it scrolls naturally with the article, no per-frame syncing needed —
-// see the comment on the coordinate math elsewhere in this file for why content-space, not
-// viewport-space, is what stays valid across a scroll). Hidden whenever there's no active cue
-// or that cue's sentence never matched into the DOM.
+// glowing bar flush against the true screen edge (left:0 of whichever panel is hosting playback
+// — see audioScrollEl() — not the narrower centered .artwrap column), its top/height spanning
+// the active cue's actual rendered extent in content-space (so it scrolls naturally with the
+// panel, no per-frame syncing needed — see the comment on the coordinate math elsewhere in this
+// file for why content-space, not viewport-space, is what stays valid across a scroll). Hidden
+// whenever there's no active cue or that cue's sentence never matched into the DOM.
 function updateAudioActiveBar(idx){
-  const bar = document.getElementById('audioActiveBar');
+  const bar = audioActiveBarEl();
   if(!bar) return;
   const els = idx >= 0 ? cueEls[idx] : null;
   if(!els || !els.length){ bar.classList.remove('on'); return; }
-  const artEl = document.getElementById('article');
+  const artEl = audioScrollEl();
   if(!artEl){ bar.classList.remove('on'); return; }
   const artRect = artEl.getBoundingClientRect();
   let top = Infinity, bottom = -Infinity;
@@ -8290,7 +8365,7 @@ function driveAudioFollow(idx, force){
   if(!(idx >= 0) || !cueSectionHeading.length) return;
   const heading = cueSectionHeading[idx];
   if(!heading) return;                                         // before the first heading, or no headings matched at all
-  const artEl = document.getElementById('article');
+  const artEl = audioScrollEl();
   if(!artEl || !artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
   if(!force && Date.now() < audioFollowSuppressUntil) return;   // reader is actively scrolling — don't fight them
   const isNewSection = heading !== audioFollowLastHeading || force;
@@ -8302,7 +8377,7 @@ function driveAudioFollow(idx, force){
 // every time, not only when the heading happens to already be off-screen (a simple, literal
 // "teleprompter" behavior: every new section always rises to the top).
 function followAudioSection(artEl, heading){
-  const sticky = document.getElementById('artSticky');
+  const sticky = audioStickyEl();
   // v205: occludedH is just the sticky header's height now — the old inline scrubber that
   // used to stack a second sticky bar under it is gone (fixed bottom bar now, doesn't occlude
   // the top). See jumpAndRevealSection's comment for the fuller explanation.
@@ -8326,7 +8401,7 @@ function followAudioSection(artEl, heading){
 function ensureActiveCueVisible(artEl, idx){
   const els = cueEls[idx];
   if(!els || !els.length) return; // this cue's sentence never matched into the DOM — nothing to track
-  const sticky = document.getElementById('artSticky');
+  const sticky = audioStickyEl();
   const occludedH = sticky ? sticky.offsetHeight : 0;
   const artRect = artEl.getBoundingClientRect();
   let top = Infinity, bottom = -Infinity;
@@ -8380,6 +8455,8 @@ function noteManualScrollForAudioFollow(){
 }
 document.getElementById('article').addEventListener('touchmove', noteManualScrollForAudioFollow, {passive:true});
 document.getElementById('article').addEventListener('wheel', noteManualScrollForAudioFollow, {passive:true});
+document.getElementById('aboutPanel').addEventListener('touchmove', noteManualScrollForAudioFollow, {passive:true});
+document.getElementById('aboutPanel').addEventListener('wheel', noteManualScrollForAudioFollow, {passive:true});
 function seekToCue(idx){
   const cue = currentCues[idx];
   if(!cue || !audioEl) return;
@@ -8471,7 +8548,7 @@ function normalizeCueSearchText(s){
 // genuinely absent) is simply skipped — that sentence won't highlight or be tappable, everything
 // else still works.
 function applyCueMarkup(cues){
-  const container = document.getElementById('artStoryText');
+  const container = audioStoryEl();
   if(!container) return;
   const { flat, map } = cueFlatMap(container);
   const matches = []; // {idx, start, end} in document order
@@ -8516,7 +8593,7 @@ function applyCueMarkup(cues){
 // field isn't present, because its text matches the next expected heading's text exactly.
 function computeCueSectionHeadings(){
   cueSectionHeading = new Array(currentCues.length).fill(null);
-  const container = document.getElementById('artStoryText');
+  const container = audioStoryEl();
   if(!container) return;
   const headingEls = Array.from(container.querySelectorAll('.arth'));
   if(!headingEls.length) return;
@@ -8545,7 +8622,9 @@ function deriveTimingPath(audioPath){
   if(!m) return null;
   return audioPath.slice(0, -m[0].length) + '.json';
 }
-async function wireSentenceCues(d){
+async function wireSentenceCues(d, host){
+  audioHost = host || 'article';
+  const mySession = ++audioSessionToken; // guards against a superseded call's fetch resolving late — see the comment on audioSessionToken above
   currentCues = []; cueEls = []; activeCueIdx = -1;
   cueSectionHeading = []; audioFollowLastHeading = null; audioFollowSuppressUntil = 0; audioFollowToken++;
   const statusEl = document.getElementById('apCueStatus');
@@ -8572,7 +8651,11 @@ async function wireSentenceCues(d){
     }
     timing = await res.json();
   }catch(err){ if(statusEl) statusEl.textContent = 'Sentence sync: failed to load (' + err.message + ')'; return; }
-  if(!currentEntry || currentEntry.id !== entryId) return; // article changed mid-fetch
+  if(mySession !== audioSessionToken) return; // a newer wireSentenceCues() call — either host — has already taken over
+  const stillCurrent = audioHost === 'about'
+    ? (currentAboutEntry && currentAboutEntry.id === entryId)
+    : (currentEntry && currentEntry.id === entryId);
+  if(!stillCurrent) return; // article/About entry changed mid-fetch
   const cues = timing.cues || [];
   if(!cues.length){ if(statusEl) statusEl.textContent = 'Sentence sync: timing file has no cues'; return; }
   currentCues = cues;
@@ -8594,6 +8677,13 @@ async function wireSentenceCues(d){
 // Tap a highlighted sentence/heading to jump playback there and start playing.
 document.getElementById('artBody').addEventListener('click', (e) => {
   if(e.target.closest('a, button, input')) return; // links/controls keep their own behavior
+  const el = e.target.closest('[data-cue-idx]');
+  if(!el) return;
+  const idx = parseInt(el.dataset.cueIdx, 10);
+  if(!isNaN(idx)) seekToCue(idx);
+});
+document.getElementById('aboutBody').addEventListener('click', (e) => {
+  if(e.target.closest('a, button, input')) return;
   const el = e.target.closest('[data-cue-idx]');
   if(!el) return;
   const idx = parseInt(el.dataset.cueIdx, 10);
@@ -11728,6 +11818,8 @@ function renderAboutPanel(category){
     heroImg.style.display = 'none'; heroImg.src = '';
     heroCap.style.display = 'none'; heroCap.textContent = '';
     bodyEl.innerHTML = '<p class="artp">This explainer hasn\u2019t been published yet.</p>';
+    currentAboutEntry = null;
+    stopAudio();
     return;
   }
   document.getElementById('aboutTitle').textContent = e.n || '';
@@ -11746,10 +11838,16 @@ function renderAboutPanel(category){
   }
   let html = '';
   const art = e.art || {};
+  // #aboutStoryText wraps just the narrative — section headings and prose — same shape and
+  // purpose as #artStoryText in the full article view: it's the container wireSentenceCues()/
+  // applyCueMarkup() search for a text match against, when this entry has audio (see below).
+  // .artProse mirrors the real article's own scoping class on each section's body.
+  html += '<div id="aboutStoryText">';
   (art.sections || []).forEach(sec => {
     if(sec.h) html += '<div class="arth">' + esc(sec.h) + '</div>';
-    html += renderBody(sec.b);
+    html += '<div class="artProse">' + renderBody(sec.b) + '</div>';
   });
+  html += '</div>'; // #aboutStoryText
   if(art.quotes && art.quotes.length){
     art.quotes.forEach(q => {
       html += '<div class="artquote">&ldquo;' + esc(q.text) + '&rdquo;' +
@@ -11769,15 +11867,26 @@ function renderAboutPanel(category){
       html += '<div class="aboutQA"><div class="aboutQ">' + esc(item.q) + '</div><div class="aboutA">' + esc(item.a) + '</div></div>';
     });
   }
+  // Clearance for the fixed bottom audio bar, same reasoning as the real article's own
+  // .audioBottomSpacer — unconditional on e.audio (not on play state), so there's no layout
+  // jump when the bar's own visibility toggles.
+  if(e.audio) html += '<div class="audioBottomSpacer"></div>';
   bodyEl.innerHTML = html;
+  currentAboutEntry = e;
+  if(e.audio){ initAudio(resolveAsset(e.audio, db.settings && db.settings.audioBase), 0); wireSentenceCues(e, 'about'); }
+  else stopAudio();
 }
 function openAboutPanel(category){
   renderAboutPanel(category);
   document.getElementById('aboutPanel').classList.add('open');
   document.getElementById('aboutPanel').scrollTop = 0;
+  updateAudioBarPresence();
 }
 function closeAboutPanel(){
+  stopAudio();
+  currentAboutEntry = null;
   document.getElementById('aboutPanel').classList.remove('open');
+  updateAudioBarPresence();
 }
 document.getElementById('aboutClose').addEventListener('click', closeAboutPanel);
 // Delegated on the (stable) canvas element rather than the icon itself, since bandIconWrap
