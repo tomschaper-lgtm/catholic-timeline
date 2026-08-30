@@ -1,4 +1,20 @@
 <!--
+VERSION: 262
+DATE: 2026-08-29T13:00:00-05:00
+CHANGES:
+- About panel small tweaks per feedback on v261's redesign:
+  - Subtitle raised closer to the title (#aboutPanel .artsub margin-top 14px -> 4px).
+  - Hero image's top/bottom gold rule thickened (1px -> 2px).
+  - .aboutStickyHead now carries real bottom padding (22px) instead of relying on the first
+    section heading's own top margin for breathing room below the image. That margin lived on
+    #aboutBody's scrolling content, so it only showed at rest — the instant the page scrolled,
+    it scrolled up and out of view behind the pinned head, leaving the heading text butted right
+    against the gold border. Padding baked into the sticky element itself persists at every
+    scroll depth. #aboutPanel #aboutBody > .arth:first-child's own margin-top trimmed
+    (36px -> 16px) so the resting/unscrolled gap still looks the same as before; every other
+    section heading further down the article keeps its full 36px.
+-->
+<!--
 VERSION: 261
 DATE: 2026-08-29T12:00:00-05:00
 CHANGES:
@@ -3768,14 +3784,14 @@ CHANGES:
      cancels .aboutStickyHead's own 20px horizontal padding a second time (see that rule below),
      so the image runs flush to both screen edges with no rounded corners — just a thin gold rule
      top and bottom instead of the old all-around border. */
-  .aboutHeroImg{display:block; width:calc(100% + 40px); height:auto; margin:16px -20px 0; border-radius:0; border:none; border-top:1px solid var(--gold); border-bottom:1px solid var(--gold);}
+  .aboutHeroImg{display:block; width:calc(100% + 40px); height:auto; margin:16px -20px 0; border-radius:0; border:none; border-top:2px solid var(--gold); border-bottom:2px solid var(--gold);}
   .aboutHeroCap{font-size:calc(13px * var(--txt)); color:var(--muted); text-align:center; margin:6px 0 4px; font-style:italic;}
   /* Sized up specifically for #aboutPanel rather than editing .artsub/.artp themselves, which
      are shared verbatim with the full article view (#article) and would otherwise resize body
      text on all 185+ real entries along with it. Title bumped up further and subtitle switched
      to plain white (was the shared muted italic gray) per feedback. */
   #aboutPanel .arttitle{font-size:clamp(34px,8.5vw,50px); margin-top:0;}
-  #aboutPanel .artsub{font-size:20px; color:#fff; margin-top:14px;}
+  #aboutPanel .artsub{font-size:20px; color:#fff; margin-top:4px;}
   #aboutPanel .artp{font-size:calc(21.5px * var(--txt));}
   #aboutPanel .aboutA{font-size:calc(19.5px * var(--txt));}
   /* Solid sticky band holding the title, subtitle, and hero image together — replaces the old
@@ -3784,12 +3800,25 @@ CHANGES:
      .aboutHeroImg) can run full-bleed; padding restores the 20px inset for the title/subtitle
      text only. Opaque background for the same reason as before: a long scrolling page must not
      show section-heading text through the pinned band. Top padding kept small on purpose — the
-     title should sit almost flush with the top of the screen, just a sliver of margin above it. */
-  #aboutPanel .aboutStickyHead{position:sticky; top:0; z-index:6; background:#0A1430; margin:-18px -20px 0; padding:10px 20px 0;}
+     title should sit almost flush with the top of the screen, just a sliver of margin above it.
+     Bottom padding is deliberately real padding on this element, not a margin on whatever
+     scrolls up beneath it: a gap that instead lived on #aboutBody's first child (the old
+     approach) belongs to the SCROLLING content, so it only shows at rest — the instant the page
+     scrolls even a little, that gap scrolls up and out of view behind the pinned head, leaving
+     the heading text butted right against the gold border with no breathing room. Padding baked
+     into the sticky element itself stays visible at every scroll depth. #aboutPanel .arth's own
+     margin-top below is trimmed to match, so the resting (unscrolled) gap looks the same as
+     before — just built the durable way. */
+  #aboutPanel .aboutStickyHead{position:sticky; top:0; z-index:6; background:#0A1430; margin:-18px -20px 0; padding:10px 20px 22px;}
   /* More air throughout — the panel read as cluttered with the base article spacing, which was
      tuned for prose broken up by portraits/quick-facts rather than a denser run of headings,
      a pull-quote, and a Q&A list back to back. */
   #aboutPanel .arth{font-size:calc(18px * var(--txt)); margin-top:36px;}
+  /* First heading only: most of its usual 36px gap now lives as real padding baked into
+     .aboutStickyHead itself (see that rule's comment) so the gap survives scrolling. Trimmed
+     here so the two don't stack into an oversized gap at rest — every OTHER section heading
+     further down the article keeps the full 36px above. */
+  #aboutPanel #aboutBody > .arth:first-child{margin-top:16px;}
   #aboutPanel .artquote{font-size:calc(20px * var(--txt)); margin:22px 0 30px;}
   #aboutPanel .aboutQA{margin:0 0 28px;}
   /* Questions in Cinzel at 700 weight (the display face used for section headings) read as too
@@ -5337,7 +5366,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v261';
+const APP_VERSION = 'v262';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
