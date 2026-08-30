@@ -2,6 +2,24 @@
   "v": 1,
   "entries": [
     {
+      "version": "262",
+      "date": "2026-08-29T13:00:00-05:00",
+      "changes": [
+        "About panel small tweaks per feedback on v261's redesign:",
+        "Subtitle raised closer to the title (#aboutPanel .artsub margin-top 14px -> 4px).",
+        "Hero image's top/bottom gold rule thickened (1px -> 2px).",
+        ".aboutStickyHead now carries real bottom padding (22px) instead of relying on the first",
+        "section heading's own top margin for breathing room below the image. That margin lived on",
+        "#aboutBody's scrolling content, so it only showed at rest — the instant the page scrolled,",
+        "it scrolled up and out of view behind the pinned head, leaving the heading text butted right",
+        "against the gold border. Padding baked into the sticky element itself persists at every",
+        "scroll depth. #aboutPanel #aboutBody > .arth:first-child's own margin-top trimmed",
+        "(36px -> 16px) so the resting/unscrolled gap still looks the same as before; every other",
+        "section heading further down the article keeps its full 36px."
+      ],
+      "loggedAt": "2026-08-30T03:55:31.335866+00:00"
+    },
+    {
       "version": "261",
       "date": "2026-08-29T12:00:00-05:00",
       "changes": [
