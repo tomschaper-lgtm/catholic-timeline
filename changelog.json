@@ -2,6 +2,33 @@
   "v": 1,
   "entries": [
     {
+      "version": "261",
+      "date": "2026-08-29T12:00:00-05:00",
+      "changes": [
+        "About panel (#aboutPanel — the Sainthood/Councils/etc. category explainer) redesigned per",
+        "feedback:",
+        "Removed the \"← Back\" button and its .aboutStickyHead band entirely. Replaced with a plain",
+        "white × close button, top-right corner, using the exact same sticky .artTopBar/.artX",
+        "technique the full article view (#article/#artClose) already relies on — stays pinned at",
+        "any scroll depth.",
+        "Title (.arttitle, scoped to #aboutPanel) sized up further (clamp 34–50px, was the shared",
+        "28–42px article size) and now sits with almost no top margin, just a small sliver of",
+        "padding above it, instead of the old sticky band's worth of space.",
+        "Subtitle (.artsub, scoped to #aboutPanel) switched from the shared muted italic gray to",
+        "plain white, with more top margin separating it from the title.",
+        "Hero image (.aboutHeroImg) moved out of #aboutBody and into the sticky head alongside the",
+        "title/subtitle — see renderAboutPanel()/openAboutPanel() below, which now populate",
+        "#aboutHeroImg/#aboutHeroCap directly instead of injecting an <img> into the scrolling body.",
+        "Image is now edge-to-edge (negative margin cancels the sticky head's own horizontal",
+        "padding), square corners, with a thin gold rule top and bottom in place of the old",
+        "rounded-corner all-around border.",
+        "Title + subtitle + image (+ caption) are now ALL one sticky unit (#aboutPanel",
+        ".aboutStickyHead, position:sticky, opaque background) pinned to the top of the panel; only",
+        "the article body (#aboutBody) scrolls underneath it."
+      ],
+      "loggedAt": "2026-08-30T03:21:19.556500+00:00"
+    },
+    {
       "version": "260",
       "date": "2026-08-29T17:40:00-05:00",
       "changes": [
