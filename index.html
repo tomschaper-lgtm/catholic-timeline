@@ -1,4 +1,29 @@
 <!--
+VERSION: 261
+DATE: 2026-08-29T12:00:00-05:00
+CHANGES:
+- About panel (#aboutPanel — the Sainthood/Councils/etc. category explainer) redesigned per
+  feedback:
+  - Removed the "← Back" button and its .aboutStickyHead band entirely. Replaced with a plain
+    white × close button, top-right corner, using the exact same sticky .artTopBar/.artX
+    technique the full article view (#article/#artClose) already relies on — stays pinned at
+    any scroll depth.
+  - Title (.arttitle, scoped to #aboutPanel) sized up further (clamp 34–50px, was the shared
+    28–42px article size) and now sits with almost no top margin, just a small sliver of
+    padding above it, instead of the old sticky band's worth of space.
+  - Subtitle (.artsub, scoped to #aboutPanel) switched from the shared muted italic gray to
+    plain white, with more top margin separating it from the title.
+  - Hero image (.aboutHeroImg) moved out of #aboutBody and into the sticky head alongside the
+    title/subtitle — see renderAboutPanel()/openAboutPanel() below, which now populate
+    #aboutHeroImg/#aboutHeroCap directly instead of injecting an <img> into the scrolling body.
+    Image is now edge-to-edge (negative margin cancels the sticky head's own horizontal
+    padding), square corners, with a thin gold rule top and bottom in place of the old
+    rounded-corner all-around border.
+  - Title + subtitle + image (+ caption) are now ALL one sticky unit (#aboutPanel
+    .aboutStickyHead, position:sticky, opaque background) pinned to the top of the panel; only
+    the article body (#aboutBody) scrolls underneath it.
+-->
+<!--
 VERSION: 260
 DATE: 2026-08-29T17:40:00-05:00
 CHANGES:
@@ -3737,24 +3762,30 @@ CHANGES:
   .aboutQ{font-family:'Cinzel',serif; font-weight:700; color:var(--gold-bright); font-size:calc(16.5px * var(--txt)); line-height:1.4; margin-bottom:5px;}
   .aboutA{font-size:calc(18px * var(--txt)); line-height:1.62; margin:0;}
   /* About panel's optional image — deliberately NOT the article system's sticky/fly-portrait
-     hero (#artHeroImg/.flyPortrait): just a plain <img> in normal document flow, first thing
-     printed into #aboutBody, that scrolls straight up with everything else. */
-  .aboutHeroImg{display:block; width:100%; height:auto; border-radius:14px; margin:4px 0 6px; border:1px solid rgba(201,165,66,.35);}
-  .aboutHeroCap{font-size:calc(13px * var(--txt)); color:var(--muted); text-align:center; margin:0 0 18px; font-style:italic;}
+     hero (#artHeroImg/.flyPortrait): a plain <img>, but living inside .aboutStickyHead now (see
+     HTML) rather than in-flow at the top of #aboutBody, so it pins in place along with the title
+     and subtitle instead of scrolling away with the body text. Edge-to-edge: negative side margin
+     cancels .aboutStickyHead's own 20px horizontal padding a second time (see that rule below),
+     so the image runs flush to both screen edges with no rounded corners — just a thin gold rule
+     top and bottom instead of the old all-around border. */
+  .aboutHeroImg{display:block; width:calc(100% + 40px); height:auto; margin:16px -20px 0; border-radius:0; border:none; border-top:1px solid var(--gold); border-bottom:1px solid var(--gold);}
+  .aboutHeroCap{font-size:calc(13px * var(--txt)); color:var(--muted); text-align:center; margin:6px 0 4px; font-style:italic;}
   /* Sized up specifically for #aboutPanel rather than editing .artsub/.artp themselves, which
      are shared verbatim with the full article view (#article) and would otherwise resize body
-     text on all 185+ real entries along with it. */
-  #aboutPanel .artsub{font-size:20px;}
+     text on all 185+ real entries along with it. Title bumped up further and subtitle switched
+     to plain white (was the shared muted italic gray) per feedback. */
+  #aboutPanel .arttitle{font-size:clamp(34px,8.5vw,50px); margin-top:0;}
+  #aboutPanel .artsub{font-size:20px; color:#fff; margin-top:14px;}
   #aboutPanel .artp{font-size:calc(21.5px * var(--txt));}
   #aboutPanel .aboutA{font-size:calc(19.5px * var(--txt));}
-  /* Solid full-width sticky band behind the Back button, replacing .artback's own bare sticky
-     positioning (a narrow pill with nothing behind it) — without this, a long scrolling page of
-     section headings eventually scrolls a heading up to sit at the exact same sticky y-position
-     as the button, and since the pill is narrower than the line, the heading's text shows
-     through/around it rather than being cleanly covered. Background is the overlay gradient's
-     own top color, so the band is invisible as a band and just reads as "the button has room." */
-  #aboutPanel .aboutStickyHead{position:sticky; top:0; z-index:6; background:#0A1430; margin:-18px -20px 14px; padding:18px 20px 10px;}
-  #aboutPanel .artback{position:static;}
+  /* Solid sticky band holding the title, subtitle, and hero image together — replaces the old
+     bare "← Back" pill band. Negative side margin cancels .artwrap's own 20px padding so the
+     band (and the edge-to-edge image inside it, which cancels this padding a second time — see
+     .aboutHeroImg) can run full-bleed; padding restores the 20px inset for the title/subtitle
+     text only. Opaque background for the same reason as before: a long scrolling page must not
+     show section-heading text through the pinned band. Top padding kept small on purpose — the
+     title should sit almost flush with the top of the screen, just a sliver of margin above it. */
+  #aboutPanel .aboutStickyHead{position:sticky; top:0; z-index:6; background:#0A1430; margin:-18px -20px 0; padding:10px 20px 0;}
   /* More air throughout — the panel read as cluttered with the base article spacing, which was
      tuned for prose broken up by portraits/quick-facts rather than a denser run of headings,
      a pull-quote, and a Q&A list back to back. */
@@ -4513,12 +4544,23 @@ CHANGES:
        categories can reuse the same panel and functions by adding their own chip plus a
        matching t:"i" entry. -->
   <div class="overlay" id="aboutPanel" style="z-index:150;" role="dialog" aria-label="About">
+    <!-- Plain white × close button, same sticky-topbar technique as #article's #artClose, so it
+         stays pinned in the top-right corner of the screen at any scroll depth. Replaces the old
+         "← Back" pill — that button and its .aboutStickyHead band are gone. -->
+    <div class="artTopBar">
+      <button class="artX" id="aboutClose" aria-label="Close">&times;</button>
+    </div>
     <div class="artwrap">
-      <div class="aboutStickyHead">
-        <button class="artback" id="aboutBack">&larr; Back</button>
+      <!-- Title, subtitle, and hero image now live together in one sticky head so all three stay
+           pinned while only the article body (#aboutBody) scrolls underneath — see
+           renderAboutPanel()/openAboutPanel() in the JS below, which populate #aboutHeroImg/
+           #aboutHeroCap directly instead of injecting an <img> into #aboutBody. -->
+      <div class="aboutStickyHead" id="aboutStickyHead">
+        <div class="arttitle" id="aboutTitle"></div>
+        <div class="artsub" id="aboutSub"></div>
+        <img class="aboutHeroImg" id="aboutHeroImg" src="" alt="" style="display:none;">
+        <div class="aboutHeroCap" id="aboutHeroCap" style="display:none;"></div>
       </div>
-      <div class="arttitle" id="aboutTitle"></div>
-      <div class="artsub" id="aboutSub"></div>
       <div id="aboutBody"></div>
     </div>
   </div>
@@ -5295,7 +5337,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v260';
+const APP_VERSION = 'v261';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -11646,22 +11688,34 @@ function getInfoEntry(category){
 function renderAboutPanel(category){
   const e = getInfoEntry(category);
   const bodyEl = document.getElementById('aboutBody');
+  const heroImg = document.getElementById('aboutHeroImg');
+  const heroCap = document.getElementById('aboutHeroCap');
   if(!e){
     // Defensive fallback for a category whose "Learn More" chip exists before its info entry has
     // been written/published yet — shouldn't happen for Saints/Councils, but keeps a future chip
     // from opening onto a blank panel while its content is still being drafted.
     document.getElementById('aboutTitle').textContent = 'Coming Soon';
     document.getElementById('aboutSub').textContent = '';
+    heroImg.style.display = 'none'; heroImg.src = '';
+    heroCap.style.display = 'none'; heroCap.textContent = '';
     bodyEl.innerHTML = '<p class="artp">This explainer hasn\u2019t been published yet.</p>';
     return;
   }
   document.getElementById('aboutTitle').textContent = e.n || '';
   document.getElementById('aboutSub').textContent = e.d || '';
-  let html = '';
+  // Hero image/caption now live in the sticky head (see HTML) rather than being injected as the
+  // first thing into #aboutBody, so they stay pinned in place with the title instead of scrolling
+  // away with the rest of the article.
   if(e.img){
-    html += '<img class="aboutHeroImg" src="' + esc(e.img) + '" alt="">';
-    if(e.imgCap) html += '<div class="aboutHeroCap">' + esc(e.imgCap) + '</div>';
+    heroImg.src = e.img;
+    heroImg.style.display = 'block';
+    if(e.imgCap){ heroCap.textContent = e.imgCap; heroCap.style.display = 'block'; }
+    else { heroCap.style.display = 'none'; heroCap.textContent = ''; }
+  } else {
+    heroImg.style.display = 'none'; heroImg.src = '';
+    heroCap.style.display = 'none'; heroCap.textContent = '';
   }
+  let html = '';
   const art = e.art || {};
   (art.sections || []).forEach(sec => {
     if(sec.h) html += '<div class="arth">' + esc(sec.h) + '</div>';
@@ -11696,7 +11750,7 @@ function openAboutPanel(category){
 function closeAboutPanel(){
   document.getElementById('aboutPanel').classList.remove('open');
 }
-document.getElementById('aboutBack').addEventListener('click', closeAboutPanel);
+document.getElementById('aboutClose').addEventListener('click', closeAboutPanel);
 // Delegated on the (stable) canvas element rather than the icon itself, since bandIconWrap
 // elements are recreated on every render() pass — see render() above.
 canvas.addEventListener('click', (e) => {
