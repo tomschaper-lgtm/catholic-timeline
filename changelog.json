@@ -2,6 +2,25 @@
   "v": 1,
   "entries": [
     {
+      "version": "266",
+      "date": "2026-08-29T17:00:00-05:00",
+      "changes": [
+        "Browse panel remembered state (brLastState — sort/filter/scroll per category, e.g. Councils,",
+        "Persecutions, Eucharistic, Events, Marian) now expires after 30 minutes (new",
+        "BROWSE_STATE_TTL_MS). closeBrowsePanel() stamps a ts on save; openBrowsePanel() checks it and,",
+        "past the window, deletes that entry outright rather than just skipping it for sort/filter —",
+        "otherwise renderBrowsePanel()'s own separate scroll-restore check (which compares the saved",
+        "sort/filter against the current ones) could still coincidentally match the freshly-defaulted",
+        "year/all and restore a stale scroll position. Within the window, everything continues to be",
+        "remembered exactly as before — this only changes what happens once that memory goes stale.",
+        "Councils: pressing the Ecumenical chip now always forces sort back to Year, regardless of",
+        "whatever column was active before — the whole point of that list is its 1st/2nd/3rd sequence,",
+        "which only reads correctly in chronological order. No other chip forces a sort change; Name/",
+        "Country/Year otherwise carries over across a filter switch exactly as it always has."
+      ],
+      "loggedAt": "2026-08-30T12:37:23.819490+00:00"
+    },
+    {
       "version": "265",
       "date": "2026-08-29T16:00:00-05:00",
       "changes": [
