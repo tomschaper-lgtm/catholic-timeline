@@ -1,0 +1,54 @@
+name: Orchestrator
+
+# Manual trigger only for now — a "Run workflow" button under the Actions tab.
+# This runs the modular task/service pipeline: it reads workLog.json, hands
+# queued tasks to the matching service, and commits the results (including
+# any newly spawned "proposed" tasks) back to workLog.json.
+#
+# This does NOT touch data.json. Services only ever read it for reference;
+# nothing here publishes content. Approving a proposed task and merging it
+# into data.json happens in the app's Work Log panel, on your own schedule.
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_tasks:
+        description: 'Max queued tasks to process this run'
+        required: false
+        default: '5'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: orchestrator
+  cancel-in-progress: false
+
+jobs:
+  run-orchestrator:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run orchestrator
+        run: node scripts/orchestrator.mjs
+        env:
+          MAX_TASKS_PER_RUN: ${{ github.event.inputs.max_tasks }}
+
+      - name: Commit updated work log
+        run: |
+          git config user.name "orchestrator-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add workLog.json
+          if git diff --cached --quiet; then
+            echo "No changes to workLog.json"
+          else
+            git commit -m "Orchestrator run: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi
