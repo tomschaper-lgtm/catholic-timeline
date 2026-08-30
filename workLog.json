@@ -30,12 +30,23 @@
       "type": "age-backfill-scan",
       "entityId": null,
       "batchId": null,
-      "status": "queued",
+      "status": "done",
       "description": "Re-scan (post 'about' wording fix) for Born/Died facts firm enough to compute an age.",
       "payload": {},
-      "result": null,
+      "result": {
+        "totalSaints": 224,
+        "qualified": 0,
+        "skipped": {
+          "noBornFact": 63,
+          "noDiedFact": 1,
+          "alreadyHasAge": 85,
+          "bornNotFirm": 75,
+          "diedNotFirm": 0,
+          "impossibleAge": 0
+        }
+      },
       "createdAt": "2026-08-30T00:00:00Z",
-      "updatedAt": "2026-08-30T00:00:00Z",
+      "updatedAt": "2026-08-30T21:56:48.666Z",
       "error": null
     }
   ]
