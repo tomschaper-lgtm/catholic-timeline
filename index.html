@@ -1,4 +1,23 @@
 <!--
+VERSION: 269
+DATE: 2026-08-30T14:00:00-05:00
+CHANGES:
+- Fixed the real bug behind "text not found" on any `patches` `article` match text that touched
+  an HTML tag, even a fully-balanced one (e.g. `<b>Michael</b>`) — every such patch was silently
+  unmatchable, not just theoretically restricted. patchTextInSections() previously split each
+  section's body into tag-separated pieces first (`sec.b.split(/(<[^>]+>)/g)`), then searched
+  each piece alone — so match text spanning a tag could never be found in any single piece,
+  regardless of whether the source text matched perfectly. That tokenizing existed to stop a
+  patch from partially matching into an `<a href="entry:...">` cross-reference link's visible
+  text (which could silently break navigation), a real protection worth keeping — it just also,
+  as a side effect, caught every other tag along with it. Rewrote to match against each section's
+  full raw body directly, then reject only matches that actually overlap an `<a>...</a>` span
+  (full or partial), via a precomputed list of anchor ranges — same protection, without the
+  accidental blast radius. `patches` `article` matches can now include `<b>`/`<i>`/etc. markup
+  same as the skill doc always described. See json-import-skill.md Part 2 — no format change,
+  this was purely an app-side matching bug.
+-->
+<!--
 VERSION: 268
 DATE: 2026-08-30T11:00:00-05:00
 CHANGES:
@@ -5532,7 +5551,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v268';
+const APP_VERSION = 'v269';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -10875,20 +10894,35 @@ function patchParseElementOccurrence(element){
   return { text: String(element), occurrence: 1 };
 }
 
-// Reuses the same tag-aware tokenizing as manualLinkApplyToEntry (split on tags, skip inside
-// an existing <a>), generalized to insert/replace/remove arbitrary text instead of only
-// wrapping it in a link. Never mutates the entry in place — returns a new sections array — so
-// a failed patch can't half-apply.
+// Matches against each section's full raw body (tags included), so a match text may freely
+// span a formatting tag like <b>/<i> — those carry no navigation data, so there's nothing to
+// protect. The one thing still off-limits is a cross-reference link's visible text: replacing
+// part of an <a href="entry:...">...</a> span could leave a broken half-link with no obvious
+// symptom, so any match that overlaps an anchor span is skipped, same protection
+// manualLinkApplyToEntry gives the auto-linker, just checked against the whole string now
+// instead of accidentally extending to every tag via per-segment tokenizing (v155-v268's bug —
+// see CHANGES). Never mutates the entry in place — returns a new sections array — so a failed
+// patch can't half-apply.
 function patchTextInSections(sections, matchText, occurrence, op, value){
   let seen = 0, done = false;
-  const applyToSegment = (tok) => {
-    if(done) return tok;
-    const re = new RegExp(xrefEscapeRegex(matchText), 'g');
+  const re = new RegExp(xrefEscapeRegex(matchText), 'g');
+  const newSections = sections.map(sec => {
+    if(done) return sec;
+    const body = String(sec.b || '');
+    const anchorRanges = [];
+    const anchorRe = /<a\b[^>]*>[\s\S]*?<\/a>/gi;
+    let am;
+    while((am = anchorRe.exec(body))){
+      anchorRanges.push([am.index, am.index + am[0].length]);
+    }
+    const overlapsAnchor = (start, len) => anchorRanges.some(([s, e]) => start < e && (start + len) > s);
     let out = '', cursor = 0, m;
-    while((m = re.exec(tok))){
+    re.lastIndex = 0;
+    while((m = re.exec(body))){
+      if(overlapsAnchor(m.index, m[0].length)) continue; // would corrupt a cross-ref link — skip, keep scanning
       seen++;
       if(seen === occurrence){
-        out += tok.slice(cursor, m.index);
+        out += body.slice(cursor, m.index);
         if(op === 'I') out += m[0] + String(value);
         else if(op === 'U') out += String(value);
         // op === 'D': matched text simply omitted
@@ -10897,21 +10931,9 @@ function patchTextInSections(sections, matchText, occurrence, op, value){
         break; // one edit total, ever, for this patch
       }
     }
-    out += tok.slice(cursor);
-    return out;
-  };
-  const newSections = sections.map(sec => {
-    if(done) return sec;
-    const tokens = String(sec.b || '').split(/(<[^>]+>)/g);
-    let insideAnchor = 0;
-    const rebuilt = tokens.map(tok => {
-      if(/^<a\b/i.test(tok)){ insideAnchor++; return tok; }
-      if(/^<\/a>/i.test(tok)){ insideAnchor = Math.max(0, insideAnchor - 1); return tok; }
-      if(/^<[^>]+>$/.test(tok)) return tok;
-      if(insideAnchor > 0) return tok;
-      return applyToSegment(tok);
-    }).join('');
-    return { h: sec.h, b: rebuilt };
+    if(!done) return sec;
+    out += body.slice(cursor);
+    return { h: sec.h, b: out };
   });
   return { changed: done, sections: newSections };
 }
