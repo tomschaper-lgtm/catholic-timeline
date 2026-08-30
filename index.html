@@ -1,4 +1,21 @@
 <!--
+VERSION: 266
+DATE: 2026-08-29T17:00:00-05:00
+CHANGES:
+- Browse panel remembered state (brLastState — sort/filter/scroll per category, e.g. Councils,
+  Persecutions, Eucharistic, Events, Marian) now expires after 30 minutes (new
+  BROWSE_STATE_TTL_MS). closeBrowsePanel() stamps a ts on save; openBrowsePanel() checks it and,
+  past the window, deletes that entry outright rather than just skipping it for sort/filter —
+  otherwise renderBrowsePanel()'s own separate scroll-restore check (which compares the saved
+  sort/filter against the current ones) could still coincidentally match the freshly-defaulted
+  year/all and restore a stale scroll position. Within the window, everything continues to be
+  remembered exactly as before — this only changes what happens once that memory goes stale.
+- Councils: pressing the Ecumenical chip now always forces sort back to Year, regardless of
+  whatever column was active before — the whole point of that list is its 1st/2nd/3rd sequence,
+  which only reads correctly in chronological order. No other chip forces a sort change; Name/
+  Country/Year otherwise carries over across a filter switch exactly as it always has.
+-->
+<!--
 VERSION: 265
 DATE: 2026-08-29T16:00:00-05:00
 CHANGES:
@@ -5473,7 +5490,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v265';
+const APP_VERSION = 'v266';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -12135,9 +12152,15 @@ const brThumb = document.getElementById('brThumb');
 const brThumbLabel = document.getElementById('brThumbLabel');
 const brListWrapEl = document.getElementById('brListWrap');
 let brType = null, brSort = 'year', brFilter = 'all';
-// Remembers sort + scroll position per type independently (same idea as Saints' spLastState),
-// so switching between, say, Persecutions and Events and back doesn't reset either one.
+// Remembers sort + filter + scroll position per type independently (same idea as Saints'
+// spLastState), so switching between, say, Persecutions and Events and back doesn't reset
+// either one — but only within BROWSE_STATE_TTL_MS of the last time that type's panel was
+// closed (ts, stamped in closeBrowsePanel()). Past that window, openBrowsePanel() treats it as
+// if there were no saved state at all and falls back to the plain defaults (sort by year,
+// filter All) — a stale filter/sort from half a day ago is more likely to confuse a fresh visit
+// than to be genuinely still wanted.
 let brLastState = {};
+const BROWSE_STATE_TTL_MS = 30 * 60 * 1000;
 function brRows(){
   const cfg = BROWSE_CONFIGS[brType];
   const chip = cfg.chips ? cfg.chips.find(c => c.id === brFilter) : null;
@@ -12330,14 +12353,20 @@ function openBrowsePanel(type){
   closeHamMenu();
   brType = type;
   const saved = brLastState[type];
-  brSort = saved ? saved.sort : 'year';
-  brFilter = saved ? saved.filter : 'all';
+  const fresh = saved && (Date.now() - saved.ts) <= BROWSE_STATE_TTL_MS;
+  // Stale state is deleted outright, not just bypassed for sort/filter — renderBrowsePanel()'s
+  // own scroll-restore check further down reads brLastState[brType] independently and would
+  // otherwise be able to coincidentally match the freshly-defaulted sort/filter (year/all is a
+  // common saved value too) and restore a scroll position from an expired visit.
+  if(saved && !fresh) delete brLastState[type];
+  brSort = fresh ? saved.sort : 'year';
+  brFilter = fresh ? saved.filter : 'all';
   renderBrowsePanel();
   browsePanel.classList.add('open');
   brScrim.classList.add('open');
 }
 function closeBrowsePanel(){
-  if(brType) brLastState[brType] = {sort: brSort, filter: brFilter, scrollTop: brListEl.scrollTop};
+  if(brType) brLastState[brType] = {sort: brSort, filter: brFilter, scrollTop: brListEl.scrollTop, ts: Date.now()};
   browsePanel.classList.remove('open');
   brScrim.classList.remove('open');
 }
@@ -12347,6 +12376,11 @@ document.getElementById('brChips').addEventListener('click', (e) => {
   const btn = e.target.closest('.spChip[data-filter]');
   if(!btn) return;
   brFilter = btn.dataset.filter;
+  // Ecumenical always reads best in year order — every row is one, and the sequence itself
+  // (1st, 2nd, 3rd…) only makes sense chronologically — so pressing the chip forces sort back to
+  // Year regardless of whatever column was active before. No other chip does this; Name/Country/
+  // Year sort otherwise carries over untouched across a filter switch, same as always.
+  if(brFilter === 'ecumenical') brSort = 'year';
   renderBrowsePanel();
 });
 document.getElementById('brClose').addEventListener('click', (e) => { e.stopPropagation(); closeBrowsePanel(); });
