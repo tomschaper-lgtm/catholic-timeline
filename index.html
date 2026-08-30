@@ -1,4 +1,35 @@
 <!--
+VERSION: 264
+DATE: 2026-08-29T15:00:00-05:00
+CHANGES:
+- Councils browse panel (#browsePanel, type 'c'): fixed the Name column truncating on almost
+  every ecumenical council row.
+  - The old trailing note ("Nicaea I — 1st Ecumenical") is gone. Roman numerals inside a
+    council's own name (Nicaea I/II, Constantinople I/II/III) are untouched — only the
+    "— Nth Ecumenical" suffix format was removed, nothing in the underlying names.
+  - Under the Ecumenical chip (every row IS ecumenical, sequence reads cleanly), each name now
+    gets a compact leading number instead: "1. Nicaea I", "2. Constantinople I". Under All
+    (ecumenical and regional rows interleaved by year), a number would skip around non-
+    sequentially next to unnumbered rows, so an ecumenical row gets a plain bullet (•) there
+    instead — just enough to flag "this one's ecumenical" — and a regional row, or any row under
+    the Regional chip, gets no marker at all. See showRankNumber/nameRank in
+    renderBrowsePanel().
+  - New fixOverflowingNames(): after rows are in the DOM (closed-state .browsePanel uses
+    visibility:hidden + a transform, not display:none, so real widths are already available —
+    same assumption --rowH's own measurement just above it already relies on), any row whose
+    name is STILL overflowing has "Council of" stripped from it ("First Council of Lyon" ->
+    "First Lyon", "Council of Vienne" -> "Vienne") — measured for real per row
+    (scrollWidth > clientWidth), never applied unconditionally, and only for names that actually
+    still don't fit even with the number/bullet change above. Driven by a new per-config
+    stripOnOverflow regex (BROWSE_CONFIGS.c only, for now) rather than being hardcoded to
+    Councils, so another category could opt in later without touching this function.
+  - Country column narrowed 104px -> 78px for Councils only (BROWSE_CONFIGS.c.lastWidth) —
+    country names here (Turkey, Italy, France, Germany…) never needed that much room, and the
+    freed width goes straight to the Name column.
+  - Removed nameNote/ordinal() (both now unused — the trailing-note approach they supported is
+    gone) in favor of the new nameRank/fixOverflowingNames pair described above.
+-->
+<!--
 VERSION: 263
 DATE: 2026-08-29T14:00:00-05:00
 CHANGES:
@@ -5415,7 +5446,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v263';
+const APP_VERSION = 'v264';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -12010,16 +12041,30 @@ const BROWSE_CONFIGS = {
   e: { title: 'Events', title2: 'That Shaped the Church', lastLabel: 'Region', lastValue: e => REGION_NAMES[e.r] || e.r },
   // Councils keep ONE kind of value in the left column — the country, same as every other
   // category — rather than mixing ranks and places, which made the column unreadable. The
-  // ecumenical rank moves into the Name cell as a muted note ("Nicaea I — 1st Ecumenical"),
-  // reusing the same .spNoteInline treatment the Saints panel already uses to distinguish a
-  // saint's several feast days. Sorting by Year already yields rank order for the ecumenical
-  // councils, since the two run together chronologically, so no separate rank sort is needed.
-  // The ecumenical test is isEcumenical(), which already drives .ecu styling on the timeline,
-  // so the panel and the timeline can never disagree about which councils are ecumenical.
+  // ecumenical rank moves into the Name cell instead of a trailing "— 1st Ecumenical" note (the
+  // old suffix ran long enough on its own to force truncation on almost every row): a compact
+  // leading number ("1. Nicaea I", "2. Constantinople I") under the Ecumenical chip, where every
+  // row is one and the sequence reads cleanly, or a plain bullet under All, where ecumenical and
+  // regional rows are interleaved by year and a number would skip around non-sequentially next
+  // to unnumbered rows — see showRankNumber/nameRank in renderBrowsePanel below. Sorting by Year
+  // already yields rank order for the ecumenical councils, since the two run together
+  // chronologically, so no separate rank sort is needed. The ecumenical test is isEcumenical(),
+  // which already drives .ecu styling on the timeline, so the panel and the timeline can never
+  // disagree about which councils are ecumenical.
   c: {
     title: 'Councils', title2: 'of the Church', lastLabel: 'Country',
     lastValue: e => e.country || '',
-    nameNote: e => { const n = councilRank(e); return n ? ordinal(n) + ' Ecumenical' : ''; },
+    lastWidth: '78px', // Country column narrowed from the 104px default — council country names
+    // (Turkey, Italy, France, Germany…) never need that much room, and every freed pixel goes
+    // straight to the Name column (flex:1 1 auto), which is the one actually running tight.
+    nameRank: e => councilRank(e), // 0 for a regional (non-ecumenical) council — no marker at all, in any view
+    // Dropped from a council's name, but ONLY on a row whose name is actually truncating even
+    // after the rank-number change above ("First Council of Lyon", "Council of Vienne", "Fourth
+    // Council of Constantinople") — never unconditionally. See fixOverflowingNames() below,
+    // called once per render after the rows are in the DOM and real widths are known. The phrase
+    // carries little information once the leading rank number already places the council in
+    // sequence.
+    stripOnOverflow: /\bCouncil of\s+/i,
     chips: [
       {id: 'all',        label: 'All',        test: () => true,             icon: 'all'},
       {id: 'ecumenical', label: 'Ecumenical', test: e => isEcumenical(e),   icon: 'ecumenical'},
@@ -12039,10 +12084,6 @@ function councilRank(e){
   if(!f) return 0;
   const m = String(f.value).match(/\d+/);
   return m ? parseInt(m[0], 10) : 0;
-}
-function ordinal(n){
-  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 // Ties fall back to year, then name, so any sort produces a stable, sensible reading order
 // rather than leaving equal-keyed rows in arbitrary db order.
@@ -12185,9 +12226,17 @@ function renderBrowsePanel(){
   // it's incidental to the sort, so a coincidental repeat there renders exactly as it always
   // has. See groupStickyRows().
   const grouped = brSort === 'last';
+  // Sequential numbering ("1.", "2."...) only reads correctly when every row on screen IS an
+  // ecumenical council — the Ecumenical chip's own list. Under All, ecumenical and regional rows
+  // are interleaved by year, so a number would skip around non-sequentially against the
+  // unnumbered rows next to it and look broken rather than informative. There, an ecumenical row
+  // gets a plain bullet instead — just enough to flag "this one's ecumenical" — and a regional
+  // row (or any row when Regional itself is the active filter) gets no marker at all.
+  const showRankNumber = cfg.nameRank && brFilter === 'ecumenical';
   const items = rows.map(e => {
     const lastText = cfg.lastValue(e) || '';
-    const note = cfg.nameNote ? cfg.nameNote(e) : '';
+    const rank = cfg.nameRank ? cfg.nameRank(e) : 0;
+    const marker = !rank ? '' : showRankNumber ? (rank + '.') : '\u2022';
     // Scrub-bubble text while dragging the thumb — a different concept from the grouping label
     // above (lastText): this varies with the active sort (Region/Country text, a name initial,
     // or the year), while the grouping label is always lastText regardless of sort.
@@ -12198,9 +12247,12 @@ function renderBrowsePanel(){
       label: lastText,
       // isLast is only ever passed by groupStickyRows(), for a row inside a multi-row group —
       // see the .spRow.groupMid CSS comment and the matching Saints-panel render() above.
+      // .brNameText wraps just the name (not the rank marker) — fixOverflowingNames() below
+      // targets it specifically, so a truncation fix only ever rewrites the actual name text,
+      // never the "1." or "•" in front of it.
       render: (showLabel, isLast) => '<div class="spRow brRow' + (isLast === false ? ' groupMid' : '') + '" data-id="' + esc(e.id) + '" data-label="' + esc(scrubLabel) + '">' +
         '<span class="brLast">' + (showLabel ? esc(lastText) : '') + '</span>' +
-        '<span class="spName">' + esc(e.n) + (note ? ' <span class="spNoteInline">— ' + esc(note) + '</span>' : '') + '</span>' +
+        '<span class="spName">' + (marker ? '<span class="spNoteInline">' + marker + '</span> ' : '') + '<span class="brNameText">' + esc(e.n) + '</span></span>' +
         '<span class="brYear">' + esc(brYearLabel(e.y)) + '</span>' +
         '</div>'
     };
@@ -12212,10 +12264,33 @@ function renderBrowsePanel(){
   // hardcoded, so it can't silently drift out of sync if a row's padding/font-size ever changes.
   const sampleRow = brListEl.querySelector('.brRow');
   if(sampleRow) brListEl.style.setProperty('--rowH', sampleRow.offsetHeight + 'px');
+  if(cfg.stripOnOverflow) fixOverflowingNames(rows, cfg.stripOnOverflow);
   const st0 = brLastState[brType];
   brListEl.scrollTop = (st0 && st0.sort === brSort && st0.filter === brFilter) ? (st0.scrollTop || 0) : 0;
   browsePanel.classList.toggle('hasThumb', brThumbEligible());
   brSyncThumbPosition();
+}
+// Rewrites a row's visible name — never the underlying data — when, and only when, it's actually
+// overflowing its available width even after rendering. Measured for real (.spName's
+// scrollWidth vs its clientWidth) rather than guessed from character count, because the exact
+// cutoff depends on which characters are in the name and how much room the current --brLastW/
+// column layout leaves; a length-based guess would be wrong in both directions. Safe to call
+// with the panel still off-screen (closed-state .browsePanel uses visibility:hidden + a
+// transform, not display:none, so real layout widths are already available — same assumption
+// the --rowH measurement just above already relies on) — .brRow order matches `rows` order
+// exactly, grouping only ever chunks contiguous runs, never reorders them.
+function fixOverflowingNames(rows, pattern){
+  const rowEls = brListEl.querySelectorAll('.brRow');
+  rowEls.forEach((rowEl, i) => {
+    const e = rows[i];
+    if(!e) return;
+    const nameEl = rowEl.querySelector('.spName');
+    const textEl = rowEl.querySelector('.brNameText');
+    if(!nameEl || !textEl) return;
+    if(nameEl.scrollWidth <= nameEl.clientWidth) return; // fits as-is — leave the name alone
+    const stripped = String(e.n).replace(pattern, '');
+    if(stripped !== e.n) textEl.textContent = stripped;
+  });
 }
 function openBrowsePanel(type){
   closeHamMenu();
