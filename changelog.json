@@ -2,6 +2,25 @@
   "v": 1,
   "entries": [
     {
+      "version": "265",
+      "date": "2026-08-29T16:00:00-05:00",
+      "changes": [
+        "Councils browse panel: the rank marker (number under Ecumenical, bullet under All — added",
+        "v264) moves out of the Name cell into its own fixed-width, right-aligned column (.brRank),",
+        "present in both the header (as an empty, unlabeled spacer — nothing to sort) and each row, for",
+        "any BROWSE_CONFIGS entry that defines nameRank; every other category's layout is completely",
+        "unaffected (zero DOM for that column when nameRank isn't defined). Fixes two things at once:",
+        "the Name column's left edge was drifting row to row because \"1.\" and \"13.\" are different",
+        "widths when embedded as a variable-width text prefix, and the \"Name\" header label was sitting",
+        "over the marker rather than over the actual name text below it.",
+        "Country column widened back 78px -> 94px (BROWSE_CONFIGS.c.lastWidth) — 78px was too",
+        "aggressive and clipped \"United Kingdom\" (Synod of Whitby). The marker's own column now frees",
+        "space for Name independently of this one, so Country didn't need to stay squeezed as hard as",
+        "the v264 pass left it."
+      ],
+      "loggedAt": "2026-08-30T12:22:26.071927+00:00"
+    },
+    {
       "version": "264",
       "date": "2026-08-29T15:00:00-05:00",
       "changes": [
