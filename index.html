@@ -1,4 +1,15 @@
 <!--
+VERSION: 268
+DATE: 2026-08-30T11:00:00-05:00
+CHANGES:
+- Drag-thumb scrub bubble (.spThumbLabel, shared by the Saints panel and every generic Browse
+  panel — Councils, Persecutions, Eucharistic, Events, Marian) — the stem pointing from the
+  bubble down to the gold thumb fell short of it, reading as disconnected rather than a comic
+  word-bubble tail actually touching its target. Shifted the stem's ::after triangle right and
+  down (right:12px->-3px, bottom:-7px->-22px, ~15px each direction) so its tip lands on the
+  thumb's rail.
+-->
+<!--
 VERSION: 267
 DATE: 2026-08-30T10:00:00-05:00
 CHANGES:
@@ -3143,8 +3154,12 @@ CHANGES:
     white-space:nowrap; pointer-events:none; transform:translateY(-50%);
   }
   .spThumbLabel.show{display:flex;}
+  /* Stem pointing from the bubble down to the thumb it's tracking — shifted right and down from
+     a plain centered pointer so its tip actually lands on the thumb's rail instead of stopping
+     short of it, per feedback that the un-adjusted version looked disconnected rather than like
+     a proper comic word-bubble tail. */
   .spThumbLabel::after{
-    content:''; position:absolute; right:12px; bottom:-7px;
+    content:''; position:absolute; right:-3px; bottom:-22px;
     width:0; height:0;
     border-left:7px solid transparent; border-right:7px solid transparent;
     border-top:8px solid #1B2233;
@@ -5517,7 +5532,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v267';
+const APP_VERSION = 'v268';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
