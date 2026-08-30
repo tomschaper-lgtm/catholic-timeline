@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "269",
+      "date": "2026-08-30T14:00:00-05:00",
+      "changes": [
+        "Fixed the real bug behind \"text not found\" on any `patches` `article` match text that touched",
+        "an HTML tag, even a fully-balanced one (e.g. `<b>Michael</b>`) — every such patch was silently",
+        "unmatchable, not just theoretically restricted. patchTextInSections() previously split each",
+        "section's body into tag-separated pieces first (`sec.b.split(/(<[^>]+>)/g)`), then searched",
+        "each piece alone — so match text spanning a tag could never be found in any single piece,",
+        "regardless of whether the source text matched perfectly. That tokenizing existed to stop a",
+        "patch from partially matching into an `<a href=\"entry:...\">` cross-reference link's visible",
+        "text (which could silently break navigation), a real protection worth keeping — it just also,",
+        "as a side effect, caught every other tag along with it. Rewrote to match against each section's",
+        "full raw body directly, then reject only matches that actually overlap an `<a>...</a>` span",
+        "(full or partial), via a precomputed list of anchor ranges — same protection, without the",
+        "accidental blast radius. `patches` `article` matches can now include `<b>`/`<i>`/etc. markup",
+        "same as the skill doc always described. See json-import-skill.md Part 2 — no format change,",
+        "this was purely an app-side matching bug."
+      ],
+      "loggedAt": "2026-08-30T18:17:32.071864+00:00"
+    },
+    {
       "version": "268",
       "date": "2026-08-30T11:00:00-05:00",
       "changes": [
