@@ -2,6 +2,22 @@
   "v": 1,
   "entries": [
     {
+      "version": "271",
+      "date": "2026-08-30T15:15:00-05:00",
+      "changes": [
+        "Removed the drag-thumb scrub bubble's stem and moved the bubble down half a row instead.",
+        "The stem could not be made to work: the label is positioned ~90px above the fingertip on",
+        "purpose (so a thumb doesn't cover the row it names), while the thumb rail sits off to its",
+        "right — from that offset no tail direction actually reaches the thumb, so v268's nudge and",
+        "any further nudge would still read as broken rather than as a comic word-bubble tail. Dropped",
+        "`.spThumbLabel::after` entirely and changed the vertical offset from -90 to -69 (90 less half",
+        "of --rowH's 43px) in both drag handlers, landing the bubble nearer the row it names while",
+        "still clearing the finger. Both the Saints panel and the generic Browse panel share the",
+        ".spThumbLabel styling, so both offsets were changed together to keep the two in step."
+      ],
+      "loggedAt": "2026-08-30T18:52:27.025750+00:00"
+    },
+    {
       "version": "269",
       "date": "2026-08-30T14:00:00-05:00",
       "changes": [
