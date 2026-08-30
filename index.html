@@ -1,4 +1,23 @@
 <!--
+VERSION: 267
+DATE: 2026-08-30T10:00:00-05:00
+CHANGES:
+- Record Audio Narration (Manage → Import) now records by feast day: with Category set to
+  Saint, the Start field switches from a year to a month/day ("Aug 15" or "8/15"), the pool
+  sorts by feast date (earliest date per saint, via the existing parseFeastDates()/entryFeastDates())
+  instead of year, and the Start/Will-record preview lines show the feast date instead of the
+  year. Every other category is unchanged — still year-based, oldest first. New
+  updateAudioStartFieldMode() swaps the field's label/type/placeholder on category change and on
+  Manage open (audioCategory is restored from localStorage, so it may already be 's' on open).
+- Export tab: new "Feast Day (Saints only)" range row below Years, taking the same month/day
+  text format ("Aug 15") as the audio tool above and sharing its parseMonthDay()/feastInRange()
+  helpers, including calendar wraparound (Dec 26 – Jan 2). Only narrows Saints — every other
+  category passes through untouched — so it can ride alongside the existing category/region/
+  status/year filters. Feeds mExportFilteredEntries(), so it applies consistently across
+  JSON — Filtered, Excel, CSV-fallback export, and the cross-reference scan/apply tools, same as
+  every other Export filter. Reset now also clears both new fields.
+-->
+<!--
 VERSION: 266
 DATE: 2026-08-29T17:00:00-05:00
 CHANGES:
@@ -4989,6 +5008,14 @@ CHANGES:
         <button class="mbtn sm" id="mfReset">Reset</button>
       </div>
 
+      <div class="mgmtRowLabel">Feast Day <span style="font-weight:400; text-transform:none; letter-spacing:0;">(Saints only &mdash; e.g. "Aug 15")</span></div>
+      <div class="mgmtYearRow">
+        <input type="text" id="mfFeastFrom" placeholder="From" class="mgmtYearInput" style="width:104px;">
+        <span style="color:var(--m-sub);">&ndash;</span>
+        <input type="text" id="mfFeastTo" placeholder="To" class="mgmtYearInput" style="width:104px;">
+      </div>
+      <div class="hint" style="margin-top:-4px; margin-bottom:10px;">Narrows only Saints to feast dates in this range &mdash; every other category is unaffected. Wraps the calendar (e.g. Dec 26 &ndash; Jan 2) if From sorts after To. Reset above clears this too.</div>
+
       <div class="mgmtRowLabel">Fields to include in export</div>
       <div class="mtool" style="margin-top:0; margin-bottom:8px;">
         <button class="mbtn sm" id="mExCheckAll">Check All</button>
@@ -5064,7 +5091,7 @@ CHANGES:
             <option value="e">Event</option>
           </select>
         </div>
-        <div class="mfield"><label>Start year (optional — leave blank to always begin at the earliest entry that still needs audio)</label><input type="number" id="audioStartYear" inputmode="numeric" placeholder="e.g. 1200"></div>
+        <div class="mfield"><label id="audioStartLabel">Start year (optional — leave blank to always begin at the earliest entry that still needs audio)</label><input type="number" id="audioStartYear" inputmode="numeric" placeholder="e.g. 1200"></div>
         <div class="mtool">
           <button type="button" class="mbtn" id="audioStartPrev" style="flex:0 0 auto; padding:8px 16px;">&larr;</button>
           <span class="mstatus" id="audioStartPreview" style="flex:1; text-align:center;">Will start at the earliest entry that needs audio</span>
@@ -5096,7 +5123,7 @@ CHANGES:
           <button class="mbtn" id="runAudioWorkflow">&#9654; Record Audio</button>
         </div>
         <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">Runs the Generate Audio Narration workflow for the next <b>N</b> entries (above), oldest first by year, automatically skipping any entry that already has audio &mdash; check "Overwrite" to regenerate those instead. Category locks the batch (and the Start Year navigator below) to just that type &mdash; leave it on "All categories" to mix types by year like before. Type a year to jump near it, then use &larr;/&rarr; to land on the exact entry to start from; leave the year blank to always begin at the earliest entry that still needs audio. Voice ID and every setting on this card are remembered on this device, so you only need to set them once. Takes a few minutes for a full batch; this button waits and reports success or failure below.</div>
+          <div class="hint">Runs the Generate Audio Narration workflow for the next <b>N</b> entries (above), automatically skipping any entry that already has audio &mdash; check "Overwrite" to regenerate those instead. Category locks the batch (and the Start navigator below) to just that type &mdash; leave it on "All categories" to mix types by year, oldest first, like before. Pick <b>Saint</b> and the batch switches to feast-day order instead: type a month/day ("Aug 15") to jump near it, then use &larr;/&rarr; to land on the exact saint to start from &mdash; handy for recording a week of feast days at a time. Every other category stays year-based: type a year to jump near it instead. Leave the field blank to always begin at the earliest entry (or feast) that still needs audio. Voice ID and every setting on this card are remembered on this device, so you only need to set them once. Takes a few minutes for a full batch; this button waits and reports success or failure below.</div>
         </details>
         <div class="mlog" id="runAudioLog"></div>
       </details>
@@ -5490,7 +5517,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v266';
+const APP_VERSION = 'v267';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6754,6 +6781,62 @@ function parseFeastDates(value){
   }
   return out;
 }
+// Every "Feast day" fact value on a saint, parsed — shared by anything that needs to sort or
+// filter Saints by feast date (Record Audio Narration's feast mode, the Export tab's Feast Day
+// range). A saint with no fact or nothing parseable returns [].
+function entryFeastDates(e){
+  if(!e || !Array.isArray(e.facts)) return [];
+  const f = e.facts.find(x => x && x.label === 'Feast day');
+  return f ? parseFeastDates(f.value) : [];
+}
+// ---- Month/day input parsing — lets the owner type a feast date into a plain text box, either
+// as a name ("Aug 15", "August 15") or numerically ("8/15", "08-15"). Returns {month, day}
+// (month 0-based) or null if unparseable. Used by both the Record Audio Narration feast-mode
+// start field and the Export tab's Feast Day range fields. ----
+const MONTH_ABBR = {jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, sept:8, oct:9, nov:10, dec:11};
+function parseMonthDay(str){
+  if(!str) return null;
+  str = String(str).trim();
+  if(!str) return null;
+  let m = /^([A-Za-z]{3,9})\.?\s+(\d{1,2})$/.exec(str);
+  if(m){
+    const key = m[1].toLowerCase();
+    let month = MONTH_NAMES.findIndex(x => x.toLowerCase() === key);
+    if(month < 0 && MONTH_ABBR.hasOwnProperty(key)) month = MONTH_ABBR[key];
+    if(month < 0 && MONTH_ABBR.hasOwnProperty(key.slice(0, 3))) month = MONTH_ABBR[key.slice(0, 3)];
+    const day = parseInt(m[2], 10);
+    if(month >= 0 && day >= 1 && day <= 31) return {month, day};
+    return null;
+  }
+  m = /^(\d{1,2})[\/\-](\d{1,2})$/.exec(str);
+  if(m){
+    const month = parseInt(m[1], 10) - 1;
+    const day = parseInt(m[2], 10);
+    if(month >= 0 && month <= 11 && day >= 1 && day <= 31) return {month, day};
+  }
+  return null;
+}
+// Day-of-year ordinal (non-leap, 1-365) purely for comparing/ranging two {month,day} pairs —
+// never displayed, never stored.
+const MONTH_CUM_DAYS = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+function ordinalOfMD(md){ return MONTH_CUM_DAYS[md.month] + md.day; }
+// Inclusive range check that wraps the calendar (e.g. Dec 28 -> Jan 3) when `from` sorts after
+// `to`. Either bound may be null/omitted, meaning "no limit on that side."
+function feastInRange(md, from, to){
+  if(!from && !to) return true;
+  const o = ordinalOfMD(md);
+  if(from && !to) return o >= ordinalOfMD(from);
+  if(!from && to) return o <= ordinalOfMD(to);
+  const fo = ordinalOfMD(from), toO = ordinalOfMD(to);
+  if(fo <= toO) return o >= fo && o <= toO;
+  return o >= fo || o <= toO; // wraparound
+}
+// Short display form ("Aug 15"), or a fallback for a saint with no parseable feast day — mirrors
+// the "sorts to the very end" convention used elsewhere (spRows(), audio feast-mode sort).
+function fmtMonthDay(md){
+  if(!md || md.month >= 12) return 'no feast day';
+  return MONTH_NAMES[md.month].slice(0, 3) + ' ' + md.day;
+}
 function findTodaysSaint(){
   const now = new Date();
   const month = now.getMonth(), day = now.getDate();
@@ -7122,6 +7205,7 @@ async function syncAudioStatusUntilFresh(entryIds, log){
 }
 document.getElementById('audioRecordDetails').addEventListener('toggle', function(){
   if(!this.open) return;
+  updateAudioStartFieldMode();
   document.getElementById('audioStartPreview').textContent = 'Checking latest narration status\u2026';
   syncAudioStatusFromGitHub().finally(refreshAudioPreview);
 });
@@ -7183,34 +7267,75 @@ document.getElementById('runAudioWorkflow').addEventListener('click', async () =
   });
 });
 
-// ---- Start-year navigator: type a year to jump near it, then step ←/→ to the exact entry to
+// ---- Start navigator: type a position to jump near it, then step ←/→ to the exact entry to
 // begin the batch from. Walks the same pool the workflow would otherwise auto-select from
 // (chronological, has narratable text, has/lacks audio per the Overwrite checkbox, and — this is
 // the part that was missing before — locked to the Category dropdown above exactly the way the
 // script's own `category` input would filter it) so what's shown is always exactly what that
 // dispatch would have picked, just letting the owner move the starting point instead of always
-// taking the very first one. ----
+// taking the very first one.
+//
+// Saints get a second mode here (feast-mode): recording now happens by feast day, a week at a
+// time, rather than by year, so when Category is Saint the pool sorts by feast date instead of
+// year and the Start field takes a month/day ("Aug 15") instead of a year. Every other category
+// keeps the original year-based behavior — feast days only exist on Saints. ----
 let audioStartIdx = -1; // -1 = no explicit start chosen — record button leaves ids blank
+function isAudioFeastMode(){
+  return document.getElementById('audioCategory').value === 's';
+}
+// One sortable position per Saint: the earliest feast date on the entry, or a value past
+// December so a saint with no parseable Feast day fact sorts to the very end — same convention
+// as the Saints panel's own Feast order (see spRows()).
+function feastSortKeyOf(e){
+  const dates = entryFeastDates(e);
+  if(!dates.length) return {month: 12, day: 32};
+  return dates.reduce((min, d) => (ordinalOfMD(d) < ordinalOfMD(min) ? d : min), dates[0]);
+}
 function audioCandidatePool(){
   const overwrite = document.getElementById('audioOverwrite').checked;
   const category = document.getElementById('audioCategory').value;
-  return db.entries
+  const pool = db.entries
     .filter(e => articleStats(e).wordCount > 0)
     .filter(e => overwrite || !e.audio)
     .filter(e => !category || e.t === category)
-    .slice()
-    .sort((a, b) => a.y - b.y);
+    .slice();
+  if(category === 's'){
+    return pool.sort((a, b) => {
+      const ka = feastSortKeyOf(a), kb = feastSortKeyOf(b);
+      return (ka.month - kb.month) || (ka.day - kb.day) || a.n.localeCompare(b.n);
+    });
+  }
+  return pool.sort((a, b) => a.y - b.y);
+}
+// Swaps the Start field between year mode and feast-day mode as the Category dropdown changes —
+// label, input type, and placeholder all follow.
+function updateAudioStartFieldMode(){
+  const input = document.getElementById('audioStartYear');
+  const label = document.getElementById('audioStartLabel');
+  if(isAudioFeastMode()){
+    input.type = 'text';
+    input.removeAttribute('inputmode');
+    input.placeholder = 'e.g. Aug 15';
+    label.textContent = 'Start feast day (optional — leave blank to always begin at the earliest feast that still needs audio)';
+  } else {
+    input.type = 'number';
+    input.inputmode = 'numeric';
+    input.placeholder = 'e.g. 1200';
+    label.textContent = 'Start year (optional — leave blank to always begin at the earliest entry that still needs audio)';
+  }
 }
 function renderAudioStartPreview(){
   const preview = document.getElementById('audioStartPreview');
   const pool = audioCandidatePool();
   const catVal = document.getElementById('audioCategory').value;
   const catLabel = catVal ? (TYPE_NAMES[catVal] + 's') : 'entries';
+  const feastMode = isAudioFeastMode();
   if(!pool.length){ preview.textContent = 'No ' + catLabel + ' currently need audio.'; audioStartIdx = -1; return; }
-  if(audioStartIdx < 0){ preview.textContent = 'Will start at the earliest ' + (catVal ? TYPE_NAMES[catVal].toLowerCase() : 'entry') + ' that needs audio'; return; }
+  if(audioStartIdx < 0){ preview.textContent = 'Will start at the earliest ' + (feastMode ? 'feast' : (catVal ? TYPE_NAMES[catVal].toLowerCase() : 'entry')) + ' that needs audio'; return; }
   if(audioStartIdx >= pool.length) audioStartIdx = pool.length - 1;
   const e = pool[audioStartIdx];
-  preview.textContent = e.n + ' (' + fmtYear(e.y) + ') \u2014 #' + (audioStartIdx + 1) + ' of ' + pool.length + ' ' + catLabel + ' needing audio';
+  const posLabel = feastMode ? fmtMonthDay(feastSortKeyOf(e)) : fmtYear(e.y);
+  preview.textContent = e.n + ' (' + posLabel + ') \u2014 #' + (audioStartIdx + 1) + ' of ' + pool.length + ' ' + catLabel + ' needing audio';
 }
 // The full list of entries this exact click of "Record Audio" would send — same pool, same
 // starting position, sliced to the current Count — so what's about to be recorded (and, per the
@@ -7225,9 +7350,11 @@ function renderAudioBatchPreview(){
   const batch = pool.slice(startIdx, startIdx + count);
   if(!batch.length){ listEl.textContent = 'Nothing to record at this position.'; return; }
   const overwrite = document.getElementById('audioOverwrite').checked;
+  const feastMode = isAudioFeastMode();
   listEl.innerHTML = batch.map((e, i) => {
     const note = (overwrite && e.audio) ? ' <span class="apBatchNote">(re-recording)</span>' : '';
-    return '<div class="apBatchRow">' + (startIdx + i + 1) + '. ' + esc(e.n) + ' (' + fmtYear(e.y) + ')' + note + '</div>';
+    const posLabel = feastMode ? fmtMonthDay(feastSortKeyOf(e)) : fmtYear(e.y);
+    return '<div class="apBatchRow">' + (startIdx + i + 1) + '. ' + esc(e.n) + ' (' + posLabel + ')' + note + '</div>';
   }).join('');
 }
 function refreshAudioPreview(){
@@ -7235,12 +7362,22 @@ function refreshAudioPreview(){
   renderAudioBatchPreview();
 }
 document.getElementById('audioStartYear').addEventListener('change', () => {
-  const year = parseInt(document.getElementById('audioStartYear').value, 10);
   const pool = audioCandidatePool();
-  if(isNaN(year) || !pool.length){ audioStartIdx = -1; refreshAudioPreview(); return; }
-  let idx = pool.findIndex(e => e.y >= year);
-  if(idx === -1) idx = pool.length - 1; // year is after every remaining entry — land on the last one
-  audioStartIdx = idx;
+  if(!pool.length){ audioStartIdx = -1; refreshAudioPreview(); return; }
+  if(isAudioFeastMode()){
+    const md = parseMonthDay(document.getElementById('audioStartYear').value);
+    if(!md){ audioStartIdx = -1; refreshAudioPreview(); return; }
+    const target = ordinalOfMD(md);
+    let idx = pool.findIndex(e => ordinalOfMD(feastSortKeyOf(e)) >= target);
+    if(idx === -1) idx = pool.length - 1; // date is after every remaining feast — land on the last one
+    audioStartIdx = idx;
+  } else {
+    const year = parseInt(document.getElementById('audioStartYear').value, 10);
+    if(isNaN(year)){ audioStartIdx = -1; refreshAudioPreview(); return; }
+    let idx = pool.findIndex(e => e.y >= year);
+    if(idx === -1) idx = pool.length - 1; // year is after every remaining entry — land on the last one
+    audioStartIdx = idx;
+  }
   refreshAudioPreview();
 });
 document.getElementById('audioStartPrev').addEventListener('click', () => {
@@ -7256,12 +7393,19 @@ document.getElementById('audioStartNext').addEventListener('click', () => {
   refreshAudioPreview();
 });
 document.getElementById('audioOverwrite').addEventListener('change', refreshAudioPreview);
-// Changing the category changes which pool audioStartIdx indexes into, so a numeric position
-// left over from a different category would silently point at the wrong entry — reset back to
-// "start at the earliest" rather than carry a stale index across categories.
-document.getElementById('audioCategory').addEventListener('change', () => { audioStartIdx = -1; refreshAudioPreview(); });
+// Changing the category changes which pool audioStartIdx indexes into (and, for Saint, which
+// mode the Start field is in), so a position left over from a different category would silently
+// point at the wrong entry — reset back to "start at the earliest" rather than carry a stale
+// index across categories.
+document.getElementById('audioCategory').addEventListener('change', () => {
+  audioStartIdx = -1;
+  document.getElementById('audioStartYear').value = '';
+  updateAudioStartFieldMode();
+  refreshAudioPreview();
+});
 // Count doesn't move the starting position, only how far the batch list extends past it.
 document.getElementById('audioCount').addEventListener('input', renderAudioBatchPreview);
+updateAudioStartFieldMode();
 
 
 // ---- Fix Image Extensions: actually corrects data.json, rather than relying on the runtime
@@ -9423,6 +9567,9 @@ document.getElementById('manageBtn').addEventListener('click', () => {
   prefillAudioGen();
   audioStartIdx = -1;
   document.getElementById('audioStartYear').value = '';
+  updateAudioStartFieldMode(); // audioCategory is restored by prefillAudioGen() above, which may
+  // already be 's' from last session — the Start field's mode needs to match on open, not just
+  // after the next category change.
   refreshAudioPreview();
 });
 
@@ -9584,6 +9731,8 @@ document.getElementById('mfReviewOnlyChip').addEventListener('click', (e) => {
 });
 document.getElementById('mfYearFrom').addEventListener('input', renderExportSummary);
 document.getElementById('mfYearTo').addEventListener('input', renderExportSummary);
+document.getElementById('mfFeastFrom').addEventListener('input', renderExportSummary);
+document.getElementById('mfFeastTo').addEventListener('input', renderExportSummary);
 document.getElementById('mfReset').addEventListener('click', () => {
   mFilterTypes = {s:false, c:false, p:false, m:false, u:false, e:false};
   mFilterRegion = 'all';
@@ -9593,18 +9742,34 @@ document.getElementById('mfReset').addEventListener('click', () => {
   document.getElementById('mfReviewOnlyChip').classList.remove('on');
   document.getElementById('mfYearFrom').value = '';
   document.getElementById('mfYearTo').value = '';
+  document.getElementById('mfFeastFrom').value = '';
+  document.getElementById('mfFeastTo').value = '';
   renderExportSummary();
 });
 
-// Entries matching the Export tab's category/region/status/date-range filters (used for JSON — Filtered and CSV).
+// A Feast Day range only ever narrows Saints — every other category passes through untouched,
+// same as if the fields were left blank. A Saint with no parseable Feast day fact can't match an
+// active range, so it's excluded rather than silently included.
+function mExportMatchesFeastRange(e, feastFrom, feastTo){
+  if(!feastFrom && !feastTo) return true;
+  if(e.t !== 's') return true;
+  const dates = entryFeastDates(e);
+  if(!dates.length) return false;
+  return dates.some(d => feastInRange(d, feastFrom, feastTo));
+}
+
+// Entries matching the Export tab's category/region/status/date-range/feast-range filters (used for JSON — Filtered and CSV).
 function mExportFilteredEntries(){
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const from = document.getElementById('mfYearFrom').value.trim();
   const to = document.getElementById('mfYearTo').value.trim();
   const fromY = from === '' ? -Infinity : parseInt(from, 10);
   const toY = to === '' ? Infinity : parseInt(to, 10);
+  const feastFrom = parseMonthDay(document.getElementById('mfFeastFrom').value);
+  const feastTo = parseMonthDay(document.getElementById('mfFeastTo').value);
   return db.entries.filter(e =>
     (!anyType || mFilterTypes[e.t]) &&
+    mExportMatchesFeastRange(e, feastFrom, feastTo) &&
     (mFilterRegion === 'all' || e.r === mFilterRegion) &&
     (!mFilterReviewOnly || isReview(e)) &&
     e.y >= fromY && e.y <= toY
@@ -9616,9 +9781,12 @@ function renderExportSummary(){
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const typeLabel = anyType ? TYPE_ORDER.filter(t => mFilterTypes[t]).map(t => TYPE_NAMES[t]).join(', ') : 'All categories';
   const regionLabel = mFilterRegion === 'all' ? 'All regions' : REGION_NAMES[mFilterRegion];
+  const feastFrom = parseMonthDay(document.getElementById('mfFeastFrom').value);
+  const feastTo = parseMonthDay(document.getElementById('mfFeastTo').value);
+  const feastLabel = (feastFrom || feastTo) ? (' · Feast ' + (feastFrom ? fmtMonthDay(feastFrom) : 'any') + '\u2013' + (feastTo ? fmtMonthDay(feastTo) : 'any') + ' (Saints only)') : '';
   const evs = mExportFilteredEntries();
   sumEl.textContent = evs.length + ' entries match — ' + typeLabel + ' · ' + regionLabel +
-    (mFilterReviewOnly ? ' · Held for review only' : '');
+    (mFilterReviewOnly ? ' · Held for review only' : '') + feastLabel;
 
   const statEl = document.getElementById('mExStatBox');
   if(statEl){
