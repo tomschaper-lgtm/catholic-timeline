@@ -2,6 +2,39 @@
   "v": 1,
   "entries": [
     {
+      "version": "264",
+      "date": "2026-08-29T15:00:00-05:00",
+      "changes": [
+        "Councils browse panel (#browsePanel, type 'c'): fixed the Name column truncating on almost",
+        "every ecumenical council row.",
+        "The old trailing note (\"Nicaea I — 1st Ecumenical\") is gone. Roman numerals inside a",
+        "council's own name (Nicaea I/II, Constantinople I/II/III) are untouched — only the",
+        "\"— Nth Ecumenical\" suffix format was removed, nothing in the underlying names.",
+        "Under the Ecumenical chip (every row IS ecumenical, sequence reads cleanly), each name now",
+        "gets a compact leading number instead: \"1. Nicaea I\", \"2. Constantinople I\". Under All",
+        "(ecumenical and regional rows interleaved by year), a number would skip around non-",
+        "sequentially next to unnumbered rows, so an ecumenical row gets a plain bullet (•) there",
+        "instead — just enough to flag \"this one's ecumenical\" — and a regional row, or any row under",
+        "the Regional chip, gets no marker at all. See showRankNumber/nameRank in",
+        "renderBrowsePanel().",
+        "New fixOverflowingNames(): after rows are in the DOM (closed-state .browsePanel uses",
+        "visibility:hidden + a transform, not display:none, so real widths are already available —",
+        "same assumption --rowH's own measurement just above it already relies on), any row whose",
+        "name is STILL overflowing has \"Council of\" stripped from it (\"First Council of Lyon\" ->",
+        "\"First Lyon\", \"Council of Vienne\" -> \"Vienne\") — measured for real per row",
+        "(scrollWidth > clientWidth), never applied unconditionally, and only for names that actually",
+        "still don't fit even with the number/bullet change above. Driven by a new per-config",
+        "stripOnOverflow regex (BROWSE_CONFIGS.c only, for now) rather than being hardcoded to",
+        "Councils, so another category could opt in later without touching this function.",
+        "Country column narrowed 104px -> 78px for Councils only (BROWSE_CONFIGS.c.lastWidth) —",
+        "country names here (Turkey, Italy, France, Germany…) never needed that much room, and the",
+        "freed width goes straight to the Name column.",
+        "Removed nameNote/ordinal() (both now unused — the trailing-note approach they supported is",
+        "gone) in favor of the new nameRank/fixOverflowingNames pair described above."
+      ],
+      "loggedAt": "2026-08-30T12:00:33.358962+00:00"
+    },
+    {
       "version": "263",
       "date": "2026-08-29T14:00:00-05:00",
       "changes": [
