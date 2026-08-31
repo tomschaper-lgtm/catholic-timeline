@@ -2,6 +2,40 @@
   "v": 1,
   "entries": [
     {
+      "version": "272",
+      "date": "2026-08-30T17:30:00-05:00",
+      "changes": [
+        "NEW \"Work\" tab (6th CMS tab) — the in-app half of the orchestrator content pipeline whose",
+        "backend (workLog.json, scripts/orchestrator.mjs, scripts/services/age-backfill.mjs,",
+        ".github/workflows/orchestrator.yml) now lives in the repo. Three sections:",
+        "• Work Log — Refresh reads workLog.json straight from the GitHub API (same owner/repo/",
+        "branch/token fields as Publish, nothing new to configure); Run Orchestrator fires the",
+        "workflow via the existing triggerWorkflow() and re-reads the file when it finishes.",
+        "• Add a Task — queues one task and commits it immediately. The immediate commit is not",
+        "an oversight: the Action runs on GitHub and can only see what is actually in the repo,",
+        "so a task held in browser memory would be invisible to it. Two write rhythms on",
+        "purpose — workLog.json writes fast and often, data.json still only moves on Publish.",
+        "• Review Queue — one card per \"proposed\" task, grouped by the batch that spawned it,",
+        "with Approve/Reject per card plus \"Approve All N\" on the batch header. Batch approve",
+        "only ever touches items still sitting at \"proposed\", so it can never override a",
+        "reject already made on an individual card.",
+        "Approving applies the task's patch through the SAME applyOnePatch() the Paste JSON importer",
+        "uses — one code path for \"a patch is applied to an entry\" regardless of whether it arrived",
+        "by clipboard or by service — then saveDb()/render()/renderMList(), and re-opens the editor",
+        "if the patched entry is the one currently open (the v240 stale-form guard: without it,",
+        "\"Save, Publish & Exit\" writes the pre-approval form back over the change).",
+        "Approve merges into this session only. Content reaches the live site through the existing",
+        "Publish to GitHub button, so there is still exactly one publish gate for all content.",
+        "saveWorkLog() re-reads the blob sha before every PUT and, if the remote moved since load,",
+        "merges task rows by id rather than replacing the file wholesale — the Action committing its",
+        "own run in between is the normal case here, not an edge case.",
+        "Review cards render from the task's own result: oldDied/newDied produce a struck-through",
+        "before/after pair; anything else falls back to pretty-printed JSON, so a service added later",
+        "is reviewable before its custom renderer exists."
+      ],
+      "loggedAt": "2026-08-31T01:41:09.098918+00:00"
+    },
+    {
       "version": "271",
       "date": "2026-08-30T15:15:00-05:00",
       "changes": [
