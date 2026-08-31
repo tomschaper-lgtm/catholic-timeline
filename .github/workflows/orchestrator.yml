@@ -1,21 +1,24 @@
 name: Orchestrator
 
-# Manual trigger only for now — a "Run workflow" button under the Actions tab.
-# This runs the modular task/service pipeline: it reads workLog.json, hands
-# queued tasks to the matching service, and commits the results (including
-# any newly spawned "proposed" tasks) back to workLog.json.
+# Manual trigger only for now — a "Run workflow" button under the Actions tab, and the Run
+# button inside the app's Task : Automation panel (which fires this same workflow_dispatch
+# with the count and service you pick beside it).
 #
-# This does NOT touch data.json. Services only ever read it for reference;
-# nothing here publishes content. Approving a proposed task and merging it
-# into data.json happens in the app's Work Log panel, on your own schedule.
+# This does NOT touch data.json. Services only ever read it for reference; nothing here
+# publishes content. Approving a proposed task and merging it into data.json happens in the
+# app's Task panel, on your own schedule.
 
 on:
   workflow_dispatch:
     inputs:
       max_tasks:
-        description: 'Max queued tasks to process this run'
+        description: 'How many queued tasks to process this run'
         required: false
         default: '5'
+      task_type:
+        description: 'Only run this service (blank = any)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -40,6 +43,7 @@ jobs:
         run: node scripts/orchestrator.mjs
         env:
           MAX_TASKS_PER_RUN: ${{ github.event.inputs.max_tasks }}
+          TASK_TYPE: ${{ github.event.inputs.task_type }}
 
       - name: Commit updated work log
         run: |
