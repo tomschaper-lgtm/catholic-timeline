@@ -1,4 +1,38 @@
 <!--
+VERSION: 273
+DATE: 2026-08-30T20:15:00-05:00
+CHANGES:
+- Reworked the v272 Work tab into "Task : Automation" (#taskPanel), a left-sliding panel built
+  on the SAME shell as the Saints/Browse panels — .panelHead/.spHead/.spCol/.spListWrap/.spList/
+  .spRow chrome, same z-index band, same .48s transition, same scrim mechanics. Opened from
+  ☰ → Owner Tools → Task : Automation.
+- Three sortable columns in the fixed|flex|fixed shape the other two panels already use:
+  Status (84px) | Task (flexible) | Date (78px). Date is the default, newest first, since a
+  work log reads as a running history. Sorting by Status groups the list under sticky status
+  headers via the existing groupStickyRows() — same rule Browse applies to Region/Country:
+  grouping only when actually sorted by that column.
+- Row colour carries state, per the ask: finished work (done/approved/rejected) greys out
+  (.tkFinished), anything still live (queued/in_progress/proposed) stays black, so what's left
+  to do is what the eye lands on. The Status cell itself is colour-coded — amber = waiting to
+  run, blue = waiting on you, green = settled, red = broken.
+- Status sort order is deliberately NOT alphabetical (TK_STATUS_ORDER): proposed first, since
+  it's the only state waiting on a human, then queued/in_progress, then error, then settled.
+- New detail pane (.tkDetail) pinned beneath the list, its own scroll, filled by tapping a row
+  (tapping the same row again clears it). Renders from whatever the task actually carries:
+  oldDied/newDied become a struck-through before/after; a scan result becomes a readable
+  sentence ("Checked 224 saints. 0 qualified…" plus the skip reasons spelled out) — this closes
+  the v272 gap where a completed scan's summary was only legible by opening the raw JSON on
+  GitHub; an error shows its text; anything else falls back to pretty-printed JSON so a service
+  written later is reviewable before it has a custom renderer.
+- Approve/Reject live in the detail pane, with "Approve all N" when the proposal has batch
+  siblings. Batch approve still only touches items at "proposed", so it can't override a reject.
+- Filter chips: All · Review · Active · Finished, reusing .spChips/.spChip.
+- Refresh + Run moved into the panel's top bar; wlSetLog() now writes to the panel's count line.
+- Manage → Work reduced to the Add-a-Task form (queuing a task is an owner action and belongs in
+  the CMS); its list/review markup, listeners, and ~3.6KB of now-dead .wl* CSS removed rather
+  than left to rot as a second, competing view of the same data.
+-->
+<!--
 VERSION: 272
 DATE: 2026-08-30T17:30:00-05:00
 CHANGES:
@@ -3423,6 +3457,98 @@ CHANGES:
      floating island. */
   .brChips:empty{display:none;}
 
+  /* ---- Task : Automation panel ----
+     Same left-slide shell as .browsePanel/.saintsPanel (same z-index band, same transition,
+     same .panelHead/.spHead/.spCol/.spListWrap/.spList/.spRow chrome), so it reads as another
+     one of the app's browse panels rather than a new visual language. Two things are genuinely
+     new and get their own rules: (1) status-based row dimming — a finished task greys out so
+     the eye lands on what still needs attention; (2) a detail pane pinned under the list, which
+     the browse panels have no equivalent of, since a timeline entry opens a full article
+     instead. */
+  .taskPanel{
+    position:fixed; top:calc(46px + env(safe-area-inset-top)); left:0; z-index:145;
+    width:min(410px, 95vw);
+    max-height:calc(100vh - 78px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow:hidden; display:flex; flex-direction:column;
+    background:#fff;
+    border-radius:0 26px 26px 0;
+    box-shadow:16px 0 46px rgba(7,15,34,.28);
+    padding:22px 0 10px;
+    transform:translateX(-100%);
+    transition:transform .48s cubic-bezier(.32,.72,.28,1), visibility 0s linear .48s;
+    visibility:hidden;
+  }
+  .taskPanel.open{
+    transform:translateX(0); visibility:visible;
+    transition:transform .48s cubic-bezier(.32,.72,.28,1), visibility 0s linear 0s;
+  }
+  .tkScrim{
+    position:fixed; inset:0; z-index:144;
+    background:rgba(9,16,34,.38);
+    opacity:0; pointer-events:none;
+    transition:opacity .48s cubic-bezier(.32,.72,.28,1);
+  }
+  .tkScrim.open{opacity:1; pointer-events:auto;}
+  @media (prefers-reduced-motion: reduce){
+    .taskPanel, .tkScrim{transition:none;}
+  }
+  /* Column layout: Status (left, fixed) | Task (flexible) | Date (right, fixed) — the same
+     fixed/flex/fixed shape as Saints' Feast|Name|Year and Browse's Region|Name|Year, so all
+     three panels line up identically. */
+  .tkStatus{flex:0 0 84px; font-size:12px; font-weight:700; letter-spacing:.02em; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .tkDate{flex:0 0 78px; font-size:12.5px; color:#6B7280; text-align:right; font-variant-numeric:tabular-nums;}
+  #tkSortStatus{flex:0 0 84px; min-width:0;}
+  #tkSortName{flex:1 1 auto; min-width:0;}
+  #tkSortDate{flex:0 0 78px; justify-content:flex-end; min-width:0;}
+  /* Status colour carries the state at a glance: amber = waiting to run, blue = waiting on YOU,
+     green = settled, red = broken. Only the status cell is coloured; the task text itself stays
+     black or grey per the done/active rule below. */
+  .tkStatus.queued, .tkStatus.in_progress{color:#8A6D1C;}
+  .tkStatus.proposed{color:#2C4A78;}
+  .tkStatus.done, .tkStatus.approved{color:#2F6B31;}
+  .tkStatus.rejected, .tkStatus.error{color:#96291A;}
+  /* Finished work recedes; anything still live stays full-strength black. This is the whole
+     point of the list — what's left to do should be what you see first. */
+  .spRow.tkRow .spName{color:#111827;}
+  .spRow.tkRow.tkFinished .spName{color:#9AA0AE;}
+  .spRow.tkRow.tkFinished .tkDate{color:#B4B8C4;}
+  .spRow.tkRow.tkSelected{background:#FBF3DC;}
+  /* Detail pane: pinned below the list, its own scroll, only present once a row is tapped. */
+  .tkDetail{
+    flex:0 0 auto; max-height:44%; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    border-top:1px solid #C7CAD3; background:#F7F7F4; padding:13px 20px 4px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  }
+  .tkDetail:empty{display:none;}
+  .tkDetailTitle{font-size:15.5px; font-weight:700; color:#111827; line-height:1.35; margin-bottom:4px;}
+  .tkDetailMeta{font-size:12px; color:#6B7280; margin-bottom:9px; word-break:break-all; line-height:1.45;}
+  .tkDetailBody{font-size:14px; color:#111827; line-height:1.5;}
+  .tkDiffRow{display:flex; gap:7px; align-items:flex-start; margin-bottom:3px;}
+  .tkDiffTag{
+    flex:none; font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    border-radius:4px; padding:2px 5px; margin-top:2px;
+  }
+  .tkDiffTag.old{background:#E7E7E1; color:#8A90A0;}
+  .tkDiffTag.new{background:#EAF3E9; color:#2F6B31;}
+  .tkOld{color:#8A90A0; text-decoration:line-through; word-break:break-word;}
+  .tkNew{color:#111827; font-weight:600; word-break:break-word;}
+  .tkPre{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px; white-space:pre-wrap;
+    background:#fff; border:1px solid #E3E1D8; border-radius:8px; padding:8px 10px;
+    color:#111827; margin:0 0 9px; max-height:150px; overflow:auto;
+  }
+  .tkActions{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 8px;}
+  .tkBtn{
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:14px; font-weight:600; border-radius:9px; padding:9px 15px; cursor:pointer;
+    background:#fff; color:#111827; border:1px solid #C7CAD3;
+  }
+  .tkBtn.go{background:#2F6B31; color:#fff; border-color:#2F6B31;}
+  .tkBtn.no{background:#FDEDEA; color:#96291A; border-color:#F0C9C0;}
+  .tkNote{font-size:12.5px; color:#6B7280; line-height:1.45; margin:2px 0 8px; word-break:break-word;}
+  .tkNote.err{color:#96291A;}
+  .tkBar{display:flex; gap:7px; align-items:center; flex-wrap:wrap; padding:0 20px 10px;}
+
   .pRow{
     display:flex; align-items:center; gap:16px;
     width:100%; min-height:64px; padding:10px 22px;
@@ -4588,63 +4714,13 @@ CHANGES:
   }
   .mImportStatusClear.show{display:inline-block;}
 
-  /* ---- Work tab: the task queue / review cards for the orchestrator pipeline ----
-     workLog.json is staging data, read and written straight through the GitHub API using
-     the same owner/repo/branch/token fields as Publish. Deliberately styled like the rest
-     of the CMS (flat white rows on the warm grey background) rather than as a new visual
-     language — this is another CMS surface, not a separate app. */
-  .wlBar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px;}
-  .wlCount{font-size:13px; color:var(--m-sub); margin:6px 0 10px;}
+  /* ---- Work tab: the Add-a-Task form only. The task list, review, and Approve/Reject all
+     live in the Task : Automation slide-out panel (see .taskPanel) — the rest of the styles
+     that used to sit here went with them. */
   .wlLog{
     font-size:13px; color:var(--m-sub); background:var(--m-bg); border:1px solid var(--m-border);
     border-radius:8px; padding:9px 11px; margin-top:8px; line-height:1.45; word-break:break-word;
   }
-  .wlBatch{border:1px solid var(--m-border); border-radius:12px; background:var(--m-row); margin:12px 0; overflow:hidden;}
-  .wlBatchHead{
-    padding:12px 14px; border-bottom:1px solid var(--m-border); background:var(--m-bg);
-    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
-  }
-  .wlBatchTitle{font-size:14px; font-weight:700; color:var(--m-ink); letter-spacing:normal;}
-  .wlBatchSub{font-size:12.5px; color:var(--m-sub); font-weight:500;}
-  .wlCard{padding:12px 14px; border-bottom:1px solid var(--m-border);}
-  .wlCard:last-child{border-bottom:none;}
-  .wlCardName{font-size:15px; font-weight:600; color:var(--m-ink); margin-bottom:6px;}
-  .wlDiff{font-size:14px; line-height:1.5; margin-bottom:9px;}
-  .wlDiffRow{display:flex; gap:7px; align-items:flex-start; margin-bottom:3px;}
-  .wlDiffTag{
-    flex:none; font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
-    border-radius:4px; padding:2px 5px; margin-top:2px;
-  }
-  .wlDiffTag.old{background:#F1EFE6; color:var(--m-sub2);}
-  .wlDiffTag.new{background:#EAF3E9; color:#2F6B31;}
-  .wlOld{color:var(--m-sub2); text-decoration:line-through; word-break:break-word;}
-  .wlNew{color:var(--m-ink); font-weight:600; word-break:break-word;}
-  .wlActions{display:flex; gap:8px; flex-wrap:wrap;}
-  .wlPre{
-    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; white-space:pre-wrap;
-    background:var(--m-bg); border:1px solid var(--m-border); border-radius:8px; padding:8px 10px;
-    color:var(--m-ink); margin-bottom:9px; max-height:220px; overflow:auto;
-  }
-  .wlTaskRow{
-    display:flex; align-items:center; gap:9px; padding:10px 12px;
-    border-bottom:1px solid var(--m-border); font-size:14px; color:var(--m-ink);
-  }
-  .wlTaskRow:last-child{border-bottom:none;}
-  .wlTaskMain{flex:1 1 auto; min-width:0;}
-  .wlTaskDesc{word-break:break-word; line-height:1.4;}
-  .wlTaskMeta{font-size:12px; color:var(--m-sub2); margin-top:2px; word-break:break-all;}
-  .wlBadge{
-    flex:none; font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
-    border-radius:5px; padding:3px 7px; background:var(--m-bg); color:var(--m-sub);
-    border:1px solid var(--m-border);
-  }
-  .wlBadge.queued{background:#FBF3DC; color:#6E5714; border-color:#E7D9A8;}
-  .wlBadge.proposed{background:#E9EFF8; color:#2C4A78; border-color:#C6D6EC;}
-  .wlBadge.done{background:#EAF3E9; color:#2F6B31; border-color:#C9E0C7;}
-  .wlBadge.approved{background:#EAF3E9; color:#2F6B31; border-color:#C9E0C7;}
-  .wlBadge.rejected{background:var(--m-danger-bg); color:var(--m-danger); border-color:#F0C9C0;}
-  .wlBadge.error{background:var(--m-danger-bg); color:var(--m-danger); border-color:#F0C9C0;}
-  .wlEmpty{font-size:14px; color:var(--m-sub); padding:14px 4px; line-height:1.5;}
   .mgmtEntriesTop{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
   .mgmtEntriesTop input[type=text]{
     flex:1 1 auto; background:var(--m-bg); color:var(--m-ink); border:1px solid var(--m-border);
@@ -4788,6 +4864,12 @@ CHANGES:
         <span class="pName">Manage</span>
         <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
       </button>
+      <button class="pRow" id="taskPanelBtn">
+        <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5l2 2 3.5-3.5M4 13l2 2 3.5-3.5M4 19.5l2 2 3.5-3.5M13 7h7M13 14h7M13 21h7"/></svg></span>
+        <span class="pName">Task : Automation</span>
+        <span class="pMeta" id="taskPanelMeta"></span>
+        <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+      </button>
       <button class="pRow" id="testGlowBtn">
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2.5M12 18.5V21M4.2 4.2l1.8 1.8M18 18l1.8 1.8M3 12h2.5M18.5 12H21M4.2 19.8L6 18M18 6l1.8-1.8"/><circle cx="12" cy="12" r="4"/></svg></span>
         <span class="pName">Test Update Glow</span>
@@ -4916,6 +4998,32 @@ CHANGES:
       <div class="spThumbLabel" id="brThumbLabel"></div>
     </div>
     <div class="spChips brChips" id="brChips"></div>
+  </div>
+
+  <!-- Task : Automation panel — the review surface for the orchestrator pipeline. Same
+       left-slide shell as the Saints/Browse panels; opened from Owner Tools in the menu.
+       Reads and writes workLog.json through the GitHub API using the Publish credentials. -->
+  <div class="tkScrim" id="tkScrim"></div>
+  <div class="taskPanel" id="taskPanel" role="dialog" aria-label="Task Automation">
+    <div class="panelHead">
+      <div class="spTitleWrap">
+        <span class="panelTitle">Task<em class="spTitleSecond"> : Automation</em></span>
+      </div>
+      <button class="panelClose" id="tkClose" aria-label="Close task list">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+    </div>
+    <div class="tkBar">
+      <button class="tkBtn" id="tkRefresh">Refresh</button>
+      <button class="tkBtn" id="tkRun">Run</button>
+      <span class="tkNote" id="tkCount" style="margin:0;"></span>
+    </div>
+    <div class="spHead" id="tkHead"></div>
+    <div class="spListWrap" id="tkListWrap">
+      <div class="spList" id="tkList"></div>
+    </div>
+    <div class="tkDetail" id="tkDetail"></div>
+    <div class="spChips" id="tkChips"></div>
   </div>
 </header>
 
@@ -5388,21 +5496,8 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
       </details>
     </div>
 
-    <!-- ===== TAB: Work (workLog.json — the orchestrator's task queue and review cards) ===== -->
+    <!-- ===== TAB: Work (queues a task; the list and review live in the Task : Automation panel) ===== -->
     <div class="mgmtPanel" id="panel-work">
-
-      <div class="mbox">
-        <h3>Work Log</h3>
-        <div class="wlBar">
-          <button class="mbtn sm" id="wlRefresh">Refresh</button>
-          <button class="mbtn sm" id="wlRunOrchestrator">Run Orchestrator</button>
-        </div>
-        <div class="wlCount" id="wlCount"></div>
-        <div class="wlLog" id="wlLog" style="display:none;"></div>
-        <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">Backend services draft work; you approve it here. <b>Refresh</b> reads <code>workLog.json</code> from GitHub (same token as Publish). <b>Run Orchestrator</b> fires the Action, which picks up every <b>queued</b> task, hands it to its service, and writes the results back as <b>proposed</b> items for review below.<br><br>Approving merges the change into this session only &mdash; exactly like a Paste JSON import. It reaches the live site when you <b>Publish to GitHub</b> (or Save, Publish &amp; Exit) as usual. The work log itself is written immediately on every add/approve/reject, since the Action can only see what's committed to the repo.</div>
-        </details>
-      </div>
 
       <div class="mbox">
         <h3>Add a Task</h3>
@@ -5415,15 +5510,8 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
         <button class="mbtn" id="wlAddTask">Add Task &amp; Save</button>
         <div class="wlLog" id="wlAddStatus" style="display:none;"></div>
         <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">Adds one <b>queued</b> task and commits it to <code>workLog.json</code> straight away, so the next Orchestrator run can see it. Nothing about your content changes at this point &mdash; a queued task is only a request for work.</div>
+          <div class="hint">Adds one <b>queued</b> task and commits it to <code>workLog.json</code> straight away, so the next Orchestrator run can see it. Nothing about your content changes at this point &mdash; a queued task is only a request for work.<br><br>To run the queue and review what comes back, open <b>Task : Automation</b> from the menu (&#9776; &rarr; Owner Tools). That panel is where the task list, the Run button, and Approve/Reject live.</div>
         </details>
-      </div>
-
-      <div id="wlReviewWrap"></div>
-
-      <div class="mbox">
-        <h3>All Tasks</h3>
-        <div id="wlAllTasks"></div>
       </div>
 
     </div>
@@ -5717,7 +5805,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v272';
+const APP_VERSION = 'v273';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7325,11 +7413,13 @@ function wlGh(){
     hdr: { 'Authorization': 'Bearer ' + v('ghToken'), 'Accept': 'application/vnd.github+json' }
   };
 }
+// Status line for approve/reject and load failures. Writes to the panel's own count line —
+// the panel is where this system is actually operated, so that's where its feedback belongs.
 function wlSetLog(msg, isErr){
-  const el = document.getElementById('wlLog');
+  const el = document.getElementById('tkCount');
+  if(!el) return;
   el.textContent = msg || '';
-  el.style.display = msg ? 'block' : 'none';
-  el.style.color = isErr ? 'var(--m-danger)' : 'var(--m-sub)';
+  el.classList.toggle('err', !!isErr);
 }
 function wlSetAddStatus(msg, isErr){
   const el = document.getElementById('wlAddStatus');
@@ -7341,17 +7431,17 @@ function wlSetAddStatus(msg, isErr){
 async function loadWorkLog(){
   const g = wlGh();
   if(!g.owner || !g.repo || !g.token){
-    document.getElementById('wlCount').textContent = 'Enter your GitHub token under Import \u2192 Publish to GitHub first \u2014 the Work tab reads workLog.json using the same credentials.';
+    wlSetLog('Enter your GitHub token under Manage \u2192 Import \u2192 Publish to GitHub first \u2014 this reads workLog.json using the same credentials.', true);
     return;
   }
-  document.getElementById('wlCount').textContent = 'Loading\u2026';
+  wlSetLog('Loading\u2026');
   const api = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' + WL_PATH + '?ref=' + encodeURIComponent(g.branch);
   try{
     const res = await fetch(api, { headers: g.hdr, cache: 'no-store' });
     if(res.status === 404){
       wlData = null; wlSha = null;
-      document.getElementById('wlCount').textContent = 'No workLog.json in the repo yet \u2014 add one task below and it will be created.';
       renderWorkLog();
+      wlSetLog('No workLog.json in the repo yet \u2014 add a task under Manage \u2192 Work and it will be created.');
       return;
     }
     if(res.status === 401 || res.status === 403) throw new Error('token rejected (check permissions)');
@@ -7360,9 +7450,11 @@ async function loadWorkLog(){
     wlSha = meta.sha;
     wlData = JSON.parse(decodeURIComponent(escape(atob(meta.content.replace(/\n/g, '')))));
     if(!Array.isArray(wlData.tasks)) wlData.tasks = [];
+    // renderWorkLog() rewrites the count line itself, so it runs last — otherwise the freshly
+    // rendered summary would be immediately overwritten by a stale "Loading…".
     renderWorkLog();
   }catch(err){
-    document.getElementById('wlCount').textContent = 'Could not load workLog.json: ' + err.message;
+    wlSetLog('Could not load workLog.json: ' + err.message, true);
   }
 }
 
@@ -7414,95 +7506,239 @@ async function saveWorkLog(message){
   }
 }
 
-// ---- Review card rendering ----
-// A proposal is rendered from its own `result`. The age-backfill service supplies oldDied/
-// newDied, which makes a clean before/after; anything else falls back to showing the raw
-// result JSON, so a service added later is still reviewable before its renderer is written.
-function wlRenderProposalBody(task){
-  const r = task.result || {};
-  if(r.oldDied != null && r.newDied != null){
-    return '<div class="wlDiff">' +
-      '<div class="wlDiffRow"><span class="wlDiffTag old">Now</span><span class="wlOld">' + esc(String(r.oldDied)) + '</span></div>' +
-      '<div class="wlDiffRow"><span class="wlDiffTag new">New</span><span class="wlNew">' + esc(String(r.newDied)) + '</span></div>' +
-      '</div>';
-  }
-  return '<div class="wlPre">' + esc(JSON.stringify(r, null, 2)) + '</div>';
+// ==================== Task : Automation panel (the review surface) ====================
+// Renders workLog.json as a left-sliding browse panel — same shell, columns, and sticky
+// grouping as the Saints/Browse panels — with a detail pane pinned beneath the list.
+//
+// Sort columns: Status | Task | Date. Date is the default (newest first) since the log reads
+// as a running history. Sorting by Status groups the list under sticky status headers, exactly
+// the way the Browse panel groups under Region/Country — groupStickyRows() is reused as-is.
+//
+// Row colour carries state: finished work (done/approved/rejected) greys out, anything still
+// live (queued/in_progress/proposed) stays black, so what's left to do is what the eye lands on.
+
+let tkSort = 'date';       // 'status' | 'name' | 'date'
+let tkFilter = 'all';      // 'all' | 'active' | 'review' | 'done'
+let tkSelectedId = null;
+
+// Deliberately not alphabetical — this is the order the states actually matter in. Proposed
+// first (it's the only one waiting on a human), then work that hasn't run, then failures,
+// then everything already settled.
+const TK_STATUS_ORDER = { proposed: 0, queued: 1, in_progress: 2, error: 3, done: 4, approved: 5, rejected: 6 };
+const TK_FINISHED = { done: 1, approved: 1, rejected: 1 };
+const TK_CHIPS = [
+  { id: 'all', label: 'All' },
+  { id: 'review', label: 'Review' },
+  { id: 'active', label: 'Active' },
+  { id: 'done', label: 'Finished' }
+];
+
+function tkStatusLabel(s){ return String(s || '?').replace(/_/g, ' '); }
+
+// "8/30 4:58" — short enough for a 78px column, unambiguous within a working session. Falls
+// back to the raw string rather than "Invalid Date" if a timestamp is ever malformed.
+function tkShortDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d)) return String(iso).slice(0, 10);
+  let h = d.getHours();
+  const ampm = h >= 12 ? 'p' : 'a';
+  h = h % 12; if(h === 0) h = 12;
+  return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + h + ':' + String(d.getMinutes()).padStart(2, '0') + ampm;
 }
 
-function wlRenderReviewQueue(){
-  const wrap = document.getElementById('wlReviewWrap');
-  const proposed = (wlData && wlData.tasks ? wlData.tasks : []).filter(t => t.status === 'proposed');
-  if(!proposed.length){
-    wrap.innerHTML = '<div class="mbox"><h3>Review Queue</h3><div class="wlEmpty">Nothing waiting for review. Add a task above and run the Orchestrator to generate proposals.</div></div>';
-    return;
-  }
-  // Group by batchId so a scan that spawned 40 rows can be approved in one action, while any
-  // individual card can still be rejected first — a batch approve never overrides a reject,
-  // since it only ever acts on items still sitting at "proposed".
-  const groups = {};
-  proposed.forEach(t => {
-    const k = t.batchId || '_ungrouped';
-    (groups[k] = groups[k] || []).push(t);
+function tkTaskName(t){
+  // Prefer the human-facing name a service put on its result; fall back to the description,
+  // then the id, so a row always says something meaningful.
+  return (t.result && t.result.name) || t.description || t.id;
+}
+
+function tkRows(){
+  const tasks = (wlData && wlData.tasks) ? wlData.tasks.slice() : [];
+  const filtered = tasks.filter(t => {
+    if(tkFilter === 'all') return true;
+    if(tkFilter === 'review') return t.status === 'proposed';
+    if(tkFilter === 'active') return t.status === 'queued' || t.status === 'in_progress' || t.status === 'proposed';
+    if(tkFilter === 'done') return !!TK_FINISHED[t.status];
+    return true;
   });
-  wrap.innerHTML = Object.keys(groups).map(batchId => {
-    const items = groups[batchId];
-    const parent = batchId !== '_ungrouped' ? (wlData.tasks.find(t => t.id === batchId) || null) : null;
-    const title = parent ? esc(parent.description || parent.type) : 'Individual proposals';
-    const cards = items.map(t => {
-      const name = (t.result && t.result.name) || t.entityId || t.id;
-      return '<div class="wlCard" data-task="' + esc(t.id) + '">' +
-        '<div class="wlCardName">' + esc(String(name)) + '</div>' +
-        wlRenderProposalBody(t) +
-        '<div class="wlActions">' +
-          '<button class="mbtn sm wlApprove" data-task="' + esc(t.id) + '">Approve</button>' +
-          '<button class="mbtn sm danger wlReject" data-task="' + esc(t.id) + '">Reject</button>' +
-        '</div>' +
-      '</div>';
-    }).join('');
-    return '<div class="wlBatch">' +
-      '<div class="wlBatchHead">' +
-        '<div><div class="wlBatchTitle">' + title + '</div><div class="wlBatchSub">' + items.length + ' awaiting review</div></div>' +
-        (items.length > 1 ? '<button class="mbtn sm wlApproveAll" data-batch="' + esc(batchId) + '">Approve All ' + items.length + '</button>' : '') +
-      '</div>' + cards +
-    '</div>';
-  }).join('');
-}
-
-function wlRenderAllTasks(){
-  const el = document.getElementById('wlAllTasks');
-  const tasks = (wlData && wlData.tasks) ? wlData.tasks : [];
-  if(!tasks.length){ el.innerHTML = '<div class="wlEmpty">No tasks yet.</div>'; return; }
-  // Newest first, so a run just fired sits at the top rather than buried under history.
-  const order = { proposed: 0, queued: 1, in_progress: 2, error: 3, done: 4, approved: 5, rejected: 6 };
-  const sorted = tasks.slice().sort((a, b) => {
-    const oa = order[a.status] == null ? 9 : order[a.status];
-    const ob = order[b.status] == null ? 9 : order[b.status];
-    if(oa !== ob) return oa - ob;
-    return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+  filtered.sort((a, b) => {
+    if(tkSort === 'status'){
+      const oa = TK_STATUS_ORDER[a.status] == null ? 9 : TK_STATUS_ORDER[a.status];
+      const ob = TK_STATUS_ORDER[b.status] == null ? 9 : TK_STATUS_ORDER[b.status];
+      if(oa !== ob) return oa - ob;
+      return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+    }
+    if(tkSort === 'name'){
+      return String(tkTaskName(a)).localeCompare(String(tkTaskName(b)));
+    }
+    // date — newest first, which is what a log should show without being asked
+    return String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''));
   });
-  el.innerHTML = sorted.map(t => {
-    const meta = [t.type, t.entityId ? t.entityId : null].filter(Boolean).join(' \u00b7 ');
-    return '<div class="wlTaskRow">' +
-      '<div class="wlTaskMain">' +
-        '<div class="wlTaskDesc">' + esc(t.description || t.id) + '</div>' +
-        '<div class="wlTaskMeta">' + esc(meta) + (t.error ? ' \u00b7 ' + esc(String(t.error).slice(0, 120)) : '') + '</div>' +
-      '</div>' +
-      '<span class="wlBadge ' + esc(t.status || '') + '">' + esc(t.status || '?') + '</span>' +
-    '</div>';
-  }).join('');
+  return filtered;
 }
 
-function renderWorkLog(){
+function renderTaskPanel(){
+  const headEl = document.getElementById('tkHead');
+  headEl.innerHTML =
+    '<button class="spCol' + (tkSort === 'status' ? ' active' : '') + '" id="tkSortStatus" data-sort="status">Status <span class="arrow">\u25b2</span></button>' +
+    '<button class="spCol' + (tkSort === 'name' ? ' active' : '') + '" id="tkSortName" data-sort="name">Task <span class="arrow">\u25b2</span></button>' +
+    '<button class="spCol' + (tkSort === 'date' ? ' active' : '') + '" id="tkSortDate" data-sort="date">Date <span class="arrow">\u25b2</span></button>';
+  document.getElementById('tkChips').innerHTML = TK_CHIPS.map(c =>
+    '<button class="spChip' + (c.id === tkFilter ? ' active' : '') + '" data-filter="' + esc(c.id) + '"' +
+    ' aria-pressed="' + (c.id === tkFilter ? 'true' : 'false') + '"><span>' + esc(c.label) + '</span></button>'
+  ).join('');
+
+  const rows = tkRows();
   const tasks = (wlData && wlData.tasks) ? wlData.tasks : [];
   const counts = {};
   tasks.forEach(t => { counts[t.status] = (counts[t.status] || 0) + 1; });
-  const parts = Object.keys(counts).map(k => counts[k] + ' ' + k);
-  document.getElementById('wlCount').textContent = tasks.length
-    ? tasks.length + ' task' + (tasks.length === 1 ? '' : 's') + ' \u00b7 ' + parts.join(', ')
+  const proposedCount = counts.proposed || 0;
+  document.getElementById('tkCount').textContent = tasks.length
+    ? rows.length + ' of ' + tasks.length + (proposedCount ? ' \u00b7 ' + proposedCount + ' to review' : '')
     : (wlData ? 'No tasks yet.' : '');
-  wlRenderReviewQueue();
-  wlRenderAllTasks();
+
+  // Sticky status headers only when the list is actually sorted by status — same rule the
+  // Browse panel applies to its Region/Country grouping.
+  const grouped = tkSort === 'status';
+  const items = rows.map(t => {
+    const finished = !!TK_FINISHED[t.status];
+    const cls = 'spRow tkRow' + (finished ? ' tkFinished' : '') + (t.id === tkSelectedId ? ' tkSelected' : '');
+    return {
+      label: tkStatusLabel(t.status),
+      render: (showLabel, isLast) => '<div class="' + cls + (isLast === false ? ' groupMid' : '') + '" data-task="' + esc(t.id) + '">' +
+        '<span class="tkStatus ' + esc(t.status || '') + '">' + (showLabel ? esc(tkStatusLabel(t.status)) : '') + '</span>' +
+        '<span class="spName">' + esc(String(tkTaskName(t))) + '</span>' +
+        '<span class="tkDate">' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</span>' +
+        '</div>'
+    };
+  });
+  const listEl = document.getElementById('tkList');
+  listEl.innerHTML = (grouped ? groupStickyRows(items) : items.map(it => it.render(true)).join(''))
+    || '<div class="spEmpty">Nothing matches.</div>';
+  const sampleRow = listEl.querySelector('.tkRow');
+  if(sampleRow) listEl.style.setProperty('--rowH', sampleRow.offsetHeight + 'px');
+  renderTaskDetail();
 }
+
+// The detail pane. Renders whatever the selected task actually carries: a before/after pair
+// when the service supplied oldDied/newDied, a readable summary for a scan, the error text for
+// a failure, and pretty-printed JSON as the catch-all — so a service written later is fully
+// reviewable here before anyone writes it a custom renderer.
+function renderTaskDetail(){
+  const el = document.getElementById('tkDetail');
+  if(!tkSelectedId || !wlData){ el.innerHTML = ''; return; }
+  const t = (wlData.tasks || []).find(x => x.id === tkSelectedId);
+  if(!t){ el.innerHTML = ''; return; }
+  const r = t.result || {};
+  let body = '';
+
+  if(r.oldDied != null && r.newDied != null){
+    body += '<div class="tkDiffRow"><span class="tkDiffTag old">Now</span><span class="tkOld">' + esc(String(r.oldDied)) + '</span></div>' +
+            '<div class="tkDiffRow"><span class="tkDiffTag new">New</span><span class="tkNew">' + esc(String(r.newDied)) + '</span></div>';
+  }else if(r.totalSaints != null){
+    // Scan summary, written out as a sentence rather than left as a JSON blob — this is the
+    // result most runs produce, and it was previously only readable by opening the raw file.
+    const sk = r.skipped || {};
+    const reasons = [
+      sk.noBornFact ? sk.noBornFact + ' with no Born date' : null,
+      sk.noDiedFact ? sk.noDiedFact + ' with no Died date' : null,
+      sk.alreadyHasAge ? sk.alreadyHasAge + ' already showing an age' : null,
+      sk.bornNotFirm ? sk.bornNotFirm + ' whose Born date is approximate or disputed' : null,
+      sk.diedNotFirm ? sk.diedNotFirm + ' whose Died date is approximate or disputed' : null,
+      sk.impossibleAge ? sk.impossibleAge + ' giving an impossible age' : null
+    ].filter(Boolean);
+    body += '<p style="margin:0 0 8px;">Checked <b>' + r.totalSaints + '</b> saints. <b>' + (r.qualified || 0) +
+      '</b> qualified for an age.</p>';
+    if(reasons.length) body += '<p style="margin:0 0 8px;">Skipped: ' + esc(reasons.join(', ')) + '.</p>';
+  }else if(t.result){
+    body += '<div class="tkPre">' + esc(JSON.stringify(t.result, null, 2)) + '</div>';
+  }else{
+    body += '<p class="tkNote" style="margin:0 0 8px;">No result yet \u2014 this task hasn\u2019t been run.</p>';
+  }
+
+  if(t.error) body += '<p class="tkNote err">' + esc(String(t.error).slice(0, 400)) + '</p>';
+
+  // Approve/Reject only exist for a proposal. A batch approve appears when the proposal came
+  // from a scan that spawned siblings, so 80 computed ages don't need 80 taps — it acts only on
+  // items still at "proposed", so it can never override a reject already made.
+  let actions = '';
+  if(t.status === 'proposed'){
+    const siblings = (wlData.tasks || []).filter(x => x.status === 'proposed' && x.batchId && x.batchId === t.batchId);
+    actions = '<div class="tkActions">' +
+      '<button class="tkBtn go" id="tkApprove">Approve</button>' +
+      '<button class="tkBtn no" id="tkReject">Reject</button>' +
+      (siblings.length > 1 ? '<button class="tkBtn" id="tkApproveAll">Approve all ' + siblings.length + '</button>' : '') +
+      '</div>';
+  }
+
+  el.innerHTML =
+    '<div class="tkDetailTitle">' + esc(String(tkTaskName(t))) + '</div>' +
+    '<div class="tkDetailMeta">' + esc(t.type) + ' \u00b7 ' + esc(tkStatusLabel(t.status)) +
+      (t.entityId ? ' \u00b7 ' + esc(t.entityId) : '') + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
+    '<div class="tkDetailBody">' + body + '</div>' + actions;
+}
+
+// renderWorkLog() is the single entry point every other part of this system calls after
+// changing wlData — kept as one name so the Manage tab and the panel can never drift apart.
+function renderWorkLog(){
+  renderTaskPanel();
+}
+
+// Declared explicitly rather than leaning on the implicit window.<id> global, matching how
+// saintsPanel/browsePanel/brScrim are each bound further down.
+const taskPanelEl = document.getElementById('taskPanel');
+const tkScrimEl = document.getElementById('tkScrim');
+
+function openTaskPanel(){
+  closeHamMenu();
+  taskPanelEl.classList.add('open');
+  tkScrimEl.classList.add('open');
+  loadWorkLog();
+}
+function closeTaskPanel(){
+  taskPanelEl.classList.remove('open');
+  tkScrimEl.classList.remove('open');
+}
+document.getElementById('taskPanelBtn').addEventListener('click', openTaskPanel);
+document.getElementById('tkClose').addEventListener('click', (e) => { e.stopPropagation(); closeTaskPanel(); });
+tkScrimEl.addEventListener('click', closeTaskPanel);
+document.getElementById('tkHead').addEventListener('click', (e) => {
+  const btn = e.target.closest('.spCol[data-sort]');
+  if(!btn) return;
+  tkSort = btn.dataset.sort;
+  renderTaskPanel();
+});
+document.getElementById('tkChips').addEventListener('click', (e) => {
+  const btn = e.target.closest('.spChip[data-filter]');
+  if(!btn) return;
+  tkFilter = btn.dataset.filter;
+  renderTaskPanel();
+});
+document.getElementById('tkList').addEventListener('click', (e) => {
+  const row = e.target.closest('.tkRow[data-task]');
+  if(!row) return;
+  // Tapping the selected row again clears it, so the detail pane can be dismissed without
+  // having to close the whole panel.
+  tkSelectedId = (tkSelectedId === row.dataset.task) ? null : row.dataset.task;
+  renderTaskPanel();
+});
+document.getElementById('tkDetail').addEventListener('click', async (e) => {
+  if(e.target.closest('#tkApprove')){ await wlResolveTasks([tkSelectedId], true); return; }
+  if(e.target.closest('#tkReject')){ await wlResolveTasks([tkSelectedId], false); return; }
+  if(e.target.closest('#tkApproveAll')){
+    const t = (wlData.tasks || []).find(x => x.id === tkSelectedId);
+    if(!t) return;
+    const ids = wlData.tasks.filter(x => x.status === 'proposed' && x.batchId && x.batchId === t.batchId).map(x => x.id);
+    await wlResolveTasks(ids, true);
+  }
+});
+document.getElementById('tkRefresh').addEventListener('click', loadWorkLog);
+document.getElementById('tkRun').addEventListener('click', async () => {
+  document.getElementById('tkCount').textContent = 'Starting the Orchestrator\u2026';
+  await triggerWorkflow(WL_ORCHESTRATOR_WORKFLOW, { max_tasks: '5' }, 'tkCount');
+  await loadWorkLog();
+});
 
 // Applies one approved proposal's patch to the in-memory db, reusing the exact same
 // applyOnePatch() the Paste JSON importer uses — one code path for "a patch is applied to an
@@ -7555,16 +7791,6 @@ async function wlResolveTasks(taskIds, approve){
   if(approve && applied.length) setStatus(verb + ' ' + applied.length + ' \u2014 Publish to make it live');
 }
 
-document.getElementById('wlRefresh').addEventListener('click', loadWorkLog);
-
-document.getElementById('wlRunOrchestrator').addEventListener('click', async () => {
-  wlSetLog('Starting the Orchestrator\u2026');
-  await triggerWorkflow(WL_ORCHESTRATOR_WORKFLOW, { max_tasks: '5' }, 'wlLog');
-  document.getElementById('wlLog').style.display = 'block';
-  // The Action commits workLog.json at the end of its run, so pull the fresh copy in.
-  await loadWorkLog();
-});
-
 document.getElementById('wlAddTask').addEventListener('click', async () => {
   const type = document.getElementById('wlNewType').value;
   const desc = document.getElementById('wlNewDesc').value.trim();
@@ -7588,26 +7814,10 @@ document.getElementById('wlAddTask').addEventListener('click', async () => {
   const saved = await saveWorkLog('Queue task ' + id + ' via Content Manager');
   if(saved.ok){
     document.getElementById('wlNewDesc').value = '';
-    wlSetAddStatus('Queued \u2713 \u2014 tap Run Orchestrator above to process it.');
+    wlSetAddStatus('Queued \u2713 \u2014 open Task : Automation from the menu and tap Run to process it.');
     renderWorkLog();
   }else{
     wlSetAddStatus('Could not save: ' + saved.error, true);
-  }
-});
-
-// Delegated, since every card is re-rendered on each refresh.
-document.getElementById('wlReviewWrap').addEventListener('click', async (e) => {
-  const approveBtn = e.target.closest('.wlApprove');
-  if(approveBtn){ await wlResolveTasks([approveBtn.dataset.task], true); return; }
-  const rejectBtn = e.target.closest('.wlReject');
-  if(rejectBtn){ await wlResolveTasks([rejectBtn.dataset.task], false); return; }
-  const allBtn = e.target.closest('.wlApproveAll');
-  if(allBtn){
-    const batchId = allBtn.dataset.batch;
-    const ids = wlData.tasks
-      .filter(t => t.status === 'proposed' && (t.batchId || '_ungrouped') === batchId)
-      .map(t => t.id);
-    await wlResolveTasks(ids, true);
   }
 });
 
@@ -10092,7 +10302,6 @@ function switchMgmtTab(tab){
   document.querySelectorAll('.mgmtPanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
   document.querySelector('.mgmtBody').scrollIntoView({block:'start'});
   if(tab === 'logs') loadChangelog();
-  if(tab === 'work') loadWorkLog();
 }
 document.querySelectorAll('.mgmtTab').forEach(t => t.addEventListener('click', () => switchMgmtTab(t.dataset.tab)));
 
