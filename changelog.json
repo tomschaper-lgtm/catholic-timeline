@@ -2,6 +2,40 @@
   "v": 1,
   "entries": [
     {
+      "version": "275",
+      "date": "2026-08-30T22:40:00-05:00",
+      "changes": [
+        "FIXED unreadable review text. .tkReviewScroll never named its own `color`, so anything",
+        "inside it that didn't either (the scan summary's paragraphs) inherited the app's dark-theme",
+        "parchment body colour and rendered pale gold on white. The scroller now sets colour, size",
+        "and line-height explicitly, with rules for its p/b children — the panel is a light surface",
+        "inside a dark-themed app, so it can never rely on inherited colour.",
+        "Panel is now full-bleed: left/right/bottom 0, square corners, no max-height, so it fills the",
+        "screen below the app header instead of being a 410px card. A rounded edge only reads as",
+        "\"card\" when something is visible beside it; nothing is now. Still slides in from the left.",
+        "Status column reduced from an 84px word to a 26px glyph, no header label: ○ queued,",
+        "◐ running, ● waiting on you, ✓ done/approved, ✕ rejected (grey) or error (red). Every pixel",
+        "it gave up went to the Task column, which is the one carrying text that has to be readable;",
+        "Task rows also went to 15px.",
+        "Status sorting and its sticky grouping REMOVED rather than kept as an unlabelled tap target:",
+        "the All/Queued/Review chips already do status filtering, so a status sort was a second way",
+        "to do the same thing. Sort is now Task or Date.",
+        "Batch controls beside Run: a count box (1–50) and a service dropdown. They are the run's",
+        "arguments — \"do 5 of these\" — and become workflow_dispatch inputs. Both service dropdowns",
+        "(Run and Add Task) build from one TK_SERVICES array so they can't drift apart.",
+        "Backend: orchestrator.mjs takes a TASK_TYPE filter, and orchestrator.yml gains a matching",
+        "task_type input.",
+        "Backend: running out of budget is now a first-class outcome distinct from failure. A handler",
+        "returning {deferred:true, reason} — or throwing an error with .deferred — puts its task back",
+        "to `queued` exactly as it was, stops the rest of the batch (the budget is gone; retrying each",
+        "one would fail identically), and writes a plain-language `notice` onto workLog.json. Nothing",
+        "turns red, nothing is lost, and the items are simply picked up next run. The panel shows that",
+        "notice in an amber banner above the list. Verified end to end with a deferring test handler:",
+        "3 tasks in, 3 still queued, no errors, notice written."
+      ],
+      "loggedAt": "2026-08-31T03:33:24.987983+00:00"
+    },
+    {
       "version": "274",
       "date": "2026-08-30T21:45:00-05:00",
       "changes": [
