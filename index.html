@@ -1,4 +1,36 @@
 <!--
+VERSION: 272
+DATE: 2026-08-30T17:30:00-05:00
+CHANGES:
+- NEW "Work" tab (6th CMS tab) — the in-app half of the orchestrator content pipeline whose
+  backend (workLog.json, scripts/orchestrator.mjs, scripts/services/age-backfill.mjs,
+  .github/workflows/orchestrator.yml) now lives in the repo. Three sections:
+    • Work Log — Refresh reads workLog.json straight from the GitHub API (same owner/repo/
+      branch/token fields as Publish, nothing new to configure); Run Orchestrator fires the
+      workflow via the existing triggerWorkflow() and re-reads the file when it finishes.
+    • Add a Task — queues one task and commits it immediately. The immediate commit is not
+      an oversight: the Action runs on GitHub and can only see what is actually in the repo,
+      so a task held in browser memory would be invisible to it. Two write rhythms on
+      purpose — workLog.json writes fast and often, data.json still only moves on Publish.
+    • Review Queue — one card per "proposed" task, grouped by the batch that spawned it,
+      with Approve/Reject per card plus "Approve All N" on the batch header. Batch approve
+      only ever touches items still sitting at "proposed", so it can never override a
+      reject already made on an individual card.
+- Approving applies the task's patch through the SAME applyOnePatch() the Paste JSON importer
+  uses — one code path for "a patch is applied to an entry" regardless of whether it arrived
+  by clipboard or by service — then saveDb()/render()/renderMList(), and re-opens the editor
+  if the patched entry is the one currently open (the v240 stale-form guard: without it,
+  "Save, Publish & Exit" writes the pre-approval form back over the change).
+- Approve merges into this session only. Content reaches the live site through the existing
+  Publish to GitHub button, so there is still exactly one publish gate for all content.
+- saveWorkLog() re-reads the blob sha before every PUT and, if the remote moved since load,
+  merges task rows by id rather than replacing the file wholesale — the Action committing its
+  own run in between is the normal case here, not an edge case.
+- Review cards render from the task's own result: oldDied/newDied produce a struck-through
+  before/after pair; anything else falls back to pretty-printed JSON, so a service added later
+  is reviewable before its custom renderer exists.
+-->
+<!--
 VERSION: 271
 DATE: 2026-08-30T15:15:00-05:00
 CHANGES:
@@ -4555,6 +4587,64 @@ CHANGES:
     border-radius:8px; cursor:pointer;
   }
   .mImportStatusClear.show{display:inline-block;}
+
+  /* ---- Work tab: the task queue / review cards for the orchestrator pipeline ----
+     workLog.json is staging data, read and written straight through the GitHub API using
+     the same owner/repo/branch/token fields as Publish. Deliberately styled like the rest
+     of the CMS (flat white rows on the warm grey background) rather than as a new visual
+     language — this is another CMS surface, not a separate app. */
+  .wlBar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px;}
+  .wlCount{font-size:13px; color:var(--m-sub); margin:6px 0 10px;}
+  .wlLog{
+    font-size:13px; color:var(--m-sub); background:var(--m-bg); border:1px solid var(--m-border);
+    border-radius:8px; padding:9px 11px; margin-top:8px; line-height:1.45; word-break:break-word;
+  }
+  .wlBatch{border:1px solid var(--m-border); border-radius:12px; background:var(--m-row); margin:12px 0; overflow:hidden;}
+  .wlBatchHead{
+    padding:12px 14px; border-bottom:1px solid var(--m-border); background:var(--m-bg);
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  .wlBatchTitle{font-size:14px; font-weight:700; color:var(--m-ink); letter-spacing:normal;}
+  .wlBatchSub{font-size:12.5px; color:var(--m-sub); font-weight:500;}
+  .wlCard{padding:12px 14px; border-bottom:1px solid var(--m-border);}
+  .wlCard:last-child{border-bottom:none;}
+  .wlCardName{font-size:15px; font-weight:600; color:var(--m-ink); margin-bottom:6px;}
+  .wlDiff{font-size:14px; line-height:1.5; margin-bottom:9px;}
+  .wlDiffRow{display:flex; gap:7px; align-items:flex-start; margin-bottom:3px;}
+  .wlDiffTag{
+    flex:none; font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    border-radius:4px; padding:2px 5px; margin-top:2px;
+  }
+  .wlDiffTag.old{background:#F1EFE6; color:var(--m-sub2);}
+  .wlDiffTag.new{background:#EAF3E9; color:#2F6B31;}
+  .wlOld{color:var(--m-sub2); text-decoration:line-through; word-break:break-word;}
+  .wlNew{color:var(--m-ink); font-weight:600; word-break:break-word;}
+  .wlActions{display:flex; gap:8px; flex-wrap:wrap;}
+  .wlPre{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; white-space:pre-wrap;
+    background:var(--m-bg); border:1px solid var(--m-border); border-radius:8px; padding:8px 10px;
+    color:var(--m-ink); margin-bottom:9px; max-height:220px; overflow:auto;
+  }
+  .wlTaskRow{
+    display:flex; align-items:center; gap:9px; padding:10px 12px;
+    border-bottom:1px solid var(--m-border); font-size:14px; color:var(--m-ink);
+  }
+  .wlTaskRow:last-child{border-bottom:none;}
+  .wlTaskMain{flex:1 1 auto; min-width:0;}
+  .wlTaskDesc{word-break:break-word; line-height:1.4;}
+  .wlTaskMeta{font-size:12px; color:var(--m-sub2); margin-top:2px; word-break:break-all;}
+  .wlBadge{
+    flex:none; font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    border-radius:5px; padding:3px 7px; background:var(--m-bg); color:var(--m-sub);
+    border:1px solid var(--m-border);
+  }
+  .wlBadge.queued{background:#FBF3DC; color:#6E5714; border-color:#E7D9A8;}
+  .wlBadge.proposed{background:#E9EFF8; color:#2C4A78; border-color:#C6D6EC;}
+  .wlBadge.done{background:#EAF3E9; color:#2F6B31; border-color:#C9E0C7;}
+  .wlBadge.approved{background:#EAF3E9; color:#2F6B31; border-color:#C9E0C7;}
+  .wlBadge.rejected{background:var(--m-danger-bg); color:var(--m-danger); border-color:#F0C9C0;}
+  .wlBadge.error{background:var(--m-danger-bg); color:var(--m-danger); border-color:#F0C9C0;}
+  .wlEmpty{font-size:14px; color:var(--m-sub); padding:14px 4px; line-height:1.5;}
   .mgmtEntriesTop{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
   .mgmtEntriesTop input[type=text]{
     flex:1 1 auto; background:var(--m-bg); color:var(--m-ink); border:1px solid var(--m-border);
@@ -5298,6 +5388,46 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
       </details>
     </div>
 
+    <!-- ===== TAB: Work (workLog.json — the orchestrator's task queue and review cards) ===== -->
+    <div class="mgmtPanel" id="panel-work">
+
+      <div class="mbox">
+        <h3>Work Log</h3>
+        <div class="wlBar">
+          <button class="mbtn sm" id="wlRefresh">Refresh</button>
+          <button class="mbtn sm" id="wlRunOrchestrator">Run Orchestrator</button>
+        </div>
+        <div class="wlCount" id="wlCount"></div>
+        <div class="wlLog" id="wlLog" style="display:none;"></div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Backend services draft work; you approve it here. <b>Refresh</b> reads <code>workLog.json</code> from GitHub (same token as Publish). <b>Run Orchestrator</b> fires the Action, which picks up every <b>queued</b> task, hands it to its service, and writes the results back as <b>proposed</b> items for review below.<br><br>Approving merges the change into this session only &mdash; exactly like a Paste JSON import. It reaches the live site when you <b>Publish to GitHub</b> (or Save, Publish &amp; Exit) as usual. The work log itself is written immediately on every add/approve/reject, since the Action can only see what's committed to the repo.</div>
+        </details>
+      </div>
+
+      <div class="mbox">
+        <h3>Add a Task</h3>
+        <div class="mfield"><label>Service</label>
+          <select id="wlNewType">
+            <option value="age-backfill-scan">Age backfill &mdash; scan for computable ages</option>
+          </select>
+        </div>
+        <div class="mfield"><label>Description <span style="font-weight:400; font-style:italic;">(what this run is for &mdash; your own note)</span></label><input type="text" id="wlNewDesc" placeholder="e.g. Re-scan after adding the March saints"></div>
+        <button class="mbtn" id="wlAddTask">Add Task &amp; Save</button>
+        <div class="wlLog" id="wlAddStatus" style="display:none;"></div>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Adds one <b>queued</b> task and commits it to <code>workLog.json</code> straight away, so the next Orchestrator run can see it. Nothing about your content changes at this point &mdash; a queued task is only a request for work.</div>
+        </details>
+      </div>
+
+      <div id="wlReviewWrap"></div>
+
+      <div class="mbox">
+        <h3>All Tasks</h3>
+        <div id="wlAllTasks"></div>
+      </div>
+
+    </div>
+
     <!-- ===== TAB: Logs (changelog.json, fetched privately via the GitHub API) ===== -->
     <div class="mgmtPanel logPanel" id="panel-logs">
       <div class="logSearchRow">
@@ -5330,6 +5460,10 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
   <button class="mgmtTab" data-tab="settings">
    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.09a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
    <span>Settings</span>
+  </button>
+  <button class="mgmtTab" data-tab="work">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5l2 2 3.5-3.5M4 13l2 2 3.5-3.5M4 19.5l2 2 3.5-3.5M13 7h7M13 14h7M13 21h7"/></svg>
+   <span>Work</span>
   </button>
   <button class="mgmtTab" data-tab="logs">
    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
@@ -5583,7 +5717,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v271';
+const APP_VERSION = 'v272';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7163,6 +7297,319 @@ function renderLogList(){
 }
 document.getElementById('logRefresh').addEventListener('click', renderLogList);
 document.getElementById('logSearch').addEventListener('input', renderLogList);
+
+// ==================== Work tab: workLog.json task queue + review cards ====================
+// The in-app half of the orchestrator pipeline. Backend services (GitHub Actions) draft work
+// and write proposals into workLog.json; this reads that file, renders each proposal as a
+// review card, and applies approved ones to the in-memory db.
+//
+// Two deliberately different write rhythms, and the distinction matters:
+//   • workLog.json is committed IMMEDIATELY on every add/approve/reject. It has to be — the
+//     Action runs on GitHub and can only ever see what's actually in the repo, so a task held
+//     in browser memory would be invisible to it.
+//   • data.json is NOT touched here. Approving merges into the session's db exactly like a
+//     Paste JSON import, and reaches the site through the existing Publish button. That keeps
+//     one publish gate for all content changes rather than a second hidden path.
+//
+// Reuses the Publish section's owner/repo/branch/token fields, so nothing new to configure.
+let wlData = null;   // parsed workLog.json
+let wlSha = null;    // its blob sha, needed to commit an update without clobbering
+
+const WL_PATH = 'workLog.json';
+const WL_ORCHESTRATOR_WORKFLOW = 'orchestrator.yml';
+
+function wlGh(){
+  const v = id => (document.getElementById(id).value || '').trim();
+  return {
+    owner: v('ghOwner'), repo: v('ghRepo'), branch: v('ghBranch') || 'main', token: v('ghToken'),
+    hdr: { 'Authorization': 'Bearer ' + v('ghToken'), 'Accept': 'application/vnd.github+json' }
+  };
+}
+function wlSetLog(msg, isErr){
+  const el = document.getElementById('wlLog');
+  el.textContent = msg || '';
+  el.style.display = msg ? 'block' : 'none';
+  el.style.color = isErr ? 'var(--m-danger)' : 'var(--m-sub)';
+}
+function wlSetAddStatus(msg, isErr){
+  const el = document.getElementById('wlAddStatus');
+  el.textContent = msg || '';
+  el.style.display = msg ? 'block' : 'none';
+  el.style.color = isErr ? 'var(--m-danger)' : 'var(--m-sub)';
+}
+
+async function loadWorkLog(){
+  const g = wlGh();
+  if(!g.owner || !g.repo || !g.token){
+    document.getElementById('wlCount').textContent = 'Enter your GitHub token under Import \u2192 Publish to GitHub first \u2014 the Work tab reads workLog.json using the same credentials.';
+    return;
+  }
+  document.getElementById('wlCount').textContent = 'Loading\u2026';
+  const api = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' + WL_PATH + '?ref=' + encodeURIComponent(g.branch);
+  try{
+    const res = await fetch(api, { headers: g.hdr, cache: 'no-store' });
+    if(res.status === 404){
+      wlData = null; wlSha = null;
+      document.getElementById('wlCount').textContent = 'No workLog.json in the repo yet \u2014 add one task below and it will be created.';
+      renderWorkLog();
+      return;
+    }
+    if(res.status === 401 || res.status === 403) throw new Error('token rejected (check permissions)');
+    if(!res.ok) throw new Error('fetch failed (' + res.status + ')');
+    const meta = await res.json();
+    wlSha = meta.sha;
+    wlData = JSON.parse(decodeURIComponent(escape(atob(meta.content.replace(/\n/g, '')))));
+    if(!Array.isArray(wlData.tasks)) wlData.tasks = [];
+    renderWorkLog();
+  }catch(err){
+    document.getElementById('wlCount').textContent = 'Could not load workLog.json: ' + err.message;
+  }
+}
+
+// Commits the current wlData back to the repo. Always re-reads the sha first: the Action may
+// have committed its own run in between (that's the normal case, not an edge case), and a PUT
+// with a stale sha is rejected outright rather than silently overwriting — but re-reading also
+// means a proposal resolved here can't stomp a result the Action wrote seconds ago.
+async function saveWorkLog(message){
+  const g = wlGh();
+  if(!g.owner || !g.repo || !g.token) return { ok: false, error: 'GitHub token not set' };
+  const api = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' + WL_PATH;
+  try{
+    let sha = wlSha;
+    const g0 = await fetch(api + '?ref=' + encodeURIComponent(g.branch), { headers: g.hdr, cache: 'no-store' });
+    if(g0.status === 200){
+      const meta = await g0.json();
+      sha = meta.sha;
+      // If the remote moved since we loaded, merge our status changes onto the remote copy
+      // rather than replacing it wholesale — the Action may have added tasks we don't have.
+      if(sha !== wlSha){
+        try{
+          const remote = JSON.parse(decodeURIComponent(escape(atob(meta.content.replace(/\n/g, '')))));
+          if(Array.isArray(remote.tasks)){
+            const byId = {};
+            remote.tasks.forEach(t => { byId[t.id] = t; });
+            wlData.tasks.forEach(t => { byId[t.id] = t; });
+            wlData.tasks = Object.keys(byId).map(k => byId[k]);
+          }
+        }catch(e){ /* remote unparseable — fall through and write ours */ }
+      }
+    }else if(g0.status !== 404){
+      throw new Error('read failed (' + g0.status + ')');
+    }else{
+      sha = null;
+    }
+    const json = JSON.stringify(wlData, null, 2) + '\n';
+    const body = { message: message || 'Update workLog.json via Content Manager', content: btoa(unescape(encodeURIComponent(json))), branch: g.branch };
+    if(sha) body.sha = sha;
+    const put = await fetch(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, g.hdr), body: JSON.stringify(body) });
+    if(put.status === 200 || put.status === 201){
+      const out = await put.json();
+      wlSha = out.content && out.content.sha ? out.content.sha : null;
+      return { ok: true };
+    }
+    let m = ''; try{ m = (await put.json()).message; }catch(e){}
+    throw new Error(m || ('commit failed ' + put.status));
+  }catch(err){
+    return { ok: false, error: err.message };
+  }
+}
+
+// ---- Review card rendering ----
+// A proposal is rendered from its own `result`. The age-backfill service supplies oldDied/
+// newDied, which makes a clean before/after; anything else falls back to showing the raw
+// result JSON, so a service added later is still reviewable before its renderer is written.
+function wlRenderProposalBody(task){
+  const r = task.result || {};
+  if(r.oldDied != null && r.newDied != null){
+    return '<div class="wlDiff">' +
+      '<div class="wlDiffRow"><span class="wlDiffTag old">Now</span><span class="wlOld">' + esc(String(r.oldDied)) + '</span></div>' +
+      '<div class="wlDiffRow"><span class="wlDiffTag new">New</span><span class="wlNew">' + esc(String(r.newDied)) + '</span></div>' +
+      '</div>';
+  }
+  return '<div class="wlPre">' + esc(JSON.stringify(r, null, 2)) + '</div>';
+}
+
+function wlRenderReviewQueue(){
+  const wrap = document.getElementById('wlReviewWrap');
+  const proposed = (wlData && wlData.tasks ? wlData.tasks : []).filter(t => t.status === 'proposed');
+  if(!proposed.length){
+    wrap.innerHTML = '<div class="mbox"><h3>Review Queue</h3><div class="wlEmpty">Nothing waiting for review. Add a task above and run the Orchestrator to generate proposals.</div></div>';
+    return;
+  }
+  // Group by batchId so a scan that spawned 40 rows can be approved in one action, while any
+  // individual card can still be rejected first — a batch approve never overrides a reject,
+  // since it only ever acts on items still sitting at "proposed".
+  const groups = {};
+  proposed.forEach(t => {
+    const k = t.batchId || '_ungrouped';
+    (groups[k] = groups[k] || []).push(t);
+  });
+  wrap.innerHTML = Object.keys(groups).map(batchId => {
+    const items = groups[batchId];
+    const parent = batchId !== '_ungrouped' ? (wlData.tasks.find(t => t.id === batchId) || null) : null;
+    const title = parent ? esc(parent.description || parent.type) : 'Individual proposals';
+    const cards = items.map(t => {
+      const name = (t.result && t.result.name) || t.entityId || t.id;
+      return '<div class="wlCard" data-task="' + esc(t.id) + '">' +
+        '<div class="wlCardName">' + esc(String(name)) + '</div>' +
+        wlRenderProposalBody(t) +
+        '<div class="wlActions">' +
+          '<button class="mbtn sm wlApprove" data-task="' + esc(t.id) + '">Approve</button>' +
+          '<button class="mbtn sm danger wlReject" data-task="' + esc(t.id) + '">Reject</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    return '<div class="wlBatch">' +
+      '<div class="wlBatchHead">' +
+        '<div><div class="wlBatchTitle">' + title + '</div><div class="wlBatchSub">' + items.length + ' awaiting review</div></div>' +
+        (items.length > 1 ? '<button class="mbtn sm wlApproveAll" data-batch="' + esc(batchId) + '">Approve All ' + items.length + '</button>' : '') +
+      '</div>' + cards +
+    '</div>';
+  }).join('');
+}
+
+function wlRenderAllTasks(){
+  const el = document.getElementById('wlAllTasks');
+  const tasks = (wlData && wlData.tasks) ? wlData.tasks : [];
+  if(!tasks.length){ el.innerHTML = '<div class="wlEmpty">No tasks yet.</div>'; return; }
+  // Newest first, so a run just fired sits at the top rather than buried under history.
+  const order = { proposed: 0, queued: 1, in_progress: 2, error: 3, done: 4, approved: 5, rejected: 6 };
+  const sorted = tasks.slice().sort((a, b) => {
+    const oa = order[a.status] == null ? 9 : order[a.status];
+    const ob = order[b.status] == null ? 9 : order[b.status];
+    if(oa !== ob) return oa - ob;
+    return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+  });
+  el.innerHTML = sorted.map(t => {
+    const meta = [t.type, t.entityId ? t.entityId : null].filter(Boolean).join(' \u00b7 ');
+    return '<div class="wlTaskRow">' +
+      '<div class="wlTaskMain">' +
+        '<div class="wlTaskDesc">' + esc(t.description || t.id) + '</div>' +
+        '<div class="wlTaskMeta">' + esc(meta) + (t.error ? ' \u00b7 ' + esc(String(t.error).slice(0, 120)) : '') + '</div>' +
+      '</div>' +
+      '<span class="wlBadge ' + esc(t.status || '') + '">' + esc(t.status || '?') + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+function renderWorkLog(){
+  const tasks = (wlData && wlData.tasks) ? wlData.tasks : [];
+  const counts = {};
+  tasks.forEach(t => { counts[t.status] = (counts[t.status] || 0) + 1; });
+  const parts = Object.keys(counts).map(k => counts[k] + ' ' + k);
+  document.getElementById('wlCount').textContent = tasks.length
+    ? tasks.length + ' task' + (tasks.length === 1 ? '' : 's') + ' \u00b7 ' + parts.join(', ')
+    : (wlData ? 'No tasks yet.' : '');
+  wlRenderReviewQueue();
+  wlRenderAllTasks();
+}
+
+// Applies one approved proposal's patch to the in-memory db, reusing the exact same
+// applyOnePatch() the Paste JSON importer uses — one code path for "a patch is applied to an
+// entry", whether it arrived by clipboard or by service. Returns the same {ok, note} shape.
+function wlApplyTaskToDb(task){
+  if(!task.entityId) return { ok: false, note: 'task has no entityId' };
+  const entry = getEntry(task.entityId);
+  if(!entry) return { ok: false, note: 'no entry with id ' + task.entityId };
+  const patch = task.result && task.result.patch;
+  if(!Array.isArray(patch)) return { ok: false, note: 'task carries no patch array' };
+  return applyOnePatch(entry, patch);
+}
+
+async function wlResolveTasks(taskIds, approve){
+  if(!wlData || !taskIds.length) return;
+  const nowIso = new Date().toISOString();
+  const applied = [], failed = [];
+  taskIds.forEach(id => {
+    const task = wlData.tasks.find(t => t.id === id);
+    if(!task || task.status !== 'proposed') return;
+    if(approve){
+      const res = wlApplyTaskToDb(task);
+      if(!res.ok){ failed.push(res.note); return; }
+      task.status = 'approved';
+      applied.push(id);
+    }else{
+      task.status = 'rejected';
+      applied.push(id);
+    }
+    task.updatedAt = nowIso;
+  });
+  if(approve && applied.length){
+    await saveDb();
+    renderMList();
+    render();
+    // Same guard the importer uses: if the entry just patched is sitting open in the editor
+    // form, refresh it, or "Save, Publish & Exit" would write the stale form back over this.
+    if(editingId && getEntry(editingId)) openEditor(editingId);
+  }
+  const verb = approve ? 'Approved' : 'Rejected';
+  wlSetLog(verb + ' ' + applied.length + (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') + ' \u00b7 saving work log\u2026', !!failed.length);
+  const saved = await saveWorkLog(verb + ' ' + applied.length + ' task(s) via Content Manager');
+  if(!saved.ok){
+    wlSetLog('Content updated in this session, but the work log could not be saved: ' + saved.error + ' \u2014 tap Refresh and try again, or these items will still show as proposed next time.', true);
+  }else{
+    wlSetLog(verb + ' ' + applied.length + ' task(s)' + (failed.length ? ' \u00b7 ' + failed.length + ' skipped: ' + failed.join('; ') : '') +
+      (approve ? ' \u00b7 merged into this session \u2014 Publish to GitHub to put it live.' : ''), !!failed.length);
+  }
+  renderWorkLog();
+  if(approve && applied.length) setStatus(verb + ' ' + applied.length + ' \u2014 Publish to make it live');
+}
+
+document.getElementById('wlRefresh').addEventListener('click', loadWorkLog);
+
+document.getElementById('wlRunOrchestrator').addEventListener('click', async () => {
+  wlSetLog('Starting the Orchestrator\u2026');
+  await triggerWorkflow(WL_ORCHESTRATOR_WORKFLOW, { max_tasks: '5' }, 'wlLog');
+  document.getElementById('wlLog').style.display = 'block';
+  // The Action commits workLog.json at the end of its run, so pull the fresh copy in.
+  await loadWorkLog();
+});
+
+document.getElementById('wlAddTask').addEventListener('click', async () => {
+  const type = document.getElementById('wlNewType').value;
+  const desc = document.getElementById('wlNewDesc').value.trim();
+  const g = wlGh();
+  if(!g.owner || !g.repo || !g.token){
+    wlSetAddStatus('Enter your GitHub token under Import \u2192 Publish to GitHub first.', true);
+    return;
+  }
+  if(!wlData) wlData = { v: 1, tasks: [] };
+  if(!Array.isArray(wlData.tasks)) wlData.tasks = [];
+  const nowIso = new Date().toISOString();
+  // Id is time-based so two adds in the same session can never collide, and so the queue
+  // reads chronologically in the raw file.
+  const id = 'task-' + type + '-' + nowIso.replace(/[^0-9]/g, '').slice(0, 14);
+  wlData.tasks.push({
+    id: id, type: type, entityId: null, batchId: null, status: 'queued',
+    description: desc || ('Manual run of ' + type),
+    payload: {}, result: null, createdAt: nowIso, updatedAt: nowIso, error: null
+  });
+  wlSetAddStatus('Saving\u2026');
+  const saved = await saveWorkLog('Queue task ' + id + ' via Content Manager');
+  if(saved.ok){
+    document.getElementById('wlNewDesc').value = '';
+    wlSetAddStatus('Queued \u2713 \u2014 tap Run Orchestrator above to process it.');
+    renderWorkLog();
+  }else{
+    wlSetAddStatus('Could not save: ' + saved.error, true);
+  }
+});
+
+// Delegated, since every card is re-rendered on each refresh.
+document.getElementById('wlReviewWrap').addEventListener('click', async (e) => {
+  const approveBtn = e.target.closest('.wlApprove');
+  if(approveBtn){ await wlResolveTasks([approveBtn.dataset.task], true); return; }
+  const rejectBtn = e.target.closest('.wlReject');
+  if(rejectBtn){ await wlResolveTasks([rejectBtn.dataset.task], false); return; }
+  const allBtn = e.target.closest('.wlApproveAll');
+  if(allBtn){
+    const batchId = allBtn.dataset.batch;
+    const ids = wlData.tasks
+      .filter(t => t.status === 'proposed' && (t.batchId || '_ungrouped') === batchId)
+      .map(t => t.id);
+    await wlResolveTasks(ids, true);
+  }
+});
 
 // ---- Run a GitHub Actions workflow directly from the app (no need to navigate GitHub's UI) ----
 // Reuses the same owner/repo/branch/token fields as Publish above. workflow_dispatch itself
@@ -9645,6 +10092,7 @@ function switchMgmtTab(tab){
   document.querySelectorAll('.mgmtPanel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
   document.querySelector('.mgmtBody').scrollIntoView({block:'start'});
   if(tab === 'logs') loadChangelog();
+  if(tab === 'work') loadWorkLog();
 }
 document.querySelectorAll('.mgmtTab').forEach(t => t.addEventListener('click', () => switchMgmtTab(t.dataset.tab)));
 
