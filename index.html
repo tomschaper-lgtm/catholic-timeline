@@ -1,4 +1,36 @@
 <!--
+VERSION: 275
+DATE: 2026-08-30T22:40:00-05:00
+CHANGES:
+- FIXED unreadable review text. .tkReviewScroll never named its own `color`, so anything
+  inside it that didn't either (the scan summary's paragraphs) inherited the app's dark-theme
+  parchment body colour and rendered pale gold on white. The scroller now sets colour, size
+  and line-height explicitly, with rules for its p/b children — the panel is a light surface
+  inside a dark-themed app, so it can never rely on inherited colour.
+- Panel is now full-bleed: left/right/bottom 0, square corners, no max-height, so it fills the
+  screen below the app header instead of being a 410px card. A rounded edge only reads as
+  "card" when something is visible beside it; nothing is now. Still slides in from the left.
+- Status column reduced from an 84px word to a 26px glyph, no header label: ○ queued,
+  ◐ running, ● waiting on you, ✓ done/approved, ✕ rejected (grey) or error (red). Every pixel
+  it gave up went to the Task column, which is the one carrying text that has to be readable;
+  Task rows also went to 15px.
+- Status sorting and its sticky grouping REMOVED rather than kept as an unlabelled tap target:
+  the All/Queued/Review chips already do status filtering, so a status sort was a second way
+  to do the same thing. Sort is now Task or Date.
+- Batch controls beside Run: a count box (1–50) and a service dropdown. They are the run's
+  arguments — "do 5 of these" — and become workflow_dispatch inputs. Both service dropdowns
+  (Run and Add Task) build from one TK_SERVICES array so they can't drift apart.
+- Backend: orchestrator.mjs takes a TASK_TYPE filter, and orchestrator.yml gains a matching
+  task_type input.
+- Backend: running out of budget is now a first-class outcome distinct from failure. A handler
+  returning {deferred:true, reason} — or throwing an error with .deferred — puts its task back
+  to `queued` exactly as it was, stops the rest of the batch (the budget is gone; retrying each
+  one would fail identically), and writes a plain-language `notice` onto workLog.json. Nothing
+  turns red, nothing is lost, and the items are simply picked up next run. The panel shows that
+  notice in an amber banner above the list. Verified end to end with a deferring test handler:
+  3 tasks in, 3 still queued, no errors, notice written.
+-->
+<!--
 VERSION: 274
 DATE: 2026-08-30T21:45:00-05:00
 CHANGES:
@@ -3501,15 +3533,18 @@ CHANGES:
      the eye lands on what still needs attention; (2) a detail pane pinned under the list, which
      the browse panels have no equivalent of, since a timeline entry opens a full article
      instead. */
+  /* Full-bleed: this panel is a working surface, not a peek at a list, so it takes the whole
+     screen below the app header rather than the 410px card the Saints/Browse panels use.
+     Square corners follow from that — a rounded edge only reads as "card" when there's
+     something visible beside it. Still slides in from the left, same timing as its siblings. */
   .taskPanel{
-    position:fixed; top:calc(46px + env(safe-area-inset-top)); left:0; z-index:145;
-    width:min(410px, 95vw);
-    max-height:calc(100vh - 78px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    position:fixed; top:calc(46px + env(safe-area-inset-top)); left:0; right:0; bottom:0; z-index:145;
+    width:auto; max-height:none;
     overflow:hidden; display:flex; flex-direction:column;
-    background:#fff;
-    border-radius:0 26px 26px 0;
-    box-shadow:16px 0 46px rgba(7,15,34,.28);
-    padding:22px 0 10px;
+    background:#fff; color:#111827;
+    border-radius:0;
+    box-shadow:0 -4px 46px rgba(7,15,34,.28);
+    padding:16px 0 0;
     transform:translateX(-100%);
     transition:transform .48s cubic-bezier(.32,.72,.28,1), visibility 0s linear .48s;
     visibility:hidden;
@@ -3528,27 +3563,27 @@ CHANGES:
   @media (prefers-reduced-motion: reduce){
     .taskPanel, .tkScrim{transition:none;}
   }
-  /* Column layout: Status (left, fixed) | Task (flexible) | Date (right, fixed) — the same
-     fixed/flex/fixed shape as Saints' Feast|Name|Year and Browse's Region|Name|Year, so all
-     three panels line up identically. */
-  .tkStatus{flex:0 0 84px; font-size:12px; font-weight:700; letter-spacing:.02em; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .tkDate{flex:0 0 78px; font-size:12.5px; color:#6B7280; text-align:right; font-variant-numeric:tabular-nums;}
-  #tkSortStatus{flex:0 0 84px; min-width:0;}
+  /* Status is an icon, not a word — a check, a running mark, a red cross. It needs almost no
+     width, which is the point: every pixel it gives up goes to the Task column, which is the
+     one carrying text that actually has to be readable. No header label either; the glyphs are
+     self-evident and the chips below already do the filtering that a Status sort would.
+     Deliberately NOT sortable anymore for the same reason — All/Queued/Review covers it. */
+  .tkStatus{flex:0 0 26px; font-size:15px; line-height:1; text-align:center; font-weight:400;}
+  .tkStatusSpacer{flex:0 0 26px;}
+  .tkDate{flex:0 0 74px; font-size:12.5px; color:#6B7280; text-align:right; font-variant-numeric:tabular-nums;}
   #tkSortName{flex:1 1 auto; min-width:0;}
-  #tkSortDate{flex:0 0 78px; justify-content:flex-end; min-width:0;}
-  /* Status colour carries the state at a glance: amber = waiting to run, blue = waiting on YOU,
-     green = settled, red = broken. Only the status cell is coloured; the task text itself stays
-     black or grey per the done/active rule below. */
+  #tkSortDate{flex:0 0 74px; justify-content:flex-end; min-width:0;}
   .tkStatus.queued, .tkStatus.in_progress{color:#8A6D1C;}
   .tkStatus.proposed{color:#2C4A78;}
   .tkStatus.done, .tkStatus.approved{color:#2F6B31;}
-  .tkStatus.rejected, .tkStatus.error{color:#96291A;}
+  .tkStatus.rejected{color:#9AA0AE;}
+  .tkStatus.error{color:#96291A;}
   /* Finished work recedes; anything still live stays full-strength black. This is the whole
      point of the list — what's left to do should be what you see first. */
-  .spRow.tkRow .spName{color:#111827;}
+  .spRow.tkRow{padding-left:12px; padding-right:14px;}
+  .spRow.tkRow .spName{color:#111827; font-size:15px;}
   .spRow.tkRow.tkFinished .spName{color:#9AA0AE;}
   .spRow.tkRow.tkFinished .tkDate{color:#B4B8C4;}
-  .spRow.tkRow.tkSelected{background:#FBF3DC;}
   /* Views: exactly one is active at a time. Each is a flex column that owns the panel's
      remaining height, so the list's own scroller and the review view's locked bottom bar
      both size correctly without measuring anything in JS. */
@@ -3576,11 +3611,17 @@ CHANGES:
   }
   .tkForm select:focus, .tkForm input:focus{outline:none; border-color:#8A6D1C;}
   .tkForm .tkBtn{margin-top:12px;}
-  /* Review view: scrolling entry above, locked options below. */
+  /* Review view: scrolling entry above, locked options below.
+     `color` is set explicitly here and NOT left to inherit: the panel sits inside the app's
+     dark theme, whose body colour is parchment, so any element that didn't name its own colour
+     was rendering pale gold on white and was effectively unreadable (the scan summary was). */
   .tkReviewScroll{
     flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch;
     padding:0 20px 18px; font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    color:#111827; font-size:15px; line-height:1.55;
   }
+  .tkReviewScroll p{color:#2B2F3A; margin:0 0 10px;}
+  .tkReviewScroll b{color:#111827;}
   .tkRvName{font-size:19px; font-weight:700; color:#111827; line-height:1.25; margin:2px 0 2px;}
   .tkRvMeta{font-size:12px; color:#6B7280; margin-bottom:12px; word-break:break-all; line-height:1.45;}
   .tkRvHead{
@@ -3644,6 +3685,29 @@ CHANGES:
   .tkNote.err{color:#96291A;}
   .tkNote code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px;}
   .tkBar{display:flex; gap:7px; align-items:center; flex-wrap:wrap; padding:0 20px 10px; flex:0 0 auto;}
+  /* Batch controls: how many, of which service, this run should process. Sit directly beside
+     Run because they're its arguments, not settings. */
+  .tkRunCount{
+    width:52px; box-sizing:border-box; font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:16px; text-align:center; color:#111827; background:#F7F7F4;
+    border:1px solid #C7CAD3; border-radius:9px; padding:9px 4px;
+  }
+  .tkRunType{
+    flex:1 1 120px; min-width:0; box-sizing:border-box;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:16px; color:#111827; background:#F7F7F4;
+    border:1px solid #C7CAD3; border-radius:9px; padding:9px 8px;
+  }
+  .tkRunCount:focus, .tkRunType:focus{outline:none; border-color:#8A6D1C;}
+  /* Deferral banner — work the backend put down rather than failed. Amber, not red: nothing
+     is broken, the items are simply still waiting. */
+  .tkNotice{
+    margin:0 20px 10px; padding:9px 12px; border-radius:9px;
+    background:#FBF3DC; border:1px solid #E7D9A8; color:#6E5714;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13px; line-height:1.45;
+    flex:0 0 auto;
+  }
+  .tkNotice:empty{display:none;}
 
   .pRow{
     display:flex; align-items:center; gap:16px;
@@ -5117,9 +5181,7 @@ CHANGES:
     <div class="tkView" id="tkViewAdd">
       <div class="tkForm">
         <label class="tkLabel" for="tkNewType">Service</label>
-        <select id="tkNewType">
-          <option value="age-backfill-scan">Age backfill &mdash; scan for computable ages</option>
-        </select>
+        <select id="tkNewType"></select>
         <label class="tkLabel" for="tkNewDesc">Description</label>
         <input type="text" id="tkNewDesc" placeholder="e.g. Re-scan after adding the March saints">
         <button class="tkBtn go" id="tkAdd">Add Task</button>
@@ -5133,8 +5195,11 @@ CHANGES:
       <div class="tkBar">
         <button class="tkBtn" id="tkRefresh">Refresh</button>
         <button class="tkBtn" id="tkRun">Run</button>
-        <span class="tkNote" id="tkCount" style="margin:0;"></span>
+        <input type="number" class="tkRunCount" id="tkRunCount" value="5" min="1" max="50" inputmode="numeric" aria-label="How many tasks to process">
+        <select class="tkRunType" id="tkRunType" aria-label="Which service to run"></select>
       </div>
+      <div class="tkNotice" id="tkNotice"></div>
+      <div class="tkBar" style="padding-bottom:8px;"><span class="tkNote" id="tkCount" style="margin:0;"></span></div>
       <div class="spHead" id="tkHead"></div>
       <div class="spListWrap" id="tkListWrap">
         <div class="spList" id="tkList"></div>
@@ -5905,7 +5970,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v274';
+const APP_VERSION = 'v275';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7618,16 +7683,12 @@ async function saveWorkLog(message){
 // Row colour carries state: finished work (done/approved/rejected) greys out, anything still
 // live (queued/in_progress/proposed) stays black, so what's left to do is what the eye lands on.
 
-let tkSort = 'date';       // 'status' | 'name' | 'date'
+let tkSort = 'date';       // 'name' | 'date'  (status is filtered by chip, not sorted)
 let tkFilter = 'all';      // 'all' | 'queued' | 'review'
 let tkView = 'list';       // 'add' | 'list' | 'review'
 let tkReviewIds = [];      // the queue being worked through, captured when review opens
 let tkReviewIdx = 0;
 
-// Deliberately not alphabetical — this is the order the states actually matter in. Proposed
-// first (it's the only one waiting on a human), then work that hasn't run, then failures,
-// then everything already settled.
-const TK_STATUS_ORDER = { proposed: 0, queued: 1, in_progress: 2, error: 3, done: 4, approved: 5, rejected: 6 };
 const TK_FINISHED = { done: 1, approved: 1, rejected: 1 };
 // Queued deliberately includes in_progress — a task that's running is still work you're
 // waiting on, not a separate state you'd want to hunt for. Finished items have no chip of
@@ -7637,7 +7698,19 @@ const TK_CHIPS = [
   { id: 'queued', label: 'Queued' },
   { id: 'review', label: 'Review' }
 ];
-
+// Services the orchestrator has a handler for. Drives the Run dropdown; keep in step with
+// SERVICE_HANDLERS in scripts/orchestrator.mjs.
+const TK_SERVICES = [
+  { id: '', label: 'Any service' },
+  { id: 'age-backfill-scan', label: 'Age backfill' }
+];
+// One glyph per state, no label. Green check = settled, amber ring = waiting to run, half-ring
+// = running, blue dot = waiting on you, red cross = broken, grey cross = you said no.
+const TK_ICONS = {
+  queued: '\u25cb', in_progress: '\u25d0', proposed: '\u25cf',
+  done: '\u2713', approved: '\u2713', rejected: '\u2715', error: '\u2715'
+};
+function tkStatusIcon(s){ return TK_ICONS[s] || '\u00b7'; }
 function tkStatusLabel(s){ return String(s || '?').replace(/_/g, ' '); }
 
 // "8/30 4:58" — short enough for a 78px column, unambiguous within a working session. Falls
@@ -7677,12 +7750,6 @@ function tkRows(){
     return true;
   });
   filtered.sort((a, b) => {
-    if(tkSort === 'status'){
-      const oa = TK_STATUS_ORDER[a.status] == null ? 9 : TK_STATUS_ORDER[a.status];
-      const ob = TK_STATUS_ORDER[b.status] == null ? 9 : TK_STATUS_ORDER[b.status];
-      if(oa !== ob) return oa - ob;
-      return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
-    }
     if(tkSort === 'name') return String(tkTaskName(a)).localeCompare(String(tkTaskName(b)));
     // date — newest first, which is what a log should show without being asked
     return String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''));
@@ -7691,9 +7758,10 @@ function tkRows(){
 }
 
 function renderTaskList(){
-  const headEl = document.getElementById('tkHead');
-  headEl.innerHTML =
-    '<button class="spCol' + (tkSort === 'status' ? ' active' : '') + '" id="tkSortStatus" data-sort="status">Status <span class="arrow">\u25b2</span></button>' +
+  // Status has no header cell of its own — just a spacer the width of the icon column, so
+  // "Task" starts over the task text rather than over the glyph.
+  document.getElementById('tkHead').innerHTML =
+    '<span class="tkStatusSpacer" aria-hidden="true"></span>' +
     '<button class="spCol' + (tkSort === 'name' ? ' active' : '') + '" id="tkSortName" data-sort="name">Task <span class="arrow">\u25b2</span></button>' +
     '<button class="spCol' + (tkSort === 'date' ? ' active' : '') + '" id="tkSortDate" data-sort="date">Date <span class="arrow">\u25b2</span></button>';
   document.getElementById('tkChips').innerHTML = TK_CHIPS.map(c =>
@@ -7708,26 +7776,19 @@ function renderTaskList(){
     ? rows.length + ' of ' + tasks.length + (proposedCount ? ' \u00b7 ' + proposedCount + ' to review' : '')
     : (wlData ? 'No tasks yet.' : '');
 
-  // Sticky status headers only when the list is actually sorted by status — same rule the
-  // Browse panel applies to its Region/Country grouping.
-  const grouped = tkSort === 'status';
-  const items = rows.map(t => {
+  // A run that ran out of budget leaves a notice rather than an error — see the orchestrator's
+  // deferral handling. Shown here so "nothing happened" is never silent.
+  const notice = document.getElementById('tkNotice');
+  notice.textContent = (wlData && wlData.notice) ? String(wlData.notice) : '';
+
+  document.getElementById('tkList').innerHTML = rows.map(t => {
     const finished = !!TK_FINISHED[t.status];
-    const cls = 'spRow tkRow' + (finished ? ' tkFinished' : '');
-    return {
-      label: tkStatusLabel(t.status),
-      render: (showLabel, isLast) => '<div class="' + cls + (isLast === false ? ' groupMid' : '') + '" data-task="' + esc(t.id) + '">' +
-        '<span class="tkStatus ' + esc(t.status || '') + '">' + (showLabel ? esc(tkStatusLabel(t.status)) : '') + '</span>' +
-        '<span class="spName">' + esc(String(tkTaskName(t))) + '</span>' +
-        '<span class="tkDate">' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</span>' +
-        '</div>'
-    };
-  });
-  const listEl = document.getElementById('tkList');
-  listEl.innerHTML = (grouped ? groupStickyRows(items) : items.map(it => it.render(true)).join(''))
-    || '<div class="spEmpty">Nothing matches.</div>';
-  const sampleRow = listEl.querySelector('.tkRow');
-  if(sampleRow) listEl.style.setProperty('--rowH', sampleRow.offsetHeight + 'px');
+    return '<div class="spRow tkRow' + (finished ? ' tkFinished' : '') + '" data-task="' + esc(t.id) + '">' +
+      '<span class="tkStatus ' + esc(t.status || '') + '" title="' + esc(tkStatusLabel(t.status)) + '">' + tkStatusIcon(t.status) + '</span>' +
+      '<span class="spName">' + esc(String(tkTaskName(t))) + '</span>' +
+      '<span class="tkDate">' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</span>' +
+      '</div>';
+  }).join('') || '<div class="spEmpty">Nothing matches.</div>';
 }
 
 // ---- Review view ----
@@ -7927,6 +7988,14 @@ const tkScrimEl = document.getElementById('tkScrim');
 function openTaskPanel(){
   closeHamMenu();
   tkView = 'list';
+  // Both service pickers are built from the one TK_SERVICES list, so adding a handler later
+  // means editing a single array rather than two <select>s that can drift apart.
+  const runSel = document.getElementById('tkRunType');
+  if(!runSel.options.length){
+    runSel.innerHTML = TK_SERVICES.map(s => '<option value="' + esc(s.id) + '">' + esc(s.label) + '</option>').join('');
+    document.getElementById('tkNewType').innerHTML = TK_SERVICES.filter(s => s.id)
+      .map(s => '<option value="' + esc(s.id) + '">' + esc(s.label) + '</option>').join('');
+  }
   taskPanelEl.classList.add('open');
   tkScrimEl.classList.add('open');
   renderTaskPanel();
@@ -7986,8 +8055,12 @@ document.getElementById('tkLockBar').addEventListener('click', async (e) => {
 });
 document.getElementById('tkRefresh').addEventListener('click', loadWorkLog);
 document.getElementById('tkRun').addEventListener('click', async () => {
+  // The count and service beside the button are the run's arguments: "do 5 of these". They
+  // become workflow_dispatch inputs, and the orchestrator filters its queue accordingly.
+  const n = Math.max(1, Math.min(50, parseInt(document.getElementById('tkRunCount').value, 10) || 5));
+  const type = document.getElementById('tkRunType').value;
   document.getElementById('tkCount').textContent = 'Starting the Orchestrator\u2026';
-  await triggerWorkflow(WL_ORCHESTRATOR_WORKFLOW, { max_tasks: '5' }, 'tkCount');
+  await triggerWorkflow(WL_ORCHESTRATOR_WORKFLOW, { max_tasks: String(n), task_type: type }, 'tkCount');
   await loadWorkLog();
 });
 document.getElementById('tkAdd').addEventListener('click', async () => {
