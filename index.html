@@ -1,4 +1,37 @@
 <!--
+VERSION: 276
+DATE: 2026-08-30T23:30:00-05:00
+CHANGES:
+- Review view title now names the TASK'S STATE rather than the view: "Task : Completed
+  Successfully" for a finished run, plus Approved / Rejected / Failed / Queued / Running, and
+  ": Review" only for something actually awaiting a decision (TK_TITLES). renderTaskPanel()
+  no longer overwrites it — it only resets the title for the two list-side views.
+- Summary tasks re-rendered for the full-screen panel: three stat tiles (Checked / Qualified /
+  Skipped) over a per-reason breakdown list, replacing two lines of prose that left most of the
+  screen empty. When nothing qualified it says so plainly instead of leaving you to infer it.
+- Swipe gestures on the review view: left = next item down the list, right = back up, down =
+  return to the list. Axis is locked on first movement so a diagonal can't trigger both, a
+  horizontal drag preventDefaults the scroll it would otherwise cause, and swipe-down only
+  closes when the content is already at scrollTop 0 — otherwise pulling down through a long
+  article would eject you out of it. Running off either end returns to the list.
+- "Back to list" button removed; the lock bar hides itself when empty (.tkLockBar:empty), so a
+  settled task gives its height back to the content. X and swipe-down both return to the list.
+- Review now walks the CURRENTLY VISIBLE list — same filter, same sort — so "next item" means
+  the one you can see below it. tkProposedQueue() deleted; one row-tap path for every status,
+  with Approve/Reject present only on proposals. Approve/Reject still skip forward to the next
+  item awaiting a decision so a mixed list doesn't strand you on a finished row.
+- Gesture hint stated at the foot of the review content (position + what the swipes do), since
+  the view otherwise has no visible controls.
+- REMOVED Gesture Tuning entirely — HUD markup, its CSS block, the GT_FIELDS slider system,
+  setGestureTuner/gtBuild/gtSync/renderGestureReadout, the menu switch row, the owner-visibility
+  handling, and the 'gesture-tuner-open' persistence. ~7.3KB gone. GEST/GESTURE_DEFAULTS stay:
+  they're the live thresholds the swipe handler reads, only the tuning UI was abandoned.
+  recordGesture() is left as a no-op stub rather than stripping its calls out of every branch
+  of the article swipe handler — the calls document which path a swipe took, and editing that
+  handler for no functional gain is not worth the risk.
+- REMOVED Test Update Glow entirely — menu row, help text, and handler.
+-->
+<!--
 VERSION: 275
 DATE: 2026-08-30T22:40:00-05:00
 CHANGES:
@@ -3011,42 +3044,6 @@ CHANGES:
     50%{ background:rgba(232,205,126,.22); }
   }
   #updateBtn.glowPulse{ animation:rowGlowPulse 1s ease-in-out 3; }
-  /* ---- Gesture tuning HUD (owner tools) ----------------------------------
-     Sits above the article overlay so a card can be opened and flicked while the
-     readout is watched — tuning a feel-based threshold is impossible if the
-     numbers are hidden behind the thing being tested. */
-  .gtHud{
-    position:fixed; left:0; right:0; bottom:0; z-index:160;
-    background:rgba(8,14,30,.94); color:#E8ECF6;
-    border-top:1px solid rgba(201,165,66,.5);
-    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12.5px;
-    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
-    display:none; max-height:64vh; overflow-y:auto;
-    box-shadow:0 -10px 30px rgba(0,0,0,.45);
-  }
-  .gtHud.show{display:block;}
-  .gtTop{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
-  .gtTitle{font-family:'Cinzel',serif; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); flex:1;}
-  .gtBtn{
-    background:rgba(255,255,255,.09); color:#E8ECF6; border:1px solid rgba(255,255,255,.22);
-    border-radius:7px; padding:5px 10px; font-size:11.5px; cursor:pointer;
-  }
-  .gtBtn:hover{background:rgba(201,165,66,.22);}
-  .gtRead{
-    background:rgba(255,255,255,.06); border-radius:8px; padding:8px 10px; margin-bottom:10px;
-    font-variant-numeric:tabular-nums; line-height:1.7;
-  }
-  .gtRead b{color:var(--gold-bright); font-weight:600;}
-  .gtRead .gtAction{display:block; color:#9FE8B0;}
-  .gtRow{display:flex; align-items:center; gap:10px; margin:7px 0;}
-  .gtRow label{flex:0 0 88px; color:#AFB8CC;}
-  .gtRow input[type=range]{flex:1; accent-color:var(--gold);}
-  .gtRow .gtVal{flex:0 0 58px; text-align:right; font-variant-numeric:tabular-nums; color:var(--gold-bright);}
-  .gtOut{
-    width:100%; box-sizing:border-box; margin-top:8px; padding:8px;
-    background:#060C1C; color:#CBD5EA; border:1px solid rgba(255,255,255,.16);
-    border-radius:7px; font-family:ui-monospace,Menlo,monospace; font-size:11px; resize:vertical;
-  }
 
   /* ---- Settings panel ----------------------------------------------------
      A white card hinged on the right edge: rounded on the left where it meets
@@ -3650,18 +3647,46 @@ CHANGES:
   }
   .tkTarget .tkFactValue{font-weight:700;}
   .tkRvEmpty{font-size:14px; color:#6B7280; line-height:1.5; padding:10px 0;}
+  /* Summary tasks carry a handful of numbers and nothing else, which looked lost on a
+     full-screen panel as two lines of prose. Rendered as stat tiles plus a breakdown list
+     instead, so the figures are scannable and the space is doing something. */
+  .tkStats{display:flex; gap:10px; margin:14px 0 4px;}
+  .tkStat{
+    flex:1 1 0; background:#F7F7F4; border:1px solid #E3E1D8; border-radius:12px;
+    padding:14px 12px; text-align:center;
+  }
+  .tkStatNum{font-size:30px; font-weight:700; color:#111827; line-height:1.1; font-variant-numeric:tabular-nums;}
+  .tkStatNum.good{color:#2F6B31;}
+  .tkStatLabel{font-size:12px; color:#6B7280; margin-top:3px; letter-spacing:.02em;}
+  .tkBreak{margin:6px 0 0;}
+  .tkBreakRow{
+    display:flex; gap:12px; align-items:baseline; padding:9px 2px;
+    border-bottom:1px solid #E9EAEE; font-size:14px; line-height:1.45;
+  }
+  .tkBreakRow:last-child{border-bottom:none;}
+  .tkBreakNum{flex:0 0 42px; text-align:right; font-weight:700; color:#111827; font-variant-numeric:tabular-nums;}
+  .tkBreakText{flex:1 1 auto; color:#4B5266;}
+  /* Gesture hint — small, permanent, and stated rather than left to be discovered, since the
+     review view has no visible controls of its own beyond the buttons. */
+  .tkHint{
+    font-size:12px; color:#9AA0AE; text-align:center; padding:18px 0 4px;
+    border-top:1px solid #E9EAEE; margin-top:20px; line-height:1.5;
+  }
   .tkPre{
     font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px; white-space:pre-wrap;
     background:#F7F7F4; border:1px solid #E3E1D8; border-radius:8px; padding:8px 10px;
     color:#111827; margin:0 0 9px; max-height:190px; overflow:auto;
   }
   /* Locked bottom section — flex:none, so it never moves or scrolls away no matter how long
-     the entry above it runs. */
+     the entry above it runs. Hidden entirely when there's nothing to decide: a read-only task
+     has no actions, and swipe-down/X already close the view, so an empty bar would just be a
+     grey stripe taking height from the content. */
   .tkLockBar{
     flex:0 0 auto; border-top:1px solid #C7CAD3; background:#F7F7F4;
     padding:11px 20px calc(11px + env(safe-area-inset-bottom));
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
   }
+  .tkLockBar:empty{display:none;}
   .tkLockOpts{display:flex; flex-direction:column; gap:7px; margin-bottom:10px;}
   .tkLockOpts:empty{display:none; margin:0;}
   .tkCheck{display:flex; align-items:flex-start; gap:9px; font-size:13.5px; color:#111827; line-height:1.4;}
@@ -4919,16 +4944,6 @@ CHANGES:
        "hidden until you pull down" placement could never actually be seen on an iPhone. -->
   <h1><span class="t1">Catholic</span><span class="t2">Timeline</span><span id="versionStamp" aria-hidden="true"></span></h1>
   <button class="hamBtn" id="hamBtn" aria-label="Settings" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-<div class="gtHud" id="gtHud">
-  <div class="gtTop">
-    <span class="gtTitle">Gesture Tuning</span>
-    <button class="gtBtn" id="gtDefaults">Defaults</button>
-    <button class="gtBtn" id="gtHide">Hide</button>
-  </div>
-  <div class="gtRead" id="gtRead">Open a story and swipe. The last swipe appears here.</div>
-  <div id="gtSliders"></div>
-  <textarea class="gtOut" id="gtOut" rows="3" readonly></textarea>
-</div>
   <div class="hamScrim" id="hamScrim"></div>
   <div class="hamMenu" id="hamMenu">
     <!-- Filter rows are hidden from the menu but left in the DOM: every button still carries its
@@ -5007,11 +5022,6 @@ CHANGES:
         <span class="pMeta" id="reviewModeMeta"></span>
         <input type="checkbox" id="reviewModeToggle" autocomplete="off"><i class="sw"></i>
       </label>
-      <label class="pRow pSwitch" id="gtRow">
-        <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></svg></span>
-        <span class="pName">Gesture Tuning</span>
-        <input type="checkbox" id="gtEnabled" autocomplete="off"><i class="sw"></i>
-      </label>
       <button class="pRow" id="manageBtn">
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="2" fill="currentColor" stroke="none"/></svg></span>
         <span class="pName">Manage</span>
@@ -5022,10 +5032,6 @@ CHANGES:
         <span class="pName">Task : Automation</span>
         <span class="pMeta" id="taskPanelMeta"></span>
         <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
-      </button>
-      <button class="pRow" id="testGlowBtn">
-        <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2.5M12 18.5V21M4.2 4.2l1.8 1.8M18 18l1.8 1.8M3 12h2.5M18.5 12H21M4.2 19.8L6 18M18 6l1.8-1.8"/><circle cx="12" cy="12" r="4"/></svg></span>
-        <span class="pName">Test Update Glow</span>
       </button>
       <p class="pNote">Previews the hamburger pulse and the update-row glow — not a real check.</p>
     </div>
@@ -5970,7 +5976,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v275';
+const APP_VERSION = 'v276';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6829,9 +6835,11 @@ function navigateStory(direction){
 
     // Flick up out of the peek card expands it to the full story — slower/smoother than a
     // snap, handled entirely by the .expanding CSS transition (see expandArticle()).
-    // Record every completed swipe so the tuning readout can show what was actually measured.
-    const recordGesture = (action) => { lastGesture = {dy, dx, v, action, atTop, fromHeader: wasHeader};
-      if(typeof renderGestureReadout === 'function') renderGestureReadout(); };
+    // recordGesture is now a no-op stub: the tuning HUD it fed was removed, but the calls are
+    // left in place at each branch of this handler — they document which path a swipe took,
+    // and stripping them would mean touching every branch of the app's trickiest gesture code
+    // for no functional gain.
+    const recordGesture = (action) => { lastGesture = {dy, dx, v, action, atTop, fromHeader: wasHeader}; };
     if(article.classList.contains('peek') && dy < -GEST.dyExpand && Math.abs(dx) < Math.abs(dy)){
       recordGesture('expand to full');
       expandArticle();
@@ -7732,15 +7740,6 @@ function tkTaskName(t){
 }
 function tkTask(id){ return ((wlData && wlData.tasks) || []).find(t => t.id === id) || null; }
 
-// Every proposal, oldest first — the order review works through, per the timestamp rule.
-// Recomputed rather than stored, so a run that lands mid-review is picked up on the next open.
-function tkProposedQueue(){
-  return ((wlData && wlData.tasks) || [])
-    .filter(t => t.status === 'proposed')
-    .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')))
-    .map(t => t.id);
-}
-
 function tkRows(){
   const tasks = (wlData && wlData.tasks) ? wlData.tasks.slice() : [];
   const filtered = tasks.filter(t => {
@@ -7866,24 +7865,35 @@ function tkRenderArticle(entry, patch){
   return '<div class="tkRvHead">Article</div>' + html;
 }
 
-// The scan/summary fallback — a task with nothing to point at. Written out as sentences
-// rather than left as raw JSON: this is the result most runs actually produce.
+// The scan/summary fallback — a task with nothing to point at. Rendered as stat tiles plus a
+// breakdown list rather than a sentence: these tasks carry a handful of numbers and nothing
+// else, and on a full-screen panel a two-line paragraph left the screen looking empty.
 function tkRenderSummary(t){
   const r = t.result || {};
   let body = '';
   if(r.totalSaints != null){
     const sk = r.skipped || {};
     const reasons = [
-      sk.noBornFact ? sk.noBornFact + ' with no Born date' : null,
-      sk.noDiedFact ? sk.noDiedFact + ' with no Died date' : null,
-      sk.alreadyHasAge ? sk.alreadyHasAge + ' already showing an age' : null,
-      sk.bornNotFirm ? sk.bornNotFirm + ' whose Born date is approximate or disputed' : null,
-      sk.diedNotFirm ? sk.diedNotFirm + ' whose Died date is approximate or disputed' : null,
-      sk.impossibleAge ? sk.impossibleAge + ' giving an impossible age' : null
-    ].filter(Boolean);
-    body += '<p style="font-size:14px; line-height:1.55; margin:0 0 9px;">Checked <b>' + r.totalSaints +
-      '</b> saints. <b>' + (r.qualified || 0) + '</b> qualified for an age.</p>';
-    if(reasons.length) body += '<p style="font-size:14px; line-height:1.55; margin:0 0 9px;">Skipped: ' + esc(reasons.join(', ')) + '.</p>';
+      [sk.noBornFact, 'no Born date recorded'],
+      [sk.noDiedFact, 'no Died date recorded'],
+      [sk.alreadyHasAge, 'already showing an age'],
+      [sk.bornNotFirm, 'Born date approximate or disputed'],
+      [sk.diedNotFirm, 'Died date approximate or disputed'],
+      [sk.impossibleAge, 'dates giving an impossible age']
+    ].filter(x => x[0]);
+    body += '<div class="tkStats">' +
+      '<div class="tkStat"><div class="tkStatNum">' + r.totalSaints + '</div><div class="tkStatLabel">Checked</div></div>' +
+      '<div class="tkStat"><div class="tkStatNum' + (r.qualified ? ' good' : '') + '">' + (r.qualified || 0) + '</div><div class="tkStatLabel">Qualified</div></div>' +
+      '<div class="tkStat"><div class="tkStatNum">' + (r.totalSaints - (r.qualified || 0)) + '</div><div class="tkStatLabel">Skipped</div></div>' +
+      '</div>';
+    if(reasons.length){
+      body += '<div class="tkRvHead">Why they were skipped</div><div class="tkBreak">' +
+        reasons.map(x => '<div class="tkBreakRow"><span class="tkBreakNum">' + x[0] + '</span>' +
+          '<span class="tkBreakText">' + esc(x[1]) + '</span></div>').join('') + '</div>';
+    }
+    if(!r.qualified){
+      body += '<p style="margin-top:14px; color:#6B7280;">Nothing to approve from this run \u2014 every entry either already has an age or has dates too uncertain to compute one safely.</p>';
+    }
   }else if(t.result){
     body += '<div class="tkPre">' + esc(JSON.stringify(t.result, null, 2)) + '</div>';
   }else{
@@ -7893,11 +7903,21 @@ function tkRenderSummary(t){
   return body;
 }
 
+// The panel title's second half names what you're looking at, not just where you are — a
+// finished scan says so, a failure says so, and only something actually awaiting a decision
+// says "Review".
+const TK_TITLES = {
+  proposed: ' : Review', done: ' : Completed Successfully', approved: ' : Approved',
+  rejected: ' : Rejected', error: ' : Failed', queued: ' : Queued', in_progress: ' : Running'
+};
+
 function renderTaskReview(){
   const scroll = document.getElementById('tkReviewScroll');
   const lock = document.getElementById('tkLockBar');
   const t = tkTask(tkReviewIds[tkReviewIdx]);
   if(!t){ tkGoList(); return; }
+
+  document.getElementById('tkTitleSecond').textContent = TK_TITLES[t.status] || ' : Task';
 
   const entry = t.entityId ? getEntry(t.entityId) : null;
   const patch = (t.result && Array.isArray(t.result.patch)) ? t.result.patch : null;
@@ -7914,8 +7934,15 @@ function renderTaskReview(){
       (t.entityId ? ' \u00b7 entry ' + esc(t.entityId) + ' not found' : '') + '</div>' +
       tkRenderSummary(t);
   }
+  const pos = (tkReviewIdx + 1) + ' of ' + tkReviewIds.length;
+  body += '<div class="tkHint">' + pos + ' \u00b7 swipe left or right to move through the list' +
+    '<br>swipe down to go back</div>';
   scroll.innerHTML = body;
   scroll.scrollTop = 0;
+
+  // Nothing to decide on a task that's already settled — the bar renders empty and hides
+  // itself (see .tkLockBar:empty), giving its height back to the content.
+  if(t.status !== 'proposed'){ lock.innerHTML = ''; return; }
 
   // Follow-up options. "Record audio" is offered only when this task created a whole entry
   // AND that entry has no audio yet — re-recording a changed death-age would be pointless.
@@ -7928,14 +7955,12 @@ function renderTaskReview(){
     ? '<label class="tkCheck disabled"><input type="checkbox" id="tkOptAudio" disabled>' +
       '<span>Record audio<span class="tkCheckNote">Not wired up yet \u2014 the orchestrator has no TTS handler, so this would queue work nothing runs.</span></span></label>'
     : '';
-  const pos = (tkReviewIdx + 1) + ' of ' + tkReviewIds.length;
   lock.innerHTML =
     '<div class="tkLockOpts">' + opts + '</div>' +
     '<div class="tkLockBtns">' +
       '<button class="tkBtn go" id="tkApprove">Approve</button>' +
       '<button class="tkBtn no" id="tkReject">Reject</button>' +
-    '</div>' +
-    '<p class="tkProgress" id="tkProgress">' + pos + ' to review</p>';
+    '</div>';
 }
 
 // Single entry point every other part of this system calls after changing wlData.
@@ -7947,8 +7972,9 @@ function renderTaskPanel(){
   document.getElementById('tkViewAdd').classList.toggle('active', tkView === 'add');
   document.getElementById('tkViewList').classList.toggle('active', tkView === 'list');
   document.getElementById('tkViewReview').classList.toggle('active', tkView === 'review');
-  // The title's second half names the view, so the panel always says where you are.
-  document.getElementById('tkTitleSecond').textContent = tkView === 'review' ? ' : Review' : ' : Automation';
+  // In review the title is set per-task by renderTaskReview() (it names the task's state, not
+  // the view), so it is only reset here for the two list-side views.
+  if(tkView !== 'review') document.getElementById('tkTitleSecond').textContent = ' : Automation';
   if(tkView === 'list') renderTaskList();
   else if(tkView === 'review') renderTaskReview();
 }
@@ -7958,18 +7984,27 @@ function tkGoList(){
   tkReviewIds = [];
   renderTaskPanel();
 }
+// Opening any row hands the review view the CURRENTLY VISIBLE list — same filter, same sort —
+// so "the next item" means the one you can see below it, not a separate hidden ordering.
 function tkOpenReview(taskId){
-  tkReviewIds = tkProposedQueue();
-  tkReviewIdx = Math.max(0, tkReviewIds.indexOf(taskId));
-  if(!tkReviewIds.length) return;
+  tkReviewIds = tkRows().map(t => t.id);
+  tkReviewIdx = tkReviewIds.indexOf(taskId);
+  if(tkReviewIdx < 0) return;
   tkView = 'review';
   renderTaskPanel();
 }
+// Swipe stepping. Running off either end returns to the list rather than sticking at a
+// boundary — at the edges there is nothing further to see, so leaving is the useful outcome.
+function tkStepReview(delta){
+  const next = tkReviewIdx + delta;
+  if(next < 0 || next >= tkReviewIds.length){ tkGoList(); return; }
+  tkReviewIdx = next;
+  renderTaskPanel();
+}
 
-// Approve or reject the item on screen, then move straight to the next one — no confirmation
-// step, since the whole point is to keep moving through a batch. The queue captured at open
-// time is walked by index; the resolved item stays in the array (it just isn't 'proposed'
-// anymore), so the position counter stays honest about how long the batch was.
+// Approve or reject the item on screen, then move to the next item still awaiting a decision —
+// no confirmation step, since the whole point is to keep moving through a batch. Skips over
+// anything already settled so a mixed list doesn't drop you on a finished row mid-run.
 async function tkResolveCurrent(approve){
   const id = tkReviewIds[tkReviewIdx];
   if(!id) return;
@@ -7977,9 +8012,15 @@ async function tkResolveCurrent(approve){
   if(btnA) btnA.disabled = true;
   if(btnR) btnR.disabled = true;
   await wlResolveTasks([id], approve);
-  tkReviewIdx++;
-  if(tkReviewIdx >= tkReviewIds.length) tkGoList();
-  else renderTaskPanel();
+  let next = tkReviewIdx + 1;
+  while(next < tkReviewIds.length){
+    const t = tkTask(tkReviewIds[next]);
+    if(t && t.status === 'proposed') break;
+    next++;
+  }
+  if(next >= tkReviewIds.length){ tkGoList(); return; }
+  tkReviewIdx = next;
+  renderTaskPanel();
 }
 
 const taskPanelEl = document.getElementById('taskPanel');
@@ -8034,24 +8075,52 @@ document.getElementById('tkChips').addEventListener('click', (e) => {
 document.getElementById('tkList').addEventListener('click', (e) => {
   const row = e.target.closest('.tkRow[data-task]');
   if(!row) return;
-  const t = tkTask(row.dataset.task);
-  if(!t) return;
-  // Only a proposal opens the review queue. Anything else (a finished scan, an error) opens
-  // the same view read-only via a one-item queue, so there's one code path for "look at a
-  // task" regardless of whether it needs a decision.
-  if(t.status === 'proposed'){ tkOpenReview(t.id); return; }
-  tkReviewIds = [t.id];
-  tkReviewIdx = 0;
-  tkView = 'review';
-  renderTaskPanel();
-  // Read-only: no decision to make on something already settled.
-  document.getElementById('tkLockBar').innerHTML =
-    '<div class="tkLockBtns"><button class="tkBtn" id="tkBack">Back to list</button></div>';
+  // One path for every row. A proposal opens with Approve/Reject; anything already settled
+  // opens the same view with an empty (hidden) action bar. Nothing needs a separate mode.
+  tkOpenReview(row.dataset.task);
 });
+
+// Swipe gestures on the review view. Horizontal moves through the list, vertical-down closes.
+// The axis is locked on the first meaningful movement so a diagonal drag can't do both, and
+// a downward swipe only closes when the content is already scrolled to the top — otherwise
+// pulling down through a long article would eject you out of it.
+let tkTouch = null;
+const TK_SWIPE_X = 60, TK_SWIPE_Y = 80;
+const tkReviewViewEl = document.getElementById('tkViewReview');
+tkReviewViewEl.addEventListener('touchstart', (e) => {
+  if(e.touches.length !== 1){ tkTouch = null; return; }
+  tkTouch = {
+    x0: e.touches[0].clientX, y0: e.touches[0].clientY,
+    dx: 0, dy: 0, axis: null,
+    atTop: document.getElementById('tkReviewScroll').scrollTop <= 0
+  };
+}, { passive: true });
+tkReviewViewEl.addEventListener('touchmove', (e) => {
+  if(!tkTouch || e.touches.length !== 1) return;
+  tkTouch.dx = e.touches[0].clientX - tkTouch.x0;
+  tkTouch.dy = e.touches[0].clientY - tkTouch.y0;
+  if(!tkTouch.axis && (Math.abs(tkTouch.dx) > 10 || Math.abs(tkTouch.dy) > 10)){
+    tkTouch.axis = Math.abs(tkTouch.dx) > Math.abs(tkTouch.dy) ? 'x' : 'y';
+  }
+  // A horizontal drag is navigation, not scrolling — suppress the scroll it would otherwise
+  // cause so the page doesn't jitter sideways under the finger.
+  if(tkTouch.axis === 'x' && e.cancelable) e.preventDefault();
+}, { passive: false });
+tkReviewViewEl.addEventListener('touchend', () => {
+  if(!tkTouch) return;
+  const { dx, dy, axis, atTop } = tkTouch;
+  tkTouch = null;
+  if(tkView !== 'review') return;
+  if(axis === 'x' && Math.abs(dx) > TK_SWIPE_X){
+    tkStepReview(dx < 0 ? 1 : -1);   // left = further down the list, right = back up
+  }else if(axis === 'y' && dy > TK_SWIPE_Y && atTop){
+    tkGoList();
+  }
+}, { passive: true });
+
 document.getElementById('tkLockBar').addEventListener('click', async (e) => {
   if(e.target.closest('#tkApprove')){ await tkResolveCurrent(true); return; }
-  if(e.target.closest('#tkReject')){ await tkResolveCurrent(false); return; }
-  if(e.target.closest('#tkBack')){ tkGoList(); }
+  if(e.target.closest('#tkReject')){ await tkResolveCurrent(false); }
 });
 document.getElementById('tkRefresh').addEventListener('click', loadWorkLog);
 document.getElementById('tkRun').addEventListener('click', async () => {
@@ -12464,15 +12533,8 @@ function updateManageVisibility(){
   // '' restores each element's stylesheet display (flex rows), rather than forcing block.
   document.getElementById('ownerGroup').style.display = access ? '' : 'none';
   document.getElementById('manageBtn').style.display = unlocked ? '' : 'none';
-  const gtRow = document.getElementById('gtRow');
-  if(gtRow) gtRow.style.display = unlocked ? '' : 'none';
   const reviewModeRow = document.getElementById('reviewModeRow');
   if(reviewModeRow) reviewModeRow.style.display = unlocked ? '' : 'none';
-  // The HUD is an owner tool; switching owner tools off must take it off screen too,
-  // otherwise the "visitor view" test still has a debug panel across the bottom.
-  if(!unlocked && typeof setGestureTuner === 'function' && gtHud && gtHud.classList.contains('show')){
-    setGestureTuner(false);
-  }
   // The switch itself follows access, not the preference — otherwise turning the CMS off would
   // hide the only control that turns it back on.
   const cmsBox = document.getElementById('cmsEnabled');
@@ -13652,29 +13714,6 @@ canvas.addEventListener('keydown', (e) => {
 });
 document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && browsePanel.classList.contains('open')) closeBrowsePanel(); });
 
-// Owner-only preview of the update-glow behaviour: closes the panel, pulses the hamburger
-// once it's visible again, then fakes the row's text just long enough to show the row glow
-// on the next open — and quietly restores whatever the row actually said before, so nothing
-// misleading is left behind once the preview is over.
-document.getElementById('testGlowBtn').addEventListener('click', (e) => {
-  e.stopPropagation();
-  const btn = document.getElementById('updateBtn');
-  const label = btn.querySelector('.pName');
-  const note = document.getElementById('updateNote');
-  const meta = document.getElementById('updateCur');
-  const prev = { label: label.textContent, note: note.innerHTML, meta: meta ? meta.textContent : '' };
-  label.textContent = 'New Version Available';
-  meta && (meta.textContent = 'vTEST');
-  note.innerHTML = 'Tap to reload. Unsaved Manage edits will be lost. (Test preview — not a real update.)';
-  rowGlowDue = true;
-  hamPulseDue = false; // suppress any already-queued real pulse so this doesn't double up with it
-  closeHamMenu();
-  setTimeout(pulseHamburger, 420);
-  setTimeout(() => {
-    label.textContent = prev.label; note.innerHTML = prev.note; meta && (meta.textContent = prev.meta);
-  }, 16000);
-});
-
 // ---- Reader text size ----
 // Steps rather than free zoom: five sizes covering 85%–150%, which is the useful range before
 // the fixed-width article column starts to look broken. Stored per browser.
@@ -13931,90 +13970,6 @@ updateBtn.addEventListener('click', (e) => {
   if(pendingReload){ location.reload(); return; }
   checkVersion(false);
 });
-
-// ---- Gesture tuning HUD -------------------------------------------------------------
-// Owner-only. Sliders write straight into GEST and persist, so a change is felt on the very
-// next swipe with no reload. The readout reports what the last swipe actually measured and
-// which branch it took, which is the part that makes tuning possible rather than guesswork.
-const GT_FIELDS = [
-  {k:'vFling',   label:'Fling v',  min:0.4,  max:2.5,  step:0.05, unit:' px/ms'},
-  {k:'vIntent',  label:'Intent v', min:0.05, max:1,    step:0.01, unit:' px/ms'},
-  {k:'dyFling',  label:'Fling dy', min:10,   max:150,  step:5,    unit:' px'},
-  {k:'dyStep',   label:'Step dy',  min:20,   max:200,  step:5,    unit:' px'},
-  {k:'dyExpand', label:'Expand dy',min:10,   max:150,  step:5,    unit:' px'},
-  {k:'dxNav',    label:'Nav dx',   min:40,   max:220,  step:5,    unit:' px'},
-  {k:'sampleMs', label:'Sample',   min:40,   max:250,  step:10,   unit:' ms'},
-  {k:'exitMs',   label:'Exit',     min:80,   max:500,  step:10,   unit:' ms'}
-];
-const gtHud = document.getElementById('gtHud');
-function gtFmt(v){ return (Math.round(v * 100) / 100).toString(); }
-function renderGestureReadout(){
-  const el = document.getElementById('gtRead');
-  if(!el) return;
-  if(!lastGesture){ el.textContent = 'Open a story and swipe. The last swipe appears here.'; return; }
-  const g = lastGesture;
-  const dir = g.dy > 0 ? 'down' : 'up';
-  el.innerHTML =
-    'swipe <b>' + dir + '</b> &nbsp; dy <b>' + Math.round(g.dy) + '</b>px &nbsp; dx <b>' +
-    Math.round(g.dx) + '</b>px<br>' +
-    'velocity <b>' + gtFmt(g.v) + '</b> px/ms &nbsp; ' +
-    (g.atTop ? 'at top' : 'mid-text') + (g.fromHeader ? ' &middot; header' : '') +
-    '<span class="gtAction">&rarr; ' + g.action + '</span>';
-}
-function gtWriteOut(){
-  const out = document.getElementById('gtOut');
-  if(out) out.value = JSON.stringify(GEST);
-}
-function gtBuild(){
-  const box = document.getElementById('gtSliders');
-  if(!box || box.childElementCount) return;
-  GT_FIELDS.forEach(f => {
-    const row = document.createElement('div');
-    row.className = 'gtRow';
-    row.innerHTML = '<label for="gt-' + f.k + '">' + f.label + '</label>' +
-      '<input type="range" id="gt-' + f.k + '" min="' + f.min + '" max="' + f.max +
-      '" step="' + f.step + '" value="' + GEST[f.k] + '">' +
-      '<span class="gtVal" id="gtv-' + f.k + '">' + gtFmt(GEST[f.k]) + f.unit + '</span>';
-    box.appendChild(row);
-    row.querySelector('input').addEventListener('input', (e) => {
-      GEST[f.k] = parseFloat(e.target.value);
-      document.getElementById('gtv-' + f.k).textContent = gtFmt(GEST[f.k]) + f.unit;
-      applyGestureTuning();
-      gtWriteOut();
-    });
-  });
-  gtWriteOut();
-}
-function gtSync(){
-  GT_FIELDS.forEach(f => {
-    const inp = document.getElementById('gt-' + f.k);
-    const val = document.getElementById('gtv-' + f.k);
-    if(inp) inp.value = GEST[f.k];
-    if(val) val.textContent = gtFmt(GEST[f.k]) + f.unit;
-  });
-  gtWriteOut();
-}
-function setGestureTuner(on){
-  gtHud.classList.toggle('show', on);
-  const box = document.getElementById('gtEnabled');
-  if(box) box.checked = on;
-  try{ localStorage.setItem('gesture-tuner-open', on ? '1' : '0'); }catch(e){}
-  if(on){ gtBuild(); gtSync(); renderGestureReadout(); }
-}
-document.getElementById('gtEnabled').addEventListener('change', (e) => {
-  setGestureTuner(e.target.checked);
-  if(e.target.checked) closeHamMenu();
-});
-document.getElementById('gtHide').addEventListener('click', () => setGestureTuner(false));
-document.getElementById('gtDefaults').addEventListener('click', () => {
-  Object.assign(GEST, GESTURE_DEFAULTS);
-  applyGestureTuning();
-  gtSync();
-});
-applyGestureTuning();
-try{
-  if(localStorage.getItem('gesture-tuner-open') === '1' && manageAccess()) setGestureTuner(true);
-}catch(e){}
 
 // ---- App icon override hook ----
 // The icons embedded above are the fallback and always work. To use your own artwork, drop the
