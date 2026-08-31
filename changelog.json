@@ -2,6 +2,41 @@
   "v": 1,
   "entries": [
     {
+      "version": "276",
+      "date": "2026-08-30T23:30:00-05:00",
+      "changes": [
+        "Review view title now names the TASK'S STATE rather than the view: \"Task : Completed",
+        "Successfully\" for a finished run, plus Approved / Rejected / Failed / Queued / Running, and",
+        "\": Review\" only for something actually awaiting a decision (TK_TITLES). renderTaskPanel()",
+        "no longer overwrites it — it only resets the title for the two list-side views.",
+        "Summary tasks re-rendered for the full-screen panel: three stat tiles (Checked / Qualified /",
+        "Skipped) over a per-reason breakdown list, replacing two lines of prose that left most of the",
+        "screen empty. When nothing qualified it says so plainly instead of leaving you to infer it.",
+        "Swipe gestures on the review view: left = next item down the list, right = back up, down =",
+        "return to the list. Axis is locked on first movement so a diagonal can't trigger both, a",
+        "horizontal drag preventDefaults the scroll it would otherwise cause, and swipe-down only",
+        "closes when the content is already at scrollTop 0 — otherwise pulling down through a long",
+        "article would eject you out of it. Running off either end returns to the list.",
+        "\"Back to list\" button removed; the lock bar hides itself when empty (.tkLockBar:empty), so a",
+        "settled task gives its height back to the content. X and swipe-down both return to the list.",
+        "Review now walks the CURRENTLY VISIBLE list — same filter, same sort — so \"next item\" means",
+        "the one you can see below it. tkProposedQueue() deleted; one row-tap path for every status,",
+        "with Approve/Reject present only on proposals. Approve/Reject still skip forward to the next",
+        "item awaiting a decision so a mixed list doesn't strand you on a finished row.",
+        "Gesture hint stated at the foot of the review content (position + what the swipes do), since",
+        "the view otherwise has no visible controls.",
+        "REMOVED Gesture Tuning entirely — HUD markup, its CSS block, the GT_FIELDS slider system,",
+        "setGestureTuner/gtBuild/gtSync/renderGestureReadout, the menu switch row, the owner-visibility",
+        "handling, and the 'gesture-tuner-open' persistence. ~7.3KB gone. GEST/GESTURE_DEFAULTS stay:",
+        "they're the live thresholds the swipe handler reads, only the tuning UI was abandoned.",
+        "recordGesture() is left as a no-op stub rather than stripping its calls out of every branch",
+        "of the article swipe handler — the calls document which path a swipe took, and editing that",
+        "handler for no functional gain is not worth the risk.",
+        "REMOVED Test Update Glow entirely — menu row, help text, and handler."
+      ],
+      "loggedAt": "2026-08-31T13:10:13.349987+00:00"
+    },
+    {
       "version": "275",
       "date": "2026-08-30T22:40:00-05:00",
       "changes": [
