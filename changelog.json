@@ -2,6 +2,42 @@
   "v": 1,
   "entries": [
     {
+      "version": "273",
+      "date": "2026-08-30T20:15:00-05:00",
+      "changes": [
+        "Reworked the v272 Work tab into \"Task : Automation\" (#taskPanel), a left-sliding panel built",
+        "on the SAME shell as the Saints/Browse panels — .panelHead/.spHead/.spCol/.spListWrap/.spList/",
+        ".spRow chrome, same z-index band, same .48s transition, same scrim mechanics. Opened from",
+        "☰ → Owner Tools → Task : Automation.",
+        "Three sortable columns in the fixed|flex|fixed shape the other two panels already use:",
+        "Status (84px) | Task (flexible) | Date (78px). Date is the default, newest first, since a",
+        "work log reads as a running history. Sorting by Status groups the list under sticky status",
+        "headers via the existing groupStickyRows() — same rule Browse applies to Region/Country:",
+        "grouping only when actually sorted by that column.",
+        "Row colour carries state, per the ask: finished work (done/approved/rejected) greys out",
+        "(.tkFinished), anything still live (queued/in_progress/proposed) stays black, so what's left",
+        "to do is what the eye lands on. The Status cell itself is colour-coded — amber = waiting to",
+        "run, blue = waiting on you, green = settled, red = broken.",
+        "Status sort order is deliberately NOT alphabetical (TK_STATUS_ORDER): proposed first, since",
+        "it's the only state waiting on a human, then queued/in_progress, then error, then settled.",
+        "New detail pane (.tkDetail) pinned beneath the list, its own scroll, filled by tapping a row",
+        "(tapping the same row again clears it). Renders from whatever the task actually carries:",
+        "oldDied/newDied become a struck-through before/after; a scan result becomes a readable",
+        "sentence (\"Checked 224 saints. 0 qualified…\" plus the skip reasons spelled out) — this closes",
+        "the v272 gap where a completed scan's summary was only legible by opening the raw JSON on",
+        "GitHub; an error shows its text; anything else falls back to pretty-printed JSON so a service",
+        "written later is reviewable before it has a custom renderer.",
+        "Approve/Reject live in the detail pane, with \"Approve all N\" when the proposal has batch",
+        "siblings. Batch approve still only touches items at \"proposed\", so it can't override a reject.",
+        "Filter chips: All · Review · Active · Finished, reusing .spChips/.spChip.",
+        "Refresh + Run moved into the panel's top bar; wlSetLog() now writes to the panel's count line.",
+        "Manage → Work reduced to the Add-a-Task form (queuing a task is an owner action and belongs in",
+        "the CMS); its list/review markup, listeners, and ~3.6KB of now-dead .wl* CSS removed rather",
+        "than left to rot as a second, competing view of the same data."
+      ],
+      "loggedAt": "2026-08-31T02:10:26.209885+00:00"
+    },
+    {
       "version": "272",
       "date": "2026-08-30T17:30:00-05:00",
       "changes": [
