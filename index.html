@@ -1,4 +1,13 @@
 <!--
+VERSION: 277
+DATE: 2026-08-31T09:00:00-05:00
+CHANGES:
+- Removed the orphaned help note left behind by the v276 Test Update Glow deletion. The button
+  went but its <p class="pNote"> didn't, so the text reflowed up under Task : Automation and
+  described that row instead — claiming the task panel "previews the hamburger pulse and the
+  update-row glow". Deleting a control now means deleting its caption too.
+-->
+<!--
 VERSION: 276
 DATE: 2026-08-30T23:30:00-05:00
 CHANGES:
@@ -5033,7 +5042,6 @@ CHANGES:
         <span class="pMeta" id="taskPanelMeta"></span>
         <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
       </button>
-      <p class="pNote">Previews the hamburger pulse and the update-row glow — not a real check.</p>
     </div>
   </div>
 
@@ -5976,7 +5984,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v276';
+const APP_VERSION = 'v277';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
