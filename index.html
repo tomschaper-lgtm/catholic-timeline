@@ -1,4 +1,21 @@
 <!--
+VERSION: 279
+DATE: 2026-09-01T14:00:00-05:00
+CHANGES:
+- Eucharistic Miracles rows: dropped the name+first-sentence combo from v278 (emRowText()
+  deleted) — read as one long ellipsis-truncated fragment in practice, per screenshot feedback.
+  emDisplayName() alone now feeds nameValue: shortened name only, same "(Eucharistic) Miracle
+  of "-strip and trailing-"(...)"-strip as before.
+- Chip relabel/reorder: All now carries the shared .spChipIcon-all glyph (same one Councils'
+  All chip already uses — generic art, not category-specific, confirmed safe to reuse).
+  "Scientific Evidence" -> "Science". "Deep Dive" -> "Learn More", matching Councils' own
+  wording for the same action-chip pattern; id/action unchanged, label only.
+- renderAboutPanel(): navButtons now render AFTER the narrative sections instead of before —
+  the Eucharist hub entry (next paste) has real content of its own now, so the drill-down
+  buttons read as a "go deeper" prompt following the overview rather than three buttons
+  in front of any actual text.
+-->
+<!--
 VERSION: 278
 DATE: 2026-09-01T10:00:00-05:00
 CHANGES:
@@ -6023,7 +6040,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v278';
+const APP_VERSION = 'v279';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -13261,15 +13278,6 @@ function renderAboutPanel(category){
     heroCap.style.display = 'none'; heroCap.textContent = '';
   }
   let html = '';
-  // Wide nav buttons (Deep Dive hub -> Biblical Evidence / Apologetics / Church Fathers, etc.):
-  // each just re-invokes openAboutPanel() against another t:"i" entry's category, so a hub page
-  // is nothing more than an entry with a short intro plus this array — no separate panel type.
-  if(Array.isArray(e.navButtons) && e.navButtons.length){
-    html += '<div class="aboutNavButtons">' + e.navButtons.map(b =>
-      '<button class="aboutNavBtn" type="button" data-category="' + esc(b.category || '') + '">' +
-      esc(b.label || '') + '<span class="aboutNavArrow" aria-hidden="true">\u203a</span></button>'
-    ).join('') + '</div>';
-  }
   const art = e.art || {};
   // #aboutStoryText wraps just the narrative — section headings and prose — same shape and
   // purpose as #artStoryText in the full article view: it's the container wireSentenceCues()/
@@ -13281,6 +13289,17 @@ function renderAboutPanel(category){
     html += '<div class="artProse">' + renderBody(sec.b) + '</div>';
   });
   html += '</div>'; // #aboutStoryText
+  // Wide nav buttons (hub -> Biblical Evidence / Apologetics / Church Fathers, etc.): each just
+  // re-invokes openAboutPanel() against another t:"i" entry's category, so a hub page is nothing
+  // more than an entry with its own overview plus this array — no separate panel type. Rendered
+  // after the narrative (v279) rather than before it, so the overview reads first and these land
+  // as a "go deeper" prompt rather than three buttons before any actual content.
+  if(Array.isArray(e.navButtons) && e.navButtons.length){
+    html += '<div class="aboutNavButtons">' + e.navButtons.map(b =>
+      '<button class="aboutNavBtn" type="button" data-category="' + esc(b.category || '') + '">' +
+      esc(b.label || '') + '<span class="aboutNavArrow" aria-hidden="true">\u203a</span></button>'
+    ).join('') + '</div>';
+  }
   if(art.quotes && art.quotes.length){
     art.quotes.forEach(q => {
       html += '<div class="artquote">&ldquo;' + esc(q.text) + '&rdquo;' +
@@ -13467,30 +13486,21 @@ function hasFact(e, label){
 }
 // Display-only cleanup for the Eucharistic Miracles row — never touches the stored e.n. Strips
 // a leading "(Eucharistic) Miracle of " and a trailing "(...)" qualifier so names like "Rome
-// (1610)" or "Guadalupe (Spain)" read as plain place names in the tight single-line row.
+// (1610)" or "Guadalupe (Spain)" read as plain place names in the tight single-line row. Just
+// the name — an earlier pass also appended the teaser's first sentence, but that made every row
+// read as one long ellipsis-truncated hyphen fragment (v279 feedback); dropped rather than
+// tuned further.
 function emDisplayName(e){
   return String(e.n || '').trim()
     .replace(/^(Eucharistic\s+)?Miracle\s+of\s+/i, '')
     .replace(/\s*\([^()]*\)\s*$/, '');
 }
-// Row text for the Name cell: shortened name plus the teaser's first sentence, where there's
-// room for it. CSS ellipsis on .spName (unchanged) does the actual truncation — this never
-// needs to know the available pixel width, and under Category sort the Country/Type column
-// blanks out for every row but a group's first (see groupStickyRows()), freeing real width for
-// this text.
-function emRowText(e){
-  const name = emDisplayName(e);
-  const d = String(e.d || '').trim();
-  const first = d.match(/^.*?[.!?](?=\s|$)/);
-  const snippet = first ? first[0].trim() : d;
-  return snippet ? (name + ' \u2014 ' + snippet) : name;
-}
 const BROWSE_CONFIGS = {
   p: { title: 'Persecutions', title2: 'Witness in Blood',  lastLabel: 'Region',  lastValue: e => REGION_NAMES[e.r] || e.r },
   u: {
     title: 'Eucharistic', title2: 'Miracles',
-    // Country under All/Scientific Evidence, Miracle Type under Category — both read brFilter
-    // directly (closure over the module-level variable), so no per-chip plumbing was needed in
+    // Country under All/Science, Miracle Type under Category — both read brFilter directly
+    // (closure over the module-level variable), so no per-chip plumbing was needed in
     // renderBrowsePanel() itself. Under Category, the existing groupStickyRows() then groups by
     // Miracle Type exactly the way it already groups Councils/Marian by Country — same sticky
     // logic, untouched.
@@ -13498,14 +13508,16 @@ const BROWSE_CONFIGS = {
     lastValue: e => brFilter === 'category' ? emMiracleType(e) : (e.country || ''),
     // Only Eucharistic Miracles sets this — every other category falls through to the ' : e.n'
     // default a few lines down in renderBrowsePanel's row template.
-    nameValue: e => emRowText(e),
+    nameValue: e => emDisplayName(e),
     chips: [
-      {id: 'all',        label: 'All',                test: () => true},
-      {id: 'category',   label: 'Category',            test: () => true},
-      {id: 'scientific', label: 'Scientific Evidence', test: e => hasFact(e, 'Scientific findings')},
-      // Action chip, same pattern as Councils' Learn More below — opens the shared About panel
+      // Reuses .spChipIcon-all, same as Councils' All chip — a generic "everything" glyph, not
+      // category-specific art, so sharing it across panels is the established pattern.
+      {id: 'all',        label: 'All',      test: () => true, icon: 'all'},
+      {id: 'category',   label: 'Category', test: () => true},
+      {id: 'scientific', label: 'Science',  test: e => hasFact(e, 'Scientific findings')},
+      // Action chip, same pattern as Councils' own Learn More — opens the shared About panel
       // against a t:"i" entry with category:"u". See #aboutPanel's HTML comment.
-      {id: 'deepdive',   label: 'Deep Dive', action: 'about', icon: 'scrollinfo'}
+      {id: 'deepdive',   label: 'Learn More', action: 'about', icon: 'scrollinfo'}
     ]
   },
   e: { title: 'Events', title2: 'That Shaped the Church', lastLabel: 'Region', lastValue: e => REGION_NAMES[e.r] || e.r },
