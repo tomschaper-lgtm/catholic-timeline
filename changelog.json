@@ -2,6 +2,36 @@
   "v": 1,
   "entries": [
     {
+      "version": "278",
+      "date": "2026-09-01T10:00:00-05:00",
+      "changes": [
+        "New Eucharistic Miracles browse chips: All / Category / Scientific Evidence / Deep Dive.",
+        "Category sorts and sticky-groups by the \"Miracle type\" Quick Fact (emMiracleType(), reading",
+        "the taxonomy patch just applied — Precious Blood/Incorruption/Host Visions/Levitation/Animal",
+        "Reverence/Disaster Averted/Relic/Other) using the SAME groupStickyRows() machinery Country",
+        "grouping already used; BROWSE_CONFIGS.u's lastValue/lastLabel just read brFilter directly, so",
+        "nothing in the sticky logic itself changed. Scientific Evidence filters to entries carrying a",
+        "populated \"Scientific findings\" fact (hasFact()). Deep Dive is an action chip, same pattern as",
+        "Councils' Learn More — opens #aboutPanel against a new t:\"i\" entry.",
+        "Row text for Eucharistic Miracles now reads \"Name — first sentence of the teaser\" instead of",
+        "the bare name (emRowText()/emDisplayName()) — display-only, e.n itself is untouched. Name is",
+        "shortened for the row specifically (strips a leading \"(Eucharistic) Miracle of \" and a",
+        "trailing \"(...)\" — \"Rome (1610)\" -> \"Rome\") so short entries like \"Turin I\" and long ones like",
+        "\"Guadalupe (Spain)\" read consistently. Still a single line: relies entirely on .spName's",
+        "existing nowrap+ellipsis, no new CSS, no taller row, no change to the sticky-height math.",
+        "renderBrowsePanel's row template now checks an optional cfg.nameValue(e) hook before falling",
+        "back to e.n — every other category (Councils/Persecutions/Events/Marian) leaves it unset and",
+        "renders exactly as before.",
+        "#aboutPanel can now render a hub page: an optional e.navButtons array (wide, gold-outlined,",
+        "full-width) that re-invokes openAboutPanel() against another t:\"i\" entry's category — a Deep",
+        "Dive hub is just an entry with a short intro plus this array, no new panel type. Closing from",
+        "a sub-article closes the whole panel rather than returning to the hub; fine for a first pass.",
+        "navButtons whitelisted in mergeEntries' new-entry branch (same fix shape as v258's category/qa",
+        "miss) so it survives a first-time paste rather than silently dropping."
+      ],
+      "loggedAt": "2026-09-01T19:54:07.094347+00:00"
+    },
+    {
       "version": "277",
       "date": "2026-08-31T09:00:00-05:00",
       "changes": [
