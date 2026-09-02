@@ -1,4 +1,40 @@
 <!--
+VERSION: 290
+DATE: 2026-09-02T16:00:00-05:00
+CHANGES:
+- Content Manager header restyled to match the site's own panel-title treatment (the same
+  "Saint's Feast Day" two-tone pattern: plain bold black first word + italic gold rest) —
+  literally reuses .panelTitle/.spTitleSecond rather than recreating similar-looking CSS, so
+  "Content Manager" now reads as "Content" (bold black) + " Manager" (italic gold), matching
+  Saints/Persecutions/Task panel titles exactly.
+- Exit button replaced with the same .panelClose X icon button used to close those panels —
+  same SVG, same class, same visual language. #mgmtExitBtn kept as the element's id so the
+  existing click handler (opens the exit-confirm modal) didn't need to change.
+- The floating gear/hamburger button (#hamBtn) is now hidden outright while the Content
+  Manager is open, rather than v289's navy recolor — the header's new X close button replaces
+  its purpose there, so a second floating control was redundant. Still reverts/reappears on
+  Exit; still gold on the main timeline where it needs contrast against the navy background.
+- .mgmtTopBar given a fixed height (min-height:64px + box-sizing:border-box) specifically so
+  the Logs tab's sticky search row has an exact, non-guessed offset to stick against (65px,
+  accounting for the header's 1px bottom border) — removed the old 66px right-padding reserve
+  that existed only to clear the gear, which no longer floats over this header.
+- Logs tab search row: Search button removed (search was already live-on-input; the button
+  was a redundant explicit trigger) and replaced with a thin X icon inside the input itself,
+  shown only once there's text, clearing the field and refocusing on tap. Input is full width
+  now that the button's gone.
+- Logs tab: fixed the last of the "double line"/"band" artifacts — .logSearchRow's own
+  border-bottom removed, and #logList .logEntry:first-child no longer draws its own top
+  border either (that border's job is separating entries from each other, not from the search
+  box above). .logPanel's margin now cancels .mgmtBody's padding on all four sides including
+  the top, which had been left at 0 and was showing as a cream-colored band above the search
+  row.
+- Logs search row is now genuinely pinned (position:sticky) rather than scrolling away with
+  the list — the ambiguity flagged in v289 (iOS's sticky-under-fixed-ancestor quirk) doesn't
+  apply here, since .logSearchRow's scrolling ancestor is .mgmtScroll, which is a plain
+  scrollable element, not position:fixed — the same arrangement .mgmtHeaderSticky already
+  uses successfully.
+-->
+<!--
 VERSION: 289
 DATE: 2026-09-02T15:30:00-05:00
 CHANGES:
@@ -3274,12 +3310,13 @@ CHANGES:
     border:none; border-radius:8px; cursor:pointer; padding:0;
     transition:opacity .2s ease, background .2s ease;
   }
-  /* v289: this button (hamburger on the timeline, gear once owner tools are unlocked — see
-     the icon-swap in the JS) floats above every overlay including the Content Manager, whose
-     background is white/cream rather than the main site's navy. Gold-on-navy is the right
-     contrast on the timeline; gold-on-white reads muddier, so it goes dark navy specifically
-     while #manage carries its .open class, and reverts automatically on Exit. */
-  body:has(#manage.open) .hamBtn{ color:var(--navy-deep); }
+  /* v290: this button (hamburger on the timeline, gear once owner tools are unlocked — see
+     the icon-swap in the JS) floats above every overlay including the Content Manager. It's
+     now hidden outright while #manage carries its .open class — the CMS has its own X close
+     button in the header now, so this floating control was redundant there. (v289 had instead
+     recolored it navy for contrast against the CMS's white background; superseded by removing
+     it entirely per feedback.) Reverts/reappears automatically on Exit. */
+  body:has(#manage.open) .hamBtn{ display:none; }
   .hamBtn:hover{background:rgba(201,165,66,.15);}
   .hamBtn:active{background:rgba(201,165,66,.25);}
   .hamBtn.hidden{opacity:0; pointer-events:none;}
@@ -4997,30 +5034,42 @@ CHANGES:
      flat-row Settings-sheet look.
      v289: explicit white background (previously unset, so the cream --m-bg color showed
      through around .logCount, sandwiched between the white search row above and white log
-     entries below). Margin also corrected to a 4-value cancel matching .mgmtBody's actual
-     asymmetric padding (16px 32px 8px 16px since v283's wider right-side scroll gutter) —
-     the old 3-value -16px/-16px only cancelled half the 32px right padding, leaving a stray
-     16px gap on the right (the "double padding" around the search row/log entries). */
+     entries below).
+     v290: margin now cancels .mgmtBody's padding on all four sides, including the top (was
+     0, left the cream band visible above the search row — the "tab area above the search
+     box"). The search row is now sticky (see below) so it never scrolls off screen; "top"
+     matches .mgmtHeaderSticky's fixed 65px height exactly (see .mgmtTopBar) rather than a
+     guess, and since there's no more gap above it, it's already sitting at that exact offset
+     before any scrolling happens — no visual snap when it engages. */
   .logPanel{
     background:#fff;
-    margin:0 -32px -8px -16px;
+    margin:-16px -32px -8px -16px;
     min-height:calc(100vh - 220px);
   }
   .logSearchRow{
-    display:flex; gap:10px; align-items:center; padding:14px 20px; background:#fff;
-    border-bottom:1px solid #E9EAEE;
+    display:flex; align-items:center; padding:14px 20px; background:#fff;
+    position:sticky; top:65px; z-index:15;
   }
+  .logSearchWrap{position:relative; flex:1 1 auto;}
   .logSearchRow input{
-    flex:1 1 auto; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:17px;
+    width:100%; box-sizing:border-box; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:17px;
     color:#111827; background:#F5F4EE; border:1px solid #E9EAEE; border-radius:10px;
-    padding:11px 14px;
+    padding:11px 40px 11px 14px;
   }
   .logSearchRow input:focus{outline:none; border-color:var(--m-accent);}
-  .logSearchRow button{
-    flex:0 0 auto; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:15px;
-    font-weight:600; color:#fff; background:var(--m-ink); border:none; border-radius:10px;
-    padding:11px 18px; cursor:pointer;
+  .logSearchClear{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%); z-index:2;
+    display:none; width:26px; height:26px; align-items:center; justify-content:center;
+    background:none; border:none; color:#9AA1B0; cursor:pointer;
   }
+  .logSearchClear svg{width:16px; height:16px;}
+  .logSearchClear.show{display:flex;}
+  .logSearchClear:hover{color:var(--m-accent);}
+  /* v290: kills the "two lines" right below the search row — its own border-bottom is gone
+     (not replaced with anything, per feedback), and the very first log entry no longer draws
+     its own top border either, since that border's job is separating entries from each
+     other, not separating the list from the search box above it. */
+  #logList .logEntry:first-child{border-top:none;}
   .logCount{
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:14px; color:#7C8598;
     padding:10px 20px 0;
@@ -5053,16 +5102,14 @@ CHANGES:
   .mgmtHeaderSticky{
     position:sticky; top:0; z-index:20; background:var(--m-row); border-bottom:1px solid var(--m-border);
   }
+  /* v290: fixed height (min-height + border-box) so the Logs tab's sticky search row can use
+     an exact, matching "top" offset (65px = 64px + this element's 1px border) instead of a
+     guess. Right padding no longer needs to reserve room for the floating gear/hamburger —
+     that button is hidden outright while the Content Manager is open now (see .hamBtn below). */
   .mgmtTopBar{
     display:flex; align-items:center; justify-content:space-between;
-    gap:10px; padding:16px 66px 16px 20px; background:var(--m-row);
+    gap:10px; padding:14px 20px; min-height:64px; box-sizing:border-box; background:var(--m-row);
   }
-  .mgmtTitle{font-size:21px; font-weight:700; letter-spacing:-.01em; color:var(--m-ink);}
-  .mgmtExitBtn{
-    font-size:15px; font-weight:600; background:var(--m-ink); color:#fff;
-    border:none; border-radius:10px; padding:9px 20px; cursor:pointer; flex:none;
-  }
-  .mgmtExitBtn:hover{background:#3a4266;}
   .mgmtBody{padding:16px 32px 8px 16px;}
   .mgmtPanel{display:none;}
   .mgmtPanel.active{display:block;}
@@ -5282,9 +5329,6 @@ CHANGES:
   .mgmtExitBtns .mbtn:hover{background:#E3E1D8;}
   .mgmtExitBtns .mbtn.danger{color:#96291A; background:#FDEDEA; border-color:#F0C9C0;}
   .mgmtExitBtns .mbtn.danger:hover{background:#F8D9D2;}
-  @media (max-width:640px){
-    .mgmtTitle{font-size:17px;}
-  }
 </style>
 </head>
 <body>
@@ -5696,9 +5740,11 @@ CHANGES:
  <div class="mgmtScroll">
   <div class="mgmtHeaderSticky">
    <div class="mgmtTopBar">
-    <div class="mgmtTitle">Content Manager <span id="mgmtVersion" style="display:inline-block; font-weight:600; font-size:13px; letter-spacing:.02em; color:#6b5a1f; background:rgba(201,165,66,.22); border:1px solid rgba(201,165,66,.55); border-radius:10px; padding:2px 9px; vertical-align:middle; margin-left:8px;"></span></div>
+    <span class="panelTitle">Content<em class="spTitleSecond"> Manager</em><span id="mgmtVersion" style="display:inline-block; font-weight:600; font-size:13px; letter-spacing:.02em; color:#6b5a1f; background:rgba(201,165,66,.22); border:1px solid rgba(201,165,66,.55); border-radius:10px; padding:2px 9px; vertical-align:middle; margin-left:8px;"></span></span>
     <span class="mstatus" id="mStatus"></span>
-    <button class="mgmtExitBtn" id="mgmtExitBtn">Exit</button>
+    <button class="panelClose" id="mgmtExitBtn" aria-label="Exit Content Manager">
+     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
+    </button>
    </div>
   </div>
 
@@ -6037,8 +6083,12 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
     <!-- ===== TAB: Logs (changelog.json, fetched privately via the GitHub API) ===== -->
     <div class="mgmtPanel logPanel" id="panel-logs">
       <div class="logSearchRow">
-        <input type="text" id="logSearch" placeholder="Search version, date, or change text…">
-        <button id="logRefresh">Search</button>
+        <div class="logSearchWrap">
+          <input type="text" id="logSearch" autocomplete="off" placeholder="Search version, date, or change text…">
+          <button type="button" class="logSearchClear" id="logSearchClear" aria-label="Clear search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
       </div>
       <div class="logCount" id="logCount"></div>
       <div id="logList"></div>
@@ -6319,7 +6369,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v289';
+const APP_VERSION = 'v290';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7900,8 +7950,17 @@ function renderLogList(){
       '</div>';
   }).join('') || '<div class="hint" style="margin:14px 20px 0;">' + (logEntries.length ? 'No entries match that search.' : '') + '</div>';
 }
-document.getElementById('logRefresh').addEventListener('click', renderLogList);
-document.getElementById('logSearch').addEventListener('input', renderLogList);
+document.getElementById('logSearch').addEventListener('input', () => {
+  document.getElementById('logSearchClear').classList.toggle('show', document.getElementById('logSearch').value.length > 0);
+  renderLogList();
+});
+document.getElementById('logSearchClear').addEventListener('click', () => {
+  const inp = document.getElementById('logSearch');
+  inp.value = '';
+  document.getElementById('logSearchClear').classList.remove('show');
+  renderLogList();
+  inp.focus();
+});
 
 // ==================== Work tab: workLog.json task queue + review cards ====================
 // The in-app half of the orchestrator pipeline. Backend services (GitHub Actions) draft work
