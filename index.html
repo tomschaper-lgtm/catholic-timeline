@@ -1,4 +1,16 @@
 <!--
+VERSION: 285
+DATE: 2026-09-02T13:00:00-05:00
+CHANGES:
+- Bottom tab bar (Entries/Export/Import/Settings/Logs) roughly doubled in height: icons
+  23px → 50px, label 10.5px → 14px, bar padding increased throughout. Label pulled up closer
+  to its icon (gap 3px → 4px is proportionally tighter against the much bigger icon, and the
+  tab button's own padding is now top-heavy — 12px top vs 6px bottom — so the icon+label
+  cluster sits higher in the bar rather than centered/low).
+- .mgmtScroll's bottom clearance increased 78px → 155px to match, so the last row of any tab's
+  content still clears the now-taller fixed bar instead of hiding behind it.
+-->
+<!--
 VERSION: 284
 DATE: 2026-09-02T12:30:00-05:00
 CHANGES:
@@ -4866,7 +4878,7 @@ CHANGES:
      value as tried before. */
   .mgmtScroll{
     height:100%; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;
-    padding-bottom:78px; /* clears the fixed bottom tab bar so the last row is never hidden */
+    padding-bottom:155px; /* clears the fixed bottom tab bar (nearly doubled in v285) so the last row is never hidden */
   }
   /* Collapsed-by-default explanatory text. Same <details>/<summary> pattern already used for
      Publish to GitHub / Media Base Paths, applied to every plain hint paragraph so the CMS reads
@@ -4958,14 +4970,14 @@ CHANGES:
   .mgmtTabBar{
     position:fixed; left:0; right:0; bottom:0; z-index:30;
     display:flex; background:#fff; border-top:1px solid var(--m-border);
-    padding:6px 4px calc(4px + env(safe-area-inset-bottom));
+    padding:18px 4px calc(14px + env(safe-area-inset-bottom));
   }
   .mgmtTab{
-    flex:1 1 0; display:flex; flex-direction:column; align-items:center; gap:3px;
-    background:none; border:none; color:var(--m-sub2); font-size:10.5px; font-weight:500;
-    padding:6px 2px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    flex:1 1 0; display:flex; flex-direction:column; align-items:center; gap:4px;
+    background:none; border:none; color:var(--m-sub2); font-size:14px; font-weight:500;
+    padding:12px 2px 6px; cursor:pointer; -webkit-tap-highlight-color:transparent;
   }
-  .mgmtTab svg{width:23px; height:23px;}
+  .mgmtTab svg{width:50px; height:50px;}
   .mgmtTab.active{color:var(--m-accent);}
 
   /* Re-skin the shared .mbox/.mbtn/.mfield components specifically inside #manage to match
@@ -6195,7 +6207,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v284';
+const APP_VERSION = 'v285';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
