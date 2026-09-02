@@ -1,4 +1,24 @@
 <!--
+VERSION: 288
+DATE: 2026-09-02T15:00:00-05:00
+CHANGES:
+- Save Entry and Delete swapped: Delete now sits on the left, Save Entry on the right.
+- Bottom tab bar background changed to var(--navy-deep) — the same dark blue used for the
+  main site's own body background — replacing v287's gold. border-top removed per feedback
+  ("no border above tool dock").
+- Fixed a v287 alignment bug: giving Settings' gear icon its own smaller size (35px vs. the
+  other four icons' 42px) made its flex column shorter, which shifted the "Settings" label up
+  relative to "Entries"/"Export"/"Import"/"Logs" — the labels no longer sat on one line. All
+  five icons now share one size again (36px) so the label row lines up.
+- Icons made smaller and less bold overall: 42px \u2192 36px, plus a stroke-width override (1.8 \u2192
+  1.4) on the icon paths, which inherit it the same way they already inherit stroke="currentColor".
+- Tab bar shortened roughly a sixth (bar and button padding trimmed throughout, label font
+  15px \u2192 14px) with the button's own padding kept top-heavy (more space above the icon than
+  below the label), so the icon+label cluster reads as sitting higher in the bar rather than
+  pressed down against the safe-area edge.
+- .mgmtScroll bottom clearance reduced 130px \u2192 110px to match the shorter bar.
+-->
+<!--
 VERSION: 287
 DATE: 2026-09-02T14:30:00-05:00
 CHANGES:
@@ -4918,7 +4938,7 @@ CHANGES:
      value as tried before. */
   .mgmtScroll{
     height:100%; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;
-    padding-bottom:130px; /* clears the fixed bottom tab bar (resized again in v287) so the last row is never hidden */
+    padding-bottom:110px; /* clears the fixed bottom tab bar (shortened ~15% in v288) so the last row is never hidden */
   }
   /* Collapsed-by-default explanatory text. Same <details>/<summary> pattern already used for
      Publish to GitHub / Media Base Paths, applied to every plain hint paragraph so the CMS reads
@@ -5007,22 +5027,25 @@ CHANGES:
 
   /* Fixed bottom tab bar — thumb-reachable, icon over label, matches iOS tab-bar conventions.
      Sits as a sibling of .mgmtScroll (not inside it) so it never scrolls away.
-     v287: gold background, white icons/labels (inactive dimmed via opacity rather than a
-     second hue, active tab full-opacity white, so "white words" holds for both states).
-     Pulled back down slightly from v285's near-doubling; Settings' gear icon is visually
-     denser than the other glyphs at the same box size, so it gets its own smaller size. */
+     v288: dark-navy background (var(--navy-deep), same as the main site's own body background)
+     with white icons/labels — border-top removed per feedback. All five icons share one size
+     again (v287's smaller Settings-only override was what threw the labels out of alignment —
+     a shorter icon column shifts everything below it up within the same flex item, so
+     "Settings" sat higher than "Entries"/"Export"/etc.). Icons made smaller and less bold
+     instead (stroke-width override), and the bar padding trimmed by roughly a sixth — with the
+     tab button's own padding kept top-heavy (more above the icon than below the label) so the
+     cluster reads as sitting higher rather than pressed down against the safe-area edge. */
   .mgmtTabBar{
     position:fixed; left:0; right:0; bottom:0; z-index:30;
-    display:flex; background:var(--gold); border-top:1px solid rgba(0,0,0,.18);
-    padding:14px 4px calc(10px + env(safe-area-inset-bottom));
+    display:flex; background:var(--navy-deep); border-top:none;
+    padding:12px 4px calc(10px + env(safe-area-inset-bottom));
   }
   .mgmtTab{
-    flex:1 1 0; display:flex; flex-direction:column; align-items:center; gap:4px;
-    background:none; border:none; color:rgba(255,255,255,.8); font-size:15px; font-weight:600;
-    padding:9px 2px 5px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    flex:1 1 0; display:flex; flex-direction:column; align-items:center; gap:3px;
+    background:none; border:none; color:rgba(255,255,255,.75); font-size:14px; font-weight:600;
+    padding:5px 2px 3px; cursor:pointer; -webkit-tap-highlight-color:transparent;
   }
-  .mgmtTab svg{width:42px; height:42px;}
-  .mgmtTab[data-tab="settings"] svg{width:35px; height:35px;}
+  .mgmtTab svg{width:36px; height:36px; stroke-width:1.4;}
   .mgmtTab.active{color:#fff;}
 
   /* Re-skin the shared .mbox/.mbtn/.mfield components specifically inside #manage to match
@@ -5701,8 +5724,8 @@ CHANGES:
         <div class="erowFull"><label>Quotes</label><textarea id="fQuotes" class="eQuotesLinks"></textarea></div>
         <div class="erowFull"><label>Links</label><textarea id="fLinks" class="eQuotesLinks"></textarea></div>
         <div class="mtool">
-          <button class="mbtn" id="fSave">Save Entry</button>
           <button class="mbtn danger" id="fDelete">Delete</button>
+          <button class="mbtn" id="fSave">Save Entry</button>
           <button class="mbtn" id="fDraft" style="display:none;">Draft Article with Claude</button>
         </div>
       </div>
@@ -6254,7 +6277,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v287';
+const APP_VERSION = 'v288';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
