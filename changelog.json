@@ -2,6 +2,37 @@
   "v": 1,
   "entries": [
     {
+      "version": "289",
+      "date": "2026-09-02T15:30:00-05:00",
+      "changes": [
+        "Logs tab background unified to solid white throughout (.logPanel now sets background:#fff",
+        "explicitly) — previously unset, so the cream --m-bg color showed through in the gap around",
+        "#logCount, sandwiched between the white search row above and white log-entry rows below.",
+        "Fixed the actual cause of the \"double padding\" around the search box: .logPanel's",
+        "margin-cancel was a 3-value -16px/-16px, but .mgmtBody's padding has been asymmetric",
+        "(16px 32px 8px 16px) since v283's wider right-side scroll gutter — the old margin only",
+        "cancelled half the right side's 32px, leaving a stray 16px gap. Now a proper 4-value cancel",
+        "(0 -32px -8px -16px) matching each side exactly.",
+        "Removed the \"N of M versions\" routine count line. #logCount is kept in the DOM and still",
+        "used for its more important job — loadChangelog()'s actual status text (Loading…, \"no",
+        "changelog.json yet\", missing-token prompt, fetch errors) — since that code isn't",
+        "null-guarded and several of those messages matter. Reordered the 404 branch so its message",
+        "is set after renderLogList() runs, not before, since renderLogList() now clears the element",
+        "on every call and would otherwise wipe that message immediately.",
+        "The floating gear/hamburger button (#hamBtn — shows as a gear once owner tools are unlocked)",
+        "now goes dark navy specifically while the Content Manager is open (body:has(#manage.open)),",
+        "instead of its usual gold. Gold is the right contrast against the main timeline's own navy",
+        "background, which this scoping leaves untouched — it only recolors while floating over the",
+        "Content Manager's white/cream background, and reverts automatically on Exit.",
+        "Did NOT make the search row a true sticky/pinned header — read \"the scrolling area should",
+        "stop just below the fixed search area\" as a spacing/padding complaint (now fixed above)",
+        "rather than a request for actual position:sticky behavior, given this project's own",
+        "documented iOS Safari quirk where sticky breaks under a fixed ancestor. Flagged in the reply",
+        "rather than guessed at blind."
+      ],
+      "loggedAt": "2026-09-02T22:43:12.254345+00:00"
+    },
+    {
       "version": "287",
       "date": "2026-09-02T14:30:00-05:00",
       "changes": [
