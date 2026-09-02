@@ -2,6 +2,28 @@
   "v": 1,
   "entries": [
     {
+      "version": "280",
+      "date": "2026-09-02T09:00:00-05:00",
+      "changes": [
+        "Entry editor (#mEditor in the Entries tab) rebuilt as a compact gold panel: every field is",
+        "now one row — short black label on the left (fixed width), white input/select/textarea on",
+        "the right — instead of the old label-above-box layout with long explanatory sub-labels.",
+        "All long inline help text removed from field labels (Country, Reviewer Notes, Prominence,",
+        "Alt Names, Tags, Article, Quotes, Links, Quick Facts); \"Prominence\" relabeled \"Tier\",",
+        "\"Article\" relabeled \"Story\", \"Image Caption\" relabeled \"Caption\". Dropdown option text",
+        "trimmed to match. Element ids unchanged (fName, fYear, fDesc, fArt, etc.) so no JS logic",
+        "touched — this is a markup/CSS-only pass.",
+        "Short Description field (fDesc, the detail-card teaser) removed from the visible editor —",
+        "wrapped in a display:none row (#fDescField) rather than deleted, so existing values are",
+        "preserved on save/load and the field can be re-shown later by removing one inline style.",
+        "Story field (fArt) given its own much larger box (60vh min-height, 19px text) since it's the",
+        "one field actually being read/edited at length; every other textarea stays compact.",
+        "New scoped CSS block (#panel-entries #mEditor …) — Export/Import tabs' .mfield/.mgrid2 rows",
+        "untouched, this only re-skins the entry-editing form itself."
+      ],
+      "loggedAt": "2026-09-02T14:29:40.239368+00:00"
+    },
+    {
       "version": "279",
       "date": "2026-09-01T14:00:00-05:00",
       "changes": [
