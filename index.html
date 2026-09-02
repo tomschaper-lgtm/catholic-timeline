@@ -1,4 +1,44 @@
 <!--
+VERSION: 287
+DATE: 2026-09-02T14:30:00-05:00
+CHANGES:
+- Bottom tab bar: background changed to gold. Icons and labels are white (icons use
+  stroke="currentColor" throughout, so setting color:#fff on .mgmtTab recolors them too) —
+  inactive tabs sit at 80% opacity white, the active tab at full white, so both states read as
+  "white" while still staying visually distinguishable from each other.
+- Tab bar sized back down slightly from v285's near-doubling: icons 50px → 42px, bar/button
+  padding trimmed a few px all around. Label text bumped 14px → 15px and bolder (600) despite
+  the overall shrink, so it's still easy to read at the smaller size.
+- Settings' gear icon given its own smaller size (35px vs. the other four icons' 42px) — its
+  path is denser than the others at the same box size, so it was reading visually larger even
+  though the numeric width/height matched.
+- .mgmtScroll bottom clearance adjusted 155px → 130px to match the resized bar.
+- Save Entry / Delete buttons: taller (padding 10px → 18px vertical). Delete is now solid red
+  (#C0392B) with white text, replacing the previous pale-pink-background/dark-red-text
+  treatment.
+-->
+<!--
+VERSION: 286
+DATE: 2026-09-02T14:00:00-05:00
+CHANGES:
+- Country moved to directly after Region (was after Caption, before Audio). Fixes a bug from
+  the in-progress previous edit that briefly left two id="fCountry" fields in the DOM at once
+  — duplicate IDs mean getElementById only ever sees the first one, so the second would have
+  silently gone dead (never read on load, never saved). Caught and removed before shipping;
+  every field id is confirmed unique again.
+- Removed the "1 of 451 entries shown · 13 held for review (438 public)" line above the
+  entries list (#mListCount) — redundant with the "N review + N public = Total" stat already
+  next to the Review Mode button (v283). The element's JS writer was already null-guarded
+  (`if(countEl) ...`), so removing it outright is safe — nothing to break.
+- Editor's "Quick Facts" label reverted to "Facts" (v282 had renamed it) — only the editor
+  field label changed; the many other "Quick Facts" references in the codebase describe the
+  actual public-facing article panel, a real feature name, and are untouched.
+- selectEntryFromCms() (tapping an entry in the search results list) no longer calls
+  mEditor.scrollIntoView() — selecting an entry now fills the editor in place without moving
+  the scroll position. The "+New" button's own scroll-to-editor (a different, unrelated click
+  handler) is untouched.
+-->
+<!--
 VERSION: 285
 DATE: 2026-09-02T13:00:00-05:00
 CHANGES:
@@ -4878,7 +4918,7 @@ CHANGES:
      value as tried before. */
   .mgmtScroll{
     height:100%; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch;
-    padding-bottom:155px; /* clears the fixed bottom tab bar (nearly doubled in v285) so the last row is never hidden */
+    padding-bottom:130px; /* clears the fixed bottom tab bar (resized again in v287) so the last row is never hidden */
   }
   /* Collapsed-by-default explanatory text. Same <details>/<summary> pattern already used for
      Publish to GitHub / Media Base Paths, applied to every plain hint paragraph so the CMS reads
@@ -4966,19 +5006,24 @@ CHANGES:
   .mgmtPanel.active{display:block;}
 
   /* Fixed bottom tab bar — thumb-reachable, icon over label, matches iOS tab-bar conventions.
-     Sits as a sibling of .mgmtScroll (not inside it) so it never scrolls away. */
+     Sits as a sibling of .mgmtScroll (not inside it) so it never scrolls away.
+     v287: gold background, white icons/labels (inactive dimmed via opacity rather than a
+     second hue, active tab full-opacity white, so "white words" holds for both states).
+     Pulled back down slightly from v285's near-doubling; Settings' gear icon is visually
+     denser than the other glyphs at the same box size, so it gets its own smaller size. */
   .mgmtTabBar{
     position:fixed; left:0; right:0; bottom:0; z-index:30;
-    display:flex; background:#fff; border-top:1px solid var(--m-border);
-    padding:18px 4px calc(14px + env(safe-area-inset-bottom));
+    display:flex; background:var(--gold); border-top:1px solid rgba(0,0,0,.18);
+    padding:14px 4px calc(10px + env(safe-area-inset-bottom));
   }
   .mgmtTab{
     flex:1 1 0; display:flex; flex-direction:column; align-items:center; gap:4px;
-    background:none; border:none; color:var(--m-sub2); font-size:14px; font-weight:500;
-    padding:12px 2px 6px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    background:none; border:none; color:rgba(255,255,255,.8); font-size:15px; font-weight:600;
+    padding:9px 2px 5px; cursor:pointer; -webkit-tap-highlight-color:transparent;
   }
-  .mgmtTab svg{width:50px; height:50px;}
-  .mgmtTab.active{color:var(--m-accent);}
+  .mgmtTab svg{width:42px; height:42px;}
+  .mgmtTab[data-tab="settings"] svg{width:35px; height:35px;}
+  .mgmtTab.active{color:#fff;}
 
   /* Re-skin the shared .mbox/.mbtn/.mfield components specifically inside #manage to match
      the app's own Settings sheet: sans-serif, flat white rows, no gold-tinted card look. */
@@ -5138,9 +5183,12 @@ CHANGES:
      script load via getElementById('fDraft'), so removing the element outright would throw).
      Save + Delete now split the row 50/50. */
   #panel-entries #mEditor .mtool{ margin-top:10px; }
-  #panel-entries #mEditor .mtool .mbtn{ background:#fff; color:#12141F; border-color:rgba(0,0,0,.3); flex:1 1 0; }
+  #panel-entries #mEditor .mtool .mbtn{
+    background:#fff; color:#12141F; border-color:rgba(0,0,0,.3); flex:1 1 0; padding:18px 16px;
+  }
   #panel-entries #mEditor .mtool .mbtn:hover{ background:#f2f2f2; }
-  #panel-entries #mEditor .mtool .mbtn.danger{ background:var(--m-danger-bg); color:var(--m-danger); border-color:#F0C9C0; }
+  #panel-entries #mEditor .mtool .mbtn.danger{ background:#C0392B; color:#fff; border-color:#9B2C1F; }
+  #panel-entries #mEditor .mtool .mbtn.danger:hover{ background:#A5301F; }
   @media (max-width:400px){
     #panel-entries #mEditor .erow label{ flex-basis:68px; font-size:12px; }
   }
@@ -5601,7 +5649,6 @@ CHANGES:
         <input type="text" id="mSearch" placeholder="Search entries… (type &quot;review&quot; to list held items)">
         <button class="mbtn" id="mNew">+ New</button>
       </div>
-      <div class="mgmtFilterCount" id="mListCount"></div>
       <div class="mlist" id="mList"></div>
 
       <div class="mgmtEditorDivider"></div>
@@ -5634,6 +5681,7 @@ CHANGES:
             <option value="americas">Americas</option><option value="asia">Asia &amp; Oceania</option>
           </select>
         </div>
+        <div class="erow"><label>Country</label><input type="text" id="fCountry" placeholder="e.g. Italy, Spain, Algeria"></div>
         <div class="erow"><label>Tier</label>
           <select id="fTier">
             <option value="1">1 — Always show</option>
@@ -5646,9 +5694,8 @@ CHANGES:
         <div class="erow" id="fDescField" style="display:none;"><label>Description</label><textarea id="fDesc"></textarea></div>
         <div class="erow"><label>Image</label><input type="text" id="fImg" placeholder="augustine.jpg — or https://…"></div>
         <div class="erow"><label>Caption</label><input type="text" id="fImgCap"></div>
-        <div class="erow"><label>Country</label><input type="text" id="fCountry" placeholder="e.g. Italy, Spain, Algeria"></div>
         <div class="erow"><label>Audio</label><input type="text" id="fAudio" placeholder="augustine.mp3 — or https://…"></div>
-        <div class="erowFull"><label>Quick Facts</label><textarea id="fFacts" class="eFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
+        <div class="erowFull"><label>Facts</label><textarea id="fFacts" class="eFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
         <div class="erowFull"><label>Notes</label><textarea id="fReviewNote" class="eNotes"></textarea></div>
         <div class="erowFull"><label>Story</label><textarea id="fArt" class="eStory"></textarea></div>
         <div class="erowFull"><label>Quotes</label><textarea id="fQuotes" class="eQuotesLinks"></textarea></div>
@@ -6207,7 +6254,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v285';
+const APP_VERSION = 'v287';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -10987,7 +11034,6 @@ function selectEntryFromCms(id){
   }
   openEditor(id);
   renderMList(false);
-  document.getElementById('mEditor').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 // ---- Export tab state: category/region/status/date-range filters, default = nothing checked = everything ----
