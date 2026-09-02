@@ -2,6 +2,32 @@
   "v": 1,
   "entries": [
     {
+      "version": "282",
+      "date": "2026-09-02T11:15:00-05:00",
+      "changes": [
+        "Year row: restored the \"Year\" label (same fixed width as every other row's label, so this",
+        "row now actually lines up with the rest — v281 had the input starting flush left with no",
+        "label, out of alignment). The input and the Review toggle now split the leftover width",
+        "evenly via flex:1 1 0, not 50%-of-the-whole-row, so they divide correctly around the label.",
+        "Country and Audio moved up ahead of Quick Facts (still single-line compact rows, unchanged",
+        "size) — order is now Image, Caption, Country, Audio, Quick Facts, Notes, Story, Quotes,",
+        "Links.",
+        "Quick Facts (renamed from \"Facts\") converted to a full-width .erowFull block like Notes/",
+        "Story, label above, ~180px tall (\\u2248 4x the ~44px baseline row).",
+        "Quotes and Links also converted to full-width .erowFull blocks, label above, ~110px tall",
+        "(\\u2248 2.5x baseline).",
+        "Draft Article with Claude button hidden (not deleted — document.getElementById('fDraft')",
+        ".addEventListener(...) runs unguarded at script load, so removing the element outright would",
+        "throw; hiding it is the safe equivalent, same pattern as #fDescField/#mEditorTitle).",
+        "Save and Delete now share one row, 50/50 width (.mtool .mbtn{flex:1 1 0}) — with Draft",
+        "hidden they're the only two buttons left in that row.",
+        ".mgmtBody right padding doubled (16px \\u2192 32px) across the whole Content Manager, so there's",
+        "a wider non-interactive strip along the right edge to grab while scrolling, without landing",
+        "on a field."
+      ],
+      "loggedAt": "2026-09-02T21:16:16.928646+00:00"
+    },
+    {
       "version": "281",
       "date": "2026-09-02T10:30:00-05:00",
       "changes": [
