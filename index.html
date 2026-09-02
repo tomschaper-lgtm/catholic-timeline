@@ -1,4 +1,24 @@
 <!--
+VERSION: 280
+DATE: 2026-09-02T09:00:00-05:00
+CHANGES:
+- Entry editor (#mEditor in the Entries tab) rebuilt as a compact gold panel: every field is
+  now one row — short black label on the left (fixed width), white input/select/textarea on
+  the right — instead of the old label-above-box layout with long explanatory sub-labels.
+  All long inline help text removed from field labels (Country, Reviewer Notes, Prominence,
+  Alt Names, Tags, Article, Quotes, Links, Quick Facts); "Prominence" relabeled "Tier",
+  "Article" relabeled "Story", "Image Caption" relabeled "Caption". Dropdown option text
+  trimmed to match. Element ids unchanged (fName, fYear, fDesc, fArt, etc.) so no JS logic
+  touched — this is a markup/CSS-only pass.
+- Short Description field (fDesc, the detail-card teaser) removed from the visible editor —
+  wrapped in a display:none row (#fDescField) rather than deleted, so existing values are
+  preserved on save/load and the field can be re-shown later by removing one inline style.
+- Story field (fArt) given its own much larger box (60vh min-height, 19px text) since it's the
+  one field actually being read/edited at length; every other textarea stays compact.
+- New scoped CSS block (#panel-entries #mEditor …) — Export/Import tabs' .mfield/.mgrid2 rows
+  untouched, this only re-skins the entry-editing form itself.
+-->
+<!--
 VERSION: 279
 DATE: 2026-09-01T14:00:00-05:00
 CHANGES:
@@ -4971,6 +4991,41 @@ CHANGES:
   }
   .mgmtEditorDivider{border-top:1px solid var(--m-border); margin:14px 0;}
 
+  /* Entry editor: compact gold panel, label-left/box-right rows (v280) */
+  #panel-entries #mEditor{
+    background:var(--gold); border-radius:14px; padding:14px 12px 16px; margin-top:4px;
+  }
+  #panel-entries #mEditor h3{
+    color:#000; font-size:15px; font-weight:700; letter-spacing:normal; text-transform:none;
+    margin:0 0 10px; padding:0 2px;
+  }
+  #panel-entries #mEditor .erow{
+    display:flex; align-items:center; gap:8px; margin-bottom:6px;
+  }
+  #panel-entries #mEditor .erow label{
+    flex:0 0 84px; color:#000; font-size:13px; font-weight:700; line-height:1.25;
+  }
+  #panel-entries #mEditor .erow input[type=text],
+  #panel-entries #mEditor .erow input[type=number],
+  #panel-entries #mEditor .erow select,
+  #panel-entries #mEditor .erow textarea{
+    flex:1 1 auto; width:auto; min-width:0; background:#fff; color:#12141F;
+    border:1px solid rgba(0,0,0,.3); border-radius:8px; padding:7px 9px; font-size:16px; min-height:0;
+  }
+  #panel-entries #mEditor .erow textarea{ min-height:40px; resize:vertical; line-height:1.35; }
+  #panel-entries #mEditor .erowCheck label{ flex:1 1 auto; cursor:pointer; }
+  #panel-entries #mEditor .erowCheck input[type=checkbox]{ flex:0 0 auto; width:20px; height:20px; margin:0; }
+  #panel-entries #mEditor .eStoryRow{ align-items:flex-start; }
+  #panel-entries #mEditor .eStoryRow label{ padding-top:8px; }
+  #panel-entries #mEditor .eStory{ min-height:60vh; font-size:19px !important; line-height:1.55; }
+  #panel-entries #mEditor .mtool{ margin-top:10px; }
+  #panel-entries #mEditor .mtool .mbtn{ background:#fff; color:#12141F; border-color:rgba(0,0,0,.3); }
+  #panel-entries #mEditor .mtool .mbtn:hover{ background:#f2f2f2; }
+  #panel-entries #mEditor .mtool .mbtn.danger{ background:var(--m-danger-bg); color:var(--m-danger); border-color:#F0C9C0; }
+  @media (max-width:400px){
+    #panel-entries #mEditor .erow label{ flex-basis:68px; font-size:12px; }
+  }
+
   /* Exit confirmation modal */
   .mgmtExitModal{
     position:fixed; inset:0; z-index:200; background:rgba(32,38,59,.55);
@@ -5437,55 +5492,44 @@ CHANGES:
 
       <div id="mEditor">
         <h3 id="mEditorTitle">New Entry</h3>
-        <div class="mgrid2">
-          <div class="mfield"><label>Name</label><input type="text" id="fName"></div>
-          <div class="mfield"><label>Year (AD)</label><input type="number" id="fYear"></div>
-          <div class="mfield"><label>Type</label>
-            <select id="fType">
-              <option value="s">Saint</option><option value="c">Council</option>
-              <option value="p">Persecution</option><option value="m">Marian Apparition</option>
-              <option value="u">Eucharistic Miracle</option><option value="e">Event</option>
-              <option value="i">Info (About panel — see category field via JSON, not editable here yet)</option>
-            </select>
-          </div>
-          <div class="mfield"><label>Region</label>
-            <select id="fRegion">
-              <option value="rome">Rome &amp; Italy</option><option value="west">Western Europe</option>
-              <option value="brit">Britain &amp; Ireland</option><option value="east">Byzantium &amp; E. Europe</option>
-              <option value="holy">Holy Land &amp; Mid-East</option><option value="africa">Africa</option>
-              <option value="americas">Americas</option><option value="asia">Asia &amp; Oceania</option>
-            </select>
-          </div>
+        <div class="erow"><label>Name</label><input type="text" id="fName"></div>
+        <div class="erow"><label>Year</label><input type="number" id="fYear"></div>
+        <div class="erow"><label>Type</label>
+          <select id="fType">
+            <option value="s">Saint</option><option value="c">Council</option>
+            <option value="p">Persecution</option><option value="m">Marian Apparition</option>
+            <option value="u">Eucharistic Miracle</option><option value="e">Event</option>
+            <option value="i">Info (not editable here yet)</option>
+          </select>
         </div>
-        <div class="mgrid2">
-          <div class="mfield"><label>Country (modern name — for country-shape display; for people who moved, use where they lived most)</label><input type="text" id="fCountry" placeholder="e.g. Italy, Spain, Algeria"></div>
+        <div class="erow"><label>Region</label>
+          <select id="fRegion">
+            <option value="rome">Rome &amp; Italy</option><option value="west">Western Europe</option>
+            <option value="brit">Britain &amp; Ireland</option><option value="east">Byzantium &amp; E. Europe</option>
+            <option value="holy">Holy Land &amp; Mid-East</option><option value="africa">Africa</option>
+            <option value="americas">Americas</option><option value="asia">Asia &amp; Oceania</option>
+          </select>
         </div>
-        <div class="mfield" style="display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" id="fReview" style="width:auto; margin:0;">
-          <label for="fReview" style="margin:0; cursor:pointer;">Hold for review — hide this entry from the public timeline until approved</label>
+        <div class="erow"><label>Country</label><input type="text" id="fCountry" placeholder="e.g. Italy, Spain, Algeria"></div>
+        <div class="erow erowCheck"><label for="fReview">Hold for review</label><input type="checkbox" id="fReview"></div>
+        <div class="erow"><label>Reviewer Notes</label><textarea id="fReviewNote" rows="2"></textarea></div>
+        <div class="erow"><label>Tier</label>
+          <select id="fTier">
+            <option value="1">1 — Always show</option>
+            <option value="2">2 — Zoomed in</option>
+            <option value="3">3 — Zoomed in deep</option>
+          </select>
         </div>
-        <div class="mfield"><label>Notes to Reviewer <span style="font-weight:400; font-style:italic;">(shown on the article itself, right before the story, while held for review — e.g. thin sourcing, sensitive framing, anything you want the owner to weigh in on)</span></label><textarea id="fReviewNote" rows="3"></textarea></div>
-        <div class="mgrid2">
-          <div class="mfield"><label>Prominence (when it appears as you zoom)</label>
-            <select id="fTier">
-              <option value="1">1 — Always show (major)</option>
-              <option value="2">2 — Show when zoomed in</option>
-              <option value="3">3 — Show only when zoomed in deep (minor)</option>
-            </select>
-          </div>
-          <div class="mfield"><label>Alternate names for search (comma-separated)</label><input type="text" id="fAlt" placeholder="e.g. JPII, Karol Wojtyła"></div>
-          <div class="mfield"><label>Search tags (comma-separated)</label><input type="text" id="fTags" placeholder="e.g. fish, keys, boat, nets"></div>
-        </div>
-        <div class="mfield"><label>Short Description (detail card)</label><textarea id="fDesc"></textarea></div>
-        <div class="mfield"><label>Article — "## Heading" starts a section; blank lines between paragraphs; simple HTML allowed (&lt;b&gt; &lt;i&gt; &lt;u&gt; &lt;ul&gt; &lt;ol&gt; &lt;li&gt; &lt;br&gt; &lt;blockquote&gt; &lt;a href&gt;)</label><textarea class="tall" id="fArt"></textarea></div>
-        <div class="mfield"><label>Quotes — one per line: quote text :: source</label><textarea id="fQuotes"></textarea></div>
-        <div class="mfield"><label>Source Links — one per line: label :: url</label><textarea id="fLinks"></textarea></div>
-        <div class="mfield"><label>Quick Facts — one per line: label :: value &nbsp;(optional source: label :: value :: url). Type \n inside a value for a manual line break, e.g. "253, Centumcellae\n(in exile)"</label><textarea id="fFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
-        <div class="mgrid2">
-          <div class="mfield"><label>Image (filename, or full URL)</label><input type="text" id="fImg" placeholder="augustine.jpg — or https://…"></div>
-          <div class="mfield"><label>Image Caption</label><input type="text" id="fImgCap"></div>
-        </div>
-        <div class="mfield"><label>Audio (filename, or full URL)</label><input type="text" id="fAudio" placeholder="augustine.mp3 — or https://…"></div>
+        <div class="erow"><label>Alt Names</label><input type="text" id="fAlt" placeholder="e.g. JPII, Karol Wojtyła"></div>
+        <div class="erow"><label>Tags</label><input type="text" id="fTags" placeholder="e.g. fish, keys, boat, nets"></div>
+        <div class="erow" id="fDescField" style="display:none;"><label>Description</label><textarea id="fDesc"></textarea></div>
+        <div class="erow eStoryRow"><label>Story</label><textarea class="tall eStory" id="fArt"></textarea></div>
+        <div class="erow"><label>Quotes</label><textarea id="fQuotes"></textarea></div>
+        <div class="erow"><label>Links</label><textarea id="fLinks"></textarea></div>
+        <div class="erow"><label>Facts</label><textarea id="fFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
+        <div class="erow"><label>Image</label><input type="text" id="fImg" placeholder="augustine.jpg — or https://…"></div>
+        <div class="erow"><label>Caption</label><input type="text" id="fImgCap"></div>
+        <div class="erow"><label>Audio</label><input type="text" id="fAudio" placeholder="augustine.mp3 — or https://…"></div>
         <div class="mtool">
           <button class="mbtn" id="fSave">Save Entry</button>
           <button class="mbtn" id="fDraft">Draft Article with Claude</button>
@@ -6040,7 +6084,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v279';
+const APP_VERSION = 'v280';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
