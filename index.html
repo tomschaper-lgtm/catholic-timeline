@@ -1,4 +1,27 @@
 <!--
+VERSION: 284
+DATE: 2026-09-02T12:30:00-05:00
+CHANGES:
+- All editor text boxes now share one font-size (16px, matching Name/Type/Region/etc. and the
+  iOS-safe minimum that avoids input auto-zoom) and one font-family (already unified via
+  #manage's own rule — only size varied before). Story was 20px, Facts/Notes were 17px; all
+  three now inherit the same 16px/1.4-line-height as everything else via the shared
+  .erowFull textarea rule instead of per-class overrides.
+-->
+<!--
+VERSION: 283
+DATE: 2026-09-02T12:00:00-05:00
+CHANGES:
+- Review Mode bar: the text next to the "Review Mode: On/Off" button (#reviewCount) now reads
+  as a compact stat line — "N review + N public = Total" — instead of a full sentence ("13
+  entries are held for review — shown on the timeline now"). Same underlying numbers as
+  before (reviewCount() vs db.entries.length), just condensed.
+- Removed the "What this does" explainer directly under the Review Mode bar (the one
+  describing what Hold for review / Review Mode do) — redundant now that the stat line next
+  to the button says the same thing at a glance. The other "What this does" toggles elsewhere
+  in the Content Manager (Export, Import, Logs tabs) are untouched.
+-->
+<!--
 VERSION: 282
 DATE: 2026-09-02T11:15:00-05:00
 CHANGES:
@@ -5092,11 +5115,12 @@ CHANGES:
   #panel-entries #mEditor .erowFull textarea{
     display:block; width:100%; box-sizing:border-box; background:#fff; color:#12141F;
     border:1px solid rgba(0,0,0,.3); border-radius:8px; padding:10px 12px; resize:vertical;
+    font-size:16px; line-height:1.4; /* v284: same size as every other box in this form */
   }
-  #panel-entries #mEditor .eFacts{ min-height:180px; font-size:17px; line-height:1.4; }
-  #panel-entries #mEditor .eNotes{ min-height:200px; font-size:17px; line-height:1.4; }
-  #panel-entries #mEditor .eStory{ min-height:62vh; font-size:20px; line-height:1.55; }
-  #panel-entries #mEditor .eQuotesLinks{ min-height:110px; font-size:16px; line-height:1.4; }
+  #panel-entries #mEditor .eFacts{ min-height:180px; }
+  #panel-entries #mEditor .eNotes{ min-height:200px; }
+  #panel-entries #mEditor .eStory{ min-height:62vh; }
+  #panel-entries #mEditor .eQuotesLinks{ min-height:110px; }
 
   /* v282: Draft Article with Claude hidden (not deleted — its click handler is wired at
      script load via getElementById('fDraft'), so removing the element outright would throw).
@@ -5561,9 +5585,6 @@ CHANGES:
         <button class="mbtn" id="reviewToggle">Review Mode: Off</button>
         <span class="rcount" id="reviewCount"></span>
       </div>
-      <details class="mHelp"><summary>What this does</summary>
-        <div class="hint" style="margin-top:-4px;">Entries marked <b>Hold for review</b> are hidden from the timeline, from search, and from visitor-facing counts. Review Mode shows them to you here and on the timeline (dashed amber ring) so you can check them in place; clear the checkbox in the editor to approve one and make it public. This setting is remembered in this browser only. It keeps unfinished drafts off the timeline — it is not a password, since the entries still travel inside <code>data.json</code>.</div>
-      </details>
       <div class="mgmtEntriesTop">
         <input type="text" id="mSearch" placeholder="Search entries… (type &quot;review&quot; to list held items)">
         <button class="mbtn" id="mNew">+ New</button>
@@ -6174,7 +6195,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v282';
+const APP_VERSION = 'v284';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -11188,9 +11209,8 @@ function updateReviewUI(){
     btn.classList.toggle('reviewOn', reviewMode);
   }
   if(cnt){
-    cnt.textContent = pend
-      ? pend + ' entr' + (pend === 1 ? 'y is' : 'ies are') + ' held for review' + (reviewMode ? ' — shown on the timeline now' : ' — hidden from the timeline')
-      : 'Nothing is currently held for review';
+    const total = db ? db.entries.length : 0;
+    cnt.textContent = pend + ' review + ' + (total - pend) + ' public = ' + total;
   }
   if(hamBox) hamBox.checked = reviewMode;
   if(hamMeta) hamMeta.textContent = pend ? pend + ' pending' : '';
