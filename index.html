@@ -1,4 +1,29 @@
 <!--
+VERSION: 281
+DATE: 2026-09-02T10:30:00-05:00
+CHANGES:
+- Entry editor field order rebuilt to match the actual on-card display sequence from
+  fillArticleBody(): Year, [Name/classification], Image, Caption, Facts, Country, Audio,
+  Notes, Story, Quotes, Links — Year now leads (it's the first thing shown on the article
+  header), Facts/Country grouped together (Country rides into the same Quick Facts box at
+  render time), Audio positioned where its diagnostic line actually falls in the render order.
+  Type/Region/Tier/Alt Names/Tags have no position on the card itself (they're
+  classification/search metadata, not rendered content) — grouped together right after Name.
+- Year row: input now shares its row with a new "Review: On/Off" toggle, each taking half
+  width. The toggle is a styled <label> wrapping the real #fReview checkbox — mEditFill() and
+  the save handler still read/set fReview.checked exactly as before, untouched. The on/off
+  text and highlight color swap via :has(input:checked), so no new JS was needed.
+- Fixed a v280 CSS specificity bug: .eStory's min-height:60vh was silently losing to the more
+  specific ".erow textarea{min-height:0}" rule (extra type selector = higher specificity),
+  which is why Story rendered at normal row height in practice despite the intended big-box
+  CSS. Notes and Story are now .erowFull blocks (label above, full-width box below) instead of
+  living inside the flex .erow row, so there's no competing rule to lose to. Notes ~5x taller
+  than a standard row (200px), Story far larger still (62vh, 20px text).
+- #mEditorTitle ("Edit: <name>" / "New Entry") hidden — it only repeated the name already
+  shown in the entries-list row above and the Name field directly below. Left in the DOM
+  (mEditFill still sets its textContent) so nothing else changes.
+-->
+<!--
 VERSION: 280
 DATE: 2026-09-02T09:00:00-05:00
 CHANGES:
@@ -4991,14 +5016,14 @@ CHANGES:
   }
   .mgmtEditorDivider{border-top:1px solid var(--m-border); margin:14px 0;}
 
-  /* Entry editor: compact gold panel, label-left/box-right rows (v280) */
+  /* Entry editor: compact gold panel, label-left/box-right rows (v280, updated v281) */
   #panel-entries #mEditor{
     background:var(--gold); border-radius:14px; padding:14px 12px 16px; margin-top:4px;
   }
-  #panel-entries #mEditor h3{
-    color:#000; font-size:15px; font-weight:700; letter-spacing:normal; text-transform:none;
-    margin:0 0 10px; padding:0 2px;
-  }
+  /* v281: the h3 duplicated the entry name already shown in the list row above and the Name
+     field right below it — kept in the DOM (mEditFill still sets its textContent) but hidden,
+     same pattern as #fDescField, so nothing in JS has to change. */
+  #panel-entries #mEditor h3{ display:none; }
   #panel-entries #mEditor .erow{
     display:flex; align-items:center; gap:8px; margin-bottom:6px;
   }
@@ -5013,11 +5038,35 @@ CHANGES:
     border:1px solid rgba(0,0,0,.3); border-radius:8px; padding:7px 9px; font-size:16px; min-height:0;
   }
   #panel-entries #mEditor .erow textarea{ min-height:40px; resize:vertical; line-height:1.35; }
-  #panel-entries #mEditor .erowCheck label{ flex:1 1 auto; cursor:pointer; }
-  #panel-entries #mEditor .erowCheck input[type=checkbox]{ flex:0 0 auto; width:20px; height:20px; margin:0; }
-  #panel-entries #mEditor .eStoryRow{ align-items:flex-start; }
-  #panel-entries #mEditor .eStoryRow label{ padding-top:8px; }
-  #panel-entries #mEditor .eStory{ min-height:60vh; font-size:19px !important; line-height:1.55; }
+
+  /* v281: Year + Review toggle share the first row, half-width each. A real checkbox
+     (#fReview) still drives review state — mEditFill/save read/set its .checked exactly as
+     before — it's just visually replaced by this label-as-button using :has(), so no JS
+     changes were needed to add the toggle. */
+  #panel-entries #mEditor .erow.eYearRow input[type=number]{ flex:1 1 50%; }
+  #panel-entries #mEditor .erow label.reviewToggle{
+    flex:1 1 50%; display:flex; align-items:center; justify-content:center;
+    background:#fff; color:#12141F; border:1px solid rgba(0,0,0,.3); border-radius:8px;
+    padding:7px 9px; font-size:14px; font-weight:700; text-align:center; cursor:pointer;
+  }
+  #panel-entries #mEditor .reviewToggle input[type=checkbox]{ position:absolute; opacity:0; width:0; height:0; pointer-events:none; }
+  #panel-entries #mEditor .reviewToggle .onLabel{ display:none; }
+  #panel-entries #mEditor .reviewToggle:has(input:checked){ background:#FDE68A; border-color:#B45309; color:#7C2D12; }
+  #panel-entries #mEditor .reviewToggle:has(input:checked) .onLabel{ display:inline; }
+  #panel-entries #mEditor .reviewToggle:has(input:checked) .offLabel{ display:none; }
+
+  /* v281: full-width, label-above blocks for Notes and Story — a plain block instead of a
+     flex .erow, so there's no competing ".erow textarea{min-height:0}" rule of equal-or-higher
+     specificity to lose to (that's what silently capped Story's height in v280). */
+  #panel-entries #mEditor .erowFull{ display:block; margin-bottom:10px; }
+  #panel-entries #mEditor .erowFull > label{ display:block; color:#000; font-size:13px; font-weight:700; margin-bottom:5px; }
+  #panel-entries #mEditor .erowFull textarea{
+    display:block; width:100%; box-sizing:border-box; background:#fff; color:#12141F;
+    border:1px solid rgba(0,0,0,.3); border-radius:8px; padding:10px 12px; resize:vertical;
+  }
+  #panel-entries #mEditor .eNotes{ min-height:200px; font-size:17px; line-height:1.4; }
+  #panel-entries #mEditor .eStory{ min-height:62vh; font-size:20px; line-height:1.55; }
+
   #panel-entries #mEditor .mtool{ margin-top:10px; }
   #panel-entries #mEditor .mtool .mbtn{ background:#fff; color:#12141F; border-color:rgba(0,0,0,.3); }
   #panel-entries #mEditor .mtool .mbtn:hover{ background:#f2f2f2; }
@@ -5492,8 +5541,15 @@ CHANGES:
 
       <div id="mEditor">
         <h3 id="mEditorTitle">New Entry</h3>
+        <div class="erow eYearRow">
+          <input type="number" id="fYear" placeholder="Year">
+          <label class="reviewToggle" for="fReview">
+            <input type="checkbox" id="fReview">
+            <span class="offLabel">Review: Off</span>
+            <span class="onLabel">Review: On</span>
+          </label>
+        </div>
         <div class="erow"><label>Name</label><input type="text" id="fName"></div>
-        <div class="erow"><label>Year</label><input type="number" id="fYear"></div>
         <div class="erow"><label>Type</label>
           <select id="fType">
             <option value="s">Saint</option><option value="c">Council</option>
@@ -5510,9 +5566,6 @@ CHANGES:
             <option value="americas">Americas</option><option value="asia">Asia &amp; Oceania</option>
           </select>
         </div>
-        <div class="erow"><label>Country</label><input type="text" id="fCountry" placeholder="e.g. Italy, Spain, Algeria"></div>
-        <div class="erow erowCheck"><label for="fReview">Hold for review</label><input type="checkbox" id="fReview"></div>
-        <div class="erow"><label>Reviewer Notes</label><textarea id="fReviewNote" rows="2"></textarea></div>
         <div class="erow"><label>Tier</label>
           <select id="fTier">
             <option value="1">1 — Always show</option>
@@ -5523,13 +5576,15 @@ CHANGES:
         <div class="erow"><label>Alt Names</label><input type="text" id="fAlt" placeholder="e.g. JPII, Karol Wojtyła"></div>
         <div class="erow"><label>Tags</label><input type="text" id="fTags" placeholder="e.g. fish, keys, boat, nets"></div>
         <div class="erow" id="fDescField" style="display:none;"><label>Description</label><textarea id="fDesc"></textarea></div>
-        <div class="erow eStoryRow"><label>Story</label><textarea class="tall eStory" id="fArt"></textarea></div>
-        <div class="erow"><label>Quotes</label><textarea id="fQuotes"></textarea></div>
-        <div class="erow"><label>Links</label><textarea id="fLinks"></textarea></div>
-        <div class="erow"><label>Facts</label><textarea id="fFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
         <div class="erow"><label>Image</label><input type="text" id="fImg" placeholder="augustine.jpg — or https://…"></div>
         <div class="erow"><label>Caption</label><input type="text" id="fImgCap"></div>
+        <div class="erow"><label>Facts</label><textarea id="fFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
+        <div class="erow"><label>Country</label><input type="text" id="fCountry" placeholder="e.g. Italy, Spain, Algeria"></div>
         <div class="erow"><label>Audio</label><input type="text" id="fAudio" placeholder="augustine.mp3 — or https://…"></div>
+        <div class="erowFull"><label>Notes</label><textarea id="fReviewNote" class="eNotes"></textarea></div>
+        <div class="erowFull"><label>Story</label><textarea id="fArt" class="eStory"></textarea></div>
+        <div class="erow"><label>Quotes</label><textarea id="fQuotes"></textarea></div>
+        <div class="erow"><label>Links</label><textarea id="fLinks"></textarea></div>
         <div class="mtool">
           <button class="mbtn" id="fSave">Save Entry</button>
           <button class="mbtn" id="fDraft">Draft Article with Claude</button>
@@ -6084,7 +6139,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v280';
+const APP_VERSION = 'v281';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
