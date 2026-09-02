@@ -1,4 +1,28 @@
 <!--
+VERSION: 282
+DATE: 2026-09-02T11:15:00-05:00
+CHANGES:
+- Year row: restored the "Year" label (same fixed width as every other row's label, so this
+  row now actually lines up with the rest — v281 had the input starting flush left with no
+  label, out of alignment). The input and the Review toggle now split the leftover width
+  evenly via flex:1 1 0, not 50%-of-the-whole-row, so they divide correctly around the label.
+- Country and Audio moved up ahead of Quick Facts (still single-line compact rows, unchanged
+  size) — order is now Image, Caption, Country, Audio, Quick Facts, Notes, Story, Quotes,
+  Links.
+- Quick Facts (renamed from "Facts") converted to a full-width .erowFull block like Notes/
+  Story, label above, ~180px tall (\u2248 4x the ~44px baseline row).
+- Quotes and Links also converted to full-width .erowFull blocks, label above, ~110px tall
+  (\u2248 2.5x baseline).
+- Draft Article with Claude button hidden (not deleted — document.getElementById('fDraft')
+  .addEventListener(...) runs unguarded at script load, so removing the element outright would
+  throw; hiding it is the safe equivalent, same pattern as #fDescField/#mEditorTitle).
+- Save and Delete now share one row, 50/50 width (.mtool .mbtn{flex:1 1 0}) — with Draft
+  hidden they're the only two buttons left in that row.
+- .mgmtBody right padding doubled (16px \u2192 32px) across the whole Content Manager, so there's
+  a wider non-interactive strip along the right edge to grab while scrolling, without landing
+  on a field.
+-->
+<!--
 VERSION: 281
 DATE: 2026-09-02T10:30:00-05:00
 CHANGES:
@@ -4902,7 +4926,7 @@ CHANGES:
     border:none; border-radius:10px; padding:9px 20px; cursor:pointer; flex:none;
   }
   .mgmtExitBtn:hover{background:#3a4266;}
-  .mgmtBody{padding:16px 16px 8px;}
+  .mgmtBody{padding:16px 32px 8px 16px;}
   .mgmtPanel{display:none;}
   .mgmtPanel.active{display:block;}
 
@@ -5039,13 +5063,16 @@ CHANGES:
   }
   #panel-entries #mEditor .erow textarea{ min-height:40px; resize:vertical; line-height:1.35; }
 
-  /* v281: Year + Review toggle share the first row, half-width each. A real checkbox
-     (#fReview) still drives review state — mEditFill/save read/set its .checked exactly as
-     before — it's just visually replaced by this label-as-button using :has(), so no JS
-     changes were needed to add the toggle. */
-  #panel-entries #mEditor .erow.eYearRow input[type=number]{ flex:1 1 50%; }
+  /* v281: Year + Review toggle share the first row. A real checkbox (#fReview) still drives
+     review state — mEditFill/save read/set its .checked exactly as before — it's just
+     visually replaced by this label-as-button using :has(), so no JS changes were needed to
+     add the toggle. v282: restored the "Year" label (same fixed width as every other row's
+     label, so this row lines up with the rest) — the number input and the toggle now split
+     whatever space is left after that label, using flex:1 1 0 (not 50%) so they divide the
+     *remaining* width evenly rather than 50% of the whole row. */
+  #panel-entries #mEditor .erow.eYearRow input[type=number]{ flex:1 1 0; }
   #panel-entries #mEditor .erow label.reviewToggle{
-    flex:1 1 50%; display:flex; align-items:center; justify-content:center;
+    flex:1 1 0; display:flex; align-items:center; justify-content:center;
     background:#fff; color:#12141F; border:1px solid rgba(0,0,0,.3); border-radius:8px;
     padding:7px 9px; font-size:14px; font-weight:700; text-align:center; cursor:pointer;
   }
@@ -5055,20 +5082,27 @@ CHANGES:
   #panel-entries #mEditor .reviewToggle:has(input:checked) .onLabel{ display:inline; }
   #panel-entries #mEditor .reviewToggle:has(input:checked) .offLabel{ display:none; }
 
-  /* v281: full-width, label-above blocks for Notes and Story — a plain block instead of a
+  /* v281: full-width, label-above blocks for the long-text fields — a plain block instead of a
      flex .erow, so there's no competing ".erow textarea{min-height:0}" rule of equal-or-higher
-     specificity to lose to (that's what silently capped Story's height in v280). */
+     specificity to lose to (that's what silently capped Story's height in v280).
+     v282: Quick Facts joined this group (4x a baseline ~44px row \u2248 180px), as did Quotes and
+     Links (2\u20133x \u2248 110px). */
   #panel-entries #mEditor .erowFull{ display:block; margin-bottom:10px; }
   #panel-entries #mEditor .erowFull > label{ display:block; color:#000; font-size:13px; font-weight:700; margin-bottom:5px; }
   #panel-entries #mEditor .erowFull textarea{
     display:block; width:100%; box-sizing:border-box; background:#fff; color:#12141F;
     border:1px solid rgba(0,0,0,.3); border-radius:8px; padding:10px 12px; resize:vertical;
   }
+  #panel-entries #mEditor .eFacts{ min-height:180px; font-size:17px; line-height:1.4; }
   #panel-entries #mEditor .eNotes{ min-height:200px; font-size:17px; line-height:1.4; }
   #panel-entries #mEditor .eStory{ min-height:62vh; font-size:20px; line-height:1.55; }
+  #panel-entries #mEditor .eQuotesLinks{ min-height:110px; font-size:16px; line-height:1.4; }
 
+  /* v282: Draft Article with Claude hidden (not deleted — its click handler is wired at
+     script load via getElementById('fDraft'), so removing the element outright would throw).
+     Save + Delete now split the row 50/50. */
   #panel-entries #mEditor .mtool{ margin-top:10px; }
-  #panel-entries #mEditor .mtool .mbtn{ background:#fff; color:#12141F; border-color:rgba(0,0,0,.3); }
+  #panel-entries #mEditor .mtool .mbtn{ background:#fff; color:#12141F; border-color:rgba(0,0,0,.3); flex:1 1 0; }
   #panel-entries #mEditor .mtool .mbtn:hover{ background:#f2f2f2; }
   #panel-entries #mEditor .mtool .mbtn.danger{ background:var(--m-danger-bg); color:var(--m-danger); border-color:#F0C9C0; }
   @media (max-width:400px){
@@ -5542,7 +5576,8 @@ CHANGES:
       <div id="mEditor">
         <h3 id="mEditorTitle">New Entry</h3>
         <div class="erow eYearRow">
-          <input type="number" id="fYear" placeholder="Year">
+          <label>Year</label>
+          <input type="number" id="fYear">
           <label class="reviewToggle" for="fReview">
             <input type="checkbox" id="fReview">
             <span class="offLabel">Review: Off</span>
@@ -5578,17 +5613,17 @@ CHANGES:
         <div class="erow" id="fDescField" style="display:none;"><label>Description</label><textarea id="fDesc"></textarea></div>
         <div class="erow"><label>Image</label><input type="text" id="fImg" placeholder="augustine.jpg — or https://…"></div>
         <div class="erow"><label>Caption</label><input type="text" id="fImgCap"></div>
-        <div class="erow"><label>Facts</label><textarea id="fFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
         <div class="erow"><label>Country</label><input type="text" id="fCountry" placeholder="e.g. Italy, Spain, Algeria"></div>
         <div class="erow"><label>Audio</label><input type="text" id="fAudio" placeholder="augustine.mp3 — or https://…"></div>
+        <div class="erowFull"><label>Quick Facts</label><textarea id="fFacts" class="eFacts" placeholder="Feast day :: August 28&#10;Canonized :: 1298, by Boniface VIII&#10;Patronage :: Theologians, printers"></textarea></div>
         <div class="erowFull"><label>Notes</label><textarea id="fReviewNote" class="eNotes"></textarea></div>
         <div class="erowFull"><label>Story</label><textarea id="fArt" class="eStory"></textarea></div>
-        <div class="erow"><label>Quotes</label><textarea id="fQuotes"></textarea></div>
-        <div class="erow"><label>Links</label><textarea id="fLinks"></textarea></div>
+        <div class="erowFull"><label>Quotes</label><textarea id="fQuotes" class="eQuotesLinks"></textarea></div>
+        <div class="erowFull"><label>Links</label><textarea id="fLinks" class="eQuotesLinks"></textarea></div>
         <div class="mtool">
           <button class="mbtn" id="fSave">Save Entry</button>
-          <button class="mbtn" id="fDraft">Draft Article with Claude</button>
           <button class="mbtn danger" id="fDelete">Delete</button>
+          <button class="mbtn" id="fDraft" style="display:none;">Draft Article with Claude</button>
         </div>
       </div>
     </div>
@@ -6139,7 +6174,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v281';
+const APP_VERSION = 'v282';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
