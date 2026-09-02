@@ -1,4 +1,33 @@
 <!--
+VERSION: 289
+DATE: 2026-09-02T15:30:00-05:00
+CHANGES:
+- Logs tab background unified to solid white throughout (.logPanel now sets background:#fff
+  explicitly) — previously unset, so the cream --m-bg color showed through in the gap around
+  #logCount, sandwiched between the white search row above and white log-entry rows below.
+- Fixed the actual cause of the "double padding" around the search box: .logPanel's
+  margin-cancel was a 3-value -16px/-16px, but .mgmtBody's padding has been asymmetric
+  (16px 32px 8px 16px) since v283's wider right-side scroll gutter — the old margin only
+  cancelled half the right side's 32px, leaving a stray 16px gap. Now a proper 4-value cancel
+  (0 -32px -8px -16px) matching each side exactly.
+- Removed the "N of M versions" routine count line. #logCount is kept in the DOM and still
+  used for its more important job — loadChangelog()'s actual status text (Loading…, "no
+  changelog.json yet", missing-token prompt, fetch errors) — since that code isn't
+  null-guarded and several of those messages matter. Reordered the 404 branch so its message
+  is set after renderLogList() runs, not before, since renderLogList() now clears the element
+  on every call and would otherwise wipe that message immediately.
+- The floating gear/hamburger button (#hamBtn — shows as a gear once owner tools are unlocked)
+  now goes dark navy specifically while the Content Manager is open (body:has(#manage.open)),
+  instead of its usual gold. Gold is the right contrast against the main timeline's own navy
+  background, which this scoping leaves untouched — it only recolors while floating over the
+  Content Manager's white/cream background, and reverts automatically on Exit.
+- Did NOT make the search row a true sticky/pinned header — read "the scrolling area should
+  stop just below the fixed search area" as a spacing/padding complaint (now fixed above)
+  rather than a request for actual position:sticky behavior, given this project's own
+  documented iOS Safari quirk where sticky breaks under a fixed ancestor. Flagged in the reply
+  rather than guessed at blind.
+-->
+<!--
 VERSION: 288
 DATE: 2026-09-02T15:00:00-05:00
 CHANGES:
@@ -3245,6 +3274,12 @@ CHANGES:
     border:none; border-radius:8px; cursor:pointer; padding:0;
     transition:opacity .2s ease, background .2s ease;
   }
+  /* v289: this button (hamburger on the timeline, gear once owner tools are unlocked — see
+     the icon-swap in the JS) floats above every overlay including the Content Manager, whose
+     background is white/cream rather than the main site's navy. Gold-on-navy is the right
+     contrast on the timeline; gold-on-white reads muddier, so it goes dark navy specifically
+     while #manage carries its .open class, and reverts automatically on Exit. */
+  body:has(#manage.open) .hamBtn{ color:var(--navy-deep); }
   .hamBtn:hover{background:rgba(201,165,66,.15);}
   .hamBtn:active{background:rgba(201,165,66,.25);}
   .hamBtn.hidden{opacity:0; pointer-events:none;}
@@ -4959,9 +4994,16 @@ CHANGES:
 
   /* Logs tab runs full-bleed (no boxed card) since it's a scrolling list, same treatment
      Entries uses. Everything else in the Content Manager now shares this same sans-serif,
-     flat-row Settings-sheet look. */
+     flat-row Settings-sheet look.
+     v289: explicit white background (previously unset, so the cream --m-bg color showed
+     through around .logCount, sandwiched between the white search row above and white log
+     entries below). Margin also corrected to a 4-value cancel matching .mgmtBody's actual
+     asymmetric padding (16px 32px 8px 16px since v283's wider right-side scroll gutter) —
+     the old 3-value -16px/-16px only cancelled half the 32px right padding, leaving a stray
+     16px gap on the right (the "double padding" around the search row/log entries). */
   .logPanel{
-    margin:0 -16px -8px; /* cancel .mgmtBody's padding so this panel runs edge-to-edge */
+    background:#fff;
+    margin:0 -32px -8px -16px;
     min-height:calc(100vh - 220px);
   }
   .logSearchRow{
@@ -6277,7 +6319,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v288';
+const APP_VERSION = 'v289';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7805,7 +7847,7 @@ async function loadChangelog(){
   const hdr = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' };
   try{
     const res = await fetch(api, { headers: hdr, cache: 'no-store' });
-    if(res.status === 404){ logEntries = []; countEl.textContent = 'No changelog.json yet — it is created the first time a version-comment build is pushed to ' + branch + '.'; renderLogList(); return; }
+    if(res.status === 404){ logEntries = []; renderLogList(); countEl.textContent = 'No changelog.json yet — it is created the first time a version-comment build is pushed to ' + branch + '.'; return; }
     if(res.status === 401 || res.status === 403) throw new Error('token rejected (check permissions)');
     if(!res.ok) throw new Error('fetch failed (' + res.status + ')');
     const meta = await res.json();
@@ -7846,9 +7888,10 @@ function renderLogList(){
     formatLogDate(e.date).toLowerCase().includes(q) ||
     (e.changes || []).some(c => c.toLowerCase().includes(q))
   );
-  countEl.textContent = logEntries.length
-    ? filtered.length + ' of ' + logEntries.length + ' version' + (logEntries.length === 1 ? '' : 's')
-    : '';
+  // v289: no longer displays a routine "N of M versions" count — #logCount is reserved for
+  // loadChangelog()'s actual status messages (Loading…, errors, "no changelog.json yet",
+  // missing token). Clearing it here is what dismisses "Loading…" once the list is ready.
+  countEl.textContent = '';
   list.innerHTML = filtered.map(e => {
     const changes = (e.changes || []).map(c => '<li>' + highlightLog(c, q) + '</li>').join('');
     return '<div class="logEntry">' +
