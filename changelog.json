@@ -2,6 +2,33 @@
   "v": 1,
   "entries": [
     {
+      "version": "281",
+      "date": "2026-09-02T10:30:00-05:00",
+      "changes": [
+        "Entry editor field order rebuilt to match the actual on-card display sequence from",
+        "fillArticleBody(): Year, [Name/classification], Image, Caption, Facts, Country, Audio,",
+        "Notes, Story, Quotes, Links — Year now leads (it's the first thing shown on the article",
+        "header), Facts/Country grouped together (Country rides into the same Quick Facts box at",
+        "render time), Audio positioned where its diagnostic line actually falls in the render order.",
+        "Type/Region/Tier/Alt Names/Tags have no position on the card itself (they're",
+        "classification/search metadata, not rendered content) — grouped together right after Name.",
+        "Year row: input now shares its row with a new \"Review: On/Off\" toggle, each taking half",
+        "width. The toggle is a styled <label> wrapping the real #fReview checkbox — mEditFill() and",
+        "the save handler still read/set fReview.checked exactly as before, untouched. The on/off",
+        "text and highlight color swap via :has(input:checked), so no new JS was needed.",
+        "Fixed a v280 CSS specificity bug: .eStory's min-height:60vh was silently losing to the more",
+        "specific \".erow textarea{min-height:0}\" rule (extra type selector = higher specificity),",
+        "which is why Story rendered at normal row height in practice despite the intended big-box",
+        "CSS. Notes and Story are now .erowFull blocks (label above, full-width box below) instead of",
+        "living inside the flex .erow row, so there's no competing rule to lose to. Notes ~5x taller",
+        "than a standard row (200px), Story far larger still (62vh, 20px text).",
+        "#mEditorTitle (\"Edit: <name>\" / \"New Entry\") hidden — it only repeated the name already",
+        "shown in the entries-list row above and the Name field directly below. Left in the DOM",
+        "(mEditFill still sets its textContent) so nothing else changes."
+      ],
+      "loggedAt": "2026-09-02T20:29:17.635969+00:00"
+    },
+    {
       "version": "280",
       "date": "2026-09-02T09:00:00-05:00",
       "changes": [
