@@ -1,11 +1,26 @@
 <!--
+VERSION: 297
+DATE: 2026-09-02T19:00:00-05:00
+CHANGES:
+- Fix double-numbered changelog entries (v295/v296 used literal "1./2./3." — the <ol> already
+  numbers each line, so that doubled up; reverted to "- " bullets like every other entry).
+- Thumb fades to light grey after a few seconds idle, wakes up on touch or scroll.
+- Move the top of the slider to match the picture.
+-->
+<!--
+VERSION: 296
+DATE: 2026-09-02T18:30:00-05:00
+CHANGES:
+- Get rid of the "Updated for this session — use Export, then commit data.json to publish" popup.
+-->
+<!--
 VERSION: 295
 DATE: 2026-09-02T18:00:00-05:00
 CHANGES:
-1. Keep only 3 weeks of log entries; delete older ones automatically.
-2. Add the scrub slider from the category panels to the Logs tab.
-3. Make the version sticky header span edge to edge.
-4. Changelog entries should read as a short list of requests, not a technical summary.
+- Keep only 3 weeks of log entries; delete older ones automatically.
+- Add the scrub slider from the category panels to the Logs tab.
+- Make the version sticky header span edge to edge.
+- Changelog entries should read as a short list of requests, not a technical summary.
 -->
 <!--
 VERSION: 294
@@ -5182,9 +5197,12 @@ CHANGES:
      deliberately carries transform:none (see its own comment) specifically so fixed-position
      descendants resolve against the real viewport. Simplified from the original: nothing
      sits under this rail that needs its own tap handling, so every touch just starts a drag.
-     Shown only once .logPanel has a .hasThumb class (enough content to actually scroll). */
+     Shown only once .logPanel has a .hasThumb class (enough content to actually scroll).
+     v297: top corrected from a rough 140px guess to 135px exactly — the date header's own
+     sticky offset (see .logDateHeader) — so the draggable range starts right at the top of
+     the actual scrollable content instead of an arbitrary few px below it. */
   .logThumbTrack{
-    display:none; position:fixed; right:0; top:140px; bottom:130px; width:46px;
+    display:none; position:fixed; right:0; top:135px; bottom:130px; width:46px;
     background:none; z-index:25; touch-action:none;
   }
   .logThumbTrack::before{
@@ -5194,12 +5212,16 @@ CHANGES:
   }
   .logThumbTrack.dragging::before{opacity:1;}
   .logPanel.hasThumb .logThumbTrack{display:block;}
+  /* v297: rests as a faint, barely-there light grey after a few seconds of no interaction
+     (.idle, toggled by logThumbWake()'s timer in JS) — gold and more opaque the moment it's
+     touched or the list is scrolled, fading slowly back to grey once things go still again. */
   .logThumb{
     position:absolute; right:3px; width:16px; height:110px; border-radius:8px;
     background:var(--gold, #C9A542); opacity:.5;
-    transition:opacity .15s;
+    transition:opacity .2s ease, background-color 1.2s ease;
   }
-  .logThumbTrack.dragging .logThumb{opacity:.85;}
+  .logThumbTrack.dragging .logThumb{opacity:.85; transition:opacity .1s ease, background-color .2s ease;}
+  .logThumb.idle{background:#D5D5D5; opacity:.3;}
   .logThumbLabel{
     display:none; position:fixed; right:58px; z-index:26;
     min-width:46px; height:46px; padding:0 15px; border-radius:23px;
@@ -6518,7 +6540,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v295';
+const APP_VERSION = 'v297';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6574,17 +6596,17 @@ async function loadDb(){
   // Last-resort fallback (double-clicked local file, or no data.json yet): embedded seed.
   db = seedDb();
 }
-async function saveDb(){
+async function saveDb(silent){
   if(IS_ARTIFACT){
     try{
       const res = await window.storage.set(DB_KEY, JSON.stringify(db));
-      setStatus(res ? 'Saved ✓' : 'Save failed');
+      if(!silent) setStatus(res ? 'Saved ✓' : 'Save failed');
       return !!res;
-    }catch(e){ setStatus('Save failed — try Export as backup'); return false; }
+    }catch(e){ if(!silent) setStatus('Save failed — try Export as backup'); return false; }
   }
   // On a web host there is no artifact storage. Changes live in this session only;
   // publishing is done by Export → commit data.json to the repo.
-  setStatus('Updated for this session — use Export, then commit data.json to publish');
+  if(!silent) setStatus('Updated for this session — use Export, then commit data.json to publish');
   return true;
 }
 function setStatus(msg){
@@ -7951,7 +7973,7 @@ document.getElementById('assetBaseSave').addEventListener('click', async () => {
   db.settings.imageBase = document.getElementById('imgBase').value.trim();
   db.settings.audioBase = document.getElementById('audioBase').value.trim();
   render();
-  await saveDb();
+  await saveDb(true);
   setStatus('Base paths saved');
 });
 function prefillGh(){
@@ -8195,11 +8217,22 @@ function logThumbEligible(){
 function logThumbRange(){
   return {min: 0, max: Math.max(0, mgmtScrollEl.scrollHeight - mgmtScrollEl.clientHeight)};
 }
+// Fades the thumb to a faint light grey a few seconds after the last time it moved (scroll or
+// drag), and instantly wakes it back to gold the moment it moves again — called from both
+// logSyncThumbPosition() (ordinary scrolling) and logThumbDragTo() (dragging the thumb itself)
+// so either kind of movement counts as "recently touched."
+let logThumbIdleTimer = null;
+function logThumbWake(){
+  logThumb.classList.remove('idle');
+  clearTimeout(logThumbIdleTimer);
+  logThumbIdleTimer = setTimeout(() => logThumb.classList.add('idle'), 2500);
+}
 function logSyncThumbPosition(){
   const {min, max} = logThumbRange();
   const usable = Math.max(1, logThumbTrack.clientHeight - logThumb.offsetHeight);
   const rel = max > min ? (mgmtScrollEl.scrollTop - min) / (max - min) : 0;
   logThumb.style.top = (Math.max(0, Math.min(1, rel)) * usable) + 'px';
+  logThumbWake();
 }
 // Maps the thumb's proportional position straight to a date header's own data-label, same
 // approach as the Saints panel's spLabelAtRel — independent of how many rows happen to fit
@@ -8221,6 +8254,7 @@ function logThumbDragTo(clientY){
   logThumb.style.top = (rel * usable) + 'px';
   logThumbLabel.textContent = logLabelAtRel(rel);
   logThumbLabel.style.top = Math.max(30, clientY - 30) + 'px';
+  logThumbWake();
 }
 let logThumbDragging = false;
 function logThumbBeginDrag(clientY){
@@ -9270,7 +9304,7 @@ async function runFixImageExtensions(){
   log.textContent = summary + (lines.length ? '\n\n' + lines.join('\n') : '');
   if(fixed){
     setStatus(fixed + ' image reference(s) fixed \u2014 review below, then Save to GitHub (Publish)');
-    await saveDb();
+    await saveDb(true);
     renderMList();
   } else {
     setStatus(broken ? broken + ' image(s) still broken \u2014 see the log' : 'All image references already correct');
@@ -11414,8 +11448,8 @@ document.getElementById('mgmtSaveExit').addEventListener('click', async () => {
   // Flush any entry currently sitting open in the editor (e.g. a review-flag checkbox just
   // unchecked but never confirmed with its own "Save Entry" button) before saving/publishing,
   // so exiting this way can never silently drop an edit. No-ops harmlessly if no entry is open.
-  await saveCurrentEditorEntry();
-  await saveDb(); // always write locally first, so nothing is lost even if the network fails
+  await saveCurrentEditorEntry(true);
+  await saveDb(true); // always write locally first, so nothing is lost even if the network fails
   // Then push to GitHub, so "Save" means the live site is actually updated — previously this
   // only saved locally, which made changes look published when they hadn't left the browser.
   if(!ghConfigured()){
@@ -11443,7 +11477,7 @@ document.getElementById('mgmtSaveExit').addEventListener('click', async () => {
 document.getElementById('mgmtDiscardExit').addEventListener('click', async () => {
   if(mSnapshot){
     db = JSON.parse(JSON.stringify(mSnapshot));
-    await saveDb();
+    await saveDb(true);
     render();
     if(currentEntry) showDetail(getEntry(currentEntry.id) || currentEntry);
   }
@@ -11805,7 +11839,7 @@ document.getElementById('mNew').addEventListener('click', () => {
 // decision goes live immediately. Feedback goes into the small note under the buttons since
 // this view isn't inside Manage, so the usual #mStatus bar isn't on screen to show it in.
 async function publishReviewAction(noteEl, successMsg){
-  await saveDb();
+  await saveDb(true);
   if(!ghConfigured()){
     if(noteEl) noteEl.textContent = 'Saved on this device. (No GitHub token set, so the live site was not updated \u2014 add one under Manage \u2192 Import.)';
     return false;
@@ -11841,7 +11875,7 @@ async function deleteReviewEntry(id, noteEl){
     if(currentEntry && currentEntry.id === id){ currentEntry = null; closeArticle(); }
   }, ok ? 1400 : 0);
 }
-async function saveCurrentEditorEntry(){
+async function saveCurrentEditorEntry(silent){
   const n = document.getElementById('fName').value.trim();
   const y = parseInt(document.getElementById('fYear').value, 10);
   if(!n || isNaN(y)) return false;
@@ -11883,7 +11917,7 @@ async function saveCurrentEditorEntry(){
   const idx = db.entries.findIndex(e => e.id === obj.id);
   if(idx >= 0) db.entries[idx] = obj; else db.entries.push(obj);
   editingId = obj.id;
-  await saveDb();
+  await saveDb(silent);
   renderMList();
   render();
   if(currentEntry && currentEntry.id === obj.id){ currentEntry = obj; showDetail(obj); }
@@ -12138,7 +12172,7 @@ function runAutoLinkEntries(apply){
   if(!entriesChanged){ setStatus('No new links found in the current filter'); return; }
   if(!apply){ setStatus('Preview: ' + linksAdded + ' link(s) proposed — nothing saved yet'); return; }
   setStatus(entriesChanged + ' entries linked — review below, then Save to GitHub (Publish)');
-  saveDb();
+  saveDb(true);
   renderMList();
   render();
 }
@@ -12179,7 +12213,7 @@ function removeAutoLinkEntries(){
   document.getElementById('xrefLog').textContent = xrefScopeLabel(scope) +
     removed + ' link(s) removed from ' + entriesChanged + ' entries:\n' + lines.join('\n');
   setStatus(removed + ' links removed — then Save to GitHub (Publish)');
-  saveDb();
+  saveDb(true);
   renderMList();
   render();
 }
@@ -12278,7 +12312,7 @@ async function applyManualLinkList(text, statusPrefix, localStatusElId){
     appliedCount++;
     results.push(sourceId + ' → ' + targetId + ': linked "' + linkText + '"' + (occurrence > 1 ? ' (occurrence ' + occurrence + ')' : ''));
   });
-  if(appliedCount){ await saveDb(); renderMList(); render(); }
+  if(appliedCount){ await saveDb(true); renderMList(); render(); }
   const summary = statusPrefix + ' (link list): ' + appliedCount + ' link(s) applied' +
     (results.length > appliedCount ? ', ' + (results.length - appliedCount) + ' skipped' : '');
   setStatus(summary);
@@ -13027,7 +13061,7 @@ async function applyMerge(text, statusPrefix, localStatusElId){
   const allDeletes = (hasEntryWork ? norm.deletions : []).concat(inlineDeletes);
   const d = allDeletes.length ? deleteEntries(allDeletes) : {deleted: 0, missing: 0, notes: []};
   const r = hasEntryWork ? mergeEntries(list) : {added: 0, updated: 0, skipped: 0, notes: []};
-  await saveDb();
+  await saveDb(true);
   renderMList();
   render();
   // If the entry this import just touched (patched, merged, or otherwise) happens to be sitting
@@ -13198,7 +13232,7 @@ document.getElementById('mRestoreFile').addEventListener('change', (ev) => {
       const parsed = JSON.parse(r.result);
       if(!parsed.entries || !Array.isArray(parsed.entries)) throw new Error('bad format');
       db = parsed;
-      await saveDb();
+      await saveDb(true);
       renderMList();
       render();
       setStatus('Restored ' + db.entries.length + ' entries (replaced all)');
@@ -13211,7 +13245,7 @@ document.getElementById('mRestoreFile').addEventListener('change', (ev) => {
 document.getElementById('mReset').addEventListener('click', async () => {
   if(!confirm('Replace the whole database with the original seed data? Your edits will be lost (export a JSON backup first!)')) return;
   db = seedDb();
-  await saveDb();
+  await saveDb(true);
   renderMList();
   render();
   setStatus('Reset to seed');
