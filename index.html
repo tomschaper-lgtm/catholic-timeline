@@ -1,4 +1,10 @@
 <!--
+VERSION: 299
+DATE: 2026-09-02T19:45:00-05:00
+CHANGES:
+- Remove the | from the tab titles — was only meant as a separator in the instructions, not literal text.
+-->
+<!--
 VERSION: 298
 DATE: 2026-09-02T19:30:00-05:00
 CHANGES:
@@ -5917,7 +5923,7 @@ CHANGES:
  <div class="mgmtScroll">
   <div class="mgmtHeaderSticky">
    <div class="mgmtTopBar">
-    <span class="panelTitle"><span id="mgmtTitleFirst">Content</span><em class="spTitleSecond" id="mgmtTitleSecond"> | Edit Entries</em><span id="mgmtVersion" style="display:none; font-weight:600; font-size:13px; letter-spacing:.02em; color:#6b5a1f; background:rgba(201,165,66,.22); border:1px solid rgba(201,165,66,.55); border-radius:10px; padding:2px 9px; vertical-align:middle; margin-left:8px;"></span></span>
+    <span class="panelTitle"><span id="mgmtTitleFirst">Content</span><em class="spTitleSecond" id="mgmtTitleSecond"> Edit Entries</em><span id="mgmtVersion" style="display:none; font-weight:600; font-size:13px; letter-spacing:.02em; color:#6b5a1f; background:rgba(201,165,66,.22); border:1px solid rgba(201,165,66,.55); border-radius:10px; padding:2px 9px; vertical-align:middle; margin-left:8px;"></span></span>
     <span class="mstatus" id="mStatus"></span>
     <button class="panelClose" id="mgmtExitBtn" aria-label="Exit Content Manager">
      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
@@ -6548,7 +6554,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v298';
+const APP_VERSION = 'v299';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -11439,11 +11445,11 @@ document.getElementById('manageBtn').addEventListener('click', () => {
 
 // ---- Tabs ----
 const MGMT_TAB_TITLES = {
-  entries:  {first: 'Content',     second: ' | Edit Entries'},
-  export:   {first: 'Content',     second: ' | Export Data'},
-  import:   {first: 'Content',     second: ' | Import Data'},
-  settings: {first: 'Application', second: ' | Settings'},
-  logs:     {first: 'Application', second: ' | Change Logs'}
+  entries:  {first: 'Content',     second: ' Edit Entries'},
+  export:   {first: 'Content',     second: ' Export Data'},
+  import:   {first: 'Content',     second: ' Import Data'},
+  settings: {first: 'Application', second: ' Settings'},
+  logs:     {first: 'Application', second: ' Change Logs'}
 };
 function switchMgmtTab(tab){
   document.querySelectorAll('.mgmtTab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
