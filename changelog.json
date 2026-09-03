@@ -2,6 +2,27 @@
   "v": 1,
   "entries": [
     {
+      "version": "294",
+      "date": "2026-09-02T17:30:00-05:00",
+      "changes": [
+        "Logs tab: added a second sticky tier. Each version's own header (\"v273 8:15 PM\") is now",
+        "wrapped in .logEntryHead and sticks in place directly under the date bar while that",
+        "version's own change list scrolls underneath it — a double sticky header, date bar on top,",
+        "current version locked right below it. Unsticks naturally once its own <ol> has fully",
+        "scrolled past (a sticky element can't outlive its own parent's bounds), handing off to",
+        "either the next version's header or the next date bar, whichever comes first.",
+        "top:177px on .logEntryHead is an exact stack — 65px header + 70px search row + 42px date",
+        "header — not a guess, continuing the same reasoning as every other offset on this tab.",
+        "Date header text bumped 15px → 20px per feedback (\"make the date text bigger\"), and given a",
+        "fixed height (min-height:42px + box-sizing:border-box) so the version header underneath it",
+        "has a reliable, exact number to stack against rather than an estimate.",
+        ".logEntry's own padding restructured to accommodate the new inner sticky head: top padding",
+        "moved onto .logEntryHead itself (which needs its own opaque background anyway, since content",
+        "scrolls underneath it), .logEntry keeps its left/right/bottom padding for the list below."
+      ],
+      "loggedAt": "2026-09-03T01:06:13.183055+00:00"
+    },
+    {
       "version": "293",
       "date": "2026-09-02T17:00:00-05:00",
       "changes": [
