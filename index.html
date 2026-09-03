@@ -1,4 +1,17 @@
 <!--
+VERSION: 301
+DATE: 2026-09-02T20:30:00-05:00
+CHANGES:
+- Article close X is now gold, matching the corner portrait's gold border.
+- Moved the X up and to the right when a corner portrait is present (was shifted 136px off the corner to clear it, now 122px — as close to the corner as it can safely sit without ever overlapping the portrait, even at its widest clamp size).
+-->
+<!--
+VERSION: 300
+DATE: 2026-09-02T20:00:00-05:00
+CHANGES:
+- Remove this pop up in the heading, for real this time — it was still firing from Save Entry/Delete/review actions that never passed the silent flag.
+-->
+<!--
 VERSION: 299
 DATE: 2026-09-02T19:45:00-05:00
 CHANGES:
@@ -4591,9 +4604,9 @@ CHANGES:
      instant an entry merely has a photo. text-shadow keeps the white glyph legible with no
      background of its own, over article art or the plain navy backdrop alike. */
   .artX{
-    position:absolute; top:2px; right:6px; z-index:22;
+    position:absolute; top:0px; right:6px; z-index:22;
     width:60px; height:60px; display:flex; align-items:center; justify-content:center;
-    background:none; border:none; color:#fff; font-size:32px; font-weight:300; line-height:1;
+    background:none; border:none; color:var(--gold); font-size:32px; font-weight:300; line-height:1;
     cursor:pointer; text-shadow:0 1px 5px rgba(0,0,0,.65), 0 0 12px rgba(0,0,0,.35);
   }
   .artX:hover{color:var(--gold-bright);}
@@ -6554,7 +6567,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v299';
+const APP_VERSION = 'v301';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6619,8 +6632,10 @@ async function saveDb(silent){
     }catch(e){ if(!silent) setStatus('Save failed — try Export as backup'); return false; }
   }
   // On a web host there is no artifact storage. Changes live in this session only;
-  // publishing is done by Export → commit data.json to the repo.
-  if(!silent) setStatus('Updated for this session — use Export, then commit data.json to publish');
+  // publishing is done by Export → commit data.json to the repo. No status message here —
+  // it kept popping up regardless of the silent flag, from callers (Save Entry, Delete,
+  // review approve/reject) that rely on this as their only confirmation. Removed outright
+  // rather than tracked down caller-by-caller a second time.
   return true;
 }
 function setStatus(msg){
@@ -10853,7 +10868,12 @@ const FLY_DELAY = 48;             // scroll this far first, so a nudge doesn't s
 // match .artX's own CSS "right", since this JS value overrides it via inline style the moment
 // setArtXShift() first runs), and how far left it slides once the portrait has fully landed
 // (SHIFTED) — see setArtXShift().
-const FLY_ARTX_BASE = 6, FLY_ARTX_SHIFTED = 136;
+// SHIFTED reduced from 136 to 122 per feedback ("more to the right"). Floor for safety: the
+// portrait's own left edge sits at (FLY_INSET + flyW) from the card's right edge, and flyW can
+// clamp as wide as FLY_MAX (156px) for a landscape-aspect photo — so the button's own 60px box
+// needs SHIFTED >= flyW - 60 in the worst case, i.e. >= 116, to never overlap it. 122 is the
+// closest-to-the-corner value that still clears that worst case with a little room to spare.
+const FLY_ARTX_BASE = 6, FLY_ARTX_SHIFTED = 122;
 // Slides the close button out from under the corner portrait as the portrait itself arrives,
 // rather than jumping there the moment an entry merely has a photo. amt is 0 (photo not there
 // yet — or no photo at all — button sits at the plain top-right corner) through 1 (photo fully
