@@ -1,4 +1,13 @@
 <!--
+VERSION: 295
+DATE: 2026-09-02T18:00:00-05:00
+CHANGES:
+1. Keep only 3 weeks of log entries; delete older ones automatically.
+2. Add the scrub slider from the category panels to the Logs tab.
+3. Make the version sticky header span edge to edge.
+4. Changelog entries should read as a short list of requests, not a technical summary.
+-->
+<!--
 VERSION: 294
 DATE: 2026-09-02T17:30:00-05:00
 CHANGES:
@@ -5167,15 +5176,52 @@ CHANGES:
     padding:10px 20px 0;
   }
   #logList{padding-bottom:20px;}
+  /* v295: scrub thumb-slider for the Logs tab, same look as the Saints/Browse panels' rail
+     (.spThumbTrack/.spThumb/.spThumbLabel) but position:fixed rather than absolute — Logs
+     scrolls via .mgmtScroll (the whole CMS body), not a small inner list, and #manage.open
+     deliberately carries transform:none (see its own comment) specifically so fixed-position
+     descendants resolve against the real viewport. Simplified from the original: nothing
+     sits under this rail that needs its own tap handling, so every touch just starts a drag.
+     Shown only once .logPanel has a .hasThumb class (enough content to actually scroll). */
+  .logThumbTrack{
+    display:none; position:fixed; right:0; top:140px; bottom:130px; width:46px;
+    background:none; z-index:25; touch-action:none;
+  }
+  .logThumbTrack::before{
+    content:''; position:absolute; right:3px; top:0; bottom:0; width:16px;
+    border-radius:8px; background:rgba(20,25,40,.07);
+    opacity:0; transition:opacity .18s ease;
+  }
+  .logThumbTrack.dragging::before{opacity:1;}
+  .logPanel.hasThumb .logThumbTrack{display:block;}
+  .logThumb{
+    position:absolute; right:3px; width:16px; height:110px; border-radius:8px;
+    background:var(--gold, #C9A542); opacity:.5;
+    transition:opacity .15s;
+  }
+  .logThumbTrack.dragging .logThumb{opacity:.85;}
+  .logThumbLabel{
+    display:none; position:fixed; right:58px; z-index:26;
+    min-width:46px; height:46px; padding:0 15px; border-radius:23px;
+    background:#1B2233; color:#fff; font-weight:700; font-size:16px;
+    align-items:center; justify-content:center;
+    box-shadow:0 6px 18px rgba(0,0,0,.28);
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    white-space:nowrap; pointer-events:none; transform:translateY(-50%);
+  }
+  .logThumbLabel.show{display:flex;}
   .logEntry{padding:0 20px 16px; border-top:1px solid #E9EAEE; background:#fff;}
   /* v294: second sticky tier — while scrolling through one version's list of changes, its own
      "v273 8:15 PM" header now locks in place directly under the date bar, instead of
      scrolling away with the rest of that entry. top:177px = 65 (header) + 70 (search row) +
      42 (date header) stacked exactly, same reasoning as every other offset on this tab. Needs
-     its own opaque background since the (non-sticky) <ol> list scrolls underneath it. */
+     its own opaque background since the (non-sticky) <ol> list scrolls underneath it.
+     v295: margin:0 -20px cancels .logEntry's own 20px left/right padding so this sticky bar
+     spans edge-to-edge like the gold date bar above it, instead of floating inset within the
+     white area — padding on this element itself keeps the text lined up where it was. */
   .logEntryHead{
     position:sticky; top:177px; z-index:8;
-    background:#fff; padding:16px 0 6px;
+    background:#fff; margin:0 -20px; padding:16px 20px 6px;
   }
   .logEntry .logVer{
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:19px; font-weight:700;
@@ -6194,8 +6240,10 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
       <div class="logCount" id="logCount"></div>
       <div id="logList"></div>
       <details class="mHelp logHelp"><summary>What this does</summary>
-        <div class="hint">Every build's header comment (VERSION / DATE / CHANGES) is logged automatically to <code>changelog.json</code> by a GitHub Action when you push a new <code>index.html</code> to <code>main</code>. This tab reads that file straight from GitHub using the same access token as Publish above — <code>changelog.json</code> itself is excluded from the public site via <code>.assetsignore</code>, so this log is only visible to you, here.</div>
+        <div class="hint">Every build's header comment (VERSION / DATE / CHANGES) is logged automatically to <code>changelog.json</code> by a GitHub Action when you push a new <code>index.html</code> to <code>main</code>. This tab reads that file straight from GitHub using the same access token as Publish above — <code>changelog.json</code> itself is excluded from the public site via <code>.assetsignore</code>, so this log is only visible to you, here. Kept to a rolling 3 weeks — anything older is trimmed automatically each time this tab loads.</div>
       </details>
+      <div class="logThumbTrack" id="logThumbTrack"><div class="logThumb" id="logThumb"></div></div>
+      <div class="logThumbLabel" id="logThumbLabel"></div>
     </div>
 
   </div>
@@ -6470,7 +6518,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v294';
+const APP_VERSION = 'v295';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -8006,9 +8054,35 @@ async function loadChangelog(){
     const parsed = JSON.parse(json);
     logEntries = parsed.entries || [];
     renderLogList();
+    pruneOldChangelogEntries(meta.sha, owner, repo, branch, token, countEl);
   }catch(err){
     countEl.textContent = 'Could not load changelog: ' + err.message;
   }
+}
+// Rolling 3-week retention: runs automatically after every successful load, committing a
+// trimmed changelog.json back to GitHub if (and only if) anything's actually old enough to
+// drop — a plain read otherwise, no extra commit. Best-effort: a failure here just means next
+// load tries again, so it fails quietly rather than surfacing a hard error over "Loading…".
+const LOG_RETENTION_MS = 21 * 24 * 60 * 60 * 1000;
+async function pruneOldChangelogEntries(sha, owner, repo, branch, token, countEl){
+  const cutoff = Date.now() - LOG_RETENTION_MS;
+  const keep = logEntries.filter(e => { const d = new Date(e.date); return isNaN(d) || d.getTime() >= cutoff; });
+  const removed = logEntries.length - keep.length;
+  if(removed <= 0) return;
+  const api = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/changelog.json';
+  const hdr = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' };
+  const json = JSON.stringify({entries: keep}, null, 1);
+  const content = btoa(unescape(encodeURIComponent(json)));
+  const body = { message: 'Trim changelog.json to the last 3 weeks (-' + removed + ')', content: content, branch: branch, sha: sha };
+  try{
+    const put = await fetch(api, { method: 'PUT', headers: hdr, body: JSON.stringify(body) });
+    if(put.status === 200 || put.status === 201){
+      logEntries = keep;
+      renderLogList();
+      countEl.textContent = 'Removed ' + removed + ' log entr' + (removed === 1 ? 'y' : 'ies') + ' older than 3 weeks.';
+      setTimeout(() => { if(countEl.textContent.indexOf('Removed') === 0) countEl.textContent = ''; }, 6000);
+    }
+  }catch(e){ /* best-effort — see comment above */ }
 }
 // Formats an ISO date string as "Monday 8/8 12:45 PM" — day name, no-leading-zero M/D, 12hr time.
 // Still used for search matching (so typing a day name or date still filters correctly) even
@@ -8083,7 +8157,8 @@ function renderLogList(){
     const key = logDateKey(e.date);
     let dateHeader = '';
     if(key && key !== lastDateKey){
-      dateHeader = '<div class="logDateHeader"><span class="ldhDate">' + esc(logDateLong(e.date)) + '</span><em class="ldhDay">' + esc(logDayName(e.date)) + '</em></div>';
+      const longDate = logDateLong(e.date);
+      dateHeader = '<div class="logDateHeader" data-label="' + esc(longDate) + '"><span class="ldhDate">' + esc(longDate) + '</span><em class="ldhDay">' + esc(logDayName(e.date)) + '</em></div>';
       lastDateKey = key;
     }
     return dateHeader + '<div class="logEntry">' +
@@ -8091,6 +8166,7 @@ function renderLogList(){
       (changes ? '<ol>' + changes + '</ol>' : '') +
       '</div>';
   }).join('') || '<div class="hint" style="margin:14px 20px 0;">' + (logEntries.length ? 'No entries match that search.' : '') + '</div>';
+  updateLogThumbVisibility();
 }
 document.getElementById('logSearch').addEventListener('input', () => {
   document.getElementById('logSearchClear').classList.toggle('show', document.getElementById('logSearch').value.length > 0);
@@ -8103,6 +8179,93 @@ document.getElementById('logSearchClear').addEventListener('click', () => {
   renderLogList();
   inp.focus();
 });
+
+// ---- Logs tab: scrub thumb-slider — same look/feel as the Saints/Browse panels' rail, but
+// wired to .mgmtScroll (the Logs tab's own scrolling context is the whole CMS body, not a
+// small inner list) and simplified — nothing sits under this rail that needs its own tap
+// handling, so any touch on it just starts a drag immediately. ----
+const logThumbTrack = document.getElementById('logThumbTrack');
+const logThumb = document.getElementById('logThumb');
+const logThumbLabel = document.getElementById('logThumbLabel');
+const logPanelEl = document.getElementById('panel-logs');
+const mgmtScrollEl = document.querySelector('.mgmtScroll');
+function logThumbEligible(){
+  return mgmtScrollEl.scrollHeight > mgmtScrollEl.clientHeight + 20;
+}
+function logThumbRange(){
+  return {min: 0, max: Math.max(0, mgmtScrollEl.scrollHeight - mgmtScrollEl.clientHeight)};
+}
+function logSyncThumbPosition(){
+  const {min, max} = logThumbRange();
+  const usable = Math.max(1, logThumbTrack.clientHeight - logThumb.offsetHeight);
+  const rel = max > min ? (mgmtScrollEl.scrollTop - min) / (max - min) : 0;
+  logThumb.style.top = (Math.max(0, Math.min(1, rel)) * usable) + 'px';
+}
+// Maps the thumb's proportional position straight to a date header's own data-label, same
+// approach as the Saints panel's spLabelAtRel — independent of how many rows happen to fit
+// per screen.
+function logLabelAtRel(rel){
+  const headers = document.querySelectorAll('#logList .logDateHeader');
+  const total = headers.length;
+  if(!total) return '';
+  const idx = Math.max(0, Math.min(total - 1, Math.round(rel * (total - 1))));
+  return headers[idx] ? (headers[idx].dataset.label || '') : '';
+}
+function logThumbDragTo(clientY){
+  const trackRect = logThumbTrack.getBoundingClientRect();
+  const usable = Math.max(1, trackRect.height - logThumb.offsetHeight);
+  let rel = (clientY - trackRect.top - logThumb.offsetHeight / 2) / usable;
+  rel = Math.max(0, Math.min(1, rel));
+  const {min, max} = logThumbRange();
+  mgmtScrollEl.scrollTop = min + rel * (max - min);
+  logThumb.style.top = (rel * usable) + 'px';
+  logThumbLabel.textContent = logLabelAtRel(rel);
+  logThumbLabel.style.top = Math.max(30, clientY - 30) + 'px';
+}
+let logThumbDragging = false;
+function logThumbBeginDrag(clientY){
+  logThumbDragging = true;
+  logThumbTrack.classList.add('dragging');
+  logThumbLabel.classList.add('show');
+  logThumbDragTo(clientY);
+}
+function logThumbStart(e){
+  const t = e.touches ? e.touches[0] : e;
+  logThumbBeginDrag(t.clientY);
+  e.preventDefault();
+}
+function logThumbMove(e){
+  if(!logThumbDragging) return;
+  const t = e.touches ? e.touches[0] : e;
+  logThumbDragTo(t.clientY);
+  e.preventDefault();
+}
+function logThumbEnd(){
+  if(!logThumbDragging) return;
+  logThumbDragging = false;
+  logThumbTrack.classList.remove('dragging');
+  logThumbLabel.classList.remove('show');
+}
+if(logThumbTrack){
+  logThumbTrack.addEventListener('touchstart', logThumbStart, {passive:false});
+  logThumbTrack.addEventListener('touchmove', logThumbMove, {passive:false});
+  logThumbTrack.addEventListener('touchend', logThumbEnd);
+  logThumbTrack.addEventListener('touchcancel', logThumbEnd);
+  logThumbTrack.addEventListener('mousedown', logThumbStart);
+  window.addEventListener('mousemove', logThumbMove);
+  window.addEventListener('mouseup', logThumbEnd);
+}
+mgmtScrollEl.addEventListener('scroll', () => {
+  if(logPanelEl.classList.contains('active') && !logThumbDragging) logSyncThumbPosition();
+});
+// Eligibility depends on layout that's only settled after the DOM paints — one frame's worth
+// of defer, same reasoning any post-render measurement needs.
+function updateLogThumbVisibility(){
+  requestAnimationFrame(() => {
+    logPanelEl.classList.toggle('hasThumb', logThumbEligible());
+    logSyncThumbPosition();
+  });
+}
 
 // ==================== Work tab: workLog.json task queue + review cards ====================
 // The in-app half of the orchestrator pipeline. Backend services (GitHub Actions) draft work
