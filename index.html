@@ -1,4 +1,23 @@
 <!--
+VERSION: 294
+DATE: 2026-09-02T17:30:00-05:00
+CHANGES:
+- Logs tab: added a second sticky tier. Each version's own header ("v273 8:15 PM") is now
+  wrapped in .logEntryHead and sticks in place directly under the date bar while that
+  version's own change list scrolls underneath it — a double sticky header, date bar on top,
+  current version locked right below it. Unsticks naturally once its own <ol> has fully
+  scrolled past (a sticky element can't outlive its own parent's bounds), handing off to
+  either the next version's header or the next date bar, whichever comes first.
+- top:177px on .logEntryHead is an exact stack — 65px header + 70px search row + 42px date
+  header — not a guess, continuing the same reasoning as every other offset on this tab.
+- Date header text bumped 15px → 20px per feedback ("make the date text bigger"), and given a
+  fixed height (min-height:42px + box-sizing:border-box) so the version header underneath it
+  has a reliable, exact number to stack against rather than an estimate.
+- .logEntry's own padding restructured to accommodate the new inner sticky head: top padding
+  moved onto .logEntryHead itself (which needs its own opaque background anyway, since content
+  scrolls underneath it), .logEntry keeps its left/right/bottom padding for the list below.
+-->
+<!--
 VERSION: 293
 DATE: 2026-09-02T17:00:00-05:00
 CHANGES:
@@ -5119,18 +5138,21 @@ CHANGES:
      entries. top:135px = .logSearchRow's own fixed 70px height stacked under the header's
      65px (see .mgmtTopBar/.logSearchRow) — exact, not guessed, same reasoning as the search
      row's own offset. Bold white date ("block letters"), italic tan day-of-week — tan reuses
-     --parchment, the site's existing warm off-white/tan tone, rather than inventing a new one. */
+     --parchment, the site's existing warm off-white/tan tone, rather than inventing a new one.
+     v294: text bumped 15px → 20px; min-height + box-sizing:border-box added so this element's
+     own height is fixed and predictable (42px) — needed now that .logEntryHead (below) has to
+     stack its own sticky "top" directly under this one, exactly, not by eyeballing it. */
   .logDateHeader{
     position:sticky; top:135px; z-index:10;
-    background:var(--gold); padding:8px 20px;
+    background:var(--gold); padding:9px 20px; min-height:42px; box-sizing:border-box;
     display:flex; align-items:baseline; gap:8px;
   }
   .ldhDate{
-    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-weight:700; font-size:15px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-weight:700; font-size:20px;
     color:#fff; letter-spacing:.01em;
   }
   .ldhDay{
-    font-family:'EB Garamond',Georgia,serif; font-style:italic; font-weight:600; font-size:15px;
+    font-family:'EB Garamond',Georgia,serif; font-style:italic; font-weight:600; font-size:20px;
     color:var(--parchment, #EFE6CE);
   }
   /* v293: with #logCount's routine text already removed (v289), it still carries padding
@@ -5145,7 +5167,16 @@ CHANGES:
     padding:10px 20px 0;
   }
   #logList{padding-bottom:20px;}
-  .logEntry{padding:16px 20px; border-top:1px solid #E9EAEE; background:#fff;}
+  .logEntry{padding:0 20px 16px; border-top:1px solid #E9EAEE; background:#fff;}
+  /* v294: second sticky tier — while scrolling through one version's list of changes, its own
+     "v273 8:15 PM" header now locks in place directly under the date bar, instead of
+     scrolling away with the rest of that entry. top:177px = 65 (header) + 70 (search row) +
+     42 (date header) stacked exactly, same reasoning as every other offset on this tab. Needs
+     its own opaque background since the (non-sticky) <ol> list scrolls underneath it. */
+  .logEntryHead{
+    position:sticky; top:177px; z-index:8;
+    background:#fff; padding:16px 0 6px;
+  }
   .logEntry .logVer{
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:19px; font-weight:700;
     color:#111827; letter-spacing:-.01em;
@@ -6439,7 +6470,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v293';
+const APP_VERSION = 'v294';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -8056,7 +8087,7 @@ function renderLogList(){
       lastDateKey = key;
     }
     return dateHeader + '<div class="logEntry">' +
-      '<span class="logVer">v' + highlightLog(e.version || '?', q) + '</span><span class="logDate">' + highlightLog(logTimeOnly(e.date), q) + '</span>' +
+      '<div class="logEntryHead"><span class="logVer">v' + highlightLog(e.version || '?', q) + '</span><span class="logDate">' + highlightLog(logTimeOnly(e.date), q) + '</span></div>' +
       (changes ? '<ol>' + changes + '</ol>' : '') +
       '</div>';
   }).join('') || '<div class="hint" style="margin:14px 20px 0;">' + (logEntries.length ? 'No entries match that search.' : '') + '</div>';
