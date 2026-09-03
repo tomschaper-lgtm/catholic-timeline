@@ -1,0 +1,40 @@
+name: Sentence Length Audit
+
+# Manual trigger only — this is a read-only scan of data.json, no AI
+# calls, no cost. Run it whenever you want a fresh batch of candidates
+# to work through in chat. Safe to run anytime; it only ever writes to
+# automation/reports/sentence-audit/.
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: sentence-length-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run audit
+        run: node scripts/services/sentence-length-audit.mjs data.json automation/reports/sentence-audit
+
+      - name: Commit report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add automation/reports/sentence-audit
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Sentence length audit: $(date -u +%Y-%m-%d)"
+            git push
+          fi
