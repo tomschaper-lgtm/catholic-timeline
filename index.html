@@ -1,4 +1,34 @@
 <!--
+VERSION: 293
+DATE: 2026-09-02T17:00:00-05:00
+CHANGES:
+- Logs tab: added a sticky date-group header, one per calendar day of changelog entries — a
+  gold bar showing the date in bold white ("September 12, 2026") and the day of week in
+  italic tan ("Wednesday", color:var(--parchment) — the site's existing warm off-white tone).
+  It's genuinely pinned, same sticky mechanism as the search row above it; "top" is set to
+  135px, an exact stack of the header's 65px + the search row's own newly-fixed 70px height,
+  not a guess.
+- Since the date/day now live in that sticky header, each individual entry's own label was
+  simplified from "Wednesday 9/2 10:00 AM" down to just the time ("10:00 AM") — the version
+  number ("v278") is unchanged. New logDateKey()/logDateLong()/logDayName()/logTimeOnly()
+  helpers alongside the existing formatLogDate(), which is kept as-is and still used for
+  search matching (typing a day name or date still filters correctly) even though it's no
+  longer what's displayed per entry.
+- Closed a small gap that would have made the date headers snap a few px when engaging their
+  sticky position: #logCount carried padding unconditionally even with no text in it (its
+  routine count was removed back in v289) — now :empty{padding:0} zeroes that out, while a
+  real status message (loading, error, etc.) still gets normal padding.
+-->
+<!--
+VERSION: 292
+DATE: 2026-09-02T16:30:00-05:00
+CHANGES:
+- Removed the "Review Mode on/off — drafts [visible/hidden]..." status popup that appeared
+  next to the header when tapping the Review Mode button. Only that one setStatus() call was
+  removed — setStatus()/#mStatus itself is shared by many other confirmations throughout the
+  Content Manager (saves, publishes, errors, etc.) and is untouched.
+-->
+<!--
 VERSION: 291
 DATE: 2026-09-02T16:15:00-05:00
 CHANGES:
@@ -5060,6 +5090,7 @@ CHANGES:
   .logSearchRow{
     display:flex; align-items:center; padding:14px 20px; background:#fff;
     position:sticky; top:65px; z-index:15;
+    min-height:70px; box-sizing:border-box;
   }
   .logSearchWrap{position:relative; flex:1 1 auto;}
   .logSearchRow input{
@@ -5079,8 +5110,36 @@ CHANGES:
   /* v290: kills the "two lines" right below the search row — its own border-bottom is gone
      (not replaced with anything, per feedback), and the very first log entry no longer draws
      its own top border either, since that border's job is separating entries from each
-     other, not separating the list from the search box above it. */
+     other, not separating the list from the search box above it. (v293: with the new sticky
+     date header now the actual first child of #logList on day one, this rule no longer
+     matches anything — harmless; a gold bar sitting there doesn't have the same "double line"
+     problem a second white row did.) */
   #logList .logEntry:first-child{border-top:none;}
+  /* v293: sticky date-group header, injected by renderLogList() once per calendar day of
+     entries. top:135px = .logSearchRow's own fixed 70px height stacked under the header's
+     65px (see .mgmtTopBar/.logSearchRow) — exact, not guessed, same reasoning as the search
+     row's own offset. Bold white date ("block letters"), italic tan day-of-week — tan reuses
+     --parchment, the site's existing warm off-white/tan tone, rather than inventing a new one. */
+  .logDateHeader{
+    position:sticky; top:135px; z-index:10;
+    background:var(--gold); padding:8px 20px;
+    display:flex; align-items:baseline; gap:8px;
+  }
+  .ldhDate{
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-weight:700; font-size:15px;
+    color:#fff; letter-spacing:.01em;
+  }
+  .ldhDay{
+    font-family:'EB Garamond',Georgia,serif; font-style:italic; font-weight:600; font-size:15px;
+    color:var(--parchment, #EFE6CE);
+  }
+  /* v293: with #logCount's routine text already removed (v289), it still carries padding
+     unconditionally — a dead 10px gap between the sticky search row and the first date
+     header/entry, which would make the date header's sticky "top" land a few px off from
+     its natural resting position (a visible snap the instant it engages). :empty zeroes that
+     padding only when there's genuinely nothing to show; a real status message (loading,
+     error, etc.) still gets its normal padding. */
+  .logCount:empty{padding:0;}
   .logCount{
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:14px; color:#7C8598;
     padding:10px 20px 0;
@@ -6380,7 +6439,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v291';
+const APP_VERSION = 'v293';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7921,6 +7980,8 @@ async function loadChangelog(){
   }
 }
 // Formats an ISO date string as "Monday 8/8 12:45 PM" — day name, no-leading-zero M/D, 12hr time.
+// Still used for search matching (so typing a day name or date still filters correctly) even
+// though entries no longer display this full string themselves — see logTimeOnly() below.
 function formatLogDate(iso){
   if(!iso) return '';
   const d = new Date(iso);
@@ -7931,6 +7992,38 @@ function formatLogDate(iso){
   h = h % 12; if(h === 0) h = 12;
   const min = String(d.getMinutes()).padStart(2, '0');
   return days[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + '  ' + h + ':' + min + ' ' + ampm;
+}
+const LOG_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const LOG_DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+// Groups changelog entries by calendar day for the sticky date header — cheap string key,
+// no reparsing needed to compare.
+function logDateKey(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return '';
+  return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+}
+// "September 12, 2026" — the sticky date header's bold white half.
+function logDateLong(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return '';
+  return LOG_MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+}
+// "Wednesday" — the sticky date header's italic tan half.
+function logDayName(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return '';
+  return LOG_DAYS[d.getDay()];
+}
+// "10:00 AM" — all an individual entry's own header shows now; the date/day live in the
+// sticky group header above it instead of repeating on every entry.
+function logTimeOnly(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return '';
+  let h = d.getHours();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if(h === 0) h = 12;
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return h + ':' + min + ' ' + ampm;
 }
 // Escapes text for HTML, then wraps any case-insensitive match of the search query in a
 // yellow <mark>. Escaping happens first so the query itself is never treated as markup.
@@ -7953,10 +8046,17 @@ function renderLogList(){
   // loadChangelog()'s actual status messages (Loading…, errors, "no changelog.json yet",
   // missing token). Clearing it here is what dismisses "Loading…" once the list is ready.
   countEl.textContent = '';
+  let lastDateKey = null;
   list.innerHTML = filtered.map(e => {
     const changes = (e.changes || []).map(c => '<li>' + highlightLog(c, q) + '</li>').join('');
-    return '<div class="logEntry">' +
-      '<span class="logVer">v' + highlightLog(e.version || '?', q) + '</span><span class="logDate">' + highlightLog(formatLogDate(e.date), q) + '</span>' +
+    const key = logDateKey(e.date);
+    let dateHeader = '';
+    if(key && key !== lastDateKey){
+      dateHeader = '<div class="logDateHeader"><span class="ldhDate">' + esc(logDateLong(e.date)) + '</span><em class="ldhDay">' + esc(logDayName(e.date)) + '</em></div>';
+      lastDateKey = key;
+    }
+    return dateHeader + '<div class="logEntry">' +
+      '<span class="logVer">v' + highlightLog(e.version || '?', q) + '</span><span class="logDate">' + highlightLog(logTimeOnly(e.date), q) + '</span>' +
       (changes ? '<ol>' + changes + '</ol>' : '') +
       '</div>';
   }).join('') || '<div class="hint" style="margin:14px 20px 0;">' + (logEntries.length ? 'No entries match that search.' : '') + '</div>';
@@ -11417,7 +11517,6 @@ function updateReviewUI(){
 const reviewToggleBtn = document.getElementById('reviewToggle');
 if(reviewToggleBtn) reviewToggleBtn.addEventListener('click', () => {
   setReviewMode(!reviewMode);
-  setStatus(reviewMode ? 'Review Mode on — drafts are visible to you on the timeline' : 'Review Mode off — drafts hidden again');
 });
 document.getElementById('reviewModeToggle').addEventListener('change', (e) => {
   setReviewMode(e.target.checked);
