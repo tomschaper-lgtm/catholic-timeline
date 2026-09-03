@@ -2,6 +2,29 @@
   "v": 1,
   "entries": [
     {
+      "version": "293",
+      "date": "2026-09-02T17:00:00-05:00",
+      "changes": [
+        "Logs tab: added a sticky date-group header, one per calendar day of changelog entries — a",
+        "gold bar showing the date in bold white (\"September 12, 2026\") and the day of week in",
+        "italic tan (\"Wednesday\", color:var(--parchment) — the site's existing warm off-white tone).",
+        "It's genuinely pinned, same sticky mechanism as the search row above it; \"top\" is set to",
+        "135px, an exact stack of the header's 65px + the search row's own newly-fixed 70px height,",
+        "not a guess.",
+        "Since the date/day now live in that sticky header, each individual entry's own label was",
+        "simplified from \"Wednesday 9/2 10:00 AM\" down to just the time (\"10:00 AM\") — the version",
+        "number (\"v278\") is unchanged. New logDateKey()/logDateLong()/logDayName()/logTimeOnly()",
+        "helpers alongside the existing formatLogDate(), which is kept as-is and still used for",
+        "search matching (typing a day name or date still filters correctly) even though it's no",
+        "longer what's displayed per entry.",
+        "Closed a small gap that would have made the date headers snap a few px when engaging their",
+        "sticky position: #logCount carried padding unconditionally even with no text in it (its",
+        "routine count was removed back in v289) — now :empty{padding:0} zeroes that out, while a",
+        "real status message (loading, error, etc.) still gets normal padding."
+      ],
+      "loggedAt": "2026-09-03T01:00:15.990711+00:00"
+    },
+    {
       "version": "291",
       "date": "2026-09-02T16:15:00-05:00",
       "changes": [
