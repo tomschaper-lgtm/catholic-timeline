@@ -8,6 +8,12 @@ name: Sentence Length Audit
 on:
   workflow_dispatch: {}
 
+# Required so the built-in GITHUB_TOKEN can push the report commit back
+# to the repo. Without this the default token is read-only and the
+# commit step fails with a 403.
+permissions:
+  contents: write
+
 concurrency:
   group: sentence-length-audit
   cancel-in-progress: false
@@ -22,7 +28,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Run audit
         run: node scripts/services/sentence-length-audit.mjs data.json automation/reports/sentence-audit
@@ -36,5 +42,8 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "Sentence length audit: $(date -u +%Y-%m-%d)"
-            git push
+            # Rebase on any commits that landed while this ran (e.g. a
+            # Publish from the CMS), so the report never clobbers content.
+            git pull --rebase origin ${GITHUB_REF_NAME}
+            git push origin HEAD:${GITHUB_REF_NAME}
           fi
