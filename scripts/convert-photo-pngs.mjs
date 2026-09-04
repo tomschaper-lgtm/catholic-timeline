@@ -109,10 +109,20 @@ async function convert(file, hardcodedRefs) {
   const meta = await img.metadata();
 
   if (meta.hasAlpha) {
-    // Real transparency (a logo, an icon with a see-through background, etc). Converting to
-    // JPEG would flatten it onto a solid color and could look wrong — skip it. Rare among
-    // article photos; worth a manual look if one turns up here.
-    return { file, skipped: 'has transparency — left as ' + ext };
+    // hasAlpha only means the pixel format *has* an alpha channel — heic-convert's PNG output
+    // always includes one, whether the source photo had any real transparency or not, so this
+    // alone was a false positive on every single HEIC file (a decoded phone photo, never
+    // transparent). stats().isOpaque is the actual "does this alpha channel ever go below 255
+    // anywhere" check — costs one extra pixel pass, only run for the subset of images that
+    // even have a channel to check, so it doesn't touch the common opaque-JPEG case at all.
+    const stats = await img.stats();
+    if (!stats.isOpaque) {
+      // Real transparency (a logo, an icon with a see-through background, etc). Converting to
+      // JPEG would flatten it onto a solid color and could look wrong — skip it. Rare among
+      // article photos; worth a manual look if one turns up here.
+      return { file, skipped: 'has real transparency — left as ' + ext };
+    }
+    // Alpha channel present but every pixel is fully opaque — safe to convert, fall through.
   }
   if (meta.pages && meta.pages > 1) {
     // An animated GIF (or multi-page TIFF) — JPEG has no equivalent, converting would silently
@@ -178,11 +188,19 @@ function updateDataJson(renames) {
 // "never guess, never silent" rule this project already applies to patch matching and entry
 // ids (see json-import-skill.md). Picking the wrong one of two same-named files silently would
 // be worse than leaving the entry broken and visible.
+//
+// Most `img` fields in this app are stored as a bare filename (e.g. "Peter.jpg") and resolved
+// against db.settings.imageBase at render time — see resolveAsset() in index.html. This mirrors
+// that exact logic when checking whether a path resolves, and preserves whichever convention
+// each entry already used when writing a healed value back: a bare filename in means a bare
+// filename out (so resolveAsset() doesn't double-prepend imageBase on top of an already-full
+// path next render), and an already-absolute path (leading "/") stays absolute.
 function healBrokenImageRefs() {
   if (!fs.existsSync(DATA_JSON)) return;
   const raw = JSON.parse(fs.readFileSync(DATA_JSON, 'utf8'));
   const entries = Array.isArray(raw) ? raw : raw.entries;
   if (!Array.isArray(entries)) return;
+  const imageBase = (raw.settings && raw.settings.imageBase) || '';
 
   let healed = 0;
   const unresolved = [];
@@ -190,14 +208,18 @@ function healBrokenImageRefs() {
 
   entries.forEach(e => {
     if (!e.img) return;
-    if (/^https?:\/\//i.test(e.img)) return; // hosted elsewhere — not a repo file to check
-    const relPath = e.img.replace(/^\//, ''); // tolerate a leading slash either way
+    // Same three "already absolute, don't touch" cases resolveAsset() checks for.
+    if (/^(https?:)?\/\//i.test(e.img) || e.img.startsWith('data:')) return; // hosted elsewhere
+    const isAbsolute = e.img.startsWith('/');
+    const relPath = isAbsolute
+      ? e.img.replace(/^\/+/, '')
+      : (imageBase ? imageBase.replace(/\/+$/, '') + '/' + e.img.replace(/^\/+/, '') : e.img);
     if (fs.existsSync(relPath)) return; // already resolves — nothing to heal
 
     const dir = path.dirname(relPath);
     const stem = path.basename(relPath, path.extname(relPath));
     if (!fs.existsSync(dir)) {
-      unresolved.push({ id: e.id, img: e.img, reason: 'folder does not exist' });
+      unresolved.push({ id: e.id, img: e.img, reason: `resolved folder ${dir}/ does not exist` });
       return;
     }
 
@@ -206,23 +228,29 @@ function healBrokenImageRefs() {
     const candidates = fs.readdirSync(dir).filter(f => path.basename(f, path.extname(f)) === stem);
 
     if (candidates.length === 0) {
-      unresolved.push({ id: e.id, img: e.img, reason: 'no file with that name under any extension' });
+      unresolved.push({ id: e.id, img: e.img, reason: `no file named "${stem}" under any extension in ${dir}/` });
     } else if (candidates.length > 1) {
       ambiguous.push({ id: e.id, img: e.img, candidates: candidates.map(c => path.join(dir, c).split(path.sep).join('/')) });
     } else {
-      const newPath = path.join(dir, candidates[0]).split(path.sep).join('/');
       const ext = path.extname(candidates[0]).toLowerCase();
+      const originalImg = e.img;
+      // Write back in the same convention e.img already used, not the resolved filesystem
+      // path — a bare-filename entry must stay a bare filename, or resolveAsset() prepends
+      // imageBase a second time on top of an already-complete path the next time it renders.
+      const newImg = isAbsolute
+        ? '/' + path.join(dir, candidates[0]).split(path.sep).join('/').replace(/^\/+/, '')
+        : candidates[0];
       // In the normal case this candidate is already .jpg, since the walk()/convert() pass
       // above already converted every recognized non-JPEG format in Images/ regardless of
       // whether data.json referenced it yet. A non-JPEG match here means an extension this
       // script doesn't recognize (e.g. .jfif, .avif) — pointed at as-is, flagged so it isn't
       // silently left unconverted without a paper trail.
-      e.img = newPath;
+      e.img = newImg;
       healed++;
       const note = CONVERTIBLE_EXTS.has(ext) || ext === '.jpg' || ext === '.jpeg'
         ? ''
         : `  [${ext} isn't a format this script converts — left as-is]`;
-      console.log(`  Healed: ${e.id}  ${relPath}  ->  ${newPath}${note}`);
+      console.log(`  Healed: ${e.id}  ${originalImg}  ->  ${newImg}${note}`);
     }
   });
 
