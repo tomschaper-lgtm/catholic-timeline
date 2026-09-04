@@ -1,16 +1,19 @@
 <!--
-VERSION: 306
-DATE: 2026-09-04T22:00:00-05:00
+VERSION: 307
+DATE: 2026-09-04T23:00:00-05:00
 CHANGES:
-- Fixed a broken header image: #heroLogo (the fixed, non-interactive dome/cross graphic behind
-  the title) pointed at Images/heroLogo.png, but that file no longer exists — the Convert Photos
-  to JPEG Action converted it to heroLogo.jpg at some point since it just scans the whole Images/
-  folder for non-JPEG files, with no way to know this one specific filename was also hardcoded
-  directly in index.html rather than reached through a data.json img field. Rendered as a small
-  broken-image placeholder sitting fixed in the header — inert to taps, invisible behind Manage,
-  survives scrolling — which is exactly the report that led here. Pointed the tag at .jpg and
-  added onerror="imgExtFallback(this)", the same self-healing swap every other image on the site
-  already uses, so a future extension mismatch on this element fails safe instead of breaking.
+- Fixed Record Audio never picking up its own results automatically. The client-side polling
+  that watches for a workflow to finish (triggerWorkflow) and then waits for data.json to catch
+  up (syncAudioStatusUntilFresh) both existed already, but were tuned for Resize Images/Convert
+  Photos, which finish in seconds — ~60s total patience between the two. A real audio batch needs
+  a separate ElevenLabs call per section (heading + body) plus ffmpeg work per entry, so it can
+  genuinely take minutes, not seconds; the client was giving up long before the server had
+  anything to report, which is why the audio field never seemed to arrive on its own. Both
+  functions now take an optional attempt-count override — Resize/Convert are untouched and still
+  give up after ~60s, but Record Audio now budgets roughly 3 minutes of "is it done yet" patience
+  per entry, plus ~80s per entry of deploy-lag margin after that, scaled to the actual batch size.
+  Status text while waiting is now honest about what's happening ("narration can take several
+  minutes for a full batch") instead of implying a fast deploy-lag hiccup.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -3266,7 +3269,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v306';
+const APP_VERSION = 'v307';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5686,7 +5689,8 @@ async function wlResolveTasks(taskIds, approve){
 // Reuses the same owner/repo/branch/token fields as Publish above. workflow_dispatch itself
 // returns no run info (just 204 No Content), so after firing it this polls the workflow's
 // recent runs for one that started after the dispatch, and reports when it finishes.
-async function triggerWorkflow(filename, inputs, logElId){
+async function triggerWorkflow(filename, inputs, logElId, maxAttempts){
+  maxAttempts = maxAttempts || 20; // ~60s default — plenty for Resize/Convert, which finish in seconds
   const v = id => document.getElementById(id).value.trim();
   const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', token = v('ghToken');
   const log = document.getElementById(logElId || 'runWorkflowLog');
@@ -5711,7 +5715,7 @@ async function triggerWorkflow(filename, inputs, logElId){
     }
     log.textContent = filename + ' started \u2014 watching for it to finish\u2026';
     const runsUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/actions/workflows/' + encodeURIComponent(filename) + '/runs?branch=' + encodeURIComponent(branch) + '&per_page=5';
-    for(let i = 0; i < 20; i++){
+    for(let i = 0; i < maxAttempts; i++){
       await new Promise(r => setTimeout(r, 3000));
       const runsRes = await fetch(runsUrl, { headers: hdr, cache: 'no-store' });
       if(!runsRes.ok) continue;
@@ -5723,7 +5727,7 @@ async function triggerWorkflow(filename, inputs, logElId){
         log.textContent = filename + ': ' + run.conclusion + ' (finished in ' + secs + 's). Details: ' + run.html_url;
         return;
       }
-      log.textContent = filename + ' is running\u2026 (' + run.status + ')';
+      log.textContent = filename + ' is running\u2026 (' + run.status + ', ' + Math.round((i + 1) * 3) + 's so far)';
     }
     log.textContent = filename + ' is still running \u2014 check the Actions tab on GitHub for the result.';
   }catch(err){
@@ -5773,16 +5777,21 @@ async function syncAudioStatusFromGitHub(){
 // needs to actually be retried rather than accepted as final. Polls a handful of times with a
 // short wait between attempts, stopping as soon as every id in `entryIds` has picked up a real
 // `audio` value, or after giving up. `log`, if given, is kept updated so waiting is visible
-// rather than a silent pause.
-async function syncAudioStatusUntilFresh(entryIds, log){
+// rather than a silent pause. `maxAttempts` defaults to 8 (~1 minute) — enough for ordinary
+// deploy lag once the Action itself has actually finished; the Record Audio button below passes
+// a much larger value, since for that one job "finished" can legitimately be minutes away, not
+// seconds, and this is the loop that was quietly giving up before the server had anything to sync.
+async function syncAudioStatusUntilFresh(entryIds, log, maxAttempts){
+  maxAttempts = maxAttempts || 8;
   const stillMissing = () => entryIds.filter(id => { const e = getEntry(id); return e && !e.audio; });
-  for(let attempt = 1; attempt <= 8; attempt++){
+  for(let attempt = 1; attempt <= maxAttempts; attempt++){
     await syncAudioStatusFromGitHub();
     refreshAudioPreview();
     const missing = stillMissing();
     if(!missing.length) return true;
-    if(attempt === 8) break;
-    if(log) log.textContent = 'Recorded \u2014 waiting for the site to finish deploying before linking it in\u2026 (' + attempt + '/8)';
+    if(attempt === maxAttempts) break;
+    const elapsedMin = Math.round(attempt * 8 / 60 * 10) / 10;
+    if(log) log.textContent = 'Still waiting on ' + missing.length + ' of ' + entryIds.length + ' \u2014 narration can take several minutes for a full batch (~' + elapsedMin + 'm so far, attempt ' + attempt + '/' + maxAttempts + ')';
     await new Promise(r => setTimeout(r, 8000));
   }
   return false;
@@ -5836,18 +5845,28 @@ document.getElementById('runAudioWorkflow').addEventListener('click', async () =
   if(!batch.length){ log.textContent = 'No entries at that starting point.'; return; }
   const targetIds = batch.map(e => e.id);
   if(audioStartIdx >= 0) inputs.ids = targetIds.join(',');
-  triggerWorkflow('generate-audio.yml', inputs, 'runAudioLog').then(async () => {
-    // The button's own polling above already waited for the run to finish (or gave up after
-    // ~60s on an unusually long batch) — either way, pull whatever's newly committed back into
-    // this session automatically now, rather than requiring a manual re-open of this panel (or
-    // reload of the whole app) to actually see or hear the result. Mutates the same db.entries
-    // objects the rest of the app reads, so an already-open article for one of these entries
-    // picks up its new audio immediately too, without needing to be reopened. Retries with a
-    // short wait between attempts since a single sync right as the run finishes can race
-    // Cloudflare's own deploy lag and simply not see the new field yet (see
+  // Audio narration is far slower than Resize/Convert — each entry needs a separate ElevenLabs
+  // call per section (heading + body) plus ffmpeg concatenation, so a batch of several full
+  // articles can genuinely take minutes, not seconds. triggerWorkflow's/syncAudioStatusUntilFresh's
+  // shared defaults (~60s each) were tuned for the fast workflows and gave up on this one long
+  // before the server had anything to report — see the chat note this version's changelog links
+  // back to. Budget ~3 minutes of "is the run done yet" patience per entry (floor of 20 tries so
+  // a batch of 1 isn't shortchanged either), then a further ~80s per entry of deploy-lag margin
+  // on top once the run itself reports complete.
+  const workflowAttempts = Math.max(20, targetIds.length * 60);
+  const syncAttempts = Math.max(8, targetIds.length * 10);
+  triggerWorkflow('generate-audio.yml', inputs, 'runAudioLog', workflowAttempts).then(async () => {
+    // The button's own polling above already waited for the run to finish (patient enough now to
+    // actually cover a real batch, not just give up after ~60s) — either way, pull whatever's
+    // newly committed back into this session automatically now, rather than requiring a manual
+    // re-open of this panel (or reload of the whole app) to actually see or hear the result.
+    // Mutates the same db.entries objects the rest of the app reads, so an already-open article
+    // for one of these entries picks up its new audio immediately too, without needing to be
+    // reopened. Retries with a short wait between attempts since a single sync right as the run
+    // finishes can race Cloudflare's own deploy lag and simply not see the new field yet (see
     // syncAudioStatusFromGitHub's long comment) — this keeps checking instead of accepting that
     // as final.
-    await syncAudioStatusUntilFresh(targetIds, log);
+    await syncAudioStatusUntilFresh(targetIds, log, syncAttempts);
   });
 });
 
