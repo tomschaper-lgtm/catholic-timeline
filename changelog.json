@@ -1,6 +1,25 @@
 {
   "entries": [
     {
+      "version": "307",
+      "date": "2026-09-04T23:00:00-05:00",
+      "changes": [
+        "Fixed Record Audio never picking up its own results automatically. The client-side polling",
+        "that watches for a workflow to finish (triggerWorkflow) and then waits for data.json to catch",
+        "up (syncAudioStatusUntilFresh) both existed already, but were tuned for Resize Images/Convert",
+        "Photos, which finish in seconds — ~60s total patience between the two. A real audio batch needs",
+        "a separate ElevenLabs call per section (heading + body) plus ffmpeg work per entry, so it can",
+        "genuinely take minutes, not seconds; the client was giving up long before the server had",
+        "anything to report, which is why the audio field never seemed to arrive on its own. Both",
+        "functions now take an optional attempt-count override — Resize/Convert are untouched and still",
+        "give up after ~60s, but Record Audio now budgets roughly 3 minutes of \"is it done yet\" patience",
+        "per entry, plus ~80s per entry of deploy-lag margin after that, scaled to the actual batch size.",
+        "Status text while waiting is now honest about what's happening (\"narration can take several",
+        "minutes for a full batch\") instead of implying a fast deploy-lag hiccup."
+      ],
+      "loggedAt": "2026-09-04T23:51:12.621037+00:00"
+    },
+    {
       "version": "306",
       "date": "2026-09-04T22:00:00-05:00",
       "changes": [
