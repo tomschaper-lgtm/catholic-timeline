@@ -1,6 +1,22 @@
 {
   "entries": [
     {
+      "version": "306",
+      "date": "2026-09-04T22:00:00-05:00",
+      "changes": [
+        "Fixed a broken header image: #heroLogo (the fixed, non-interactive dome/cross graphic behind",
+        "the title) pointed at Images/heroLogo.png, but that file no longer exists — the Convert Photos",
+        "to JPEG Action converted it to heroLogo.jpg at some point since it just scans the whole Images/",
+        "folder for non-JPEG files, with no way to know this one specific filename was also hardcoded",
+        "directly in index.html rather than reached through a data.json img field. Rendered as a small",
+        "broken-image placeholder sitting fixed in the header — inert to taps, invisible behind Manage,",
+        "survives scrolling — which is exactly the report that led here. Pointed the tag at .jpg and",
+        "added onerror=\"imgExtFallback(this)\", the same self-healing swap every other image on the site",
+        "already uses, so a future extension mismatch on this element fails safe instead of breaking."
+      ],
+      "loggedAt": "2026-09-04T22:24:24.842208+00:00"
+    },
+    {
       "version": "305",
       "date": "2026-09-04T16:00:00-05:00",
       "changes": [
