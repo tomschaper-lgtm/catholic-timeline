@@ -41,6 +41,7 @@ import path from 'path';
 
 const IMAGES_DIR = 'Images'; // the legacy capitalized folder where your photos actually live
 const DATA_JSON = 'data.json';
+const INDEX_HTML = 'index.html';
 const JPEG_QUALITY = 84;
 
 // Anything with one of these extensions gets scanned. .jpg/.jpeg are the target format, so
@@ -48,6 +49,23 @@ const JPEG_QUALITY = 84;
 const HEIC_EXTS = new Set(['.heic', '.heif']);
 const SHARP_EXTS = new Set(['.png', '.webp', '.tif', '.tiff', '.bmp', '.gif']);
 const CONVERTIBLE_EXTS = new Set([...HEIC_EXTS, ...SHARP_EXTS]);
+
+// v3: guards against the exact bug that broke #heroLogo — index.html's own header graphic was
+// hardcoded as Images/heroLogo.png, this script converted it to .jpg (it's just another non-JPEG
+// file under Images/, no way to know it wasn't reached through data.json), and the hardcoded
+// <img> tag was left pointing at a file that no longer existed. updateDataJson() below only ever
+// knew how to fix data.json's own img fields — it has no way to edit index.html itself, so the
+// safe move is to never rename a file index.html references directly in the first place. Scans
+// the raw HTML/JS text for any "Images/..." path — <img src="...">, a JS string building one
+// (like the Carlo Acutis banner), a CSS url(...), whatever — rather than trying to parse HTML,
+// since the real-world cases so far are a plain attribute and a string-concatenated one, not a
+// consistent syntax worth a real parser for two known examples.
+function loadHardcodedImageRefs() {
+  if (!fs.existsSync(INDEX_HTML)) return new Set();
+  const html = fs.readFileSync(INDEX_HTML, 'utf8');
+  const matches = html.match(/Images\/[^"'()\s]+\.[A-Za-z0-9]+/g) || [];
+  return new Set(matches);
+}
 
 function walk(dir) {
   let out = [];
@@ -62,8 +80,14 @@ function walk(dir) {
   return out;
 }
 
-async function convert(file) {
+async function convert(file, hardcodedRefs) {
   const ext = path.extname(file).toLowerCase();
+
+  if (hardcodedRefs.has(file)) {
+    // The one case updateDataJson() can't fix for you — see loadHardcodedImageRefs() above.
+    return { file, skipped: `referenced directly in ${INDEX_HTML} (not through data.json) — left as ${ext}; update that reference by hand first if you want this one converted` };
+  }
+
   const buffer = fs.readFileSync(file);
 
   const newFile = file.slice(0, -ext.length) + '.jpg';
@@ -216,13 +240,14 @@ async function main() {
     return;
   }
   const files = walk(IMAGES_DIR);
+  const hardcodedRefs = loadHardcodedImageRefs();
   console.log(`Found ${files.length} non-JPEG image(s) under ${IMAGES_DIR}/ (png/webp/tiff/bmp/gif/heic/heif), converting...`);
   const converted = [];
   const skipped = [];
   const errors = [];
   for (const file of files) {
     try {
-      const result = await convert(file);
+      const result = await convert(file, hardcodedRefs);
       (result.skipped ? skipped : converted).push(result);
     } catch (err) {
       errors.push({ file, message: err.message });
