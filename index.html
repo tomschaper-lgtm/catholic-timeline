@@ -1,20 +1,16 @@
 <!--
-VERSION: 305
-DATE: 2026-09-04T16:00:00-05:00
+VERSION: 306
+DATE: 2026-09-04T22:00:00-05:00
 CHANGES:
-- Reconciled the two overlapping "fix a stale image reference" tools into one. Removed the
-  standalone "Fix Image Extensions" card (button, log, runFixImageExtensions(), imageLoads()) —
-  it only ever swapped .png<->.jpg/.jpeg and checked by loading over the network, which is now
-  a strict subset of what the Convert Photos to JPEG GitHub Action already does server-side
-  (any non-JPEG format, plus a same-name-any-extension repair pass with an ambiguity guard —
-  see scripts/convert-photo-pngs.mjs). "Convert Photo PNGs" button relabeled "Convert Photos to
-  JPEG" to match, with its hint text explaining the folded-in reference-repair behavior. The
-  passive runtime fallback (altExtUrl/imgExtFallback, v79) is unrelated and untouched.
-- Dropped the accumulated per-version changelog comments (previously VERSION 304 back through
-  the file's very first release, ~3,370 lines) from this file. Every past entry is already
-  preserved in changelog.json via the existing "log each build" GitHub Action and viewable in
-  the app's own Change Logs panel, so keeping the full archive duplicated here was pure token
-  cost with no runtime purpose — only the current version's own comment block stays from now on.
+- Fixed a broken header image: #heroLogo (the fixed, non-interactive dome/cross graphic behind
+  the title) pointed at Images/heroLogo.png, but that file no longer exists — the Convert Photos
+  to JPEG Action converted it to heroLogo.jpg at some point since it just scans the whole Images/
+  folder for non-JPEG files, with no way to know this one specific filename was also hardcoded
+  directly in index.html rather than reached through a data.json img field. Rendered as a small
+  broken-image placeholder sitting fixed in the header — inert to taps, invisible behind Manage,
+  survives scrolling — which is exactly the report that led here. Pointed the tag at .jpg and
+  added onerror="imgExtFallback(this)", the same self-healing swap every other image on the site
+  already uses, so a future extension mismatch on this element fails safe instead of breaking.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -2519,7 +2515,7 @@ CHANGES:
   </div>
 </header>
 
-<img id="heroLogo" src="Images/heroLogo.png" alt="" aria-hidden="true">
+<img id="heroLogo" src="Images/heroLogo.jpg" alt="" aria-hidden="true" onerror="imgExtFallback(this)">
 
 <div class="controls">
   <div class="row" id="searchRow">
@@ -3270,7 +3266,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v305';
+const APP_VERSION = 'v306';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
