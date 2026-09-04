@@ -1,6 +1,26 @@
 {
   "entries": [
     {
+      "version": "305",
+      "date": "2026-09-04T16:00:00-05:00",
+      "changes": [
+        "Reconciled the two overlapping \"fix a stale image reference\" tools into one. Removed the",
+        "standalone \"Fix Image Extensions\" card (button, log, runFixImageExtensions(), imageLoads()) —",
+        "it only ever swapped .png<->.jpg/.jpeg and checked by loading over the network, which is now",
+        "a strict subset of what the Convert Photos to JPEG GitHub Action already does server-side",
+        "(any non-JPEG format, plus a same-name-any-extension repair pass with an ambiguity guard —",
+        "see scripts/convert-photo-pngs.mjs). \"Convert Photo PNGs\" button relabeled \"Convert Photos to",
+        "JPEG\" to match, with its hint text explaining the folded-in reference-repair behavior. The",
+        "passive runtime fallback (altExtUrl/imgExtFallback, v79) is unrelated and untouched.",
+        "Dropped the accumulated per-version changelog comments (previously VERSION 304 back through",
+        "the file's very first release, ~3,370 lines) from this file. Every past entry is already",
+        "preserved in changelog.json via the existing \"log each build\" GitHub Action and viewable in",
+        "the app's own Change Logs panel, so keeping the full archive duplicated here was pure token",
+        "cost with no runtime purpose — only the current version's own comment block stays from now on."
+      ],
+      "loggedAt": "2026-09-04T21:52:24.832737+00:00"
+    },
+    {
       "version": "304",
       "date": "2026-09-03T15:00:00-05:00",
       "changes": [
