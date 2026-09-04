@@ -1,9 +1,14 @@
-name: Convert Photo PNGs
+name: Convert Photos to JPEG
 
 # Deliberately manual-only (workflow_dispatch), unlike Resize Images which runs automatically
-# on push. Converting a PNG to JPEG renames the file, and data.json has to be updated to
+# on push. Converting an image to JPEG renames the file, and data.json has to be updated to
 # match — that's a bigger, more visible change than shrinking a file in place, so it should
 # only happen when you actually ask for it (button in the app, or the Actions tab).
+#
+# v2: now converts any non-JPEG format under images/ (PNG, HEIC/HEIF, WebP, TIFF, BMP, GIF),
+# not just PNG — see the script's own header comment for why HEIC needs the extra
+# heic-convert package alongside sharp. Filename kept as convert-photo-pngs.yml so anything
+# that already triggers this Action by name keeps working.
 on:
   workflow_dispatch: {}
 
@@ -20,10 +25,10 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install sharp
-        run: npm install sharp
+      - name: Install sharp and heic-convert
+        run: npm install sharp heic-convert
 
-      - name: Convert heavy photo PNGs to JPEG (and update data.json)
+      - name: Convert non-JPEG photos to JPEG (and update data.json)
         run: node scripts/convert-photo-pngs.mjs
 
       - name: Commit changes (if any)
@@ -34,6 +39,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Convert heavy photo PNGs to JPEG"
+            git commit -m "Convert non-JPEG photos to JPEG"
             git push
           fi
