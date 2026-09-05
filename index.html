@@ -1,27 +1,24 @@
 <!--
-VERSION: 310
+VERSION: 311
 DATE: 2026-09-05T00:00:00-05:00
 CHANGES:
-- FIXED THE ACTUAL CAUSE of "Record Audio never fills in the audio path." v307/v308/v309 each
-  patched the polling AROUND this and never the source it polls. The app was asking the DEPLOYED
-  WEBSITE for data.json to find out whether narration finished. But the Action commits data.json
-  and the audio file to GitHub, where both exist immediately, while the deployed site can lag a
-  push by a minute or more — and the workflow's own commit message carries "[skip ci]", so that
-  push may not trigger a redeploy at all. So the app could poll forever for something already
-  sitting in the repo the whole time, then correctly report "gave up." It now reads data.json
-  straight from the GitHub contents API on the configured branch, which reflects the Action's
-  commit the instant it lands. The deployed data.json is kept only as a fallback for when GitHub
-  isn't configured or reachable, so nothing changes for that case.
-- The v309 auto-detect check had the identical flaw — it HEAD-checked the live site for a file
-  GitHub already had. It now asks GitHub first (contents API: 200 = in the repo, 404 = not),
-  falling back to the site only when the API can't give a definite answer. An inconclusive API
-  response (rate limit, auth) never counts as "file missing."
-- v309 (unchanged): Manage → Entries auto-fills a blank audio field when a file already exists at
-  the conventional audio/<Category>/<id>-v<N>.mp3 path. Save Entry still needed to keep it.
+- Fixed the broken PWA / home-screen icon. The icons in Images/icons/ were regenerated as .jpg,
+  but APP_ICON still pointed at the old .png filenames, so the probe failed, the swap never
+  happened, and the app silently fell back to the embedded default icon. Paths now match the
+  repo: apple-touch-icon.jpg, icon-192.jpg, icon-512.jpg.
+- Also corrected two places that would otherwise still claim PNG: the runtime manifest's icon
+  `type` fields (now image/jpeg), and the <link rel="icon"> element's type attribute, which is
+  updated when the real icon is swapped in — its markup value stays image/png, correctly, for
+  the embedded data-URI fallback.
+- v310 (unchanged): audio sync reads data.json and checks audio files via the GitHub contents
+  API rather than the deployed site, so a just-committed recording is visible immediately
+  instead of waiting on (or never getting) a redeploy.
+- v309 (unchanged): Manage → Entries auto-fills a blank audio field when a file already exists
+  at the conventional audio/<Category>/<id>-v<N> path.
 - v308 (unchanged): syncAudioStatusUntilFresh always writes a final message on both the success
   and give-up paths instead of leaving stale "attempt N/max" text frozen on screen.
 - v307 (unchanged): triggerWorkflow/syncAudioStatusUntilFresh take an attempt-count override so
-  Record Audio can wait minutes (a real batch) rather than the seconds Resize/Convert need.
+  Record Audio can wait minutes rather than the seconds Resize/Convert need.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -11681,9 +11678,13 @@ updateBtn.addEventListener('click', (e) => {
 //                small: 'images/app-icon-192.png',   // browser tab / Android, 192x192
 //                large: 'images/app-icon-512.png' }; // splash + store-quality, 512x512
 // Set to null to stay on the embedded default.
-const APP_ICON = { touch: 'Images/icons/apple-touch-icon.png',
-                    small: 'Images/icons/icon-192.png',
-                    large: 'Images/icons/icon-512.png' };
+// NOTE: these are .jpg — the icons in Images/icons/ were regenerated as JPEG, and the paths here
+// must match the repo exactly or the probe below silently fails and the home screen falls back to
+// the embedded default icon. If the icon files are ever regenerated in another format, change the
+// extensions here AND the `type` fields in the manifest further down, which must agree.
+const APP_ICON = { touch: 'Images/icons/apple-touch-icon.jpg',
+                    small: 'Images/icons/icon-192.jpg',
+                    large: 'Images/icons/icon-512.jpg' };
 (function applyAppIcon(){
   if(!APP_ICON || !APP_ICON.touch) return;
   const abs = (p) => new URL(p, location.href).href;
@@ -11692,7 +11693,12 @@ const APP_ICON = { touch: 'Images/icons/apple-touch-icon.png',
     const t = document.getElementById('appIconTouch');
     const f = document.getElementById('appIconFav');
     if(t) t.href = abs(APP_ICON.touch);
-    if(f && APP_ICON.small) f.href = abs(APP_ICON.small);
+    // The markup's type="image/png" is correct for the embedded data-URI fallback, but stops
+    // being true the moment a JPEG is swapped in — correct it to match what's actually there.
+    if(f && APP_ICON.small){
+      f.href = abs(APP_ICON.small);
+      f.type = /\.jpe?g($|\?)/i.test(APP_ICON.small) ? 'image/jpeg' : 'image/png';
+    }
     // A manifest lets Android/Chrome use the icon and name for a real install. Built at runtime
     // as a blob so the site stays a single file; URLs inside must be absolute for that to work.
     try{
@@ -11701,8 +11707,8 @@ const APP_ICON = { touch: 'Images/icons/apple-touch-icon.png',
         start_url: abs('.'), scope: abs('.'), display: 'standalone',
         background_color: '#F4E2B4', theme_color: '#0B1630',
         icons: [
-          {src: abs(APP_ICON.small || APP_ICON.touch), sizes: '192x192', type: 'image/png'},
-          {src: abs(APP_ICON.large || APP_ICON.touch), sizes: '512x512', type: 'image/png'}
+          {src: abs(APP_ICON.small || APP_ICON.touch), sizes: '192x192', type: 'image/jpeg'},
+          {src: abs(APP_ICON.large || APP_ICON.touch), sizes: '512x512', type: 'image/jpeg'}
         ]
       };
       const link = document.createElement('link');
