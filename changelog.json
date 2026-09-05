@@ -1,6 +1,28 @@
 {
   "entries": [
     {
+      "version": "312",
+      "date": "2026-09-05T00:00:00-05:00",
+      "changes": [
+        "Home screen / Add to Home Screen now reads \"Catholic Timeline\" instead of \"Timeline\". The",
+        "<title> and the apple-mobile-web-app-title meta tag already said the full name; the runtime",
+        "manifest's short_name said \"Timeline\", and iOS prefers the manifest when \"Open as Web App\" is",
+        "enabled, so it quietly won. short_name now matches.",
+        "v311 (unchanged): fixed the broken PWA icon — APP_ICON pointed at .png filenames after the",
+        "icons in Images/icons/ were regenerated as .jpg, so the probe failed and the embedded default",
+        "icon was used. Manifest and favicon MIME types corrected to match.",
+        "v310 (unchanged): audio sync reads data.json and checks audio files via the GitHub contents",
+        "API rather than the deployed site, so a just-committed recording is visible immediately.",
+        "v309 (unchanged): Manage → Entries auto-fills a blank audio field when a file already exists",
+        "at the conventional audio/<Category>/<id>-v<N> path.",
+        "v308 (unchanged): syncAudioStatusUntilFresh always writes a final message on both the success",
+        "and give-up paths instead of leaving stale \"attempt N/max\" text frozen on screen.",
+        "v307 (unchanged): triggerWorkflow/syncAudioStatusUntilFresh take an attempt-count override so",
+        "Record Audio can wait minutes rather than the seconds Resize/Convert need."
+      ],
+      "loggedAt": "2026-09-05T21:12:56.963282+00:00"
+    },
+    {
       "version": "311",
       "date": "2026-09-05T00:00:00-05:00",
       "changes": [
