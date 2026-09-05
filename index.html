@@ -1,22 +1,27 @@
 <!--
-VERSION: 309
-DATE: 2026-09-04T00:00:00-05:00
+VERSION: 310
+DATE: 2026-09-05T00:00:00-05:00
 CHANGES:
-- Manage → Entries editor now auto-detects audio that already exists but never made it into the
-  `audio` field. Opening an entry whose audio field is blank quietly HEAD-checks the conventional
-  path (audio/<Category>/<id>-v<N>.mp3, falling back to .wav for anything recorded before the
-  mp3 switch, and walking versions upward since nextVersion() never leaves a gap) using the exact
-  same folder-per-type naming generate-audio.mjs writes to. A hit fills the field in immediately
-  (and the status bar says so) — Save Entry still needed to keep it, same as any other edit. A
-  miss is silent; this is a courtesy check, not a requirement. Covers exactly the gap the v308
-  fix was about: a file that made it to the repo/site but whose data.json field never caught up.
-- v308 (unchanged, kept for reference): fixed Record Audio looking permanently "stuck" even when
-  the sync actually succeeded — syncAudioStatusUntilFresh now always writes a final message on
-  both the success and give-up exit paths instead of leaving stale "attempt N/max" text on screen.
-- v307 (unchanged, kept for reference): fixed Record Audio never picking up its own results
-  automatically — triggerWorkflow/syncAudioStatusUntilFresh were tuned for Resize/Convert
-  (finish in seconds), not a real audio batch (minutes); both now take an attempt-count override
-  and Record Audio budgets patience scaled to batch size.
+- FIXED THE ACTUAL CAUSE of "Record Audio never fills in the audio path." v307/v308/v309 each
+  patched the polling AROUND this and never the source it polls. The app was asking the DEPLOYED
+  WEBSITE for data.json to find out whether narration finished. But the Action commits data.json
+  and the audio file to GitHub, where both exist immediately, while the deployed site can lag a
+  push by a minute or more — and the workflow's own commit message carries "[skip ci]", so that
+  push may not trigger a redeploy at all. So the app could poll forever for something already
+  sitting in the repo the whole time, then correctly report "gave up." It now reads data.json
+  straight from the GitHub contents API on the configured branch, which reflects the Action's
+  commit the instant it lands. The deployed data.json is kept only as a fallback for when GitHub
+  isn't configured or reachable, so nothing changes for that case.
+- The v309 auto-detect check had the identical flaw — it HEAD-checked the live site for a file
+  GitHub already had. It now asks GitHub first (contents API: 200 = in the repo, 404 = not),
+  falling back to the site only when the API can't give a definite answer. An inconclusive API
+  response (rate limit, auth) never counts as "file missing."
+- v309 (unchanged): Manage → Entries auto-fills a blank audio field when a file already exists at
+  the conventional audio/<Category>/<id>-v<N>.mp3 path. Save Entry still needed to keep it.
+- v308 (unchanged): syncAudioStatusUntilFresh always writes a final message on both the success
+  and give-up paths instead of leaving stale "attempt N/max" text frozen on screen.
+- v307 (unchanged): triggerWorkflow/syncAudioStatusUntilFresh take an attempt-count override so
+  Record Audio can wait minutes (a real batch) rather than the seconds Resize/Convert need.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -5753,11 +5758,52 @@ async function triggerWorkflow(filename, inputs, logElId, maxAttempts){
 // never blanks out a field that's already populated locally, so a sync that races the deploy is
 // a harmless no-op (leaves things as they were) rather than actively erasing a good value with
 // whatever the stale snapshot shows.
+// Fetches data.json straight from the GitHub API at the configured branch, bypassing the
+// deployed site entirely. This is the whole fix for the long-running "audio never fills in"
+// problem (v307/v308/v309 all patched the polling around it, but never the source it polls):
+// the Action commits data.json and the audio file, GitHub has both IMMEDIATELY, but Cloudflare
+// may take a minute-plus to redeploy — and the workflow's own commit message carries
+// "[skip ci]", so that redeploy may not be triggered by this push at all. Polling the deployed
+// site could therefore wait forever for something that was already sitting in the repo the
+// whole time. The app already holds a token and already talks to this API to dispatch the
+// workflow and watch it finish, so reading the result from the same place needs no new
+// permissions. Returns null (not false) if GitHub can't be reached or isn't configured, so the
+// caller can fall back to the deployed copy rather than treating it as "no audio yet."
+async function fetchDataJsonFromGitHubAPI(){
+  const v = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', token = v('ghToken');
+  if(!owner || !repo || !token) return null;
+  try{
+    const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/data.json?ref=' + encodeURIComponent(branch) + '&t=' + Date.now();
+    const r = await fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.raw' },
+      cache: 'no-store'
+    });
+    if(!r.ok) return null;
+    // Accept: raw gives us the file body directly. Some proxies ignore that header and return
+    // the JSON metadata envelope with base64 content instead, so handle both shapes.
+    const text = await r.text();
+    let parsed;
+    try{ parsed = JSON.parse(text); }catch(e){ return null; }
+    if(parsed && parsed.content && parsed.encoding === 'base64'){
+      try{
+        const decoded = decodeURIComponent(escape(atob(parsed.content.replace(/\s/g, ''))));
+        parsed = JSON.parse(decoded);
+      }catch(e){ return null; }
+    }
+    return (parsed && parsed.entries) ? parsed : null;
+  }catch(err){ return null; }
+}
 async function syncAudioStatusFromGitHub(){
   try{
-    const r = await fetch('data.json?t=' + Date.now(), {cache: 'no-store'});
-    if(!r.ok) return false;
-    const fresh = await r.json();
+    // GitHub first (authoritative, no deploy lag); deployed data.json only as a fallback for
+    // when GitHub isn't configured/reachable, which preserves the old behavior for that case.
+    let fresh = await fetchDataJsonFromGitHubAPI();
+    if(!fresh){
+      const r = await fetch('data.json?t=' + Date.now(), {cache: 'no-store'});
+      if(!r.ok) return false;
+      fresh = await r.json();
+    }
     const byId = {};
     (fresh.entries || []).forEach(e => { byId[e.id] = e; });
     db.entries.forEach(e => {
@@ -8567,6 +8613,28 @@ const AUDIO_TYPE_FOLDERS = { s: 'Saints', c: 'Councils', p: 'Persecutions', m: '
 const AUDIO_CHECK_EXTS = ['mp3', 'wav']; // wav for anything recorded before the mp3 bitrate switch
 const AUDIO_CHECK_MAX_VERSIONS = 25; // generous ceiling — nextVersion() only ever increments by 1, no gaps
 const audioAutoDetectChecked = new Set(); // per-session only, so reopening the same still-blank entry doesn't refire a burst of requests every time
+// Same lesson as syncAudioStatusFromGitHub: ask GitHub, not the deployed site. A file the
+// Action just committed is in the repo instantly but may not be served for a minute or more
+// (and the workflow's "[skip ci]" commit may not trigger a deploy at all), so a site-only check
+// reports "no audio" for a file that demonstrably exists. Uses the contents API HEAD-style —
+// a 200 means the path is in the repo on that branch, 404 means it isn't.
+async function audioPathExistsOnGitHub(repoPath){
+  const v = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', token = v('ghToken');
+  if(!owner || !repo || !token) return null; // not configured — caller falls back to the site
+  try{
+    const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' +
+                repoPath.split('/').map(encodeURIComponent).join('/') +
+                '?ref=' + encodeURIComponent(branch) + '&t=' + Date.now();
+    const res = await fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' },
+      cache: 'no-store'
+    });
+    if(res.status === 404) return false;
+    if(res.ok) return true;
+    return null; // rate limited / auth problem — inconclusive, fall back rather than say "missing"
+  }catch(err){ return null; }
+}
 async function audioUrlExists(url){
   try{
     const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
@@ -8580,6 +8648,13 @@ async function audioUrlExists(url){
     return false;
   }catch(err){ return false; }
 }
+// GitHub is authoritative when it can answer; the deployed site is the fallback for an
+// unconfigured/unreachable API (inconclusive null), never a contradiction of a definite answer.
+async function audioFileExists(repoPath){
+  const viaGitHub = await audioPathExistsOnGitHub(repoPath);
+  if(viaGitHub !== null) return viaGitHub;
+  return audioUrlExists(resolveAsset(repoPath, db.settings && db.settings.audioBase));
+}
 async function autoDetectAudio(entry){
   if(!entry || entry.audio || audioAutoDetectChecked.has(entry.id)) return;
   audioAutoDetectChecked.add(entry.id);
@@ -8590,7 +8665,7 @@ async function autoDetectAudio(entry){
     let hit = null;
     for(const ext of AUDIO_CHECK_EXTS){
       const candidate = 'audio/' + folder + '/' + entry.id + '-v' + v + '.' + ext;
-      if(await audioUrlExists(resolveAsset(candidate, db.settings && db.settings.audioBase))){ hit = candidate; break; }
+      if(await audioFileExists(candidate)){ hit = candidate; break; }
     }
     if(!hit) break; // versions are contiguous — the first gap means nothing higher exists either
     found = hit;
