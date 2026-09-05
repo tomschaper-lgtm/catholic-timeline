@@ -1,6 +1,33 @@
 {
   "entries": [
     {
+      "version": "310",
+      "date": "2026-09-05T00:00:00-05:00",
+      "changes": [
+        "FIXED THE ACTUAL CAUSE of \"Record Audio never fills in the audio path.\" v307/v308/v309 each",
+        "patched the polling AROUND this and never the source it polls. The app was asking the DEPLOYED",
+        "WEBSITE for data.json to find out whether narration finished. But the Action commits data.json",
+        "and the audio file to GitHub, where both exist immediately, while the deployed site can lag a",
+        "push by a minute or more — and the workflow's own commit message carries \"[skip ci]\", so that",
+        "push may not trigger a redeploy at all. So the app could poll forever for something already",
+        "sitting in the repo the whole time, then correctly report \"gave up.\" It now reads data.json",
+        "straight from the GitHub contents API on the configured branch, which reflects the Action's",
+        "commit the instant it lands. The deployed data.json is kept only as a fallback for when GitHub",
+        "isn't configured or reachable, so nothing changes for that case.",
+        "The v309 auto-detect check had the identical flaw — it HEAD-checked the live site for a file",
+        "GitHub already had. It now asks GitHub first (contents API: 200 = in the repo, 404 = not),",
+        "falling back to the site only when the API can't give a definite answer. An inconclusive API",
+        "response (rate limit, auth) never counts as \"file missing.\"",
+        "v309 (unchanged): Manage → Entries auto-fills a blank audio field when a file already exists at",
+        "the conventional audio/<Category>/<id>-v<N>.mp3 path. Save Entry still needed to keep it.",
+        "v308 (unchanged): syncAudioStatusUntilFresh always writes a final message on both the success",
+        "and give-up paths instead of leaving stale \"attempt N/max\" text frozen on screen.",
+        "v307 (unchanged): triggerWorkflow/syncAudioStatusUntilFresh take an attempt-count override so",
+        "Record Audio can wait minutes (a real batch) rather than the seconds Resize/Convert need."
+      ],
+      "loggedAt": "2026-09-05T12:20:13.913334+00:00"
+    },
+    {
       "version": "309",
       "date": "2026-09-04T00:00:00-05:00",
       "changes": [
