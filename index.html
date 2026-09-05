@@ -1,19 +1,22 @@
 <!--
-VERSION: 307
-DATE: 2026-09-04T23:00:00-05:00
+VERSION: 309
+DATE: 2026-09-04T00:00:00-05:00
 CHANGES:
-- Fixed Record Audio never picking up its own results automatically. The client-side polling
-  that watches for a workflow to finish (triggerWorkflow) and then waits for data.json to catch
-  up (syncAudioStatusUntilFresh) both existed already, but were tuned for Resize Images/Convert
-  Photos, which finish in seconds — ~60s total patience between the two. A real audio batch needs
-  a separate ElevenLabs call per section (heading + body) plus ffmpeg work per entry, so it can
-  genuinely take minutes, not seconds; the client was giving up long before the server had
-  anything to report, which is why the audio field never seemed to arrive on its own. Both
-  functions now take an optional attempt-count override — Resize/Convert are untouched and still
-  give up after ~60s, but Record Audio now budgets roughly 3 minutes of "is it done yet" patience
-  per entry, plus ~80s per entry of deploy-lag margin after that, scaled to the actual batch size.
-  Status text while waiting is now honest about what's happening ("narration can take several
-  minutes for a full batch") instead of implying a fast deploy-lag hiccup.
+- Manage → Entries editor now auto-detects audio that already exists but never made it into the
+  `audio` field. Opening an entry whose audio field is blank quietly HEAD-checks the conventional
+  path (audio/<Category>/<id>-v<N>.mp3, falling back to .wav for anything recorded before the
+  mp3 switch, and walking versions upward since nextVersion() never leaves a gap) using the exact
+  same folder-per-type naming generate-audio.mjs writes to. A hit fills the field in immediately
+  (and the status bar says so) — Save Entry still needed to keep it, same as any other edit. A
+  miss is silent; this is a courtesy check, not a requirement. Covers exactly the gap the v308
+  fix was about: a file that made it to the repo/site but whose data.json field never caught up.
+- v308 (unchanged, kept for reference): fixed Record Audio looking permanently "stuck" even when
+  the sync actually succeeded — syncAudioStatusUntilFresh now always writes a final message on
+  both the success and give-up exit paths instead of leaving stale "attempt N/max" text on screen.
+- v307 (unchanged, kept for reference): fixed Record Audio never picking up its own results
+  automatically — triggerWorkflow/syncAudioStatusUntilFresh were tuned for Resize/Convert
+  (finish in seconds), not a real audio batch (minutes); both now take an attempt-count override
+  and Record Audio budgets patience scaled to batch size.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -5781,19 +5784,32 @@ async function syncAudioStatusFromGitHub(){
 // deploy lag once the Action itself has actually finished; the Record Audio button below passes
 // a much larger value, since for that one job "finished" can legitimately be minutes away, not
 // seconds, and this is the loop that was quietly giving up before the server had anything to sync.
+// NOTE (v308): previously this returned true/false with no final write to `log` on either exit
+// path — success fell through the `if(!missing.length) return true` before ever touching
+// log.textContent, and give-up (attempt === maxAttempts) `break`s out before the "Still waiting"
+// line runs either. Either way the box was left showing whatever "Still waiting\u2026 attempt N/max"
+// text happened to be set on the PREVIOUS iteration — often attempt 1, if the real sync finished
+// on attempt 2. That looked identical to a genuinely hung poll: text frozen forever, no way to
+// tell "it's done, just never told you" from "it's still stuck." Both exits now always write a
+// final, distinct message.
 async function syncAudioStatusUntilFresh(entryIds, log, maxAttempts){
   maxAttempts = maxAttempts || 8;
   const stillMissing = () => entryIds.filter(id => { const e = getEntry(id); return e && !e.audio; });
+  let missing = stillMissing();
   for(let attempt = 1; attempt <= maxAttempts; attempt++){
     await syncAudioStatusFromGitHub();
     refreshAudioPreview();
-    const missing = stillMissing();
-    if(!missing.length) return true;
+    missing = stillMissing();
+    if(!missing.length){
+      if(log) log.textContent = 'Audio ready \u2014 ' + entryIds.length + ' of ' + entryIds.length + ' synced \u2713';
+      return true;
+    }
     if(attempt === maxAttempts) break;
     const elapsedMin = Math.round(attempt * 8 / 60 * 10) / 10;
     if(log) log.textContent = 'Still waiting on ' + missing.length + ' of ' + entryIds.length + ' \u2014 narration can take several minutes for a full batch (~' + elapsedMin + 'm so far, attempt ' + attempt + '/' + maxAttempts + ')';
     await new Promise(r => setTimeout(r, 8000));
   }
+  if(log) log.textContent = 'Gave up after ' + maxAttempts + ' attempts \u2014 still missing ' + missing.length + ' of ' + entryIds.length + '. The file may just still be deploying \u2014 reopen \u25bc Record Audio Narration in a minute to re-check, or look at the Actions tab / audio-log.csv on GitHub.';
   return false;
 }
 document.getElementById('audioRecordDetails').addEventListener('toggle', function(){
@@ -8536,6 +8552,57 @@ function openEditor(id){
   document.getElementById('fImg').value = e ? (e.img || '') : '';
   document.getElementById('fImgCap').value = e ? (e.imgCap || '') : '';
   document.getElementById('fAudio').value = e ? (e.audio || '') : '';
+  // A blank field here doesn't necessarily mean no audio exists — it can mean the field just
+  // never got synced (see the syncAudioStatusUntilFresh fixes above). Fire off a quiet check for
+  // a file already sitting at the conventional path before assuming there's really nothing there.
+  if(e && !e.audio) autoDetectAudio(e);
+}
+// ---- Auto-detect audio already sitting at the conventional path ----
+// Mirrors generate-audio.mjs's own folder-per-type + `<id>-v<N>.<ext>` naming exactly, so this
+// only ever finds a file the recording pipeline itself would have produced. Existing failure
+// modes this catches: a sync that raced Cloudflare's deploy lag and never got retried, a stale
+// editor Save that wrote back over the field with blank, or a batch whose data.json commit for
+// some other reason didn't carry the field even though the file itself made it to the repo.
+const AUDIO_TYPE_FOLDERS = { s: 'Saints', c: 'Councils', p: 'Persecutions', m: 'Marian', u: 'Eucharistic', e: 'Events' };
+const AUDIO_CHECK_EXTS = ['mp3', 'wav']; // wav for anything recorded before the mp3 bitrate switch
+const AUDIO_CHECK_MAX_VERSIONS = 25; // generous ceiling — nextVersion() only ever increments by 1, no gaps
+const audioAutoDetectChecked = new Set(); // per-session only, so reopening the same still-blank entry doesn't refire a burst of requests every time
+async function audioUrlExists(url){
+  try{
+    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    if(res.ok) return true;
+    // A handful of static hosts reject HEAD outright (405/501) rather than 404ing a missing
+    // file — a tiny ranged GET distinguishes "method not allowed" from "not there."
+    if(res.status === 405 || res.status === 501){
+      const r2 = await fetch(url, { method: 'GET', headers: {Range: 'bytes=0-0'}, cache: 'no-store' });
+      return r2.ok;
+    }
+    return false;
+  }catch(err){ return false; }
+}
+async function autoDetectAudio(entry){
+  if(!entry || entry.audio || audioAutoDetectChecked.has(entry.id)) return;
+  audioAutoDetectChecked.add(entry.id);
+  const folder = AUDIO_TYPE_FOLDERS[entry.t];
+  if(!folder) return;
+  let found = null;
+  for(let v = 1; v <= AUDIO_CHECK_MAX_VERSIONS; v++){
+    let hit = null;
+    for(const ext of AUDIO_CHECK_EXTS){
+      const candidate = 'audio/' + folder + '/' + entry.id + '-v' + v + '.' + ext;
+      if(await audioUrlExists(resolveAsset(candidate, db.settings && db.settings.audioBase))){ hit = candidate; break; }
+    }
+    if(!hit) break; // versions are contiguous — the first gap means nothing higher exists either
+    found = hit;
+  }
+  if(!found) return;
+  // Re-fetch fresh rather than trusting the closure — the editor may have moved on, or something
+  // else (a manual sync, a save) may have already filled this in while the checks were in flight.
+  const fresh = getEntry(entry.id);
+  if(!fresh || fresh.audio) return;
+  fresh.audio = found;
+  if(editingId === entry.id) document.getElementById('fAudio').value = found;
+  setStatus('Found existing audio for "' + fresh.n + '" \u2014 filled in automatically. Save Entry to keep it.');
 }
 document.getElementById('mNew').addEventListener('click', () => {
   openEditor(null);
