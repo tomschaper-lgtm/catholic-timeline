@@ -6,7 +6,25 @@ name: Sentence Length Audit
 # automation/reports/sentence-audit/.
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      entities_per_batch:
+        description: 'How many flagged entities per batch file'
+        required: false
+        default: '12'
+      review_min:
+        description: 'Word count where a sentence starts getting flagged at all ("review" severity from here up)'
+        required: false
+        default: '31'
+      violation_min:
+        description: 'Word count where a flagged sentence becomes "violation" severity instead of "review"'
+        required: false
+        default: '41'
+      skip_recorded:
+        description: 'Leave already-recorded entries out of the batch queue (they still show up in needs-rerecord.json either way)'
+        required: false
+        default: true
+        type: boolean
 
 # Required so the built-in GITHUB_TOKEN can push the report commit back
 # to the repo. Without this the default token is read-only and the
@@ -31,6 +49,11 @@ jobs:
           node-version: '24'
 
       - name: Run audit
+        env:
+          ENTITIES_PER_BATCH: ${{ github.event.inputs.entities_per_batch }}
+          REVIEW_MIN: ${{ github.event.inputs.review_min }}
+          VIOLATION_MIN: ${{ github.event.inputs.violation_min }}
+          SKIP_RECORDED: ${{ github.event.inputs.skip_recorded }}
         run: node scripts/services/sentence-length-audit.mjs data.json automation/reports/sentence-audit
 
       - name: Commit report
