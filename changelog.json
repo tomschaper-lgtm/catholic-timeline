@@ -1,6 +1,28 @@
 {
   "entries": [
     {
+      "version": "309",
+      "date": "2026-09-04T00:00:00-05:00",
+      "changes": [
+        "Manage → Entries editor now auto-detects audio that already exists but never made it into the",
+        "`audio` field. Opening an entry whose audio field is blank quietly HEAD-checks the conventional",
+        "path (audio/<Category>/<id>-v<N>.mp3, falling back to .wav for anything recorded before the",
+        "mp3 switch, and walking versions upward since nextVersion() never leaves a gap) using the exact",
+        "same folder-per-type naming generate-audio.mjs writes to. A hit fills the field in immediately",
+        "(and the status bar says so) — Save Entry still needed to keep it, same as any other edit. A",
+        "miss is silent; this is a courtesy check, not a requirement. Covers exactly the gap the v308",
+        "fix was about: a file that made it to the repo/site but whose data.json field never caught up.",
+        "v308 (unchanged, kept for reference): fixed Record Audio looking permanently \"stuck\" even when",
+        "the sync actually succeeded — syncAudioStatusUntilFresh now always writes a final message on",
+        "both the success and give-up exit paths instead of leaving stale \"attempt N/max\" text on screen.",
+        "v307 (unchanged, kept for reference): fixed Record Audio never picking up its own results",
+        "automatically — triggerWorkflow/syncAudioStatusUntilFresh were tuned for Resize/Convert",
+        "(finish in seconds), not a real audio batch (minutes); both now take an attempt-count override",
+        "and Record Audio budgets patience scaled to batch size."
+      ],
+      "loggedAt": "2026-09-05T02:21:04.127505+00:00"
+    },
+    {
       "version": "307",
       "date": "2026-09-04T23:00:00-05:00",
       "changes": [
