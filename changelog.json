@@ -1,6 +1,30 @@
 {
   "entries": [
     {
+      "version": "311",
+      "date": "2026-09-05T00:00:00-05:00",
+      "changes": [
+        "Fixed the broken PWA / home-screen icon. The icons in Images/icons/ were regenerated as .jpg,",
+        "but APP_ICON still pointed at the old .png filenames, so the probe failed, the swap never",
+        "happened, and the app silently fell back to the embedded default icon. Paths now match the",
+        "repo: apple-touch-icon.jpg, icon-192.jpg, icon-512.jpg.",
+        "Also corrected two places that would otherwise still claim PNG: the runtime manifest's icon",
+        "`type` fields (now image/jpeg), and the <link rel=\"icon\"> element's type attribute, which is",
+        "updated when the real icon is swapped in — its markup value stays image/png, correctly, for",
+        "the embedded data-URI fallback.",
+        "v310 (unchanged): audio sync reads data.json and checks audio files via the GitHub contents",
+        "API rather than the deployed site, so a just-committed recording is visible immediately",
+        "instead of waiting on (or never getting) a redeploy.",
+        "v309 (unchanged): Manage → Entries auto-fills a blank audio field when a file already exists",
+        "at the conventional audio/<Category>/<id>-v<N> path.",
+        "v308 (unchanged): syncAudioStatusUntilFresh always writes a final message on both the success",
+        "and give-up paths instead of leaving stale \"attempt N/max\" text frozen on screen.",
+        "v307 (unchanged): triggerWorkflow/syncAudioStatusUntilFresh take an attempt-count override so",
+        "Record Audio can wait minutes rather than the seconds Resize/Convert need."
+      ],
+      "loggedAt": "2026-09-05T19:06:42.226346+00:00"
+    },
+    {
       "version": "310",
       "date": "2026-09-05T00:00:00-05:00",
       "changes": [
