@@ -1,18 +1,16 @@
 <!--
-VERSION: 311
+VERSION: 312
 DATE: 2026-09-05T00:00:00-05:00
 CHANGES:
-- Fixed the broken PWA / home-screen icon. The icons in Images/icons/ were regenerated as .jpg,
-  but APP_ICON still pointed at the old .png filenames, so the probe failed, the swap never
-  happened, and the app silently fell back to the embedded default icon. Paths now match the
-  repo: apple-touch-icon.jpg, icon-192.jpg, icon-512.jpg.
-- Also corrected two places that would otherwise still claim PNG: the runtime manifest's icon
-  `type` fields (now image/jpeg), and the <link rel="icon"> element's type attribute, which is
-  updated when the real icon is swapped in — its markup value stays image/png, correctly, for
-  the embedded data-URI fallback.
+- Home screen / Add to Home Screen now reads "Catholic Timeline" instead of "Timeline". The
+  <title> and the apple-mobile-web-app-title meta tag already said the full name; the runtime
+  manifest's short_name said "Timeline", and iOS prefers the manifest when "Open as Web App" is
+  enabled, so it quietly won. short_name now matches.
+- v311 (unchanged): fixed the broken PWA icon — APP_ICON pointed at .png filenames after the
+  icons in Images/icons/ were regenerated as .jpg, so the probe failed and the embedded default
+  icon was used. Manifest and favicon MIME types corrected to match.
 - v310 (unchanged): audio sync reads data.json and checks audio files via the GitHub contents
-  API rather than the deployed site, so a just-committed recording is visible immediately
-  instead of waiting on (or never getting) a redeploy.
+  API rather than the deployed site, so a just-committed recording is visible immediately.
 - v309 (unchanged): Manage → Entries auto-fills a blank audio field when a file already exists
   at the conventional audio/<Category>/<id>-v<N> path.
 - v308 (unchanged): syncAudioStatusUntilFresh always writes a final message on both the success
@@ -11703,7 +11701,10 @@ const APP_ICON = { touch: 'Images/icons/apple-touch-icon.jpg',
     // as a blob so the site stays a single file; URLs inside must be absolute for that to work.
     try{
       const manifest = {
-        name: 'Catholic Timeline', short_name: 'Timeline',
+        // short_name drives the home-screen label. iOS prefers the manifest over the
+        // apple-mobile-web-app-title meta tag when "Open as Web App" is on, so a short value
+        // here silently overrode the meta tag's "Catholic Timeline" in the Add sheet.
+        name: 'Catholic Timeline', short_name: 'Catholic Timeline',
         start_url: abs('.'), scope: abs('.'), display: 'standalone',
         background_color: '#F4E2B4', theme_color: '#0B1630',
         icons: [
