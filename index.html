@@ -1,29 +1,26 @@
 <!--
-VERSION: 318
-DATE: 2026-09-05T00:00:00-05:00
+VERSION: 319
+DATE: 2026-09-06T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
-- Retired the `d` short description throughout the app, and added a real `subtitle` field to
-  replace the one place it was still visible.
-- `subtitle` renders under the title on Learn More pages (t:"i" info entries) and is unused
-  elsewhere. It is a proper field rather than an in-band marker inside the article body (e.g.
-  ###subtitle###) because article text is consumed by the narration script, the sentence-length
-  audit, export word counts and patches text-matching — every one of those would have to learn
-  to ignore such a marker, and the one that forgot would produce a strange bug later.
-- migrateSubtitles() runs on every load path and copies an info entry's existing `d` into
-  `subtitle` when subtitle is empty, so nothing hand-written is lost. It never overwrites an
-  existing subtitle and never deletes `d` — clearing the field out of data.json is a separate
-  deliberate step, not something that should happen silently on page load.
-- `d` removed from: the entry editor (now a Subtitle input), CSV export, EX_FIELDS, the seed
-  loader, mergeEntries' fresh-entry constructor, PATCH_REQUIRED_FIELDS and PATCH_SCALAR_FIELDS,
-  deep-search fields, cross-reference link stripping and counting, and the share sheet.
-- Two consequences worth knowing. Search's secondary pass is now Search Tags only; an entry
-  with no tags simply has no fallback pass, and the name pass still finds it. And a new entry
-  imported with no `art` object now gets an empty article rather than a one-section "Overview"
-  built from its teaser.
-- data.json itself is UNCHANGED — every entry still carries its `d` text. Removing it from the
-  data is the next step, separately.
+- Fixed stale deep-search ("=") results after a `patches` edit. fieldsDeep()'s cache keyed
+  validity on reference identity of `entry.art`/`entry.facts`; patches mutate those in place
+  (or reassign only `art.sections`, not `art` itself) rather than replacing them wholesale the
+  way a full-object CMS update does, so the cache never noticed and kept serving pre-patch
+  snippets even after the article itself, and the live site, were already correct. applyPatches
+  now drops the cache entry for every id it touches.
+- Timeline search ("#tlSearch") no longer caps results at 8 — the dropdown already scrolls
+  (.sresults has its own max-height), so results show in full up to a generous SEARCH_HARD_CAP
+  safety ceiling instead of silently truncating and asking for a narrower query. The link
+  picker's own search (triple-tap-to-link) keeps its short top-8 list unchanged.
+- Export tab's search box (Manage → Export → Search) gained a × clear button and its own
+  "Recent searches" dropdown (last 5), matching the timeline's and Saints panel's search boxes.
+  No natural "pick a result" moment exists there (the match list is a live preview, not
+  clickable rows), so a term is saved on blur instead, once the field holds something.
+- v318 (unchanged): retired the `d` short description app-wide in favor of a `subtitle` field
+  (Learn More / t:"i" info entries only); migrateSubtitles() carries over any existing `d` on
+  load without deleting it from data.json, which is a separate, deliberate step.
 - v317 (unchanged): export search list styling, term highlighting, match count; Audio URL
   rename; Carlo Links export button removed.
 - v316 (unchanged): Export tab search box filtering the export set.
@@ -2115,6 +2112,34 @@ CHANGES:
   .mgmtYearInput{width:84px; background:var(--m-row); color:var(--m-ink); border:1px solid var(--m-border); border-radius:8px; padding:8px; font-size:16px;}
   #manage .mbtn.sm{padding:6px 10px; font-size:13px;}
 
+  /* Export tab search box: × clear button + recent-searches dropdown, same pattern as the
+     timeline's own #tlSearch and the Saints panel's #spSearch, themed for the CMS's light
+     colors instead of duplicating either one verbatim. */
+  .mfSearchWrap{position:relative; flex:1 1 auto; min-width:0;}
+  .mfSearchWrap .mgmtYearInput{padding-right:34px;}
+  .mfSearchClear{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%); z-index:2;
+    display:none; width:24px; height:24px; align-items:center; justify-content:center;
+    background:none; border:none; color:var(--m-sub2); font-size:19px; line-height:1; cursor:pointer;
+  }
+  .mfSearchClear.show{display:flex;}
+  .mfSearchClear:hover{color:var(--m-accent-bright);}
+  .mfRecentBox{
+    position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:6;
+    display:none; background:var(--m-row); border:1px solid var(--m-border); border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.14); max-height:220px; overflow-y:auto;
+  }
+  .mfRecentHead{
+    padding:8px 14px 4px; font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--m-sub2);
+  }
+  .mfRecent{display:flex; align-items:center; gap:8px; padding:8px 14px; cursor:pointer;}
+  .mfRecent:active{background:var(--m-bg);}
+  .mfRecentClock{color:var(--m-sub2); font-size:14px; flex:0 0 auto;}
+  .mfRecentName{flex:1 1 auto; min-width:0; font-size:14px; color:var(--m-ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .mfRecentX{flex:0 0 auto; background:none; border:none; color:var(--m-sub2); font-size:17px; line-height:1; cursor:pointer; padding:2px 4px;}
+  .mfRecentX:hover{color:var(--m-accent-bright);}
+
   /* Export tab: per-field checkbox grid + stat summary box */
   .mExFieldsGrid{
     display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr));
@@ -2810,7 +2835,11 @@ CHANGES:
 
       <div class="mgmtRowLabel">Search <span id="mfSearchCount" style="font-weight:400; text-transform:none; letter-spacing:0;"></span></div>
       <div class="mgmtYearRow">
-        <input type="text" id="mfSearch" placeholder="Search name, or =word for full text" class="mgmtYearInput" style="width:100%; max-width:none;">
+        <div class="mfSearchWrap">
+          <input type="text" id="mfSearch" placeholder="Search name, or =word for full text" class="mgmtYearInput" style="width:100%; max-width:none;" autocomplete="off">
+          <button class="mfSearchClear" id="mfSearchClear" aria-label="Clear search" type="button">×</button>
+          <div class="mfRecentBox" id="mfRecentBox"></div>
+        </div>
       </div>
       <details class="mHelp"><summary>Search syntax</summary>
         <div class="hint" style="margin-top:-4px; margin-bottom:10px;">
@@ -3330,7 +3359,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v318';
+const APP_VERSION = 'v319';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4380,7 +4409,12 @@ function tierVisible(d){
 //      authored — only consulted when A returned 0 or 1 hits
 // Within a pass the query is split on spaces and EVERY fragment must match somewhere in
 // that pass's fields, so extra words narrow the result set rather than widening it.
-const MAX_RESULTS = 8;
+const MAX_RESULTS = 8; // link picker only (lpRunSearch) — a quick-pick list, deliberately short
+// Main timeline search (#tlSearch): shown in a scrolling dropdown (.sresults already has its
+// own max-height/overflow), so there's no UI reason to stop at a handful of rows. This ceiling
+// only exists to protect against a pathological query rendering thousands of DOM nodes if the
+// catalog grows dramatically — ordinary searches, even broad ones, land far under it.
+const SEARCH_HARD_CAP = 300;
 const RECENT_KEY = 'ct-recent-searches';
 const RECENT_MAX = 5;
 // Results are grouped by category in this fixed order, then by year inside each group.
@@ -4746,7 +4780,7 @@ function runSearch(){
     }
   }
   const total = results.length;
-  const shown = results.slice(0, MAX_RESULTS); // 8 is a cap on the COMBINED list
+  const shown = results.slice(0, SEARCH_HARD_CAP); // full list, scrollable — see SEARCH_HARD_CAP above
   // Only what's actually listed lights up on the timeline.
   searchHits = new Set(shown.map(d => d.id));
 
@@ -4795,8 +4829,8 @@ function runSearch(){
     box.appendChild(r);
     prevType = d.t;
   });
-  // A full-text query can match far more than the 8 shown, and silently truncating would
-  // misleadingly suggest those are all of them.
+  // Only fires if a query somehow blows past SEARCH_HARD_CAP — ordinary searches show every
+  // match, scrollable, so silently truncating without saying so stays out of the normal path.
   if(isDeep && total > shown.length){
     const more = document.createElement('div');
     more.className = 'sresult sempty';
@@ -8733,7 +8767,85 @@ document.getElementById('mfYearFrom').addEventListener('input', renderExportSumm
 document.getElementById('mfYearTo').addEventListener('input', renderExportSummary);
 document.getElementById('mfFeastFrom').addEventListener('input', renderExportSummary);
 document.getElementById('mfFeastTo').addEventListener('input', renderExportSummary);
-document.getElementById('mfSearch').addEventListener('input', renderExportSummary);
+// ---- Recent search terms for the Export tab's search box (most recent first, persisted) ----
+// Same idea as #tlSearch's own recent list and the Saints panel's #spSearch one, under its own
+// storage key so none of the three ever mix. Those two push a term at the moment the reader
+// "picks a result" (tapping a search row) — mfSearchList here is a live preview with no tappable
+// rows, so there's no equivalent moment. Blur-with-content is the closest stand-in: the reader
+// has finished typing and moved on, which is as good a signal as this box gets.
+const MF_RECENT_KEY = 'ct-cms-recent-searches';
+const MF_RECENT_MAX = 5;
+function mfGetRecent(){
+  try{ const a = JSON.parse(localStorage.getItem(MF_RECENT_KEY) || '[]'); return Array.isArray(a) ? a.slice(0, MF_RECENT_MAX) : []; }
+  catch(e){ return []; }
+}
+function mfPushRecent(term){
+  term = String(term || '').trim();
+  if(!term) return;
+  const list = mfGetRecent().filter(t => fold(t) !== fold(term)); // re-picking promotes, never duplicates
+  list.unshift(term);
+  try{ localStorage.setItem(MF_RECENT_KEY, JSON.stringify(list.slice(0, MF_RECENT_MAX))); }catch(e){}
+}
+function mfRemoveRecent(term){
+  const list = mfGetRecent().filter(t => fold(t) !== fold(term));
+  try{ localStorage.setItem(MF_RECENT_KEY, JSON.stringify(list)); }catch(e){}
+}
+function mfRenderRecent(){
+  const box = document.getElementById('mfRecentBox');
+  const input = document.getElementById('mfSearch');
+  const list = mfGetRecent();
+  box.innerHTML = '';
+  if(!list.length){ box.style.display = 'none'; return; }
+  const head = document.createElement('div');
+  head.className = 'mfRecentHead';
+  head.textContent = 'Recent searches';
+  box.appendChild(head);
+  list.forEach(term => {
+    const r = document.createElement('div');
+    r.className = 'mfRecent';
+    r.innerHTML = '<span class="mfRecentClock">\u21BA</span><span class="mfRecentName">' + esc(term) + '</span>' +
+      '<button class="mfRecentX" type="button" aria-label="Remove &quot;' + esc(term) + '&quot; from recent searches">\u00D7</button>';
+    r.addEventListener('click', () => {
+      input.value = term;
+      document.getElementById('mfSearchClear').classList.toggle('show', term.length > 0);
+      box.style.display = 'none';
+      renderExportSummary();
+    });
+    // Dropping a term must not also re-run it, so the × button swallows the row's click.
+    r.querySelector('.mfRecentX').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      mfRemoveRecent(term);
+      mfRenderRecent(); // redraw in place; hides itself once the last one goes
+      input.focus();
+    });
+    box.appendChild(r);
+  });
+  box.style.display = 'block';
+}
+document.getElementById('mfSearch').addEventListener('input', () => {
+  const v = document.getElementById('mfSearch').value;
+  document.getElementById('mfSearchClear').classList.toggle('show', v.length > 0);
+  document.getElementById('mfRecentBox').style.display = 'none'; // hide the recent list once typing starts
+  renderExportSummary();
+});
+document.getElementById('mfSearch').addEventListener('focus', () => {
+  if(!document.getElementById('mfSearch').value.trim()) mfRenderRecent();
+});
+document.getElementById('mfSearch').addEventListener('blur', () => {
+  const v = document.getElementById('mfSearch').value.trim();
+  if(v) mfPushRecent(v);
+  // Delay so a tap on a recent-row or the × button (which also blurs the input first) still
+  // registers before the dropdown disappears — same 150ms pattern the Saints panel search uses.
+  setTimeout(() => { document.getElementById('mfRecentBox').style.display = 'none'; }, 150);
+});
+document.getElementById('mfSearchClear').addEventListener('click', () => {
+  const input = document.getElementById('mfSearch');
+  input.value = '';
+  document.getElementById('mfSearchClear').classList.remove('show');
+  document.getElementById('mfRecentBox').style.display = 'none';
+  renderExportSummary();
+  input.focus();
+});
 document.getElementById('mfReset').addEventListener('click', () => {
   mFilterTypes = {s:false, c:false, p:false, m:false, u:false, e:false};
   mFilterRegion = 'all';
@@ -8746,6 +8858,8 @@ document.getElementById('mfReset').addEventListener('click', () => {
   document.getElementById('mfFeastFrom').value = '';
   document.getElementById('mfFeastTo').value = '';
   document.getElementById('mfSearch').value = '';
+  document.getElementById('mfSearchClear').classList.remove('show');
+  document.getElementById('mfRecentBox').style.display = 'none';
   renderExportSummary();
 });
 
@@ -10265,6 +10379,13 @@ function applyPatches(patchesObj){
       if(result.ok) applied++; else skipped++;
       notes.push(result.note);
     });
+    // A patch mutates art.sections/quotes/links/facts in place (or reassigns just the
+    // `sections` array, not the `art` object itself) rather than replacing `entry.art`
+    // wholesale the way a full-object CMS update does. fieldsDeep()'s cache keys on
+    // reference identity of `art`/`facts`, so without this it silently keeps serving
+    // pre-patch deep-search snippets even though the article itself is already correct —
+    // drop this entry's cached fields unconditionally so the next "=" search recomputes.
+    deepTextCache.delete(id);
   });
   return { applied: applied, skipped: skipped, notes: notes };
 }
