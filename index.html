@@ -1,23 +1,21 @@
 <!--
-VERSION: 319
+VERSION: 320
 DATE: 2026-09-06T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
-- Fixed stale deep-search ("=") results after a `patches` edit. fieldsDeep()'s cache keyed
-  validity on reference identity of `entry.art`/`entry.facts`; patches mutate those in place
-  (or reassign only `art.sections`, not `art` itself) rather than replacing them wholesale the
-  way a full-object CMS update does, so the cache never noticed and kept serving pre-patch
-  snippets even after the article itself, and the live site, were already correct. applyPatches
-  now drops the cache entry for every id it touches.
-- Timeline search ("#tlSearch") no longer caps results at 8 — the dropdown already scrolls
-  (.sresults has its own max-height), so results show in full up to a generous SEARCH_HARD_CAP
-  safety ceiling instead of silently truncating and asking for a narrower query. The link
-  picker's own search (triple-tap-to-link) keeps its short top-8 list unchanged.
-- Export tab's search box (Manage → Export → Search) gained a × clear button and its own
-  "Recent searches" dropdown (last 5), matching the timeline's and Saints panel's search boxes.
-  No natural "pick a result" moment exists there (the match list is a live preview, not
-  clickable rows), so a term is saved on blur instead, once the field holds something.
+- Fixed the real cause of edits appearing to "revert after a while": Manage → Save & Exit, when
+  no GitHub token was configured, showed "no token set" for 1.6s and then closed the Manage
+  panel anyway — the exact same flash-then-close experience as a successful publish. Anyone not
+  watching the screen at that instant had no way to tell the two apart, so edits sat correct
+  in-session (looking published) but were never actually committed, and reverted on the next
+  fresh load once data.json was re-fetched from GitHub. This branch now behaves like a real
+  publish failure right below it already did: stays open, message stays up, no auto-close.
+- v319 (unchanged): fixed stale deep-search ("=") results after a `patches` edit — the cache
+  keyed on reference identity of `entry.art`/`entry.facts`, which a patch's in-place mutation
+  never changes; applyPatches now drops the cache entry for every id it touches. Timeline search
+  no longer caps results at 8 (link picker's own search is unaffected). Export tab's search box
+  gained a × clear button and a 5-item recent-searches dropdown.
 - v318 (unchanged): retired the `d` short description app-wide in favor of a `subtitle` field
   (Learn More / t:"i" info entries only); migrateSubtitles() carries over any existing `d` on
   load without deleting it from data.json, which is a separate, deliberate step.
@@ -3359,7 +3357,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v319';
+const APP_VERSION = 'v320';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -8623,8 +8621,13 @@ document.getElementById('mgmtSaveExit').addEventListener('click', async () => {
   // Then push to GitHub, so "Save" means the live site is actually updated — previously this
   // only saved locally, which made changes look published when they hadn't left the browser.
   if(!ghConfigured()){
-    msg.textContent = 'Saved on this device. (No GitHub token set, so the live site was not updated.)';
-    setTimeout(() => { mgmtExitModal.style.display = 'none'; manage.classList.remove('open'); updateAudioBarPresence(); msg.textContent = 'Exit the Content Manager?'; }, 1600);
+    // Previously this auto-closed after 1.6s like the success case — meaning a missing/cleared
+    // token produced the exact same "flash a message, then vanish" experience as a successful
+    // publish. Anyone not staring at the screen at that instant would see the panel close and
+    // reasonably assume it had gone through. Treat this exactly like a real publish failure
+    // instead: stay open, keep the message up, and point at where to fix it.
+    msg.textContent = 'Saved on this device only — no GitHub token is set, so nothing was published. ' +
+      'Go to the Import tab and enter your token under Publish to GitHub, then try again.';
     return;
   }
   const wasLabel = btn.textContent;
