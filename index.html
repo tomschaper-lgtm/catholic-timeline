@@ -1,7 +1,14 @@
 <!--
 VERSION: 312
 DATE: 2026-09-05T00:00:00-05:00
+NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
+`const APP_VERSION` (~line 3275), which is what the app displays and what update-detection
+compares. v308-v312 bumped only this comment, so the app kept reporting v307 and the update
+check kept concluding "no new version" even though the deploys were landing correctly.
 CHANGES:
+- Corrected APP_VERSION, which had been left at 'v307' since the v308 build. Nothing was wrong
+  with the deploy pipeline; the app was simply reporting a stale number and, because update
+  detection compares that same string, never noticed its own updates.
 - Home screen / Add to Home Screen now reads "Catholic Timeline" instead of "Timeline". The
   <title> and the apple-mobile-web-app-title meta tag already said the full name; the runtime
   manifest's short_name said "Timeline", and iOS prefers the manifest when "Open as Web App" is
@@ -15,8 +22,6 @@ CHANGES:
   at the conventional audio/<Category>/<id>-v<N> path.
 - v308 (unchanged): syncAudioStatusUntilFresh always writes a final message on both the success
   and give-up paths instead of leaving stale "attempt N/max" text frozen on screen.
-- v307 (unchanged): triggerWorkflow/syncAudioStatusUntilFresh take an attempt-count override so
-  Record Audio can wait minutes rather than the seconds Resize/Convert need.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -3272,7 +3277,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v307';
+const APP_VERSION = 'v312';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
