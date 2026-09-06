@@ -1,25 +1,22 @@
 <!--
-VERSION: 315
+VERSION: 316
 DATE: 2026-09-05T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
-- Search now understands quoted terms and "-" masked terms, in both normal and "=" deep search.
-- Quotes mean whole word: 'cult' matches cult, Cult. and cult: but never difficult or occult.
-  Unquoted terms still match as substrings, exactly as before. A multi-word quote is a phrase
-  that must appear in that order — 'cult followers' will not match "their cult" or "cult of
-  followers". A phrase may span a line break.
-- Curly quotes count as quotes, since iOS substitutes them automatically while typing; without
-  this the smart quote would be treated as part of the word itself.
-- A term prefixed with "-" is MASKED OUT of the text before the other terms are matched, so
-  "dig -dignity" stops dig matching inside dignity while still matching digging. Deliberately
-  not the usual "reject any entry containing this word" — it removes the text, not the entry,
-  which is what makes it useful for killing one noisy false positive without losing real hits.
-- Highlighting honours all of it: whole-word terms only light up whole words, phrases light up
-  as a unit, and masked terms are never highlighted (so "-dignity" doesn't light dignity up
-  anyway). A query of only exclusions returns nothing rather than everything.
-- v314 (unchanged): opening an article from a deep search highlights the matched terms and
-  scrolls the first into view.
+- Export tab now has a Search box using the identical query syntax as the timeline search bar:
+  plain substring on names, "=" for full-text across every field, 'quotes' for whole words and
+  phrases, "-" to mask a word out. It narrows the export set exactly like the category/region/
+  year/feast filters, so JSON — Filtered and CSV export precisely what matched.
+- Unlike the timeline search bar, the Export list shows EVERY match rather than the top 8 —
+  the whole point here is confirming what's about to be exported, so it's capped by height and
+  scrolls instead of by result count. Deep ("=") matches show the surrounding prose so a hit
+  buried in an article explains itself.
+- The match count line and the complete/incomplete word-count stats both reflect the search,
+  and Reset clears it along with the other filters. A search of only exclusions ("-dignity")
+  is treated as no search rather than matching nothing.
+- v315 (unchanged): quoted whole-word/phrase terms and "-" masked terms added to search.
+- v314 (unchanged): opening an article from a deep search highlights the matched terms.
 - v313 (unchanged): "=" prefix runs a full-text search across every field of every entry.
 - v312 (unchanged): corrected APP_VERSION, stale at v307; home screen reads "Catholic Timeline".
 -->
@@ -2123,6 +2120,23 @@ CHANGES:
     padding:10px 12px; margin:8px 0 12px; font-size:14px; color:var(--m-ink); line-height:1.5;
   }
   .mExStatBox b{color:var(--m-accent);}
+  /* Export tab search results. Deliberately shows EVERY match, not a top-N slice like the
+     timeline search bar — the point here is to confirm exactly what's about to be exported —
+     so it's capped by height and scrolls instead of by result count. */
+  .mfSearchList{
+    max-height:260px; overflow-y:auto; margin:6px 0 12px;
+    border:1px solid var(--m-border); border-radius:10px; background:var(--m-bg);
+  }
+  .mfSearchList:empty{display:none;}
+  .mfSearchRow{
+    display:flex; align-items:baseline; gap:8px; padding:7px 11px;
+    border-bottom:1px solid var(--m-border); font-size:14px; color:var(--m-ink);
+  }
+  .mfSearchRow:last-child{border-bottom:none;}
+  .mfSearchRow .mfsName{flex:1; min-width:0;}
+  .mfSearchRow .mfsWhy{display:block; font-size:12px; color:var(--m-sub); margin-top:2px; line-height:1.35;}
+  .mfSearchRow .mfsYear{color:var(--m-sub); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .mfSearchNote{padding:8px 11px; font-size:13px; color:var(--m-sub);}
   /* Import tab: inline status feedback right at the point of action, not just the top bar.
      Capped and scrollable: a batch of skipped patches can produce dozens of notes, which
      previously pushed the Apply/Clipboard buttons far off-screen on a phone. */
@@ -2779,6 +2793,23 @@ CHANGES:
       </div>
       <div class="hint" style="margin-top:-4px; margin-bottom:10px;">Narrows only Saints to feast dates in this range &mdash; every other category is unaffected. Wraps the calendar (e.g. Dec 26 &ndash; Jan 2) if From sorts after To. Reset above clears this too.</div>
 
+      <div class="mgmtRowLabel">Search</div>
+      <div class="mgmtYearRow">
+        <input type="text" id="mfSearch" placeholder="Search name, or =word for full text" class="mgmtYearInput" style="width:100%; max-width:none;">
+      </div>
+      <details class="mHelp"><summary>Search syntax</summary>
+        <div class="hint" style="margin-top:-4px; margin-bottom:10px;">
+          Same syntax as the timeline search box, and it narrows the export set exactly like the filters above.<br>
+          <b>word</b> &mdash; matches names and alt names, anywhere in the word (<i>pet</i> finds <i>Peter</i>).<br>
+          <b>=word</b> &mdash; searches the entire article and every other field, not just names.<br>
+          <b>'word'</b> &mdash; whole word only: <i>'cult'</i> matches <i>cult</i> and <i>Cult.</i> but not <i>difficult</i>.<br>
+          <b>'two words'</b> &mdash; that exact phrase, in that order.<br>
+          <b>-word</b> &mdash; blanks that word out first, so <i>dig -dignity</i> won't match inside <i>dignity</i> but still finds <i>digging</i>.<br>
+          Every term must match. Case and accents are ignored (<i>Fatima</i> finds <i>F&aacute;tima</i>).
+        </div>
+      </details>
+      <div class="mfSearchList" id="mfSearchList"></div>
+
       <div class="mgmtRowLabel">Fields to include in export</div>
       <div class="mtool" style="margin-top:0; margin-bottom:8px;">
         <button class="mbtn sm" id="mExCheckAll">Check All</button>
@@ -3286,7 +3317,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v315';
+const APP_VERSION = 'v316';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -8621,6 +8652,7 @@ document.getElementById('mfYearFrom').addEventListener('input', renderExportSumm
 document.getElementById('mfYearTo').addEventListener('input', renderExportSummary);
 document.getElementById('mfFeastFrom').addEventListener('input', renderExportSummary);
 document.getElementById('mfFeastTo').addEventListener('input', renderExportSummary);
+document.getElementById('mfSearch').addEventListener('input', renderExportSummary);
 document.getElementById('mfReset').addEventListener('click', () => {
   mFilterTypes = {s:false, c:false, p:false, m:false, u:false, e:false};
   mFilterRegion = 'all';
@@ -8632,6 +8664,7 @@ document.getElementById('mfReset').addEventListener('click', () => {
   document.getElementById('mfYearTo').value = '';
   document.getElementById('mfFeastFrom').value = '';
   document.getElementById('mfFeastTo').value = '';
+  document.getElementById('mfSearch').value = '';
   renderExportSummary();
 });
 
@@ -8646,7 +8679,28 @@ function mExportMatchesFeastRange(e, feastFrom, feastTo){
   return dates.some(d => feastInRange(d, feastFrom, feastTo));
 }
 
-// Entries matching the Export tab's category/region/status/date-range/feast-range filters (used for JSON — Filtered and CSV).
+// Parses the Export tab's search box once per render. Returns null when there's nothing usable
+// to search for, which means "don't filter on search at all" — an empty box, or a box holding
+// only exclusions ("-dignity"), leaves the export set governed purely by the chips above.
+function mExportSearchQuery(){
+  const el = document.getElementById('mfSearch');
+  if(!el) return null;
+  const trimmed = el.value.trim();
+  if(!trimmed) return null;
+  const isDeep = trimmed.charAt(0) === '=';
+  const parsed = parseSearchQuery(isDeep ? trimmed.slice(1).trim() : trimmed);
+  if(!parsed.terms.length) return null;
+  parsed.isDeep = isDeep;
+  return parsed;
+}
+// Same two-tier behaviour as the timeline search: names/alt names by default, everything
+// including full article prose when the query opens with "=".
+function mExportMatchesSearch(e, q){
+  if(!q) return true;
+  return matchesQuery(q.isDeep ? fieldsDeep(e) : fieldsA(e), q);
+}
+
+// Entries matching the Export tab's category/region/status/date-range/feast-range/search filters (used for JSON — Filtered and CSV).
 function mExportFilteredEntries(){
   const anyType = Object.values(mFilterTypes).some(Boolean);
   const from = document.getElementById('mfYearFrom').value.trim();
@@ -8655,13 +8709,42 @@ function mExportFilteredEntries(){
   const toY = to === '' ? Infinity : parseInt(to, 10);
   const feastFrom = parseMonthDay(document.getElementById('mfFeastFrom').value);
   const feastTo = parseMonthDay(document.getElementById('mfFeastTo').value);
+  const q = mExportSearchQuery();
   return db.entries.filter(e =>
     (!anyType || mFilterTypes[e.t]) &&
     mExportMatchesFeastRange(e, feastFrom, feastTo) &&
     (mFilterRegion === 'all' || e.r === mFilterRegion) &&
     (!mFilterReviewOnly || isReview(e)) &&
-    e.y >= fromY && e.y <= toY
+    e.y >= fromY && e.y <= toY &&
+    mExportMatchesSearch(e, q)
   );
+}
+// The full list of what the search matched — every row, never a top-N slice, since this is
+// what the reader checks before pressing Export.
+function renderExportSearchList(evs){
+  const listEl = document.getElementById('mfSearchList');
+  if(!listEl) return;
+  const q = mExportSearchQuery();
+  listEl.innerHTML = '';
+  if(!q) return; // no search active — the list collapses (see .mfSearchList:empty)
+  if(!evs.length){
+    listEl.innerHTML = '<div class="mfSearchNote">No entries match this search and the filters above.</div>';
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  evs.forEach(e => {
+    const row = document.createElement('div');
+    row.className = 'mfSearchRow';
+    let why = '';
+    if(q.isDeep){
+      const snip = deepSnippet(fieldsDeep(e), q);
+      if(snip) why = '<span class="mfsWhy">' + esc(snip) + '</span>';
+    }
+    row.innerHTML = '<span class="mfsName">' + esc(e.n) + why + '</span>' +
+                    '<span class="mfsYear">AD ' + e.y + '</span>';
+    frag.appendChild(row);
+  });
+  listEl.appendChild(frag);
 }
 function renderExportSummary(){
   const sumEl = document.getElementById('mfSummary');
@@ -8673,8 +8756,11 @@ function renderExportSummary(){
   const feastTo = parseMonthDay(document.getElementById('mfFeastTo').value);
   const feastLabel = (feastFrom || feastTo) ? (' · Feast ' + (feastFrom ? fmtMonthDay(feastFrom) : 'any') + '\u2013' + (feastTo ? fmtMonthDay(feastTo) : 'any') + ' (Saints only)') : '';
   const evs = mExportFilteredEntries();
+  const searchQ = mExportSearchQuery();
+  const searchLabel = searchQ ? ' · Search: ' + document.getElementById('mfSearch').value.trim() : '';
   sumEl.textContent = evs.length + ' entries match — ' + typeLabel + ' · ' + regionLabel +
-    (mFilterReviewOnly ? ' · Held for review only' : '') + feastLabel;
+    (mFilterReviewOnly ? ' · Held for review only' : '') + feastLabel + searchLabel;
+  renderExportSearchList(evs);
 
   const statEl = document.getElementById('mExStatBox');
   if(statEl){
