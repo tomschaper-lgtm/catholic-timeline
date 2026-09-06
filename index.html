@@ -1,29 +1,25 @@
 <!--
-VERSION: 322
+VERSION: 323
 DATE: 2026-09-06T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
-- Timeline search dropdown (#tlSearch) now reliably clips and scrolls once a broad query returns
-  more than a screenful of matches. It was already coded with a `50vh` max-height and scrolling
-  overflow, but used the two-value `overflow: hidden auto` shorthand, which has had inconsistent
-  Safari support — swapped to explicit overflow-x/overflow-y properties, plus a JS-set inline
-  max-height tied to the actual `window.innerHeight` as a backstop against any device where a
-  `vh`-based CSS max-height still doesn't reliably clip a list that's grown past a handful of
-  rows (harmless before the SEARCH_HARD_CAP change in v319, since 8 rows never got that tall).
-- Added a small "N entries found" count line at the top of that dropdown, always shown, not just
-  when a deep search happens to overflow the hard cap.
-- Merged the Export tab's search box (#mfSearch) onto the same recent-searches list as the main
-  timeline search, rather than keeping its own separate one — a term typed in either now shows
-  up in both. (The Saints panel's own recent list stays separate; it wasn't part of this ask and
-  searches a different, narrower field set.)
-- v321 (unchanged): redesigned the Paste JSON results panel — one row per result, never wrapped,
-  ✓/✗ per line with a light-red background on failures, plus a Copy Results button.
-- v320 (unchanged): fixed Manage → Save & Exit silently closing (after a 1.6s flash) when no
-  GitHub token was configured — indistinguishable from a successful publish unless watching the
-  screen at that instant. Now stays open with a persistent message, like a real publish failure.
-- v319 (unchanged): fixed stale deep-search ("=") results after a `patches` edit; timeline
-  search no longer caps at 8 results; Export tab search box gained a × clear button.
+- Paste JSON results summary rebuilt as a list of present-only lines instead of one
+  always-concatenated string. "Imported: X added, Y updated" is omitted entirely when nothing
+  happened on the entries table; "Carlo links: ..." the same; "Patches: ..." the same — and
+  patches now say "X success, Y failed" rather than "X applied, Y skipped" (a skipped patch is a
+  mismatch or a rejected required-field delete, which reads as a failure, not something merely
+  passed over). When more than one of these actually has something to report, each gets its own
+  line (a real break, not " · ") — both in the results panel and in the top status toast.
+- Fixed the oversized entry-name text in the results row list (visible in the last screenshot):
+  the name was a bare <b> tag with no explicit font-size, and depending on inherited context
+  could render noticeably larger than the rest of its own row. Given its own .mImportName class
+  with font-size:inherit pinned explicitly, and the row itself now has an explicit font-size
+  rather than relying purely on ancestor inheritance.
+- v322 (unchanged): timeline search dropdown now reliably clips/scrolls past a handful of
+  results (explicit overflow-x/y instead of the two-value shorthand, plus a JS-set inline
+  max-height backstop); added a "N entries found" count line; merged the CMS Export search box
+  onto the same recent-searches list as the main timeline search.
 - v317 (unchanged): export search list styling, term highlighting, match count; Audio URL
   rename; Carlo Links export button removed.
 - v316 (unchanged): Export tab search box filtering the export set.
@@ -1750,7 +1746,7 @@ CHANGES:
   .mbtn.primary{background:var(--gold); color:var(--navy-deep); font-size:13px; padding:11px 16px; width:100%;}
   .mbtn.primary:hover{background:var(--gold-bright);}
   .mtool.mtoolSplit .mbtn{flex:1; width:auto;}
-  .mstatus{font-size:13.5px; font-weight:600; color:var(--m-accent); background:rgba(138,109,28,.1); border-radius:5px; padding:3px 8px; display:inline-block;}
+  .mstatus{font-size:13.5px; font-weight:600; color:var(--m-accent); background:rgba(138,109,28,.1); border-radius:5px; padding:3px 8px; display:inline-block; white-space:pre-line;}
   .mstatus:empty{padding:0; background:none;}
   .mbox{background:rgba(201,165,66,.05); border:1px solid rgba(201,165,66,.35); border-radius:10px; padding:14px; margin-top:16px;}
   .mbox h3{font-family:'Cinzel',serif; font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-bright); margin-bottom:8px;}
@@ -2203,17 +2199,19 @@ CHANGES:
      detail scrolls horizontally within its own row instead of wrapping and burying the ✓/✗
      and name at different indents on every line, which is what made the old <br>-joined plain
      text hard to scan at a glance. */
-  .mImportSummaryLine{font-weight:600; margin-bottom:6px;}
-  .mImportList{display:flex; flex-direction:column; gap:1px; margin:0 -11px; }
+  .mImportSummaryLine{font-weight:600; margin-bottom:2px; font-size:14px;}
+  .mImportList{display:flex; flex-direction:column; gap:1px; margin:8px -11px 0; }
   .mImportRow{
     display:flex; align-items:flex-start; gap:7px; padding:5px 11px;
     white-space:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
+    font-size:14px; line-height:1.4;
   }
   .mImportRow.fail{background:var(--m-danger-bg);}
-  .mImportIcon{flex:0 0 auto; font-weight:700;}
+  .mImportIcon{flex:0 0 auto; font-weight:700; font-size:inherit;}
   .mImportRow.ok .mImportIcon{color:#2E7D32;}
   .mImportRow.fail .mImportIcon{color:var(--m-danger);}
-  .mImportLine{flex:0 0 auto;}
+  .mImportLine{flex:0 0 auto; font-size:inherit; font-weight:400;}
+  .mImportName{font-weight:700; font-size:inherit;}
   .mImportRow.fail .mImportLine{color:var(--m-danger);}
 
   .mgmtEntriesTop{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
@@ -3383,7 +3381,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v322';
+const APP_VERSION = 'v323';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -10432,11 +10430,14 @@ function renderPasteResults(elId, summary, notes){
   const el = document.getElementById(elId);
   if(!el) return;
   el.innerHTML = '';
-  const summaryEl = document.createElement('div');
-  summaryEl.className = 'mImportSummaryLine';
-  summaryEl.textContent = summary;
-  el.appendChild(summaryEl);
-  const plainLines = [summary];
+  const summaryLines = String(summary).split('\n');
+  summaryLines.forEach(line => {
+    const summaryEl = document.createElement('div');
+    summaryEl.className = 'mImportSummaryLine';
+    summaryEl.textContent = line;
+    el.appendChild(summaryEl);
+  });
+  const plainLines = summaryLines.slice();
   if(notes && notes.length){
     const list = document.createElement('div');
     list.className = 'mImportList';
@@ -10450,7 +10451,7 @@ function renderPasteResults(elId, summary, notes){
       const row = document.createElement('div');
       row.className = 'mImportRow ' + (ok ? 'ok' : 'fail');
       row.innerHTML = '<span class="mImportIcon">' + (ok ? '✓' : '✗') + '</span>' +
-        '<span class="mImportLine">' + (name ? '<b>' + esc(name) + '</b> — ' : '') + esc(rest) + '</span>';
+        '<span class="mImportLine">' + (name ? '<span class="mImportName">' + esc(name) + '</span> — ' : '') + esc(rest) + '</span>';
       list.appendChild(row);
       plainLines.push((ok ? '✓ ' : '✗ ') + text);
     });
@@ -10562,19 +10563,30 @@ async function applyMerge(text, statusPrefix, localStatusElId){
   // ran with stale pre-import content. This is why a patch could report "applied" and still
   // never survive to publish: the revert happened one step later, at Exit, not at Apply.
   if(editingId && getEntry(editingId)) openEditor(editingId);
-  const clSummary = touchedCarloLinks
-    ? ' · Carlo links: ' + clResult.added + ' added, ' + clResult.updated + ' updated'
+  const entryTotal = r.added + r.updated + d.deleted + r.skipped + d.missing;
+  const clTotal = clResult.added + clResult.updated + clResult.skipped + clDelResult.deleted + clDelResult.missing;
+  const patchTotal = patchResult.applied + patchResult.skipped;
+  const lines = [];
+  if(entryTotal > 0){
+    lines.push(statusPrefix + ': ' + r.added + ' added, ' + r.updated + ' updated'
+      + (d.deleted ? ', ' + d.deleted + ' deleted' : '')
+      + (r.skipped ? ', ' + r.skipped + ' skipped' : '')
+      + (d.missing ? ', ' + d.missing + ' delete id(s) not found' : ''));
+  }
+  if(touchedCarloLinks && clTotal > 0){
+    lines.push('Carlo links: ' + clResult.added + ' added, ' + clResult.updated + ' updated'
       + (clResult.skipped ? ', ' + clResult.skipped + ' skipped' : '')
       + (clDelResult.deleted ? ', ' + clDelResult.deleted + ' deleted' : '')
-    : '';
-  const patchSummary = touchedPatches
-    ? ' · Patches: ' + patchResult.applied + ' applied' + (patchResult.skipped ? ', ' + patchResult.skipped + ' skipped' : '')
-    : '';
-  const summary = statusPrefix + ': ' + r.added + ' added, ' + r.updated + ' updated'
-    + (d.deleted ? ', ' + d.deleted + ' deleted' : '')
-    + (r.skipped ? ', ' + r.skipped + ' skipped' : '')
-    + (d.missing ? ', ' + d.missing + ' delete id(s) not found' : '')
-    + clSummary + patchSummary;
+      + (clDelResult.missing ? ', ' + clDelResult.missing + ' delete id(s) not found' : ''));
+  }
+  if(touchedPatches && patchTotal > 0){
+    // "success"/"failed" rather than "applied"/"skipped" — a skipped patch is a mismatch or a
+    // rejected required-field delete, which reads to the owner as a failure, not a thing that
+    // was merely passed over.
+    lines.push('Patches: ' + patchResult.applied + ' success' + (patchResult.skipped ? ', ' + patchResult.skipped + ' failed' : ''));
+  }
+  // Every table came back empty — still say something rather than showing a blank status.
+  const summary = lines.length ? lines.join('\n') : statusPrefix + ': nothing to do — check the JSON shape';
   r.notes = d.notes.concat(r.notes).concat(clDelResult.notes).concat(clResult.notes).concat(patchResult.notes);
   setStatus(summary);
   if(localStatusElId){
