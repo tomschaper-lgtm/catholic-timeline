@@ -1,32 +1,27 @@
 <!--
-VERSION: 313
+VERSION: 314
 DATE: 2026-09-05T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
-`const APP_VERSION` (~line 3280), which is what the app displays and what update-detection
-compares. v308-v312 bumped only this comment, so the app kept reporting v307.
+`const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
-- Search box now supports full-text search across entire articles, triggered by a leading "=".
-  "=smart boy" requires BOTH words to appear somewhere in the entry and would match an article
-  reading "he was a smart and witty boy" — order doesn't matter, and a word missing anywhere
-  disqualifies the entry. Searches every field: name, alt names, teaser, country, year, tags,
-  Quick Facts labels and values, every section heading and body, quote text and source, link
-  labels, caption, review note. HTML is stripped first, so markup and entry: link targets can't
-  produce phantom hits. Without the "=", search behaves exactly as before — the name pass, then
-  the tag/description fallback — nothing about normal searching changed.
-- Deep results show the surrounding prose where the first word landed, rather than just the
-  matched word, since a hit buried in an article doesn't explain itself from the name alone.
-  When more than 8 match, the list says how many were found instead of silently truncating.
-- Deep queries are stored in recent searches verbatim ("=smart boy"), since re-running the
-  whole query is what's meaningful, not the one word that happened to match.
-- Article text for deep search is cached per entry and rebuilt only when that entry's art or
-  facts object is replaced, so typing stays responsive; the cache is kept outside the entry
-  objects so it can never leak into data.json on Export or Publish.
+- Opening an article from a "=" deep search now highlights the searched words in the prose and
+  scrolls the first one into view, so a hit buried mid-article doesn't have to be hunted for.
+  Every occurrence of every searched word is marked, not just the first.
+- Reuses the audio sentence-sync's existing text-range machinery (cueFlatMap/cueWrapRange)
+  rather than adding a second text walker, so a match spanning several text nodes or an inline
+  <b>/<a> tag is handled the same way cues already are. Overlapping matches (one word inside
+  another) are merged before wrapping so they can't double-wrap and corrupt offsets.
+- Highlight spans have their data-cue-idx stripped: that attribute means "tap to seek audio
+  here" elsewhere in the article, and without removing it a highlighted word would look
+  tappable and try to seek playback to a cue that doesn't exist.
+- Highlighting is best-effort and fully wrapped — if anything in it throws, the article still
+  opens normally.
+- v313 (unchanged): "=" prefix runs a full-text search across every field of every entry, all
+  words required; normal search without "=" is untouched.
 - v312 (unchanged): corrected APP_VERSION, stale at v307 since the v308 build; home screen now
-  reads "Catholic Timeline" (manifest short_name was overriding the meta tag on iOS).
-- v311 (unchanged): fixed the broken PWA icon after the Images/icons/ files were regenerated
-  as .jpg while APP_ICON still pointed at .png.
-- v310 (unchanged): audio sync reads data.json and checks audio files via the GitHub contents
-  API rather than the deployed site.
+  reads "Catholic Timeline".
+- v311 (unchanged): fixed the broken PWA icon after the icons were regenerated as .jpg.
+- v310 (unchanged): audio sync reads data.json and checks audio files via the GitHub contents API.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -1379,6 +1374,15 @@ CHANGES:
      once cues actually loaded (data-cue-idx present); .cuePlaying tracks the audio's current
      position, added/removed on timeupdate — see wireSentenceCues()/initAudio() in JS. */
   [data-cue-idx]{cursor:pointer;}
+  /* Deep-search ("=") term highlight. Warm gold wash rather than a flat marker yellow, so it
+     reads as part of this app's palette instead of a browser find-bar artifact. Not clickable
+     (applySearchHighlight strips data-cue-idx), and it composes with .sentCue's own audio
+     highlight rather than replacing it, since a word can be both at once. */
+  .searchHit{
+    background:linear-gradient(180deg, rgba(212,175,92,.42), rgba(212,175,92,.26));
+    box-shadow:0 0 0 1px rgba(212,175,92,.35);
+    border-radius:3px; padding:0 1px;
+  }
   .audioActiveBar{
     position:absolute; left:0; width:4px; border-radius:0 3px 3px 0; background:#fff;
     box-shadow:0 0 6px rgba(255,255,255,.85), 0 0 14px rgba(255,255,255,.55), 0 0 26px rgba(255,255,255,.3);
@@ -3282,7 +3286,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v313';
+const APP_VERSION = 'v314';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4576,6 +4580,9 @@ function runSearch(){
       // A deep query is only meaningful re-run in full ("=smart boy"), not as the single word
       // that happened to match, so store it verbatim instead of resolving a term from the entry.
       pushRecent(isDeep ? trimmed : recentTermFor(d, frags));
+      // Deep hits can be buried anywhere in a long article, so carry the words through to the
+      // article render, which highlights them and scrolls the first one into view.
+      pendingSearchHighlight = isDeep ? frags.slice() : null;
       // The query has done its job — clear the box (without re-running the search, which
       // would drop the highlight focusEntry is about to set).
       const input = document.getElementById('tlSearch');
@@ -4596,6 +4603,67 @@ function runSearch(){
   }
   box.style.display = 'block';
   render();
+}
+// ---- Deep-search term highlighting in the opened article ----
+// Set by a "=" search result click, consumed by the next openArticle() render. Cleared after
+// use so a later ordinary open of the same entry doesn't resurrect stale highlights.
+let pendingSearchHighlight = null;
+// Wraps every occurrence of every searched word in .searchHit, reusing the audio sync's own
+// cueFlatMap/cueWrapRange pair rather than a second, parallel text-walking implementation —
+// those already handle the hard part (a match spanning several text nodes, and splitting nodes
+// right-to-left so earlier offsets stay valid). Scrolls the first hit into view.
+function applySearchHighlight(){
+  const frags = pendingSearchHighlight;
+  pendingSearchHighlight = null;
+  if(!frags || !frags.length) return;
+  const container = document.getElementById('artStoryText');
+  if(!container) return;
+  try{
+    const { flat, map } = cueFlatMap(container);
+    const folded = fold(flat);
+    // Collect every occurrence of every word first, then wrap in reverse document order, so
+    // the offsets computed against the pristine text stay valid as the DOM is split up.
+    const spots = [];
+    frags.forEach(f => {
+      if(!f) return;
+      let at = folded.indexOf(f);
+      while(at !== -1){
+        spots.push({start: at, end: at + f.length});
+        at = folded.indexOf(f, at + f.length);
+      }
+    });
+    if(!spots.length) return;
+    // Overlapping hits (one word inside another) would double-wrap the same text nodes and
+    // corrupt the offsets, so merge them into single ranges first.
+    spots.sort((a, b) => a.start - b.start);
+    const merged = [];
+    spots.forEach(s => {
+      const last = merged[merged.length - 1];
+      if(last && s.start <= last.end) last.end = Math.max(last.end, s.end);
+      else merged.push({start: s.start, end: s.end});
+    });
+    const wrapped = [];
+    merged.slice().reverse().forEach(m => {
+      const els = cueWrapRange(map, m.start, m.end, -1, 'searchHit');
+      if(els && els.length){
+        // cueWrapRange stamps data-cue-idx on everything it makes, which elsewhere means "tap
+        // to seek audio here" (see the [data-cue-idx] click handler and cursor:pointer rule).
+        // These spans aren't cues, so strip it — otherwise a highlighted word would look
+        // tappable and would try to seek playback to a cue index that doesn't exist.
+        els.forEach(el => el.removeAttribute('data-cue-idx'));
+        wrapped.push(els[0]);
+      }
+    });
+    // wrapped is in reverse document order; the last pushed is the first in the article.
+    const first = wrapped[wrapped.length - 1];
+    if(first){
+      // Let the sheet finish its open transition before scrolling, or the position is measured
+      // against a mid-animation layout and lands in the wrong place.
+      setTimeout(() => {
+        try{ first.scrollIntoView({block: 'center', behavior: 'smooth'}); }catch(e){}
+      }, 420);
+    }
+  }catch(err){ /* highlighting is a nicety — never let it break opening an article */ }
 }
 function focusEntry(d){
   if(ppy < 1.8){ ppy = Math.min(8, Math.max(fitPpy(), 1.8)); }
@@ -6364,6 +6432,11 @@ function fillArticleBody(d, peek){
   // d.audio too, not on play state, to avoid a layout jump when the bar's own visibility toggles.
   if(d.audio) html += '<div class="audioBottomSpacer"></div>';
   document.getElementById('artBody').innerHTML = html;
+  // A deep ("=") search sets pendingSearchHighlight before opening the article; apply it now
+  // that the prose is in the DOM. Runs before wireSentenceCues() only incidentally — the two
+  // are order-independent, because wrapping text in a span doesn't change the flat text either
+  // one searches against, so neither can hide matches from the other.
+  applySearchHighlight();
   if(isReview(d) && manageUnlocked()){
     const noteEl = document.getElementById('reviewActionNote');
     document.getElementById('reviewApproveBtn').addEventListener('click', () => approveReviewEntry(d.id, noteEl));
