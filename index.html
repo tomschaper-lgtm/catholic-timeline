@@ -1,24 +1,33 @@
 <!--
-VERSION: 316
+VERSION: 318
 DATE: 2026-09-05T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
-- Export tab now has a Search box using the identical query syntax as the timeline search bar:
-  plain substring on names, "=" for full-text across every field, 'quotes' for whole words and
-  phrases, "-" to mask a word out. It narrows the export set exactly like the category/region/
-  year/feast filters, so JSON — Filtered and CSV export precisely what matched.
-- Unlike the timeline search bar, the Export list shows EVERY match rather than the top 8 —
-  the whole point here is confirming what's about to be exported, so it's capped by height and
-  scrolls instead of by result count. Deep ("=") matches show the surrounding prose so a hit
-  buried in an article explains itself.
-- The match count line and the complete/incomplete word-count stats both reflect the search,
-  and Reset clears it along with the other filters. A search of only exclusions ("-dignity")
-  is treated as no search rather than matching nothing.
-- v315 (unchanged): quoted whole-word/phrase terms and "-" masked terms added to search.
-- v314 (unchanged): opening an article from a deep search highlights the matched terms.
-- v313 (unchanged): "=" prefix runs a full-text search across every field of every entry.
-- v312 (unchanged): corrected APP_VERSION, stale at v307; home screen reads "Catholic Timeline".
+- Retired the `d` short description throughout the app, and added a real `subtitle` field to
+  replace the one place it was still visible.
+- `subtitle` renders under the title on Learn More pages (t:"i" info entries) and is unused
+  elsewhere. It is a proper field rather than an in-band marker inside the article body (e.g.
+  ###subtitle###) because article text is consumed by the narration script, the sentence-length
+  audit, export word counts and patches text-matching — every one of those would have to learn
+  to ignore such a marker, and the one that forgot would produce a strange bug later.
+- migrateSubtitles() runs on every load path and copies an info entry's existing `d` into
+  `subtitle` when subtitle is empty, so nothing hand-written is lost. It never overwrites an
+  existing subtitle and never deletes `d` — clearing the field out of data.json is a separate
+  deliberate step, not something that should happen silently on page load.
+- `d` removed from: the entry editor (now a Subtitle input), CSV export, EX_FIELDS, the seed
+  loader, mergeEntries' fresh-entry constructor, PATCH_REQUIRED_FIELDS and PATCH_SCALAR_FIELDS,
+  deep-search fields, cross-reference link stripping and counting, and the share sheet.
+- Two consequences worth knowing. Search's secondary pass is now Search Tags only; an entry
+  with no tags simply has no fallback pass, and the name pass still finds it. And a new entry
+  imported with no `art` object now gets an empty article rather than a one-section "Overview"
+  built from its teaser.
+- data.json itself is UNCHANGED — every entry still carries its `d` text. Removing it from the
+  data is the next step, separately.
+- v317 (unchanged): export search list styling, term highlighting, match count; Audio URL
+  rename; Carlo Links export button removed.
+- v316 (unchanged): Export tab search box filtering the export set.
+- v315/v314/v313 (unchanged): search syntax, article highlighting, "=" full-text search.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -2125,7 +2134,7 @@ CHANGES:
      so it's capped by height and scrolls instead of by result count. */
   .mfSearchList{
     max-height:260px; overflow-y:auto; margin:6px 0 12px;
-    border:1px solid var(--m-border); border-radius:10px; background:var(--m-bg);
+    border:1px solid var(--m-border); border-radius:10px; background:#fff;
   }
   .mfSearchList:empty{display:none;}
   .mfSearchRow{
@@ -2136,6 +2145,12 @@ CHANGES:
   .mfSearchRow .mfsName{flex:1; min-width:0;}
   .mfSearchRow .mfsWhy{display:block; font-size:12px; color:var(--m-sub); margin-top:2px; line-height:1.35;}
   .mfSearchRow .mfsYear{color:var(--m-sub); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  /* The matched term, in both the name and the snippet. Plain <mark> would inherit the
+     browser's default acid yellow, which fights this panel's palette. */
+  .mfSearchRow mark{
+    background:rgba(212,175,92,.40); color:inherit;
+    border-radius:3px; padding:0 2px; font-weight:600;
+  }
   .mfSearchNote{padding:8px 11px; font-size:13px; color:var(--m-sub);}
   /* Import tab: inline status feedback right at the point of action, not just the top bar.
      Capped and scrollable: a batch of skipped patches can produce dozens of notes, which
@@ -2168,7 +2183,7 @@ CHANGES:
   }
   /* v281: the h3 duplicated the entry name already shown in the list row above and the Name
      field right below it — kept in the DOM (mEditFill still sets its textContent) but hidden,
-     same pattern as #fDescField, so nothing in JS has to change. */
+     so nothing in JS has to change. */
   #panel-entries #mEditor h3{ display:none; }
   #panel-entries #mEditor .erow{
     display:flex; align-items:center; gap:8px; margin-bottom:6px;
@@ -2734,7 +2749,7 @@ CHANGES:
         </div>
         <div class="erow"><label>Alt Names</label><input type="text" id="fAlt" placeholder="e.g. JPII, Karol Wojtyła"></div>
         <div class="erow"><label>Tags</label><input type="text" id="fTags" placeholder="e.g. fish, keys, boat, nets"></div>
-        <div class="erow" id="fDescField" style="display:none;"><label>Description</label><textarea id="fDesc"></textarea></div>
+        <div class="erow" id="fSubtitleField"><label>Subtitle</label><input type="text" id="fSubtitle" placeholder="Shown under the title on Learn More pages only"></div>
         <div class="erow"><label>Image</label><input type="text" id="fImg" placeholder="augustine.jpg — or https://…"></div>
         <div class="erow"><label>Caption</label><input type="text" id="fImgCap"></div>
         <div class="erow"><label>Audio</label><input type="text" id="fAudio" placeholder="augustine.mp3 — or https://…"></div>
@@ -2793,7 +2808,7 @@ CHANGES:
       </div>
       <div class="hint" style="margin-top:-4px; margin-bottom:10px;">Narrows only Saints to feast dates in this range &mdash; every other category is unaffected. Wraps the calendar (e.g. Dec 26 &ndash; Jan 2) if From sorts after To. Reset above clears this too.</div>
 
-      <div class="mgmtRowLabel">Search</div>
+      <div class="mgmtRowLabel">Search <span id="mfSearchCount" style="font-weight:400; text-transform:none; letter-spacing:0;"></span></div>
       <div class="mgmtYearRow">
         <input type="text" id="mfSearch" placeholder="Search name, or =word for full text" class="mgmtYearInput" style="width:100%; max-width:none;">
       </div>
@@ -2826,9 +2841,7 @@ CHANGES:
         <button class="mbtn" id="mJsonAll">JSON &mdash; All</button>
         <button class="mbtn" id="mJsonFiltered">JSON &mdash; Filtered</button>
         <button class="mbtn" id="mXlsxExport">Export Excel (.xlsx)</button>
-        <button class="mbtn" id="mJsonCarloLinks">JSON &mdash; Carlo Links</button>
       </div>
-      <div class="hint" style="margin-top:-4px;">The Carlo Links export dumps the whole table as-is &mdash; which ones are still <code>"pending"</code> is visible directly in the exported JSON, so there's no separate progress tracker to check.</div>
 
       <div class="mgmtRowLabel">Auto-Link Cross-References <span style="font-weight:400; text-transform:none; letter-spacing:0;">(no AI &mdash; pattern matching only)</span></div>
       <div class="mtool" style="margin-top:0;">
@@ -3317,7 +3330,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v316';
+const APP_VERSION = 'v318';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3335,7 +3348,7 @@ function seedDb(){
     v: 1,
     settings: {imageBase: "", audioBase: ""},
     entries: SEED.map(r => ({
-      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, displayLabel: "", d: r[4],
+      id: slug(r[1], r[0]), y: r[0], n: r[1], t: r[2], r: r[3], country: "", offset: 0, displayLabel: "", subtitle: "",
       art: {sections: [{h: "Overview", b: r[4]}], quotes: [], links: []},
       img: "", imgCap: "", audio: ""
     })),
@@ -3348,6 +3361,19 @@ function seedDb(){
 // Detect whether we're running inside a Claude artifact (persistent window.storage present)
 // or on a normal web host such as GitHub Pages (where we fetch data.json instead).
 const IS_ARTIFACT = (typeof window !== 'undefined' && window.storage && typeof window.storage.get === 'function');
+// One-time carry-over for the retired `d` short description (v318). The Learn More pages
+// (t:"i" info entries) used to render `d` as the line under the title; that text is now
+// `subtitle`. This copies it across in memory on load so nothing written by hand is lost,
+// for entries that haven't been migrated yet. It never overwrites an existing subtitle, and
+// it deliberately does NOT delete `d` — stripping the field from data.json is a separate,
+// deliberate step, not something that should happen silently on page load. Once every info
+// entry carries a subtitle and `d` has been cleared from the data, this can be deleted.
+function migrateSubtitles(){
+  if(!db || !Array.isArray(db.entries)) return;
+  db.entries.forEach(e => {
+    if(e && e.t === 'i' && !e.subtitle && e.d) e.subtitle = e.d;
+  });
+}
 async function loadDb(){
   if(IS_ARTIFACT){
     try{
@@ -4001,7 +4027,7 @@ function showShareToast(msg){
 }
 async function shareEntry(d){
   const url = entryUrl(d);
-  const shareData = { title: d.n, text: d.d, url: url };
+  const shareData = { title: d.n, text: d.n, url: url };
   if(navigator.share){
     try{ await navigator.share(shareData); }
     catch(e){ /* user cancelled — no toast needed */ }
@@ -4399,6 +4425,52 @@ function shortName(n, t){
   return s;
 }
 function fold(s){ return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+// fold() is fine for yes/no matching but NOT for anything that maps a match position back onto
+// the original text: NFD decomposition turns "é" into two code units, so every index after an
+// accent is shifted. This variant folds character by character and keeps the result the same
+// length as its input, so an offset found in the folded string is valid in the raw string.
+// Only used where positions matter (highlighting, snippets) — it's slower than fold(), and
+// matching across every entry on each keystroke doesn't need it.
+function foldAligned(s){
+  const src = String(s == null ? '' : s);
+  let out = '';
+  for(let i = 0; i < src.length; i++){
+    const ch = src[i];
+    const f = ch.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    out += (f.length === 1) ? f : ch.toLowerCase();
+  }
+  return out;
+}
+// Escaped HTML with every matched term wrapped in <mark>. Ranges are merged first so an
+// overlapping pair (one term inside another) can't produce nested or broken markup.
+function highlightTermsHtml(text, parsed){
+  const raw = String(text == null ? '' : text);
+  if(!parsed || !parsed.terms || !parsed.terms.length) return esc(raw);
+  const hay = maskExcludes(foldAligned(raw), parsed.excludes);
+  const spots = [];
+  parsed.terms.forEach(t => {
+    let from = 0, hit;
+    while((hit = findTermMatch(hay, t, from)) !== null){
+      spots.push({start: hit.start, end: hit.end});
+      if(hit.end === hit.start) break;
+      from = hit.end;
+    }
+  });
+  if(!spots.length) return esc(raw);
+  spots.sort((a, b) => a.start - b.start);
+  const merged = [];
+  spots.forEach(sp => {
+    const last = merged[merged.length - 1];
+    if(last && sp.start <= last.end) last.end = Math.max(last.end, sp.end);
+    else merged.push({start: sp.start, end: sp.end});
+  });
+  let html = '', at = 0;
+  merged.forEach(m => {
+    html += esc(raw.slice(at, m.start)) + '<mark>' + esc(raw.slice(m.start, m.end)) + '</mark>';
+    at = m.end;
+  });
+  return html + esc(raw.slice(at));
+}
 
 // The haystacks each pass searches. Kept as arrays of raw strings so a matched fragment
 // can later be resolved back to the whole word it landed inside.
@@ -4498,9 +4570,9 @@ function matchesQuery(fields, parsed){
   return parsed.terms.every(t => masked.some(h => findTermMatch(h, t, 0) !== null));
 }
 function fieldsB(d){
-  const tags = Array.isArray(d.tags) ? d.tags.map(String) : [];
-  // Tags are the intended source; until entries carry them, the short description stands in.
-  return tags.length ? tags : [String(d.d || '')];
+  // Search Tags only, now that the short description is retired. An entry with no tags simply
+  // has no secondary pass — the name pass above still finds it.
+  return Array.isArray(d.tags) ? d.tags.map(String) : [];
 }
 // ---- Deep search ("=" prefix): every field on the entry, article prose included ----
 // Building this means stripping HTML off every section body of every entry, which is far too
@@ -4512,7 +4584,7 @@ const deepTextCache = new Map();
 function deepFieldsUncached(d){
   const out = [];
   const push = v => { if(v != null && v !== '') out.push(String(v)); };
-  push(d.n); push(d.d); push(d.country); push(d.y); push(d.reviewNote); push(d.imgCap);
+  push(d.n); push(d.subtitle); push(d.country); push(d.y); push(d.reviewNote); push(d.imgCap);
   (Array.isArray(d.alt) ? d.alt : []).forEach(push);
   (Array.isArray(d.tags) ? d.tags : []).forEach(push);
   (Array.isArray(d.facts) ? d.facts : []).forEach(f => { if(f){ push(f.label); push(f.value); } });
@@ -4541,7 +4613,7 @@ function deepSnippet(fields, parsed){
   const term = parsed.terms[0];
   if(!term) return null;
   for(const raw of fields){
-    const hit = findTermMatch(maskExcludes(fold(raw), parsed.excludes), term, 0);
+    const hit = findTermMatch(maskExcludes(foldAligned(raw), parsed.excludes), term, 0);
     if(!hit) continue;
     const i = hit.start;
     const text = String(raw).replace(/\s+/g, ' ').trim();
@@ -4752,7 +4824,7 @@ function applySearchHighlight(){
     const { flat, map } = cueFlatMap(container);
     // Mask first, exactly as the matcher did — a word only excluded from matching shouldn't
     // then get highlighted, or "dig -dignity" would light up "dignity" anyway.
-    const folded = maskExcludes(fold(flat), parsed.excludes);
+    const folded = maskExcludes(foldAligned(flat), parsed.excludes);
     // Collect every occurrence of every term first, then wrap in reverse document order, so
     // the offsets computed against the pristine text stay valid as the DOM is split up.
     const spots = [];
@@ -8571,6 +8643,14 @@ let mFilterReviewOnly = false;
 
 // ---- Export tab: per-field checkboxes (controls JSON — Filtered and Excel export columns) ----
 // Story text and audio narration URL are long fields, so they default OFF; everything else defaults ON.
+// `hidden: true` keeps a field out of the checkbox grid while still always exporting it.
+// Lane Offset is hidden rather than deleted: it's layout bookkeeping nobody needs to toggle,
+// but stripping it from exports would lose it on a round-trip.
+// `subtitle` (v318) replaces the retired `d` short description. It renders under the title on
+// Learn More pages (t:"i" info entries) and is blank/unused everywhere else. Deliberately a
+// real field rather than an in-band marker inside the article body: article text is consumed
+// by the narration script, the sentence-length audit, word counts and patches text-matching,
+// and every one of those would have to learn to ignore such a marker.
 const EX_FIELDS = [
   {key:'id', label:'ID'},
   {key:'y', label:'Year'},
@@ -8578,9 +8658,9 @@ const EX_FIELDS = [
   {key:'t', label:'Type'},
   {key:'r', label:'Region'},
   {key:'country', label:'Country'},
-  {key:'offset', label:'Lane Offset'},
+  {key:'offset', label:'Lane Offset', hidden:true},
   {key:'displayLabel', label:'Display Label'},
-  {key:'d', label:'Short Description'},
+  {key:'subtitle', label:'Subtitle'},
   {key:'art', label:'Full Story / Article (long)'},
   {key:'facts', label:'Quick Facts'},
   {key:'tier', label:'Tier'},
@@ -8588,7 +8668,7 @@ const EX_FIELDS = [
   {key:'tags', label:'Search Tags'},
   {key:'img', label:'Image URL'},
   {key:'imgCap', label:'Image Caption'},
-  {key:'audio', label:'Audio Narration URL (long)'}
+  {key:'audio', label:'Audio URL'}
 ];
 const EX_FIELDS_DEFAULT_OFF = {art:true, audio:true};
 let mExportFieldState = {};
@@ -8598,7 +8678,7 @@ function renderExFieldsGrid(){
   const grid = document.getElementById('mExFieldsGrid');
   if(!grid) return;
   grid.innerHTML = '';
-  EX_FIELDS.forEach(f => {
+  EX_FIELDS.filter(f => !f.hidden).forEach(f => {
     const label = document.createElement('label');
     label.className = 'mExFieldChk';
     const cb = document.createElement('input');
@@ -8622,7 +8702,8 @@ document.getElementById('mExCheckAll').addEventListener('click', () => {
   renderExportSummary();
 });
 document.getElementById('mExClearAll').addEventListener('click', () => {
-  EX_FIELDS.forEach(f => mExportFieldState[f.key] = false);
+  // Hidden always-on fields stay on — Clear All governs the visible checkboxes only.
+  EX_FIELDS.forEach(f => mExportFieldState[f.key] = !!f.hidden);
   renderExFieldsGrid();
   renderExportSummary();
 });
@@ -8738,9 +8819,9 @@ function renderExportSearchList(evs){
     let why = '';
     if(q.isDeep){
       const snip = deepSnippet(fieldsDeep(e), q);
-      if(snip) why = '<span class="mfsWhy">' + esc(snip) + '</span>';
+      if(snip) why = '<span class="mfsWhy">' + highlightTermsHtml(snip, q) + '</span>';
     }
-    row.innerHTML = '<span class="mfsName">' + esc(e.n) + why + '</span>' +
+    row.innerHTML = '<span class="mfsName">' + highlightTermsHtml(e.n, q) + why + '</span>' +
                     '<span class="mfsYear">AD ' + e.y + '</span>';
     frag.appendChild(row);
   });
@@ -8761,6 +8842,8 @@ function renderExportSummary(){
   sumEl.textContent = evs.length + ' entries match — ' + typeLabel + ' · ' + regionLabel +
     (mFilterReviewOnly ? ' · Held for review only' : '') + feastLabel + searchLabel;
   renderExportSearchList(evs);
+  const cntEl = document.getElementById('mfSearchCount');
+  if(cntEl) cntEl.textContent = searchQ ? '(' + evs.length + ' found)' : '';
 
   const statEl = document.getElementById('mExStatBox');
   if(statEl){
@@ -8926,7 +9009,7 @@ function openEditor(id){
   document.getElementById('fType').value = e ? e.t : 's';
   document.getElementById('fRegion').value = e ? e.r : 'rome';
   document.getElementById('fCountry').value = e ? (e.country || '') : '';
-  document.getElementById('fDesc').value = e ? e.d : '';
+  document.getElementById('fSubtitle').value = e ? (e.subtitle || '') : '';
   document.getElementById('fArt').value = e ? serializeArt(e.art || {}) : '';
   document.getElementById('fQuotes').value = e ? serializePairs((e.art||{}).quotes, 'text', 'source') : '';
   document.getElementById('fLinks').value = e ? serializePairs((e.art||{}).links, 'label', 'url') : '';
@@ -9085,7 +9168,7 @@ async function saveCurrentEditorEntry(silent){
     t: document.getElementById('fType').value,
     r: document.getElementById('fRegion').value,
     country: document.getElementById('fCountry').value.trim(),
-    d: document.getElementById('fDesc').value.trim(),
+    subtitle: document.getElementById('fSubtitle').value.trim(),
     art: {
       sections: parseArt(document.getElementById('fArt').value),
       quotes: parsePairs(document.getElementById('fQuotes').value, 'text', 'source'),
@@ -9404,9 +9487,6 @@ function removeAutoLinkEntries(){
         if(after !== (sec.b || '')){ sec.b = after; changed = true; }
       });
     }
-    // Belt and braces: strip the short description too, in case one ever found its way in.
-    const d2 = xrefStripLinks(entry.d || '');
-    if(d2 !== (entry.d || '')){ entry.d = d2; changed = true; }
     if(changed){ entriesChanged++; removed += had; lines.push(entry.n + '  —  ' + had + ' link(s) removed'); }
   });
   document.getElementById('xrefLog').textContent = xrefScopeLabel(scope) +
@@ -9420,7 +9500,6 @@ function xrefCountLinks(entry){
   let n = 0;
   const tally = (s) => { const m = String(s || '').match(XREF_LINK_RE); if(m) n += m.length; };
   if(entry.art && Array.isArray(entry.art.sections)) entry.art.sections.forEach(sec => tally(sec.b));
-  tally(entry.d);
   return n;
 }
 function xrefScopeLabel(scope){
@@ -9556,7 +9635,7 @@ document.getElementById('aiRun').addEventListener('click', async () => {
       if(op.op === 'add' && op.entry && op.entry.n){
         const en = op.entry;
         en.id = slug(en.n, en.y);
-        en.art = en.art || {sections:[{h:'Overview', b: en.d || ''}], quotes:[], links:[]};
+        en.art = en.art || {sections:[], quotes:[], links:[]};
         en.country = en.country || ''; en.img = en.img || ''; en.imgCap = en.imgCap || ''; en.audio = en.audio || ''; en.facts = en.facts || []; en.tier = en.tier || 1; en.alt = en.alt || []; en.tags = en.tags || [];
         const idx = db.entries.findIndex(x => x.id === en.id);
         if(idx >= 0) db.entries[idx] = en; else db.entries.push(en);
@@ -9670,7 +9749,7 @@ function buildExportTable(entries, fields){
   if(fields.country) headers.push('country');
   if(fields.offset) headers.push('offset');
   if(fields.displayLabel) headers.push('displayLabel');
-  if(fields.d) headers.push('description');
+  if(fields.subtitle) headers.push('subtitle');
   if(fields.tier) headers.push('tier');
   if(fields.alt) headers.push('altNames');
   if(fields.tags) headers.push('searchTags');
@@ -9694,7 +9773,7 @@ function buildExportTable(entries, fields){
     if(fields.country) row.push(e.country || '');
     if(fields.offset) row.push(e.offset || 0);
     if(fields.displayLabel) row.push(e.displayLabel || '');
-    if(fields.d) row.push(e.d || '');
+    if(fields.subtitle) row.push(e.subtitle || '');
     if(fields.tier) row.push(e.tier || 1);
     if(fields.alt) row.push((e.alt || []).join('; '));
     if(fields.tags) row.push((e.tags || []).join('; '));
@@ -9732,14 +9811,6 @@ document.getElementById('mJsonFiltered').addEventListener('click', () => {
   openJsonView('Database JSON — Filtered',
     evs.length + ' entries · ' + types + ' · ' + region + (mFilterReviewOnly ? ' · Held for review only' : '') + ' · fields: ' + (fieldsOn || 'none') + ' · edit and re-import via Paste JSON (Add/Update)',
     {v: db.v || 1, entries: evs}, 'catholic-timeline-filtered.json');
-});
-document.getElementById('mJsonCarloLinks').addEventListener('click', () => {
-  const rows = (db.carloLinks || []).slice().sort((a,b) => a.entityId.localeCompare(b.entityId));
-  const found = rows.filter(c => c.status === 'found').length;
-  const pending = rows.filter(c => c.status !== 'found').length;
-  openJsonView('Database JSON — Carlo Links',
-    rows.length + ' rows · ' + found + ' found, ' + pending + ' pending · edit and re-import via Paste JSON ({"carloLinks":[...]})',
-    {v: 1, carloLinks: rows}, 'catholic-timeline-carlo-links.json');
 });
 document.getElementById('mXlsxExport').addEventListener('click', () => {
   const evs = mExportFilteredEntries();
@@ -9824,8 +9895,8 @@ function mergeEntries(list){
       if(inc.n == null || inc.y == null){ skipped++; return; }
       const fresh = {
         id: id, y: parseInt(inc.y, 10), n: String(inc.n),
-        t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, displayLabel: inc.displayLabel || '', d: inc.d || '',
-        art: inc.art || {sections:[{h:'Overview', b: inc.d || ''}], quotes:[], links:[]},
+        t: inc.t || 'e', r: inc.r || 'rome', country: inc.country || '', offset: inc.offset || 0, displayLabel: inc.displayLabel || '', subtitle: inc.subtitle || '',
+        art: inc.art || {sections:[], quotes:[], links:[]},
         img: inc.img || '', imgCap: inc.imgCap || '', audio: inc.audio || '', facts: inc.facts || [],
         tier: inc.tier || 1, alt: inc.alt || [], tags: inc.tags || []
       };
@@ -9906,8 +9977,8 @@ function deleteCarloLinks(ids){
 // despite being described as designed in json-import-skill.md. A patch naming either section
 // is reported as a skip, not silently dropped, so this gap stays visible rather than hidden.
 
-const PATCH_REQUIRED_FIELDS = ['n', 'y', 't', 'r', 'd'];
-const PATCH_SCALAR_FIELDS = ['n','y','t','r','d','img','imgCap','audio','tier','review','reviewNote'];
+const PATCH_REQUIRED_FIELDS = ['n', 'y', 't', 'r'];
+const PATCH_SCALAR_FIELDS = ['n','y','t','r','subtitle','img','imgCap','audio','tier','review','reviewNote'];
 
 // Splits "text@N" into {text, occurrence} — same @N convention as the manual link list's
 // optional 4th field, folded into the element string instead of a separate JSON field.
@@ -11138,7 +11209,7 @@ function renderAboutPanel(category){
     return;
   }
   document.getElementById('aboutTitle').textContent = e.n || '';
-  document.getElementById('aboutSub').textContent = e.d || '';
+  document.getElementById('aboutSub').textContent = e.subtitle || '';
   // Hero image/caption now live in the sticky head (see HTML) rather than being injected as the
   // first thing into #aboutBody, so they stay pinned in place with the title instead of scrolling
   // away with the rest of the article.
@@ -12082,6 +12153,7 @@ const APP_ICON = { touch: 'Images/icons/apple-touch-icon.jpg',
     console.warn('loadDb failed, falling back to embedded seed data:', e);
     db = seedDb();
   }
+  migrateSubtitles(); // runs on every load path, seed fallback included
   try{
     updateReviewUI();
     render();
