@@ -1,0 +1,59 @@
+name: Retire Short Description (one-time)
+
+# Moves each Learn More (t:"i") entry's `d` short description into the new `subtitle`
+# field, then deletes `d` from every entry. App-side removal shipped in index.html v318.
+#
+# Defaults to a DRY RUN — it prints exactly what it would change and commits nothing.
+# Read the run log first, then re-run with apply = true.
+#
+# This is a one-time migration. Once it has been applied and the result verified,
+# both this workflow and scripts/retire-short-description.mjs can be deleted.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Actually write the changes. Leave OFF for a dry run that only reports.'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: retire-short-description
+  cancel-in-progress: false
+
+jobs:
+  retire:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run migration
+        env:
+          APPLY: ${{ github.event.inputs.apply }}
+        run: node scripts/retire-short-description.mjs data.json
+
+      - name: Commit result
+        if: ${{ github.event.inputs.apply == 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Retire short description: move to subtitle on info entries, drop d"
+            # Rebase on anything that landed while this ran (e.g. a Publish from the CMS),
+            # so the migration never clobbers content.
+            git pull --rebase origin ${GITHUB_REF_NAME}
+            git push origin HEAD:${GITHUB_REF_NAME}
+          fi
