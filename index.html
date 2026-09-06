@@ -1,31 +1,29 @@
 <!--
-VERSION: 321
+VERSION: 322
 DATE: 2026-09-06T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
-- Redesigned the Paste JSON results panel (Manage → Import → Apply/Clipboard/Choose File).
-  Previously every result was one long <br>-joined block of plain text, wrapping at different
-  indents line to line with no visual separation between a success and a skip — hard to scan
-  after a batch of a dozen-plus patches. Now: one row per result, never wrapped (scrolls
-  horizontally within its own row if long), a green ✓ or red ✗ per line, the entry name bolded
-  ahead of the detail where the note has one, and failed rows get a light red background
-  (reusing the existing --m-danger-bg). Success/failure is now carried on the note itself via an
-  invisible RESULT_OK/RESULT_FAIL marker set at the point each note is pushed (deleteEntries,
-  mergeEntries, mergeCarloLinks, deleteCarloLinks, applyPatches) rather than guessed from
-  wording afterward, so the icon can never be misapplied by a phrase that doesn't match an
-  expected pattern.
-- Added a Copy Results button next to Clear Results, copying the same ✓/✗-prefixed plain text
-  that's on screen (Clipboard API, with the same offscreen-textarea fallback the Export tab's
-  Copy All button already uses).
-- v320 (unchanged): fixed the real cause of edits appearing to "revert after a while" — Manage
-  → Save & Exit, with no GitHub token configured, flashed "no token set" for 1.6s and closed the
-  panel anyway, indistinguishable from a real successful publish unless you were watching the
-  screen at that instant. That branch now stays open with a persistent message, same as a real
-  publish failure already did.
-- v319 (unchanged): fixed stale deep-search ("=") results after a `patches` edit (cache now
-  invalidated per-id inside applyPatches); timeline search no longer caps at 8 results; Export
-  tab search box gained a × clear button and a 5-item recent-searches dropdown.
+- Timeline search dropdown (#tlSearch) now reliably clips and scrolls once a broad query returns
+  more than a screenful of matches. It was already coded with a `50vh` max-height and scrolling
+  overflow, but used the two-value `overflow: hidden auto` shorthand, which has had inconsistent
+  Safari support — swapped to explicit overflow-x/overflow-y properties, plus a JS-set inline
+  max-height tied to the actual `window.innerHeight` as a backstop against any device where a
+  `vh`-based CSS max-height still doesn't reliably clip a list that's grown past a handful of
+  rows (harmless before the SEARCH_HARD_CAP change in v319, since 8 rows never got that tall).
+- Added a small "N entries found" count line at the top of that dropdown, always shown, not just
+  when a deep search happens to overflow the hard cap.
+- Merged the Export tab's search box (#mfSearch) onto the same recent-searches list as the main
+  timeline search, rather than keeping its own separate one — a term typed in either now shows
+  up in both. (The Saints panel's own recent list stays separate; it wasn't part of this ask and
+  searches a different, narrower field set.)
+- v321 (unchanged): redesigned the Paste JSON results panel — one row per result, never wrapped,
+  ✓/✗ per line with a light-red background on failures, plus a Copy Results button.
+- v320 (unchanged): fixed Manage → Save & Exit silently closing (after a 1.6s flash) when no
+  GitHub token was configured — indistinguishable from a successful publish unless watching the
+  screen at that instant. Now stays open with a persistent message, like a real publish failure.
+- v319 (unchanged): fixed stale deep-search ("=") results after a `patches` edit; timeline
+  search no longer caps at 8 results; Export tab search box gained a × clear button.
 - v317 (unchanged): export search list styling, term highlighting, match count; Audio URL
   rename; Carlo Links export button removed.
 - v316 (unchanged): Export tab search box filtering the export set.
@@ -1070,7 +1068,8 @@ CHANGES:
   }
   .searchClear.show{display:flex;}
   .searchClear:hover{color:var(--gold-bright);}
-  .sresults{position:absolute; left:0; top:calc(100% + 5px); z-index:40; display:none; min-width:100%; width:max-content; max-width:min(560px, 92vw); background:linear-gradient(180deg,#14224A,#0C1735); border:1px solid var(--gold); border-radius:10px; overflow:hidden auto; box-shadow:0 8px 30px rgba(0,0,0,.6); max-height:50vh;}
+  .sresults{position:absolute; left:0; top:calc(100% + 5px); z-index:40; display:none; min-width:100%; width:max-content; max-width:min(560px, 92vw); background:linear-gradient(180deg,#14224A,#0C1735); border:1px solid var(--gold); border-radius:10px; overflow-x:hidden; overflow-y:auto; box-shadow:0 8px 30px rgba(0,0,0,.6); max-height:50vh;}
+  .sresultsCount{padding:7px 12px 5px; font-size:12px; color:rgba(232,205,126,.75); letter-spacing:.02em; border-bottom:1px solid rgba(201,165,66,.25);}
   /* Three columns: icon | name | year. The icon cell is blank on repeat rows, so one
      glyph stands for the whole category group beneath it. */
   .sresult{display:grid; grid-template-columns:26px 1fr auto; align-items:center; gap:0 10px;
@@ -3384,7 +3383,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v321';
+const APP_VERSION = 'v322';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4810,7 +4809,21 @@ function runSearch(){
   searchHits = new Set(shown.map(d => d.id));
 
   box.innerHTML = '';
-  if(!shown.length){ box.innerHTML = '<div class="sresult sempty">No matches</div>'; }
+  // Belt-and-suspenders alongside the CSS max-height: some mobile browsers have been
+  // inconsistent about clipping/scrolling a `vh`-based max-height once content actually grows
+  // past it (harmless before the SEARCH_HARD_CAP change above, since 8 rows never got that
+  // tall) — an explicit pixel value tied to the real viewport can't have that ambiguity.
+  box.style.maxHeight = Math.max(160, Math.round(window.innerHeight * 0.5)) + 'px';
+  const countEl = document.createElement('div');
+  countEl.className = 'sresultsCount';
+  countEl.textContent = total + (total === 1 ? ' entry found' : ' entries found');
+  box.appendChild(countEl);
+  if(!shown.length){
+    const empty = document.createElement('div');
+    empty.className = 'sresult sempty';
+    empty.textContent = 'No matches';
+    box.appendChild(empty);
+  }
   let prevType = null;
   shown.forEach(d => {
     const newGroup = d.t !== prevType;
@@ -8797,33 +8810,16 @@ document.getElementById('mfYearFrom').addEventListener('input', renderExportSumm
 document.getElementById('mfYearTo').addEventListener('input', renderExportSummary);
 document.getElementById('mfFeastFrom').addEventListener('input', renderExportSummary);
 document.getElementById('mfFeastTo').addEventListener('input', renderExportSummary);
-// ---- Recent search terms for the Export tab's search box (most recent first, persisted) ----
-// Same idea as #tlSearch's own recent list and the Saints panel's #spSearch one, under its own
-// storage key so none of the three ever mix. Those two push a term at the moment the reader
-// "picks a result" (tapping a search row) — mfSearchList here is a live preview with no tappable
-// rows, so there's no equivalent moment. Blur-with-content is the closest stand-in: the reader
-// has finished typing and moved on, which is as good a signal as this box gets.
-const MF_RECENT_KEY = 'ct-cms-recent-searches';
-const MF_RECENT_MAX = 5;
-function mfGetRecent(){
-  try{ const a = JSON.parse(localStorage.getItem(MF_RECENT_KEY) || '[]'); return Array.isArray(a) ? a.slice(0, MF_RECENT_MAX) : []; }
-  catch(e){ return []; }
-}
-function mfPushRecent(term){
-  term = String(term || '').trim();
-  if(!term) return;
-  const list = mfGetRecent().filter(t => fold(t) !== fold(term)); // re-picking promotes, never duplicates
-  list.unshift(term);
-  try{ localStorage.setItem(MF_RECENT_KEY, JSON.stringify(list.slice(0, MF_RECENT_MAX))); }catch(e){}
-}
-function mfRemoveRecent(term){
-  const list = mfGetRecent().filter(t => fold(t) !== fold(term));
-  try{ localStorage.setItem(MF_RECENT_KEY, JSON.stringify(list)); }catch(e){}
-}
+// ---- Recent search terms for the Export tab's search box ----
+// Shares one list with #tlSearch (RECENT_KEY/getRecent/pushRecent/removeRecent, defined above)
+// rather than keeping its own — a term searched on the main timeline now shows up here too,
+// and vice versa. Only the render/markup below is CMS-specific (its own dropdown element,
+// its own light-theme row styling). mfSearchList here is a live preview with no tappable rows,
+// so there's no "pick a result" moment the way tlSearch has — blur-with-content stands in.
 function mfRenderRecent(){
   const box = document.getElementById('mfRecentBox');
   const input = document.getElementById('mfSearch');
-  const list = mfGetRecent();
+  const list = getRecent();
   box.innerHTML = '';
   if(!list.length){ box.style.display = 'none'; return; }
   const head = document.createElement('div');
@@ -8844,7 +8840,7 @@ function mfRenderRecent(){
     // Dropping a term must not also re-run it, so the × button swallows the row's click.
     r.querySelector('.mfRecentX').addEventListener('click', (ev) => {
       ev.stopPropagation();
-      mfRemoveRecent(term);
+      removeRecent(term);
       mfRenderRecent(); // redraw in place; hides itself once the last one goes
       input.focus();
     });
@@ -8863,7 +8859,7 @@ document.getElementById('mfSearch').addEventListener('focus', () => {
 });
 document.getElementById('mfSearch').addEventListener('blur', () => {
   const v = document.getElementById('mfSearch').value.trim();
-  if(v) mfPushRecent(v);
+  if(v) pushRecent(v);
   // Delay so a tap on a recent-row or the × button (which also blurs the input first) still
   // registers before the dropdown disappears — same 150ms pattern the Saints panel search uses.
   setTimeout(() => { document.getElementById('mfRecentBox').style.display = 'none'; }, 150);
