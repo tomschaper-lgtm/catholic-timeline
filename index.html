@@ -1,27 +1,27 @@
 <!--
-VERSION: 314
+VERSION: 315
 DATE: 2026-09-05T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
-- Opening an article from a "=" deep search now highlights the searched words in the prose and
-  scrolls the first one into view, so a hit buried mid-article doesn't have to be hunted for.
-  Every occurrence of every searched word is marked, not just the first.
-- Reuses the audio sentence-sync's existing text-range machinery (cueFlatMap/cueWrapRange)
-  rather than adding a second text walker, so a match spanning several text nodes or an inline
-  <b>/<a> tag is handled the same way cues already are. Overlapping matches (one word inside
-  another) are merged before wrapping so they can't double-wrap and corrupt offsets.
-- Highlight spans have their data-cue-idx stripped: that attribute means "tap to seek audio
-  here" elsewhere in the article, and without removing it a highlighted word would look
-  tappable and try to seek playback to a cue that doesn't exist.
-- Highlighting is best-effort and fully wrapped — if anything in it throws, the article still
-  opens normally.
-- v313 (unchanged): "=" prefix runs a full-text search across every field of every entry, all
-  words required; normal search without "=" is untouched.
-- v312 (unchanged): corrected APP_VERSION, stale at v307 since the v308 build; home screen now
-  reads "Catholic Timeline".
-- v311 (unchanged): fixed the broken PWA icon after the icons were regenerated as .jpg.
-- v310 (unchanged): audio sync reads data.json and checks audio files via the GitHub contents API.
+- Search now understands quoted terms and "-" masked terms, in both normal and "=" deep search.
+- Quotes mean whole word: 'cult' matches cult, Cult. and cult: but never difficult or occult.
+  Unquoted terms still match as substrings, exactly as before. A multi-word quote is a phrase
+  that must appear in that order — 'cult followers' will not match "their cult" or "cult of
+  followers". A phrase may span a line break.
+- Curly quotes count as quotes, since iOS substitutes them automatically while typing; without
+  this the smart quote would be treated as part of the word itself.
+- A term prefixed with "-" is MASKED OUT of the text before the other terms are matched, so
+  "dig -dignity" stops dig matching inside dignity while still matching digging. Deliberately
+  not the usual "reject any entry containing this word" — it removes the text, not the entry,
+  which is what makes it useful for killing one noisy false positive without losing real hits.
+- Highlighting honours all of it: whole-word terms only light up whole words, phrases light up
+  as a unit, and masked terms are never highlighted (so "-dignity" doesn't light dignity up
+  anyway). A query of only exclusions returns nothing rather than everything.
+- v314 (unchanged): opening an article from a deep search highlights the matched terms and
+  scrolls the first into view.
+- v313 (unchanged): "=" prefix runs a full-text search across every field of every entry.
+- v312 (unchanged): corrected APP_VERSION, stale at v307; home screen reads "Catholic Timeline".
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -3286,7 +3286,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v314';
+const APP_VERSION = 'v315';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4374,6 +4374,98 @@ function fold(s){ return String(s == null ? '' : s).toLowerCase().normalize('NFD
 function fieldsA(d){
   return [String(d.n || '')].concat(Array.isArray(d.alt) ? d.alt.map(String) : []);
 }
+// ---- Search query syntax: quoted whole-word terms, and "-" masked terms ----
+// Plain word        substring, as it always was ("pet" finds "Peter")
+// 'word' / "word"   whole word only — 'cult' hits cult, Cult., cult: but never difficult
+// 'two words'       that exact phrase, in that order
+// -word             mask: every occurrence of `word` is blanked out of the text BEFORE the
+//                   other terms are matched, so `dig -dignity` stops "dig" matching inside
+//                   "dignity" while still matching "digging". This is deliberately NOT the
+//                   usual "exclude any entry containing this" — it removes the text, not the
+//                   entry, which is what makes it useful for killing one noisy false positive.
+// Curly quotes count as quotes: iOS substitutes ' ' " " automatically, and a query typed on
+// the phone would otherwise treat the smart quote as part of the word itself.
+const QUOTE_CLOSERS = {
+  "'": ["'"], '"': ['"'],
+  '\u2018': ['\u2019', '\u2018'], '\u201c': ['\u201d', '\u201c'],
+  '\u2019': ['\u2019', '\u2018'], '\u201d': ['\u201d', '\u201c']
+};
+function parseSearchQuery(text){
+  const terms = [], excludes = [];
+  const src = String(text || '');
+  let i = 0;
+  while(i < src.length){
+    while(i < src.length && /\s/.test(src[i])) i++;
+    if(i >= src.length) break;
+    let neg = false;
+    if(src[i] === '-' && i + 1 < src.length && !/\s/.test(src[i + 1])){ neg = true; i++; }
+    let raw = '', whole = false;
+    const closers = QUOTE_CLOSERS[src[i]];
+    if(closers){
+      whole = true;
+      i++;
+      const start = i;
+      while(i < src.length && closers.indexOf(src[i]) === -1) i++;
+      raw = src.slice(start, i);
+      if(i < src.length) i++; // consume the closing quote
+    }else{
+      const start = i;
+      while(i < src.length && !/\s/.test(src[i])) i++;
+      raw = src.slice(start, i);
+    }
+    const q = fold(raw).trim().replace(/\s+/g, ' ');
+    if(!q) continue;
+    (neg ? excludes : terms).push({q: q, whole: whole});
+  }
+  return {terms: terms, excludes: excludes};
+}
+function escRe(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// A phrase matches across any run of whitespace, so a term spanning a line break in the
+// article still hits. Length is preserved by the regex itself, so match offsets stay usable
+// for highlighting.
+function termPattern(q){ return q.split(/\s+/).filter(Boolean).map(escRe).join('\\s+'); }
+// Whole-word boundary = not butted against another letter or digit. Punctuation, quotes and
+// whitespace all count as boundaries, which is what makes 'cult' match "cult:" but not
+// "difficult". `hay` must already be folded (lowercase, accents stripped).
+function findTermMatch(hay, term, fromIndex){
+  const pat = termPattern(term.q);
+  if(!pat) return null;
+  const re = new RegExp(pat, 'g');
+  re.lastIndex = fromIndex || 0;
+  let m;
+  while((m = re.exec(hay)) !== null){
+    const end = m.index + m[0].length;
+    if(!term.whole) return {start: m.index, end: end};
+    const before = m.index > 0 ? hay[m.index - 1] : '';
+    const after = hay[end] || '';
+    if(!/[a-z0-9]/.test(before) && !/[a-z0-9]/.test(after)) return {start: m.index, end: end};
+    re.lastIndex = m.index + 1;
+    if(re.lastIndex > hay.length) break;
+  }
+  return null;
+}
+// Blanks out every occurrence of each excluded term with a filler character that can never
+// appear in a query, preserving length so any offsets taken afterward still line up.
+function maskExcludes(hay, excludes){
+  if(!excludes || !excludes.length) return hay;
+  let out = hay;
+  excludes.forEach(ex => {
+    let from = 0, hit;
+    while((hit = findTermMatch(out, ex, from)) !== null){
+      out = out.slice(0, hit.start) + '\u0000'.repeat(hit.end - hit.start) + out.slice(hit.end);
+      from = hit.end;
+    }
+  });
+  return out;
+}
+// Every term must appear in at least one field, after that field has had its excluded text
+// masked away. Replaces the old matchesAll() fragment logic; a query with no quotes and no
+// "-" behaves exactly as matchesAll() did.
+function matchesQuery(fields, parsed){
+  if(!parsed.terms.length) return false;
+  const masked = fields.map(f => maskExcludes(fold(f), parsed.excludes));
+  return parsed.terms.every(t => masked.some(h => findTermMatch(h, t, 0) !== null));
+}
 function fieldsB(d){
   const tags = Array.isArray(d.tags) ? d.tags.map(String) : [];
   // Tags are the intended source; until entries carry them, the short description stands in.
@@ -4414,14 +4506,17 @@ function fieldsDeep(d){
 }
 // A short piece of surrounding prose showing where the first fragment landed, so a deep hit
 // explains itself in the results list the way a name hit doesn't need to.
-function deepSnippet(fields, frag){
+function deepSnippet(fields, parsed){
+  const term = parsed.terms[0];
+  if(!term) return null;
   for(const raw of fields){
-    const i = fold(raw).indexOf(frag);
-    if(i < 0) continue;
+    const hit = findTermMatch(maskExcludes(fold(raw), parsed.excludes), term, 0);
+    if(!hit) continue;
+    const i = hit.start;
     const text = String(raw).replace(/\s+/g, ' ').trim();
     if(text.length <= 70) return text;
     const start = Math.max(0, i - 28);
-    const end = Math.min(text.length, i + frag.length + 34);
+    const end = Math.min(text.length, i + (hit.end - hit.start) + 34);
     return (start > 0 ? '…' : '') + text.slice(start, end).trim() + (end < text.length ? '…' : '');
   }
   return null;
@@ -4514,7 +4609,10 @@ function runSearch(){
   const trimmed = raw.trim();
   const isDeep = trimmed.charAt(0) === '=';
   const queryText = isDeep ? trimmed.slice(1).trim() : trimmed;
-  const frags = fold(queryText).split(/\s+/).filter(Boolean);
+  const parsed = parseSearchQuery(queryText);
+  // frags is still the plain list of matched strings — recent-terms and the "why" label below
+  // both work off it, and neither cares about whole-word/phrase status.
+  const frags = parsed.terms.map(t => t.q);
   const qLen = frags.join('').length;
 
   // Empty box → offer the recent terms instead of results.
@@ -4524,22 +4622,23 @@ function runSearch(){
     render();
     return;
   }
-  if(qLen < 3){ searchHits = new Set(); searchFocusId = null; box.style.display = 'none'; box.innerHTML = ''; render(); return; }
+  // A query of only exclusions ("-dignity") has nothing to actually look for.
+  if(qLen < 3 || !parsed.terms.length){ searchHits = new Set(); searchFocusId = null; box.style.display = 'none'; box.innerHTML = ''; render(); return; }
 
   const pool = filtered();
   let results, nameHitIds;
   if(isDeep){
-    // One pass, no name/tag tiering: an entry qualifies if every word appears anywhere in it.
+    // One pass, no name/tag tiering: an entry qualifies if every term appears anywhere in it.
     nameHitIds = new Set();
-    results = sortResults(pool.filter(d => matchesAll(fieldsDeep(d), frags)));
+    results = sortResults(pool.filter(d => matchesQuery(fieldsDeep(d), parsed)));
   }else{
-    const hitsA = pool.filter(d => matchesAll(fieldsA(d), frags));
+    const hitsA = pool.filter(d => matchesQuery(fieldsA(d), parsed));
     nameHitIds = new Set(hitsA.map(d => d.id)); // drives the brighter styling below
     results = sortResults(hitsA.slice());
     // The secondary pass is a fallback, not a supplement: as soon as the name pass returns
     // more than one entry it stands alone, and tag/description hits are left out entirely.
     if(hitsA.length <= 1){
-      const hitsB = pool.filter(d => !nameHitIds.has(d.id) && matchesAll(fieldsB(d), frags));
+      const hitsB = pool.filter(d => !nameHitIds.has(d.id) && matchesQuery(fieldsB(d), parsed));
       results = sortResults(hitsA.concat(hitsB));
     }
   }
@@ -4560,7 +4659,7 @@ function runSearch(){
     if(isDeep){
       // Deep hits can land deep inside an article, so show the surrounding prose rather than
       // just the bare word — that's what makes the result comprehensible at a glance.
-      const snip = deepSnippet(fieldsDeep(d), frags[0]);
+      const snip = deepSnippet(fieldsDeep(d), parsed);
       if(snip) why = '<span class="smatch">' + esc(snip) + '</span>';
     }else if(!isNameHit){
       const fB = fieldsB(d), seenW = new Set(), words = [];
@@ -4582,7 +4681,7 @@ function runSearch(){
       pushRecent(isDeep ? trimmed : recentTermFor(d, frags));
       // Deep hits can be buried anywhere in a long article, so carry the words through to the
       // article render, which highlights them and scrolls the first one into view.
-      pendingSearchHighlight = isDeep ? frags.slice() : null;
+      pendingSearchHighlight = isDeep ? parsed : null;
       // The query has done its job — clear the box (without re-running the search, which
       // would drop the highlight focusEntry is about to set).
       const input = document.getElementById('tlSearch');
@@ -4613,23 +4712,25 @@ let pendingSearchHighlight = null;
 // those already handle the hard part (a match spanning several text nodes, and splitting nodes
 // right-to-left so earlier offsets stay valid). Scrolls the first hit into view.
 function applySearchHighlight(){
-  const frags = pendingSearchHighlight;
+  const parsed = pendingSearchHighlight;
   pendingSearchHighlight = null;
-  if(!frags || !frags.length) return;
+  if(!parsed || !parsed.terms || !parsed.terms.length) return;
   const container = document.getElementById('artStoryText');
   if(!container) return;
   try{
     const { flat, map } = cueFlatMap(container);
-    const folded = fold(flat);
-    // Collect every occurrence of every word first, then wrap in reverse document order, so
+    // Mask first, exactly as the matcher did — a word only excluded from matching shouldn't
+    // then get highlighted, or "dig -dignity" would light up "dignity" anyway.
+    const folded = maskExcludes(fold(flat), parsed.excludes);
+    // Collect every occurrence of every term first, then wrap in reverse document order, so
     // the offsets computed against the pristine text stay valid as the DOM is split up.
     const spots = [];
-    frags.forEach(f => {
-      if(!f) return;
-      let at = folded.indexOf(f);
-      while(at !== -1){
-        spots.push({start: at, end: at + f.length});
-        at = folded.indexOf(f, at + f.length);
+    parsed.terms.forEach(t => {
+      let from = 0, hit;
+      while((hit = findTermMatch(folded, t, from)) !== null){
+        spots.push({start: hit.start, end: hit.end});
+        from = hit.end;
+        if(hit.end === hit.start) break; // paranoia: never loop on a zero-length match
       }
     });
     if(!spots.length) return;
