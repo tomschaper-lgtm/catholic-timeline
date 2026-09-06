@@ -1,25 +1,20 @@
 <!--
-VERSION: 323
+VERSION: 324
 DATE: 2026-09-06T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
-- Paste JSON results summary rebuilt as a list of present-only lines instead of one
-  always-concatenated string. "Imported: X added, Y updated" is omitted entirely when nothing
-  happened on the entries table; "Carlo links: ..." the same; "Patches: ..." the same — and
-  patches now say "X success, Y failed" rather than "X applied, Y skipped" (a skipped patch is a
-  mismatch or a rejected required-field delete, which reads as a failure, not something merely
-  passed over). When more than one of these actually has something to report, each gets its own
-  line (a real break, not " · ") — both in the results panel and in the top status toast.
-- Fixed the oversized entry-name text in the results row list (visible in the last screenshot):
-  the name was a bare <b> tag with no explicit font-size, and depending on inherited context
-  could render noticeably larger than the rest of its own row. Given its own .mImportName class
-  with font-size:inherit pinned explicitly, and the row itself now has an explicit font-size
-  rather than relying purely on ancestor inheritance.
-- v322 (unchanged): timeline search dropdown now reliably clips/scrolls past a handful of
-  results (explicit overflow-x/y instead of the two-value shorthand, plus a JS-set inline
-  max-height backstop); added a "N entries found" count line; merged the CMS Export search box
-  onto the same recent-searches list as the main timeline search.
+- The v323 attempt at the oversized-name bug in the Paste JSON results rows didn't actually fix
+  it (confirmed by screenshot) — giving the nested name span its own font-size:inherit wasn't
+  enough, for a cause not fully pinned down (the sibling .mImportSummaryLine, a single
+  non-nested element with its own explicit font-size, rendered fine throughout). Rather than
+  keep guessing at the exact mechanism, removed the nested bold-name span construction entirely:
+  each row is now one plain text run (icon + full note text) with a single explicit
+  font-size:14px, matching the one pattern that was already rendering correctly. No more nested
+  spans left in that structure for a font-size or font-weight quirk to ride in on.
+- v323 (unchanged): Paste JSON summary lines now omit "Imported"/"Carlo links"/"Patches" whenever
+  that table had nothing to report, each present line gets its own line break, and patches read
+  "X success, Y failed" instead of "X applied, Y skipped".
 - v317 (unchanged): export search list styling, term highlighting, match count; Audio URL
   rename; Carlo Links export button removed.
 - v316 (unchanged): Export tab search box filtering the export set.
@@ -2204,14 +2199,12 @@ CHANGES:
   .mImportRow{
     display:flex; align-items:flex-start; gap:7px; padding:5px 11px;
     white-space:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
-    font-size:14px; line-height:1.4;
   }
   .mImportRow.fail{background:var(--m-danger-bg);}
-  .mImportIcon{flex:0 0 auto; font-weight:700; font-size:inherit;}
+  .mImportIcon{flex:0 0 auto; font-weight:700; font-size:14px; line-height:1.4;}
   .mImportRow.ok .mImportIcon{color:#2E7D32;}
   .mImportRow.fail .mImportIcon{color:var(--m-danger);}
-  .mImportLine{flex:0 0 auto; font-size:inherit; font-weight:400;}
-  .mImportName{font-weight:700; font-size:inherit;}
+  .mImportLine{flex:0 0 auto; font-weight:400; font-size:14px; line-height:1.4;}
   .mImportRow.fail .mImportLine{color:var(--m-danger);}
 
   .mgmtEntriesTop{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
@@ -3381,7 +3374,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v323';
+const APP_VERSION = 'v324';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -10445,13 +10438,10 @@ function renderPasteResults(elId, summary, notes){
       const marked = raw.charAt(0) === RESULT_OK || raw.charAt(0) === RESULT_FAIL;
       const ok = raw.charAt(0) !== RESULT_FAIL; // an unmarked note (shouldn't happen) reads as ok rather than false-flagging it a failure
       const text = marked ? raw.slice(1) : raw;
-      const sep = text.indexOf(' — ');
-      const name = sep === -1 ? '' : text.slice(0, sep);
-      const rest = sep === -1 ? text : text.slice(sep + 3);
       const row = document.createElement('div');
       row.className = 'mImportRow ' + (ok ? 'ok' : 'fail');
       row.innerHTML = '<span class="mImportIcon">' + (ok ? '✓' : '✗') + '</span>' +
-        '<span class="mImportLine">' + (name ? '<span class="mImportName">' + esc(name) + '</span> — ' : '') + esc(rest) + '</span>';
+        '<span class="mImportLine">' + esc(text) + '</span>';
       list.appendChild(row);
       plainLines.push((ok ? '✓ ' : '✗ ') + text);
     });
