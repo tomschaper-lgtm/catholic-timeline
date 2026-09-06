@@ -1,24 +1,31 @@
 <!--
-VERSION: 320
+VERSION: 321
 DATE: 2026-09-06T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
-- Fixed the real cause of edits appearing to "revert after a while": Manage → Save & Exit, when
-  no GitHub token was configured, showed "no token set" for 1.6s and then closed the Manage
-  panel anyway — the exact same flash-then-close experience as a successful publish. Anyone not
-  watching the screen at that instant had no way to tell the two apart, so edits sat correct
-  in-session (looking published) but were never actually committed, and reverted on the next
-  fresh load once data.json was re-fetched from GitHub. This branch now behaves like a real
-  publish failure right below it already did: stays open, message stays up, no auto-close.
-- v319 (unchanged): fixed stale deep-search ("=") results after a `patches` edit — the cache
-  keyed on reference identity of `entry.art`/`entry.facts`, which a patch's in-place mutation
-  never changes; applyPatches now drops the cache entry for every id it touches. Timeline search
-  no longer caps results at 8 (link picker's own search is unaffected). Export tab's search box
-  gained a × clear button and a 5-item recent-searches dropdown.
-- v318 (unchanged): retired the `d` short description app-wide in favor of a `subtitle` field
-  (Learn More / t:"i" info entries only); migrateSubtitles() carries over any existing `d` on
-  load without deleting it from data.json, which is a separate, deliberate step.
+- Redesigned the Paste JSON results panel (Manage → Import → Apply/Clipboard/Choose File).
+  Previously every result was one long <br>-joined block of plain text, wrapping at different
+  indents line to line with no visual separation between a success and a skip — hard to scan
+  after a batch of a dozen-plus patches. Now: one row per result, never wrapped (scrolls
+  horizontally within its own row if long), a green ✓ or red ✗ per line, the entry name bolded
+  ahead of the detail where the note has one, and failed rows get a light red background
+  (reusing the existing --m-danger-bg). Success/failure is now carried on the note itself via an
+  invisible RESULT_OK/RESULT_FAIL marker set at the point each note is pushed (deleteEntries,
+  mergeEntries, mergeCarloLinks, deleteCarloLinks, applyPatches) rather than guessed from
+  wording afterward, so the icon can never be misapplied by a phrase that doesn't match an
+  expected pattern.
+- Added a Copy Results button next to Clear Results, copying the same ✓/✗-prefixed plain text
+  that's on screen (Clipboard API, with the same offscreen-textarea fallback the Export tab's
+  Copy All button already uses).
+- v320 (unchanged): fixed the real cause of edits appearing to "revert after a while" — Manage
+  → Save & Exit, with no GitHub token configured, flashed "no token set" for 1.6s and closed the
+  panel anyway, indistinguishable from a real successful publish unless you were watching the
+  screen at that instant. That branch now stays open with a persistent message, same as a real
+  publish failure already did.
+- v319 (unchanged): fixed stale deep-search ("=") results after a `patches` edit (cache now
+  invalidated per-id inside applyPatches); timeline search no longer caps at 8 results; Export
+  tab search box gained a × clear button and a 5-item recent-searches dropdown.
 - v317 (unchanged): export search list styling, term highlighting, match count; Audio URL
   rename; Carlo Links export button removed.
 - v316 (unchanged): Export tab search box filtering the export set.
@@ -2186,12 +2193,29 @@ CHANGES:
   }
   .mImportStatus.show{display:block;}
   .mImportStatus.err{background:var(--m-danger-bg); border-color:#F0C9C0; color:var(--m-danger);}
+  .mImportActions{display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;}
   .mImportStatusClear{
-    display:none; margin-top:6px; font-size:13px; padding:6px 12px;
+    display:none; margin-top:0; font-size:13px; padding:6px 12px;
     background:var(--m-bg); color:var(--m-sub); border:1px solid var(--m-border);
     border-radius:8px; cursor:pointer;
   }
   .mImportStatusClear.show{display:inline-block;}
+  /* Per-result row list: one result per line, never wrapped — long patch match-text or note
+     detail scrolls horizontally within its own row instead of wrapping and burying the ✓/✗
+     and name at different indents on every line, which is what made the old <br>-joined plain
+     text hard to scan at a glance. */
+  .mImportSummaryLine{font-weight:600; margin-bottom:6px;}
+  .mImportList{display:flex; flex-direction:column; gap:1px; margin:0 -11px; }
+  .mImportRow{
+    display:flex; align-items:flex-start; gap:7px; padding:5px 11px;
+    white-space:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
+  }
+  .mImportRow.fail{background:var(--m-danger-bg);}
+  .mImportIcon{flex:0 0 auto; font-weight:700;}
+  .mImportRow.ok .mImportIcon{color:#2E7D32;}
+  .mImportRow.fail .mImportIcon{color:var(--m-danger);}
+  .mImportLine{flex:0 0 auto;}
+  .mImportRow.fail .mImportLine{color:var(--m-danger);}
 
   .mgmtEntriesTop{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
   .mgmtEntriesTop input[type=text]{
@@ -2990,7 +3014,10 @@ CHANGES:
           <input type="file" id="mImportFile" accept=".json,.txt" style="display:none;">
         </div>
         <div class="mImportStatus" id="pasteJsonStatus"></div>
-        <button class="mImportStatusClear" id="pasteJsonStatusClear">Clear results</button>
+        <div class="mImportActions">
+          <button class="mImportStatusClear" id="pasteJsonStatusClear">Clear results</button>
+          <button class="mImportStatusClear" id="pasteJsonStatusCopy">Copy results</button>
+        </div>
         <details class="mHelp">
           <summary>Paste manually instead</summary>
           <div class="mfield">
@@ -3357,7 +3384,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v320';
+const APP_VERSION = 'v321';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -9976,18 +10003,22 @@ function normalizeIncoming(parsed){
   }
   return null;
 }
+// Every notes.push() below is prefixed with one of these two invisible markers so the results
+// list (renderPasteResults) can render a reliable ✓/✗ per line without guessing from wording —
+// stripped back out before anything is shown or copied.
+const RESULT_OK = '\u0001', RESULT_FAIL = '\u0002';
 function deleteEntries(ids){
   let deleted = 0, missing = 0;
   const notes = [];
   ids.forEach(id => {
     const ex = getEntry(id);
-    if(!ex){ missing++; notes.push('Not found (nothing deleted): ' + id); return; }
+    if(!ex){ missing++; notes.push(RESULT_FAIL + 'Not found (nothing deleted): ' + id); return; }
     const name = ex.n;
     db.entries = db.entries.filter(x => x.id !== id);
     // Keep the app coherent if the open card/editor was the thing just removed.
     if(currentEntry && currentEntry.id === id){ currentEntry = null; detail.classList.remove('open'); closeArticle(); }
     if(editingId === id){ editingId = null; openEditor(null); }
-    deleted++; notes.push('Deleted: ' + name + ' (' + id + ')');
+    deleted++; notes.push(RESULT_OK + 'Deleted: ' + name + ' (' + id + ')');
   });
   return {deleted: deleted, missing: missing, notes: notes};
 }
@@ -10007,7 +10038,7 @@ function mergeEntries(list){
       // A note only makes sense while an entry is actually held — clear it along with the
       // flag on approval, and don't let one linger on an entry that was never flagged.
       if(!ex.review) delete ex.reviewNote;
-      updated++; notes.push('Updated: ' + ex.n + (isReview(ex) ? ' [held for review]' : ''));
+      updated++; notes.push(RESULT_OK + 'Updated: ' + ex.n + (isReview(ex) ? ' [held for review]' : ''));
     } else {
       if(inc.n == null || inc.y == null){ skipped++; return; }
       const fresh = {
@@ -10033,7 +10064,7 @@ function mergeEntries(list){
       if(inc.review === true || inc.review === 'true') fresh.review = true;
       if(fresh.review && inc.reviewNote) fresh.reviewNote = String(inc.reviewNote);
       db.entries.push(fresh);
-      added++; notes.push('Added: ' + inc.n + ' (' + inc.y + ')' + (fresh.review ? ' [held for review]' : ''));
+      added++; notes.push(RESULT_OK + 'Added: ' + inc.n + ' (' + inc.y + ')' + (fresh.review ? ' [held for review]' : ''));
     }
   });
   return {added: added, updated: updated, skipped: skipped, notes: notes};
@@ -10049,8 +10080,8 @@ function mergeCarloLinks(list){
   const notes = [];
   db.carloLinks = db.carloLinks || [];
   list.forEach(inc => {
-    if(!inc || typeof inc !== 'object' || !inc.entityId){ skipped++; notes.push('Carlo link skipped — missing entityId'); return; }
-    if(!getEntry(inc.entityId)){ skipped++; notes.push('Carlo link skipped — no matching entry id: ' + inc.entityId); return; }
+    if(!inc || typeof inc !== 'object' || !inc.entityId){ skipped++; notes.push(RESULT_FAIL + 'Carlo link skipped — missing entityId'); return; }
+    if(!getEntry(inc.entityId)){ skipped++; notes.push(RESULT_FAIL + 'Carlo link skipped — no matching entry id: ' + inc.entityId); return; }
     const id = inc.id || (inc.entityId + '-carlo');
     const status = inc.status === 'found' ? 'found' : (inc.url ? 'found' : 'pending');
     const rec = {
@@ -10061,10 +10092,10 @@ function mergeCarloLinks(list){
     const ex = db.carloLinks.find(c => c.id === id) || db.carloLinks.find(c => c.entityId === inc.entityId);
     if(ex){
       Object.assign(ex, rec);
-      updated++; notes.push('Updated Carlo link: ' + inc.entityId + ' [' + status + ']');
+      updated++; notes.push(RESULT_OK + 'Updated Carlo link: ' + inc.entityId + ' [' + status + ']');
     } else {
       db.carloLinks.push(rec);
-      added++; notes.push('Added Carlo link: ' + inc.entityId + ' [' + status + ']');
+      added++; notes.push(RESULT_OK + 'Added Carlo link: ' + inc.entityId + ' [' + status + ']');
     }
   });
   return {added: added, updated: updated, skipped: skipped, notes: notes};
@@ -10075,9 +10106,9 @@ function deleteCarloLinks(ids){
   db.carloLinks = db.carloLinks || [];
   ids.forEach(id => {
     const ex = db.carloLinks.find(c => c.id === id);
-    if(!ex){ missing++; notes.push('Carlo link not found (nothing deleted): ' + id); return; }
+    if(!ex){ missing++; notes.push(RESULT_FAIL + 'Carlo link not found (nothing deleted): ' + id); return; }
     db.carloLinks = db.carloLinks.filter(c => c.id !== id);
-    deleted++; notes.push('Deleted Carlo link: ' + id);
+    deleted++; notes.push(RESULT_OK + 'Deleted Carlo link: ' + id);
   });
   return {deleted: deleted, missing: missing, notes: notes};
 }
@@ -10373,14 +10404,14 @@ function applyPatches(patchesObj){
     const count = Array.isArray(list) ? list.length : 0;
     if(!entry){
       skipped += count;
-      notes.push('Patches skipped — no entry with id: ' + id + ' (' + count + ' patch(es))');
+      notes.push(RESULT_FAIL + 'Patches skipped — no entry with id: ' + id + ' (' + count + ' patch(es))');
       return;
     }
     if(!Array.isArray(list)) return;
     list.forEach(patch => {
       const result = applyOnePatch(entry, patch);
       if(result.ok) applied++; else skipped++;
-      notes.push(result.note);
+      notes.push((result.ok ? RESULT_OK : RESULT_FAIL) + result.note);
     });
     // A patch mutates art.sections/quotes/links/facts in place (or reassigns just the
     // `sections` array, not the `art` object itself) rather than replacing `entry.art`
@@ -10395,6 +10426,69 @@ function applyPatches(patchesObj){
 
 // Shows a status message both in the sticky top bar (setStatus) and inline right next to the
 // control that was used, so it's visible without scrolling back up on a phone. `isError` reddens it.
+// Builds the per-result row list for the paste-JSON results panel: one line per note, never
+// wrapped, a green ✓ or red ✗ derived from that note's own RESULT_OK/RESULT_FAIL marker (never
+// guessed from wording), and — where the note has the patches format "Name — detail" — the name
+// bolded ahead of the rest. Also rebuilds the plain-text version the Copy Results button sends
+// to the clipboard, so what's copied matches what's on screen.
+let lastImportResultsText = '';
+function renderPasteResults(elId, summary, notes){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  el.innerHTML = '';
+  const summaryEl = document.createElement('div');
+  summaryEl.className = 'mImportSummaryLine';
+  summaryEl.textContent = summary;
+  el.appendChild(summaryEl);
+  const plainLines = [summary];
+  if(notes && notes.length){
+    const list = document.createElement('div');
+    list.className = 'mImportList';
+    notes.forEach(raw => {
+      const marked = raw.charAt(0) === RESULT_OK || raw.charAt(0) === RESULT_FAIL;
+      const ok = raw.charAt(0) !== RESULT_FAIL; // an unmarked note (shouldn't happen) reads as ok rather than false-flagging it a failure
+      const text = marked ? raw.slice(1) : raw;
+      const sep = text.indexOf(' — ');
+      const name = sep === -1 ? '' : text.slice(0, sep);
+      const rest = sep === -1 ? text : text.slice(sep + 3);
+      const row = document.createElement('div');
+      row.className = 'mImportRow ' + (ok ? 'ok' : 'fail');
+      row.innerHTML = '<span class="mImportIcon">' + (ok ? '✓' : '✗') + '</span>' +
+        '<span class="mImportLine">' + (name ? '<b>' + esc(name) + '</b> — ' : '') + esc(rest) + '</span>';
+      list.appendChild(row);
+      plainLines.push((ok ? '✓ ' : '✗ ') + text);
+    });
+    el.appendChild(list);
+  }
+  lastImportResultsText = plainLines.join('\n');
+  el.classList.add('show');
+  el.classList.remove('err');
+  el.scrollTop = 0;
+  const clearBtn = document.getElementById(elId + 'Clear');
+  if(clearBtn) clearBtn.classList.add('show');
+  const copyBtn = document.getElementById(elId + 'Copy');
+  if(copyBtn) copyBtn.classList.add('show');
+}
+document.getElementById('pasteJsonStatusCopy').addEventListener('click', async () => {
+  const btn = document.getElementById('pasteJsonStatusCopy');
+  const wasLabel = btn.textContent;
+  try{
+    await navigator.clipboard.writeText(lastImportResultsText);
+    btn.textContent = 'Copied ✓';
+  }catch(e){
+    // Clipboard API unavailable — fall back to a temporary offscreen textarea + execCommand,
+    // same fallback pattern as the Export tab's own Copy All button.
+    const ta = document.createElement('textarea');
+    ta.value = lastImportResultsText;
+    ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try{ document.execCommand('copy'); btn.textContent = 'Copied ✓'; }
+    catch(e2){ btn.textContent = 'Copy failed — select manually'; }
+    ta.remove();
+  }
+  setTimeout(() => { btn.textContent = wasLabel; }, 1600);
+});
 function showInlineStatus(elId, msg, isError){
   const el = document.getElementById(elId);
   if(!el) return;
@@ -10403,6 +10497,12 @@ function showInlineStatus(elId, msg, isError){
   el.classList.toggle('err', !!isError);
   const clearBtn = document.getElementById(elId + 'Clear');
   if(clearBtn) clearBtn.classList.add('show');
+  // A plain one-line status (e.g. "Not valid JSON") replaces whatever the results list was
+  // showing — hide the Copy button along with it rather than leaving it pointing at a stale
+  // previous batch's results.
+  const copyBtn = document.getElementById(elId + 'Copy');
+  if(copyBtn) copyBtn.classList.remove('show');
+  if(elId === 'pasteJsonStatus') lastImportResultsText = '';
 }
 async function applyMerge(text, statusPrefix, localStatusElId){
   let parsed;
@@ -10482,13 +10582,7 @@ async function applyMerge(text, statusPrefix, localStatusElId){
   r.notes = d.notes.concat(r.notes).concat(clDelResult.notes).concat(clResult.notes).concat(patchResult.notes);
   setStatus(summary);
   if(localStatusElId){
-    const detail = r.notes && r.notes.length ? '<br>' + r.notes.map(esc).join('<br>') : '';
-    document.getElementById(localStatusElId).innerHTML = summary + detail;
-    document.getElementById(localStatusElId).classList.add('show');
-    document.getElementById(localStatusElId).classList.remove('err');
-    document.getElementById(localStatusElId).scrollTop = 0;
-    const clearBtn = document.getElementById(localStatusElId + 'Clear');
-    if(clearBtn) clearBtn.classList.add('show');
+    renderPasteResults(localStatusElId, summary, r.notes);
   }
   return true;
 }
@@ -10500,6 +10594,8 @@ document.getElementById('pasteJsonStatusClear').addEventListener('click', () => 
   el.innerHTML = '';
   el.classList.remove('show', 'err');
   document.getElementById('pasteJsonStatusClear').classList.remove('show');
+  document.getElementById('pasteJsonStatusCopy').classList.remove('show');
+  lastImportResultsText = '';
 });
 
 document.getElementById('mImportBtn').addEventListener('click', () => document.getElementById('mImportFile').click());
