@@ -1,27 +1,32 @@
 <!--
-VERSION: 312
+VERSION: 313
 DATE: 2026-09-05T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
-`const APP_VERSION` (~line 3275), which is what the app displays and what update-detection
-compares. v308-v312 bumped only this comment, so the app kept reporting v307 and the update
-check kept concluding "no new version" even though the deploys were landing correctly.
+`const APP_VERSION` (~line 3280), which is what the app displays and what update-detection
+compares. v308-v312 bumped only this comment, so the app kept reporting v307.
 CHANGES:
-- Corrected APP_VERSION, which had been left at 'v307' since the v308 build. Nothing was wrong
-  with the deploy pipeline; the app was simply reporting a stale number and, because update
-  detection compares that same string, never noticed its own updates.
-- Home screen / Add to Home Screen now reads "Catholic Timeline" instead of "Timeline". The
-  <title> and the apple-mobile-web-app-title meta tag already said the full name; the runtime
-  manifest's short_name said "Timeline", and iOS prefers the manifest when "Open as Web App" is
-  enabled, so it quietly won. short_name now matches.
-- v311 (unchanged): fixed the broken PWA icon — APP_ICON pointed at .png filenames after the
-  icons in Images/icons/ were regenerated as .jpg, so the probe failed and the embedded default
-  icon was used. Manifest and favicon MIME types corrected to match.
+- Search box now supports full-text search across entire articles, triggered by a leading "=".
+  "=smart boy" requires BOTH words to appear somewhere in the entry and would match an article
+  reading "he was a smart and witty boy" — order doesn't matter, and a word missing anywhere
+  disqualifies the entry. Searches every field: name, alt names, teaser, country, year, tags,
+  Quick Facts labels and values, every section heading and body, quote text and source, link
+  labels, caption, review note. HTML is stripped first, so markup and entry: link targets can't
+  produce phantom hits. Without the "=", search behaves exactly as before — the name pass, then
+  the tag/description fallback — nothing about normal searching changed.
+- Deep results show the surrounding prose where the first word landed, rather than just the
+  matched word, since a hit buried in an article doesn't explain itself from the name alone.
+  When more than 8 match, the list says how many were found instead of silently truncating.
+- Deep queries are stored in recent searches verbatim ("=smart boy"), since re-running the
+  whole query is what's meaningful, not the one word that happened to match.
+- Article text for deep search is cached per entry and rebuilt only when that entry's art or
+  facts object is replaced, so typing stays responsive; the cache is kept outside the entry
+  objects so it can never leak into data.json on Export or Publish.
+- v312 (unchanged): corrected APP_VERSION, stale at v307 since the v308 build; home screen now
+  reads "Catholic Timeline" (manifest short_name was overriding the meta tag on iOS).
+- v311 (unchanged): fixed the broken PWA icon after the Images/icons/ files were regenerated
+  as .jpg while APP_ICON still pointed at .png.
 - v310 (unchanged): audio sync reads data.json and checks audio files via the GitHub contents
-  API rather than the deployed site, so a just-committed recording is visible immediately.
-- v309 (unchanged): Manage → Entries auto-fills a blank audio field when a file already exists
-  at the conventional audio/<Category>/<id>-v<N> path.
-- v308 (unchanged): syncAudioStatusUntilFresh always writes a final message on both the success
-  and give-up paths instead of leaving stale "attempt N/max" text frozen on screen.
+  API rather than the deployed site.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -3277,7 +3282,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v312';
+const APP_VERSION = 'v313';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4370,6 +4375,53 @@ function fieldsB(d){
   // Tags are the intended source; until entries carry them, the short description stands in.
   return tags.length ? tags : [String(d.d || '')];
 }
+// ---- Deep search ("=" prefix): every field on the entry, article prose included ----
+// Building this means stripping HTML off every section body of every entry, which is far too
+// much work to redo on each keystroke. Cached per entry id, keyed on the identity of the `art`
+// object so a CMS edit (which replaces art wholesale) invalidates its own row automatically.
+// Deliberately a separate Map rather than a property on the entry: anything hung on the entry
+// object itself would be serialized into data.json by Export/Publish and pollute the file.
+const deepTextCache = new Map();
+function deepFieldsUncached(d){
+  const out = [];
+  const push = v => { if(v != null && v !== '') out.push(String(v)); };
+  push(d.n); push(d.d); push(d.country); push(d.y); push(d.reviewNote); push(d.imgCap);
+  (Array.isArray(d.alt) ? d.alt : []).forEach(push);
+  (Array.isArray(d.tags) ? d.tags : []).forEach(push);
+  (Array.isArray(d.facts) ? d.facts : []).forEach(f => { if(f){ push(f.label); push(f.value); } });
+  const art = d.art || {};
+  (Array.isArray(art.sections) ? art.sections : []).forEach(s => {
+    if(!s) return;
+    push(s.h);
+    // Strip tags so markup can't match, and so an <a href="entry:..."> target id doesn't
+    // produce hits on words the reader never sees.
+    push(String(s.b || '').replace(/<[^>]+>/g, ' '));
+  });
+  (Array.isArray(art.quotes) ? art.quotes : []).forEach(q => { if(q){ push(q.text); push(q.source); } });
+  (Array.isArray(art.links) ? art.links : []).forEach(l => { if(l) push(l.label); });
+  return out;
+}
+function fieldsDeep(d){
+  const hit = deepTextCache.get(d.id);
+  if(hit && hit.art === d.art && hit.facts === d.facts) return hit.fields;
+  const fields = deepFieldsUncached(d);
+  deepTextCache.set(d.id, {art: d.art, facts: d.facts, fields: fields});
+  return fields;
+}
+// A short piece of surrounding prose showing where the first fragment landed, so a deep hit
+// explains itself in the results list the way a name hit doesn't need to.
+function deepSnippet(fields, frag){
+  for(const raw of fields){
+    const i = fold(raw).indexOf(frag);
+    if(i < 0) continue;
+    const text = String(raw).replace(/\s+/g, ' ').trim();
+    if(text.length <= 70) return text;
+    const start = Math.max(0, i - 28);
+    const end = Math.min(text.length, i + frag.length + 34);
+    return (start > 0 ? '…' : '') + text.slice(start, end).trim() + (end < text.length ? '…' : '');
+  }
+  return null;
+}
 // Every fragment must appear in at least one of the given fields.
 function matchesAll(fields, frags){
   const folded = fields.map(fold);
@@ -4452,11 +4504,17 @@ function runSearch(){
   const raw = document.getElementById('tlSearch').value;
   document.getElementById('searchClear').classList.toggle('show', raw.length > 0);
   const box = document.getElementById('sResults');
-  const frags = fold(raw.trim()).split(/\s+/).filter(Boolean);
+  // A leading "=" switches to deep search: every field on the entry, article prose included,
+  // with every typed word required to appear somewhere in it. Without it, nothing below
+  // changes — the normal name-then-tag/description passes run exactly as before.
+  const trimmed = raw.trim();
+  const isDeep = trimmed.charAt(0) === '=';
+  const queryText = isDeep ? trimmed.slice(1).trim() : trimmed;
+  const frags = fold(queryText).split(/\s+/).filter(Boolean);
   const qLen = frags.join('').length;
 
   // Empty box → offer the recent terms instead of results.
-  if(!raw.trim()){
+  if(!trimmed){
     searchHits = new Set(); searchFocusId = null;
     renderRecent(box);
     render();
@@ -4465,15 +4523,23 @@ function runSearch(){
   if(qLen < 3){ searchHits = new Set(); searchFocusId = null; box.style.display = 'none'; box.innerHTML = ''; render(); return; }
 
   const pool = filtered();
-  const hitsA = pool.filter(d => matchesAll(fieldsA(d), frags));
-  const nameHitIds = new Set(hitsA.map(d => d.id)); // drives the brighter styling below
-  let results = sortResults(hitsA.slice());
-  // The secondary pass is a fallback, not a supplement: as soon as the name pass returns
-  // more than one entry it stands alone, and tag/description hits are left out entirely.
-  if(hitsA.length <= 1){
-    const hitsB = pool.filter(d => !nameHitIds.has(d.id) && matchesAll(fieldsB(d), frags));
-    results = sortResults(hitsA.concat(hitsB));
+  let results, nameHitIds;
+  if(isDeep){
+    // One pass, no name/tag tiering: an entry qualifies if every word appears anywhere in it.
+    nameHitIds = new Set();
+    results = sortResults(pool.filter(d => matchesAll(fieldsDeep(d), frags)));
+  }else{
+    const hitsA = pool.filter(d => matchesAll(fieldsA(d), frags));
+    nameHitIds = new Set(hitsA.map(d => d.id)); // drives the brighter styling below
+    results = sortResults(hitsA.slice());
+    // The secondary pass is a fallback, not a supplement: as soon as the name pass returns
+    // more than one entry it stands alone, and tag/description hits are left out entirely.
+    if(hitsA.length <= 1){
+      const hitsB = pool.filter(d => !nameHitIds.has(d.id) && matchesAll(fieldsB(d), frags));
+      results = sortResults(hitsA.concat(hitsB));
+    }
   }
+  const total = results.length;
   const shown = results.slice(0, MAX_RESULTS); // 8 is a cap on the COMBINED list
   // Only what's actually listed lights up on the timeline.
   searchHits = new Set(shown.map(d => d.id));
@@ -4487,7 +4553,12 @@ function runSearch(){
     // For a tag/description-only hit the name alone doesn't explain itself, so show the
     // word that actually matched. Distinct words only, in the order they were typed.
     let why = '';
-    if(!isNameHit){
+    if(isDeep){
+      // Deep hits can land deep inside an article, so show the surrounding prose rather than
+      // just the bare word — that's what makes the result comprehensible at a glance.
+      const snip = deepSnippet(fieldsDeep(d), frags[0]);
+      if(snip) why = '<span class="smatch">' + esc(snip) + '</span>';
+    }else if(!isNameHit){
       const fB = fieldsB(d), seenW = new Set(), words = [];
       frags.forEach(f => {
         const w = resolveWord(fB, f);
@@ -4502,7 +4573,9 @@ function runSearch(){
       '<span class="sname">' + esc(d.n) + why + '</span>' +
       '<span class="syr">AD ' + d.y + '</span>';
     r.addEventListener('click', () => {
-      pushRecent(recentTermFor(d, frags));
+      // A deep query is only meaningful re-run in full ("=smart boy"), not as the single word
+      // that happened to match, so store it verbatim instead of resolving a term from the entry.
+      pushRecent(isDeep ? trimmed : recentTermFor(d, frags));
       // The query has done its job — clear the box (without re-running the search, which
       // would drop the highlight focusEntry is about to set).
       const input = document.getElementById('tlSearch');
@@ -4513,6 +4586,14 @@ function runSearch(){
     box.appendChild(r);
     prevType = d.t;
   });
+  // A full-text query can match far more than the 8 shown, and silently truncating would
+  // misleadingly suggest those are all of them.
+  if(isDeep && total > shown.length){
+    const more = document.createElement('div');
+    more.className = 'sresult sempty';
+    more.textContent = 'Showing ' + shown.length + ' of ' + total + ' matches — add another word to narrow it';
+    box.appendChild(more);
+  }
   box.style.display = 'block';
   render();
 }
