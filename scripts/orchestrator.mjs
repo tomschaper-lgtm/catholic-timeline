@@ -44,6 +44,7 @@ import { dirname } from 'path';
 import { execSync } from 'node:child_process';
 import { runAgeBackfillScan } from './services/age-backfill.mjs';
 import { runImageGenerate } from './services/image-generate.mjs';
+import { runImageFinalize } from './services/image-finalize.mjs';
 
 const WORKLOG_PATH = process.env.WORKLOG_PATH || 'workLog.json';
 const DATA_PATH = process.env.DATA_PATH || 'data.json';
@@ -55,6 +56,7 @@ const TASK_TYPE = (process.env.TASK_TYPE || '').trim(); // '' = any service
 const SERVICE_HANDLERS = {
   'age-backfill-scan': runAgeBackfillScan,
   'image-generate': runImageGenerate,
+  'image-finalize': runImageFinalize,
 };
 
 function nowIso(){ return new Date().toISOString(); }

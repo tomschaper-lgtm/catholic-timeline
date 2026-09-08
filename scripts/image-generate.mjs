@@ -81,7 +81,7 @@ export function buildSceneRequest(entry, note){
 // wasn't part of the original design and would have silently made those sections do nothing.
 // Headings included, since \u00a73 explicitly favors scenes tied to named events, and a heading is
 // often the clearest signal of which event a section covers.
-function articleText(entry){
+export function articleText(entry){
   const sections = (entry.art && entry.art.sections) || [];
   return sections
     .map(s => {
