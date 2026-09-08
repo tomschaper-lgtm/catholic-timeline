@@ -1,9 +1,18 @@
 <!--
-VERSION: 328
-DATE: 2026-09-07T00:00:00-05:00
+VERSION: 329
+DATE: 2026-09-08T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed: image-finalize tasks (created by Picture Review's Winner button) had no way to be run
+  directly — "image-finalize" was missing from TK_SERVICES entirely, so the Run panel's type
+  filter dropdown only ever offered "Generate images" or "Age backfill." A run filtered to
+  "Generate images" correctly reported nothing to do and left finalize tasks sitting at queued
+  indefinitely, which looked stuck but wasn't \u2014 "Any service" would have picked them up the
+  whole time. Added "Finalize images" as a selectable Run filter. Marked addable:false so it does
+  NOT appear in Add Task's Service dropdown \u2014 a manually-added finalize task would have no
+  entityId or candidate path and just fail, since this type only makes sense as Picture Review
+  creates it.
 - Fixed the Add Task batch selector's Prev/Next buttons showing literal "\u25c0"/"\u25b6" text
   instead of glyphs \u2014 those were JS-style escapes written directly into HTML, where they're
   never interpreted. Now uses &larr;/&rarr;, matching the existing audio card's own buttons.
@@ -3477,7 +3486,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v328';
+const APP_VERSION = 'v329';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5785,7 +5794,13 @@ const TK_CHIPS = [
 const TK_SERVICES = [
   { id: '', label: 'Any service' },
   { id: 'age-backfill-scan', label: 'Age backfill' },
-  { id: 'image-generate', label: 'Generate images' }
+  { id: 'image-generate', label: 'Generate images' },
+  // addable:false — this task type is only ever created by Picture Review's Winner button,
+  // which sets entityId/candidatePath/etc. correctly. It still needs to appear in the Run
+  // filter dropdown so a run can be aimed at it specifically, which is the actual bug this
+  // entry fixes — a queued image-finalize task had no way to be selected and run on its own,
+  // only reachable via "Any service" (see tkNewType population below for the addable filter).
+  { id: 'image-finalize', label: 'Finalize images', addable: false }
 ];
 // Services that queue one task per entity (Category/Start/Quantity picker) rather than a single
 // scan task (plain description). Add a new entry here — and a pool function below, following
@@ -6357,7 +6372,7 @@ function openTaskPanel(){
   const runSel = document.getElementById('tkRunType');
   if(!runSel.options.length){
     runSel.innerHTML = TK_SERVICES.map(s => '<option value="' + esc(s.id) + '">' + esc(s.label) + '</option>').join('');
-    document.getElementById('tkNewType').innerHTML = TK_SERVICES.filter(s => s.id)
+    document.getElementById('tkNewType').innerHTML = TK_SERVICES.filter(s => s.id && s.addable !== false)
       .map(s => '<option value="' + esc(s.id) + '">' + esc(s.label) + '</option>').join('');
     tkUpdateAddFormMode();
   }
