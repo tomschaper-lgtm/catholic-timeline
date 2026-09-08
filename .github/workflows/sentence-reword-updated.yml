@@ -1,0 +1,43 @@
+name: Sentence Reword
+
+on:
+  workflow_dispatch:
+    inputs:
+      startYear:
+        description: "Start scanning from this year (AD) forward"
+        required: false
+        default: "0"
+      category:
+        description: 'Type key: s c p m u e, or "all"'
+        required: false
+        default: "all"
+      count:
+        description: "How many qualifying entities to queue and process"
+        required: false
+        default: "10"
+
+concurrency:
+  group: sentence-reword
+  cancel-in-progress: false
+
+jobs:
+  reword:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Select and reword batch
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          START_YEAR: ${{ inputs.startYear }}
+          CATEGORY: ${{ inputs.category }}
+          COUNT: ${{ inputs.count }}
+        run: node scripts/run-sentence-reword-batch.mjs
