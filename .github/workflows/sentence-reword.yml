@@ -1,1 +1,51 @@
+name: Sentence Reword
+
+on:
+  workflow_dispatch:
+    inputs:
+      batchSize:
+        description: "How many queued entities to process this run"
+        required: false
+        default: "10"
+      entityIds:
+        description: "Optional: comma-separated entity ids to enqueue before running (leave blank to just process whatever is already queued)"
+        required: false
+        default: ""
+
+concurrency:
+  group: sentence-reword
+  cancel-in-progress: false
+
+jobs:
+  reword:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enqueue requested entities (optional)
+        if: ${{ inputs.entityIds != '' }}
+        run: node scripts/enqueue-sentence-reword.mjs "${{ inputs.entityIds }}"
+
+      - name: Commit enqueue (if anything was added)
+        if: ${{ inputs.entityIds != '' }}
+        run: |
+          git config user.name "reword-bot"
+          git config user.email "reword-bot@users.noreply.github.com"
+          git add workQueue.sentenceReword.json
+          git diff --cached --quiet || git commit -m "Enqueue ${{ inputs.entityIds }} for sentence_reword"
+          git diff --cached --quiet || git push
+
+      - name: Run reword batch
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BATCH_SIZE: ${{ inputs.batchSize }}
+        run: node scripts/generate-sentence-reword.mjs
 
