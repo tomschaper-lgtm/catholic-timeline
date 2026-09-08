@@ -1,9 +1,24 @@
 <!--
-VERSION: 329
+VERSION: 330
 DATE: 2026-09-08T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Added a second review step for images: previously image-finalize wrote the high-quality image
+  and linked it into the entry automatically, with no human check on the refined result (only the
+  earlier medium-quality candidate pick was reviewed). image-finalize now stops at
+  awaiting_review instead — Picture Review shows the finished image with Approve / Redo. Approve
+  sets the entry's img field and publishes immediately, no extra orchestrator run needed. Redo
+  queues another image-finalize pass using the same final image as the new reference (the two
+  original medium candidates are already gone by this point, deleted the first time this entity
+  was finalized), carrying any notes typed in to steer the next attempt. New function
+  tkResolveFinal() alongside the existing tkResolveImage(); renderTaskReview() now branches on
+  image-finalize's awaiting_review state as well as image-generate's.
+- Companion change in scripts/services/image-finalize.mjs (not this file): no longer sets
+  entry.img or reports done itself; returns awaitingReview instead. Also now asks OpenAI for
+  JPEG output directly (output_format/output_compression) instead of PNG, matching the same
+  change already made in image-generate.mjs, so no PNG is ever written to the repo and no image
+  library is needed to convert one after the fact.
 - Fixed: image-finalize tasks (created by Picture Review's Winner button) had no way to be run
   directly — "image-finalize" was missing from TK_SERVICES entirely, so the Run panel's type
   filter dropdown only ever offered "Generate images" or "Age backfill." A run filtered to
@@ -3486,7 +3501,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v329';
+const APP_VERSION = 'v330';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6167,6 +6182,10 @@ function renderTaskReview(){
 
   const entry = t.entityId ? getEntry(t.entityId) : null;
   const isImageReview = t.type === 'image-generate' && t.status === 'awaiting_review';
+  // A finalize task reaches awaiting_review once the high-quality image exists on disk but
+  // hasn't been linked into the entry yet (see scripts/services/image-finalize.mjs) — this is
+  // the last human checkpoint before it goes live, distinct from the earlier candidate pick.
+  const isFinalReview = t.type === 'image-finalize' && t.status === 'awaiting_review';
 
   let body;
   if(isImageReview){
@@ -6176,6 +6195,12 @@ function renderTaskReview(){
       '<div class="tkRvMeta">' + esc(t.entityId) + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
       '<div class="tkImgWrap"><img src="' + esc(rawAssetUrl(path)) + '" alt="Candidate ' + tkImgSide.toUpperCase() + '">' +
       '<div class="tkImgSide">Candidate ' + tkImgSide.toUpperCase() + '</div></div>';
+  } else if(isFinalReview){
+    const r = t.result || {};
+    body = '<div class="tkRvName">' + esc(r.name || tkTaskName(t)) + '</div>' +
+      '<div class="tkRvMeta">' + esc(t.entityId) + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
+      '<div class="tkImgWrap"><img src="' + esc(rawAssetUrl(r.finalPath)) + '" alt="Final image">' +
+      '<div class="tkImgSide">Final image</div></div>';
   } else if(entry){
     const patch = (t.result && Array.isArray(t.result.patch)) ? t.result.patch : null;
     body = '<div class="tkRvName">' + esc(entry.n) + '</div>' +
@@ -6209,6 +6234,19 @@ function renderTaskReview(){
     });
     document.getElementById('tkWinner').addEventListener('click', () => tkResolveImage('winner'));
     document.getElementById('tkNeither').addEventListener('click', () => tkResolveImage('neither'));
+    return;
+  }
+
+  if(isFinalReview){
+    lock.innerHTML =
+      '<textarea class="tkImgNotes" id="tkImgNotes" placeholder="Notes for another pass (optional) \u2014 only used if you send this back"></textarea>' +
+      '<div class="tkImgNotesLabel"></div>' +
+      '<div class="tkLockBtns">' +
+        '<button class="tkBtn go" id="tkApproveFinal">Approve</button>' +
+        '<button class="tkBtn no" id="tkRedoFinal">Redo</button>' +
+      '</div>';
+    document.getElementById('tkApproveFinal').addEventListener('click', () => tkResolveFinal('approve'));
+    document.getElementById('tkRedoFinal').addEventListener('click', () => tkResolveFinal('redo'));
     return;
   }
 
@@ -6294,6 +6332,79 @@ async function tkResolveImage(decision){
     next++;
   }
   tkImgSide = 'a';
+  if(next >= tkReviewIds.length){ tkGoList(); return; }
+  tkReviewIdx = next;
+  renderTaskPanel();
+}
+
+// Approve links the already-written final image (scripts/services/image-finalize.mjs writes it
+// straight to its permanent Images/ path, so there's no file to move) into the entry and
+// publishes right away — no further orchestrator run needed, this is the last step. Redo queues
+// another image-finalize pass using the SAME final image as the new reference (the two medium
+// candidates are already gone by this point — deleted the first time this entity was finalized —
+// so there's nothing earlier to go back to), carrying fresh notes to steer the next attempt.
+async function tkResolveFinal(decision){
+  const t = tkTask(tkReviewIds[tkReviewIdx]);
+  if(!t) return;
+  const btns = ['tkApproveFinal', 'tkRedoFinal'].map(id => document.getElementById(id));
+  btns.forEach(b => { if(b) b.disabled = true; });
+
+  const notes = (document.getElementById('tkImgNotes') || {}).value || '';
+  const r = t.result || {};
+  const now = new Date().toISOString();
+
+  if(decision === 'approve'){
+    const entry = getEntry(t.entityId);
+    if(!entry){
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog('Could not find entry ' + t.entityId + ' \u2014 nothing approved.', true);
+      return;
+    }
+    entry.img = r.finalPath;
+    dirtyEntryIds.add(t.entityId);
+    const published = await publishToGitHub();
+    if(!published){
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog('Could not publish the image \u2014 check your GitHub token and try again.', true);
+      return;
+    }
+    t.status = 'done';
+    t.updatedAt = now;
+    t.result = Object.assign({}, r, { decision: 'approve' });
+    const saved = await saveWorkLog('Approved image for ' + (r.name || t.entityId), [t.id]);
+    if(!saved || saved.ok === false){
+      // The image itself already published successfully above \u2014 only the task list's own
+      // record of that is stuck. Not worth rolling back a real publish over; say so plainly.
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog('Image published, but the task list didn\u2019t update \u2014 refresh and it should show as done.', true);
+      return;
+    }
+  } else {
+    const newId = 'task-image-finalize-' + t.entityId + '-' + Date.now();
+    const newTask = {
+      id: newId, type: 'image-finalize', entityId: t.entityId, status: 'queued',
+      description: 'Refine image for ' + (r.name || t.entityId) + ' (previous attempt sent back)',
+      payload: { candidatePath: r.finalPath, otherCandidatePath: null, notes: notes },
+      result: null, error: null, createdAt: now, updatedAt: now
+    };
+    t.status = 'done';
+    t.updatedAt = now;
+    t.result = Object.assign({}, r, { decision: 'redo', decisionNotes: notes });
+    wlData.tasks.push(newTask);
+    const saved = await saveWorkLog('Sent back for another pass: ' + (r.name || t.entityId), [t.id, newId]);
+    if(!saved || saved.ok === false){
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog('Could not save \u2014 check your GitHub token and try again.', true);
+      return;
+    }
+  }
+
+  let next = tkReviewIdx + 1;
+  while(next < tkReviewIds.length){
+    const nt = tkTask(tkReviewIds[next]);
+    if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review')) break;
+    next++;
+  }
   if(next >= tkReviewIds.length){ tkGoList(); return; }
   tkReviewIdx = next;
   renderTaskPanel();
