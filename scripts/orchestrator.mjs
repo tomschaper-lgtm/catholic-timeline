@@ -9,20 +9,41 @@
 // Adding a new service later means: write a new file in scripts/services/, import it below,
 // add one line to SERVICE_HANDLERS. Nothing else in this file changes.
 //
-// TWO WAYS A TASK CAN NOT FINISH, and they are deliberately different:
-//   • error     — something broke. The task stops, carries its error, and shows red.
-//   • deferred  — nothing broke; the run simply ran out of budget (API tokens, rate limit,
-//                 time). The task goes back to `queued` exactly as it was, and the run leaves
-//                 a plain-language notice on the log. Running out of tokens is a normal
-//                 operating condition when you queue 50 items and ask for 5, not a failure,
-//                 and it must never look like one — otherwise the list fills with red rows
-//                 that only mean "try again later".
+// THREE WAYS A TASK CAN FINISH, and they are deliberately different:
+//   • done            — the work is complete and needs no further human decision.
+//   • awaiting_review — the work produced something (e.g. two candidate images) that a human
+//                       must pick between before it's really finished. Shows up in the app's
+//                       review surfaces, not the plain done list.
+//   • error           — something broke. The task stops, carries its error, and shows red.
+//   • deferred        — nothing broke; the run simply ran out of budget (API tokens, rate
+//                       limit, time). The task goes back to `queued` exactly as it was, and the
+//                       run leaves a plain-language notice on the log. Running out of tokens is
+//                       a normal operating condition when you queue 50 items and ask for 5, not
+//                       a failure, and it must never look like one — otherwise the list fills
+//                       with red rows that only mean "try again later".
 // A handler signals deferral by returning { deferred: true, reason: '...' } or by throwing an
-// error whose `deferred` property is true.
+// error whose `deferred` property is true. A handler signals awaiting_review by returning
+// { awaitingReview: true, result, summary, filesToCommit? } instead of the plain-done shape.
+//
+// COMMITTING CONTENT FILES (data.json, images, audio): a handler that touches any of these
+// returns `filesToCommit` — the exact repo-relative paths it wrote or changed — and this file
+// commits+pushes just those paths right after that one task, not once at the end of the whole
+// batch. That's deliberate, not incidental: the longer a change sits uncommitted in memory, the
+// more likely someone else (another run, or a person publishing from the CMS) has moved the repo
+// underneath it by the time it finally commits. Per-task commits shrink that window from "the
+// whole run" to "one task." If a push is rejected because the repo moved since this task started,
+// one `git pull --rebase` is attempted; if that still fails, the task is marked `error` (not
+// silently retried and not silently dropped) with a message telling you to just rerun the
+// orchestrator — the underlying work already happened, only the publish step needs redoing.
+// workLog.json itself is still written once at the end of the run (see bottom of main()) — it's
+// bookkeeping, not content, and already merges safely on the CMS side (see saveWorkLog in
+// index.html) if something else changed it in the meantime.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
+import { execSync } from 'node:child_process';
 import { runAgeBackfillScan } from './services/age-backfill.mjs';
+import { runImageGenerate } from './services/image-generate.mjs';
 
 const WORKLOG_PATH = process.env.WORKLOG_PATH || 'workLog.json';
 const DATA_PATH = process.env.DATA_PATH || 'data.json';
@@ -30,9 +51,10 @@ const SUMMARY_PATH = process.env.SUMMARY_PATH || 'scripts/work-summary.txt';
 const MAX_TASKS = parseInt(process.env.MAX_TASKS_PER_RUN || '5', 10);
 const TASK_TYPE = (process.env.TASK_TYPE || '').trim(); // '' = any service
 
-// Register each service's task type -> handler function here.
+// Register each service's task type -> handler function here. A handler may be async.
 const SERVICE_HANDLERS = {
   'age-backfill-scan': runAgeBackfillScan,
+  'image-generate': runImageGenerate,
 };
 
 function nowIso(){ return new Date().toISOString(); }
@@ -42,9 +64,41 @@ function writeSummary(text){
   writeFileSync(SUMMARY_PATH, text.endsWith('\n') ? text : text + '\n');
 }
 
-function main(){
+// Writes the in-memory dataJson to disk (if it changed) and commits exactly the given file
+// paths — never a blanket `git add -A`, so a handler can only ever affect the files it actually
+// named. Returns true on success, false if the push couldn't be reconciled and the caller should
+// treat this task as needing a rerun rather than as done.
+function commitFiles(dataJson, filePaths, message){
+  if(!filePaths || !filePaths.length) return true;
+  if(filePaths.includes(DATA_PATH)){
+    writeFileSync(DATA_PATH, JSON.stringify(dataJson, null, 1) + '\n');
+  }
+  const addArgs = filePaths.map(p => '"' + p + '"').join(' ');
+  try{
+    execSync('git add ' + addArgs, { stdio: 'inherit' });
+    // Nothing to commit is not an error — a handler can legitimately report success without
+    // having changed a tracked file's bytes (rare, but shouldn't crash the run).
+    try{ execSync('git diff --cached --quiet'); return true; }catch(_e){ /* there IS a staged diff, fall through to commit */ }
+    execSync('git commit -m ' + JSON.stringify(message), { stdio: 'inherit' });
+    execSync('git push', { stdio: 'inherit' });
+    return true;
+  }catch(err){
+    console.warn('Push failed, attempting one rebase-and-retry: ' + err.message);
+    try{
+      execSync('git pull --rebase --autostash', { stdio: 'inherit' });
+      execSync('git push', { stdio: 'inherit' });
+      return true;
+    }catch(err2){
+      try{ execSync('git rebase --abort', { stdio: 'ignore' }); }catch(_e){}
+      console.error('Could not publish after rebase retry: ' + err2.message);
+      return false;
+    }
+  }
+}
+
+async function main(){
   const workLog = JSON.parse(readFileSync(WORKLOG_PATH, 'utf8'));
-  const dataJson = JSON.parse(readFileSync(DATA_PATH, 'utf8'));
+  let dataJson = JSON.parse(readFileSync(DATA_PATH, 'utf8'));
 
   if(!Array.isArray(workLog.tasks)){
     throw new Error('workLog.json is missing a "tasks" array.');
@@ -97,7 +151,8 @@ function main(){
     task.status = 'in_progress';
 
     try{
-      const out = handler(task, dataJson, workLog) || {};
+      const out = (await handler(task, dataJson, workLog)) || {};
+
       if(out.deferred){
         task.status = 'queued';           // back exactly as it was — not an error
         task.updatedAt = nowIso();
@@ -106,11 +161,31 @@ function main(){
         summaryLines.push('\u23f8 ' + task.id + ' (' + task.type + '): deferred \u2014 ' + deferredReason);
         continue;
       }
-      task.status = 'done';
+
+      // Publish whatever this task wrote (data.json fields, image files, audio files) BEFORE
+      // marking the task finished — a task should never claim to be done/awaiting_review while
+      // its actual output is still sitting uncommitted in this run's working copy.
+      let published = true;
+      if(out.filesToCommit && out.filesToCommit.length){
+        const msg = (out.awaitingReview ? 'Generate candidates' : 'Apply') + ' — ' + task.id;
+        published = commitFiles(dataJson, out.filesToCommit, msg);
+      }
+
+      if(!published){
+        task.status = 'error';
+        task.error = 'Generated successfully but could not publish \u2014 the repo changed underneath this run. Rerun the orchestrator to retry (this will redo the generation).';
+        task.updatedAt = nowIso();
+        summaryLines.push('\u2717 ' + task.id + ' (' + task.type + '): generated but publish failed, see error');
+        continue;
+      }
+
+      task.status = out.awaitingReview ? 'awaiting_review' : 'done';
       task.result = out.result;
       task.error = null;
       task.updatedAt = nowIso();
-      summaryLines.push('\u2713 ' + task.id + ' (' + task.type + '): ' + out.summary);
+      summaryLines.push(
+        (out.awaitingReview ? '\u23f3 ' : '\u2713 ') + task.id + ' (' + task.type + '): ' + out.summary
+      );
       if(out.spawnedTasks && out.spawnedTasks.length){
         newTasks.push(...out.spawnedTasks);
         summaryLines.push('  \u2192 spawned ' + out.spawnedTasks.length + ' task(s), status "proposed"');
@@ -152,4 +227,4 @@ function main(){
   console.log(summaryLines.join('\n'));
 }
 
-main();
+main().catch(err => { console.error(err); process.exit(1); });
