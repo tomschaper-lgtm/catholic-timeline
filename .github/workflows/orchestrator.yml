@@ -4,9 +4,10 @@ name: Orchestrator
 # button inside the app's Task : Automation panel (which fires this same workflow_dispatch
 # with the count and service you pick beside it).
 #
-# This does NOT touch data.json. Services only ever read it for reference; nothing here
-# publishes content. Approving a proposed task and merging it into data.json happens in the
-# app's Task panel, on your own schedule.
+# Content-writing handlers (image-generate today; audio-generate once ported) commit their own
+# output — data.json fields, image files, audio files — right after each task, not in one batch
+# commit at the end. See the comment at the top of scripts/orchestrator.mjs for why. workLog.json
+# itself is still committed once at the end of the run, in the last step below.
 
 on:
   workflow_dispatch:
@@ -39,16 +40,20 @@ jobs:
         with:
           node-version: 20
 
+      - name: Configure git identity
+        run: |
+          git config user.name "orchestrator-bot"
+          git config user.email "actions@users.noreply.github.com"
+
       - name: Run orchestrator
         run: node scripts/orchestrator.mjs
         env:
           MAX_TASKS_PER_RUN: ${{ github.event.inputs.max_tasks }}
           TASK_TYPE: ${{ github.event.inputs.task_type }}
+          IMAGEGEN_API_KEY: ${{ secrets.IMAGEGEN_API_KEY }}
 
       - name: Commit updated work log
         run: |
-          git config user.name "orchestrator-bot"
-          git config user.email "actions@users.noreply.github.com"
           git add workLog.json
           if git diff --cached --quiet; then
             echo "No changes to workLog.json"
