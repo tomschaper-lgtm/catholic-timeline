@@ -1,9 +1,16 @@
 <!--
-VERSION: 327
+VERSION: 328
 DATE: 2026-09-07T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed the Add Task batch selector's Prev/Next buttons showing literal "\u25c0"/"\u25b6" text
+  instead of glyphs \u2014 those were JS-style escapes written directly into HTML, where they're
+  never interpreted. Now uses &larr;/&rarr;, matching the existing audio card's own buttons.
+- Added an explicit Order-by control (Feast day / Year) for the Saints category in the batch
+  selector \u2014 previously Saints was silently locked to feast-day order the way the audio card
+  always has been, with no way to queue images in plain chronological order instead. Hidden for
+  every other category, where year is the only ordering that makes sense.
 - Add Task now has a real batch selector for services that queue one task per entity, instead of
   only a bare Service+Description form. Category / Start (year, or feast day for Saints, with
   Prev/Next stepping) / Quantity / an Overwrite-equivalent, plus a live preview of what's about to
@@ -742,6 +749,7 @@ CHANGES:
   .tkBatchRow{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .tkBatchNote{color:#8A6D1C; font-style:italic;}
   #tkBatchFields.hidden, #tkPlainFields.hidden{display:none;}
+  #tkBatchOrder.hidden, #tkBatchOrderLabel.hidden{display:none;}
   /* Review view: scrolling entry above, locked options below.
      `color` is set explicitly here and NOT left to inherit: the panel sits inside the app's
      dark theme, whose body colour is parchment, so any element that didn't name its own colour
@@ -2640,11 +2648,16 @@ CHANGES:
             <option value="u">Eucharistic Miracles</option>
             <option value="e">Events</option>
           </select>
+          <label class="tkLabel" for="tkBatchOrder" id="tkBatchOrderLabel">Order by</label>
+          <select id="tkBatchOrder">
+            <option value="feast">Feast day</option>
+            <option value="year">Year</option>
+          </select>
           <label class="tkLabel" id="tkBatchStartLabel" for="tkBatchStart">Start year (optional \u2014 leave blank to begin at the earliest that still needs one)</label>
           <div class="tkBatchStartRow">
-            <button type="button" class="tkBtn" id="tkBatchStartPrev">\u25c0</button>
+            <button type="button" class="tkBtn" id="tkBatchStartPrev">&larr;</button>
             <input id="tkBatchStart" inputmode="numeric" placeholder="e.g. 1200">
-            <button type="button" class="tkBtn" id="tkBatchStartNext">\u25b6</button>
+            <button type="button" class="tkBtn" id="tkBatchStartNext">&rarr;</button>
           </div>
           <p class="tkNote" id="tkBatchStartPreview"></p>
           <label class="tkLabel" for="tkBatchCount">Quantity</label>
@@ -3464,7 +3477,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v327';
+const APP_VERSION = 'v328';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5779,7 +5792,11 @@ const TK_SERVICES = [
 // imageCandidatePool()'s shape — when a future service (audio-generate, proofread) joins this.
 const TK_BATCH_TYPES = { 'image-generate': true };
 let tkBatchStartIdx = -1;   // -1 = "start at the earliest eligible" — same convention as audioStartIdx
-function tkIsFeastMode(){ return document.getElementById('tkBatchCategory').value === 's'; }
+function tkIsFeastMode(){
+  if(document.getElementById('tkBatchCategory').value !== 's') return false;
+  const orderSel = document.getElementById('tkBatchOrder');
+  return !orderSel || orderSel.value !== 'year';
+}
 // An entity already sitting in the queue/in-flight/awaiting-review for this exact service
 // shouldn't be offered again — otherwise re-opening Add Task before a run finishes would let you
 // queue the same entity twice.
@@ -5797,7 +5814,7 @@ function imageCandidatePool(){
     .filter(e => !category || e.t === category)
     .filter(e => !tkHasPendingTask(e.id, ['image-generate', 'image-finalize']))
     .slice();
-  if(category === 's'){
+  if(tkIsFeastMode()){
     return pool.sort((a, b) => {
       const ka = feastSortKeyOf(a), kb = feastSortKeyOf(b);
       return (ka.month - kb.month) || (ka.day - kb.day) || a.n.localeCompare(b.n);
@@ -5863,6 +5880,11 @@ function tkRefreshBatchPreview(){
 }
 // Toggles the whole Add Task form between the batch selector (Category/Start/Quantity) and the
 // original plain Description field, based on which service is picked.
+function tkUpdateOrderVisibility(){
+  const isSaints = document.getElementById('tkBatchCategory').value === 's';
+  document.getElementById('tkBatchOrderLabel').classList.toggle('hidden', !isSaints);
+  document.getElementById('tkBatchOrder').classList.toggle('hidden', !isSaints);
+}
 function tkUpdateAddFormMode(){
   const type = document.getElementById('tkNewType').value;
   const isBatch = !!TK_BATCH_TYPES[type];
@@ -5870,12 +5892,21 @@ function tkUpdateAddFormMode(){
   document.getElementById('tkPlainFields').classList.toggle('hidden', isBatch);
   if(isBatch){
     tkBatchStartIdx = -1;
+    tkUpdateOrderVisibility();
     tkUpdateBatchStartMode();
     tkRefreshBatchPreview();
   }
 }
 document.getElementById('tkNewType').addEventListener('change', tkUpdateAddFormMode);
 document.getElementById('tkBatchCategory').addEventListener('change', () => {
+  tkBatchStartIdx = -1;
+  document.getElementById('tkBatchStart').value = '';
+  document.getElementById('tkBatchOrder').value = 'feast';
+  tkUpdateOrderVisibility();
+  tkUpdateBatchStartMode();
+  tkRefreshBatchPreview();
+});
+document.getElementById('tkBatchOrder').addEventListener('change', () => {
   tkBatchStartIdx = -1;
   document.getElementById('tkBatchStart').value = '';
   tkUpdateBatchStartMode();
