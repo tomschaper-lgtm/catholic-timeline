@@ -1,9 +1,45 @@
 <!--
-VERSION: 324
-DATE: 2026-09-06T00:00:00-05:00
+VERSION: 327
+DATE: 2026-09-07T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Add Task now has a real batch selector for services that queue one task per entity, instead of
+  only a bare Service+Description form. Category / Start (year, or feast day for Saints, with
+  Prev/Next stepping) / Quantity / an Overwrite-equivalent, plus a live preview of what's about to
+  be queued \u2014 built by generalizing the existing audio-recording card's own selector logic
+  rather than reimplementing it. "image-generate" is the first service wired to it
+  (imageCandidatePool(): needs article text, has no image yet unless the box is checked, matches
+  the chosen category, and isn't already queued/running/awaiting review for this entity). Queuing
+  a batch adds one task per resolved entity in a single save. The plain description form still
+  applies to scan-type services like age-backfill, unchanged. Adding a future batch service
+  (audio-generate, proofread) means one line in TK_BATCH_TYPES and one pool function alongside
+  imageCandidatePool() \u2014 nothing else in the shared selector changes.
+- Picture Review: Task Automation's review queue now handles image-generate tasks (status
+  "awaiting_review") alongside the existing text-diff review for age-backfill-style proposals.
+  Shows one candidate at a time via a direct raw.githubusercontent.com URL (so it's visible the
+  moment the orchestrator commits it, not after Cloudflare's deploy lag). "Other image" toggles
+  the candidate shown (local only, no save). "Winner" queues an image-finalize task for the
+  chosen candidate plus any notes typed in; "Neither" re-queues a fresh image-generate for the
+  same entity with the notes as guidance. Backing services: scripts/services/image-generate.mjs
+  (candidates) and the new scripts/services/image-finalize.mjs (high-quality refinement pass via
+  OpenAI's image-edit endpoint, using the winning candidate as reference so composition survives;
+  patches the entry's img field and cleans up both candidate files once done).
+- Registered "image-generate" as a known service (Task Automation's Run/Add Task dropdowns) and
+  added an icon/title for the new awaiting_review status.
+- Publish to GitHub and the Task : Automation panel's save no longer overwrite data.json/
+  workLog.json wholesale. Both now re-fetch the current remote copy right before committing and
+  overlay only what THIS browser session actually created, edited, or deleted — tracked via two
+  new session sets (dirtyEntryIds/deletedEntryIds) touched at every point that mutates
+  db.entries (manual editor save/delete, review Approve/Delete, the legacy Instruct Claude
+  importer, Paste JSON's entries/patches import, and Task Automation's review-approve path).
+  Anything a session never touched now always defers to the freshly-fetched remote version.
+  Fixes a real data-loss path: previously, two people using the CMS over the same stretch of
+  time — not even at the same instant — could have the second publish silently erase everything
+  the first one had already committed, since the sha check only ever caught a same-instant
+  collision, not two sessions each holding a copy that went stale over minutes or hours. Settings/
+  locations/documents/carloLinks are unchanged (still a plain overwrite) — not part of the
+  concurrent-review workflow today.
 - The v323 attempt at the oversized-name bug in the Paste JSON results rows didn't actually fix
   it (confirmed by screenshot) — giving the nested name span its own font-size:inherit wasn't
   enough, for a cause not fully pinned down (the sibling .mImportSummaryLine, a single
@@ -686,13 +722,26 @@ CHANGES:
     display:block; font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
     font-size:13px; font-weight:600; color:#6B7280; margin:10px 0 5px;
   }
-  .tkForm select, .tkForm input[type=text]{
+  .tkForm select, .tkForm input[type=text], .tkForm input[type=number]{
     width:100%; box-sizing:border-box; font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
     font-size:16px; color:#111827; background:#F7F7F4;
     border:1px solid #C7CAD3; border-radius:10px; padding:10px 12px; margin-bottom:4px;
   }
   .tkForm select:focus, .tkForm input:focus{outline:none; border-color:#8A6D1C;}
   .tkForm .tkBtn{margin-top:12px;}
+  /* Batch selector (Add Task, for services that queue one task per entity rather than a single
+     scan) — Category/Start/Quantity, same shape as the original audio-only version it was
+     generalized from, now shared by any service that needs it. */
+  .tkBatchStartRow{display:flex; align-items:center; gap:8px; margin-bottom:4px;}
+  .tkBatchStartRow input{flex:1 1 auto; margin-bottom:0;}
+  .tkBatchStartRow .tkBtn{flex:0 0 auto; margin-top:0; padding:9px 14px;}
+  .tkBatchList{
+    max-height:180px; overflow-y:auto; border:1px solid #E3E1D8; border-radius:8px;
+    padding:8px 10px; font-size:13px; line-height:1.55; background:#F7F7F4; color:#111827;
+  }
+  .tkBatchRow{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .tkBatchNote{color:#8A6D1C; font-style:italic;}
+  #tkBatchFields.hidden, #tkPlainFields.hidden{display:none;}
   /* Review view: scrolling entry above, locked options below.
      `color` is set explicitly here and NOT left to inherit: the panel sits inside the app's
      dark theme, whose body colour is parchment, so any element that didn't name its own colour
@@ -732,6 +781,18 @@ CHANGES:
   }
   .tkTarget .tkFactValue{font-weight:700;}
   .tkRvEmpty{font-size:14px; color:#6B7280; line-height:1.5; padding:10px 0;}
+  /* Picture Review — one candidate image at a time, plus a notes box that rides along with
+     whichever decision button gets tapped. */
+  .tkImgWrap{text-align:center; margin:4px 0 12px;}
+  .tkImgWrap img{max-width:100%; max-height:56vh; border-radius:10px; border:1px solid #E3E1D8; box-shadow:0 2px 10px rgba(0,0,0,.12);}
+  .tkImgSide{font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#8A90A0; margin-top:8px;}
+  .tkImgNotesLabel{font-size:12px; color:#6B7280; margin:14px 0 5px;}
+  .tkImgNotes{
+    width:100%; box-sizing:border-box; border:1px solid #C7CAD3; border-radius:10px;
+    padding:9px 11px; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13.5px;
+    color:#111827; resize:vertical; min-height:52px;
+  }
+  .tkImgNotes:focus{outline:none; border-color:#8A6D1C;}
   /* Summary tasks carry a handful of numbers and nothing else, which looked lost on a
      full-screen panel as two lines of prose. Rendered as stat tiles plus a breakdown list
      instead, so the figures are scannable and the space is doing something. */
@@ -2567,8 +2628,37 @@ CHANGES:
       <div class="tkForm">
         <label class="tkLabel" for="tkNewType">Service</label>
         <select id="tkNewType"></select>
-        <label class="tkLabel" for="tkNewDesc">Description</label>
-        <input type="text" id="tkNewDesc" placeholder="e.g. Re-scan after adding the March saints">
+
+        <div id="tkBatchFields" class="hidden">
+          <label class="tkLabel" for="tkBatchCategory">Category</label>
+          <select id="tkBatchCategory">
+            <option value="">All types</option>
+            <option value="s">Saints</option>
+            <option value="c">Councils</option>
+            <option value="p">Persecutions</option>
+            <option value="m">Marian Apparitions</option>
+            <option value="u">Eucharistic Miracles</option>
+            <option value="e">Events</option>
+          </select>
+          <label class="tkLabel" id="tkBatchStartLabel" for="tkBatchStart">Start year (optional \u2014 leave blank to begin at the earliest that still needs one)</label>
+          <div class="tkBatchStartRow">
+            <button type="button" class="tkBtn" id="tkBatchStartPrev">\u25c0</button>
+            <input id="tkBatchStart" inputmode="numeric" placeholder="e.g. 1200">
+            <button type="button" class="tkBtn" id="tkBatchStartNext">\u25b6</button>
+          </div>
+          <p class="tkNote" id="tkBatchStartPreview"></p>
+          <label class="tkLabel" for="tkBatchCount">Quantity</label>
+          <input type="number" id="tkBatchCount" inputmode="numeric" value="5">
+          <label class="tkCheck"><input type="checkbox" id="tkBatchOverwrite"><span>Regenerate even entries that already have one</span></label>
+          <label class="tkLabel">Will queue</label>
+          <div class="tkBatchList" id="tkBatchList"></div>
+        </div>
+
+        <div id="tkPlainFields">
+          <label class="tkLabel" for="tkNewDesc">Description</label>
+          <input type="text" id="tkNewDesc" placeholder="e.g. Re-scan after adding the March saints">
+        </div>
+
         <button class="tkBtn go" id="tkAdd">Add Task</button>
         <p class="tkNote" id="tkAddStatus"></p>
         <p class="tkNote">Adds one <b>queued</b> task and commits it to <code>workLog.json</code> straight away, so the next run can see it. Nothing about your content changes yet &mdash; a queued task is only a request for work.</p>
@@ -3374,11 +3464,18 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v324';
+const APP_VERSION = 'v327';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
+// Entries THIS browser session has actually created/edited or deleted since the last
+// successful publish. publishToGitHub() uses these two sets to merge safely with whatever is
+// currently on GitHub, instead of overwriting the whole file with this session's possibly-stale
+// in-memory copy — see publishToGitHub() for why that matters once more than one person can be
+// editing at once. Cleared on every successful publish.
+let dirtyEntryIds = new Set();
+let deletedEntryIds = new Set();
 let bandVInfo = {}; // per-type {top, bottom} absolute band bounds (canvas coords) — used to fade the sticky band icon as the band's own bottom edge (i.e. the next category) approaches it
 
 function isEcumenical(d){
@@ -5174,6 +5271,19 @@ function saveAudioGenSettings(){
   });
   localStorage.setItem('audio-gen-settings', JSON.stringify(c));
 }
+// Publishing has to assume it isn't the only session touching data.json — once a second person
+// has the CMS open, their publish and this one can straddle each other by minutes or hours, not
+// seconds, so the sha check alone (which only catches a same-instant collision) isn't enough. It
+// would happily let this session commit a full replacement built from whatever data.json looked
+// like when THIS session started, silently erasing anything the other session already published.
+//
+// The fix: fetch whatever is currently on GitHub right before committing, and only overlay the
+// entries THIS session actually created, edited, or deleted (dirtyEntryIds / deletedEntryIds,
+// updated at every point in this file that touches db.entries). Anything this session never
+// touched defers entirely to the freshly-fetched copy. Everything else in db — settings,
+// locations, documents, carloLinks — still publishes as this session holds it; those aren't part
+// of the concurrent-review workflow today, so they're left as a plain overwrite rather than
+// widening this change further than the actual risk.
 async function publishToGitHub(){
   const v = id => document.getElementById(id).value.trim();
   const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', path = v('ghPath') || 'data.json', token = v('ghToken');
@@ -5186,16 +5296,46 @@ async function publishToGitHub(){
   st.textContent = 'Publishing…';
   try{
     let sha = null;
+    let remoteEntries = null;
     const g = await fetch(api + '?ref=' + encodeURIComponent(branch), { headers: hdr, cache: 'no-store' });
-    if(g.status === 200){ sha = (await g.json()).sha; }
+    if(g.status === 200){
+      const meta = await g.json();
+      sha = meta.sha;
+      try{
+        const remoteDb = JSON.parse(decodeURIComponent(escape(atob(meta.content.replace(/\n/g, '')))));
+        if(Array.isArray(remoteDb.entries)) remoteEntries = remoteDb.entries;
+      }catch(e){ remoteEntries = null; } // unparseable remote — fall through and publish this session's copy as-is
+    }
     else if(g.status === 401 || g.status === 403){ throw new Error('token rejected (check permissions)'); }
     else if(g.status !== 404){ throw new Error('read failed (' + g.status + ')'); }
+
+    let mergedWithRemote = false;
+    if(remoteEntries && (dirtyEntryIds.size || deletedEntryIds.size)){
+      const byId = {};
+      remoteEntries.forEach(e => { byId[e.id] = e; });
+      dirtyEntryIds.forEach(id => {
+        const local = getEntry(id);
+        if(local) byId[id] = local; // this session's version wins only for what it actually touched
+      });
+      deletedEntryIds.forEach(id => { delete byId[id]; });
+      db.entries = Object.keys(byId).map(k => byId[k]);
+      mergedWithRemote = true;
+    }
+
     const json = JSON.stringify(db, null, 1);
     const content = btoa(unescape(encodeURIComponent(json)));
     const body = { message: 'Update data.json (' + db.entries.length + ' entries) via Content Manager', content: content, branch: branch };
     if(sha) body.sha = sha;
     const put = await fetch(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, hdr), body: JSON.stringify(body) });
-    if(put.status === 200 || put.status === 201){ st.textContent = 'Committed \u2713 — your site updates in about a minute.'; return true; }
+    if(put.status === 200 || put.status === 201){
+      st.textContent = 'Committed \u2713 — your site updates in about a minute.';
+      dirtyEntryIds.clear();
+      deletedEntryIds.clear();
+      // This session's db.entries may now include changes from elsewhere (the merge above) —
+      // reflect that on screen rather than leaving the visible list one publish behind.
+      if(mergedWithRemote){ renderMList(); render(); }
+      return true;
+    }
     else { let m = ''; try{ m = (await put.json()).message; }catch(e){} throw new Error(m || ('commit failed ' + put.status)); }
   }catch(err){ st.textContent = 'Publish failed: ' + err.message; return false; }
 }
@@ -5483,6 +5623,18 @@ function wlGh(){
     hdr: { 'Authorization': 'Bearer ' + v('ghToken'), 'Accept': 'application/vnd.github+json' }
   };
 }
+// Direct raw.githubusercontent.com URL for a repo-relative path — used to preview content (like
+// image-review candidates) the instant the orchestrator commits it, rather than waiting on
+// Cloudflare's ~1-minute deploy lag the live site URL would carry. The cache-busting query param
+// matters here specifically because a "Neither" regenerate reuses the exact same file path —
+// without it, a browser or CDN could keep serving the old candidate under the same URL.
+function rawAssetUrl(relPath){
+  if(!relPath) return '';
+  const g = wlGh();
+  if(!g.owner || !g.repo) return '';
+  return 'https://raw.githubusercontent.com/' + g.owner + '/' + g.repo + '/' + g.branch + '/' +
+    relPath.split('/').map(encodeURIComponent).join('/') + '?t=' + Date.now();
+}
 // Status line for approve/reject and load failures. Writes to the panel's own count line —
 // the panel is where this system is actually operated, so that's where its feedback belongs.
 function wlSetLog(msg, isErr){
@@ -5533,7 +5685,16 @@ async function loadWorkLog(){
 // have committed its own run in between (that's the normal case, not an edge case), and a PUT
 // with a stale sha is rejected outright rather than silently overwriting — but re-reading also
 // means a proposal resolved here can't stomp a result the Action wrote seconds ago.
-async function saveWorkLog(message){
+//
+// touchedIds is the list of task ids THIS call is actually changing (a new task's id when
+// adding, the resolved ids when approving/rejecting). Only those ids get overlaid onto the
+// freshly-fetched remote copy below. Every other task defers entirely to the remote's version —
+// including any task sitting in this session's memory that's simply gone stale, e.g. because a
+// second reviewer approved it after this session's last load. Overlaying the whole local
+// wlData.tasks array here (the previous behavior) would silently revert that reviewer's already-
+// saved decision the moment this session saved anything else.
+async function saveWorkLog(message, touchedIds){
+  const ids = touchedIds || [];
   const g = wlGh();
   if(!g.owner || !g.repo || !g.token) return { ok: false, error: 'GitHub token not set' };
   const api = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' + WL_PATH;
@@ -5543,15 +5704,16 @@ async function saveWorkLog(message){
     if(g0.status === 200){
       const meta = await g0.json();
       sha = meta.sha;
-      // If the remote moved since we loaded, merge our status changes onto the remote copy
-      // rather than replacing it wholesale — the Action may have added tasks we don't have.
+      // If the remote moved since we loaded, merge only what THIS call touched onto the remote
+      // copy rather than replacing it wholesale — the Action, or another reviewer, may have
+      // changed tasks we never touched and shouldn't overwrite.
       if(sha !== wlSha){
         try{
           const remote = JSON.parse(decodeURIComponent(escape(atob(meta.content.replace(/\n/g, '')))));
           if(Array.isArray(remote.tasks)){
             const byId = {};
             remote.tasks.forEach(t => { byId[t.id] = t; });
-            wlData.tasks.forEach(t => { byId[t.id] = t; });
+            wlData.tasks.forEach(t => { if(ids.indexOf(t.id) !== -1) byId[t.id] = t; });
             wlData.tasks = Object.keys(byId).map(k => byId[k]);
           }
         }catch(e){ /* remote unparseable — fall through and write ours */ }
@@ -5593,6 +5755,8 @@ let tkFilter = 'all';      // 'all' | 'queued' | 'review'
 let tkView = 'list';       // 'add' | 'list' | 'review'
 let tkReviewIds = [];      // the queue being worked through, captured when review opens
 let tkReviewIdx = 0;
+let tkImgSide = 'a';       // which candidate Picture Review is currently showing — local view
+                            // state only, reset whenever the on-screen task changes
 
 const TK_FINISHED = { done: 1, approved: 1, rejected: 1 };
 // Queued deliberately includes in_progress — a task that's running is still work you're
@@ -5607,12 +5771,151 @@ const TK_CHIPS = [
 // SERVICE_HANDLERS in scripts/orchestrator.mjs.
 const TK_SERVICES = [
   { id: '', label: 'Any service' },
-  { id: 'age-backfill-scan', label: 'Age backfill' }
+  { id: 'age-backfill-scan', label: 'Age backfill' },
+  { id: 'image-generate', label: 'Generate images' }
 ];
+// Services that queue one task per entity (Category/Start/Quantity picker) rather than a single
+// scan task (plain description). Add a new entry here — and a pool function below, following
+// imageCandidatePool()'s shape — when a future service (audio-generate, proofread) joins this.
+const TK_BATCH_TYPES = { 'image-generate': true };
+let tkBatchStartIdx = -1;   // -1 = "start at the earliest eligible" — same convention as audioStartIdx
+function tkIsFeastMode(){ return document.getElementById('tkBatchCategory').value === 's'; }
+// An entity already sitting in the queue/in-flight/awaiting-review for this exact service
+// shouldn't be offered again — otherwise re-opening Add Task before a run finishes would let you
+// queue the same entity twice.
+function tkHasPendingTask(entityId, types){
+  return ((wlData && wlData.tasks) || []).some(t =>
+    t.entityId === entityId && types.includes(t.type) &&
+    (t.status === 'queued' || t.status === 'in_progress' || t.status === 'awaiting_review'));
+}
+function imageCandidatePool(){
+  const overwrite = document.getElementById('tkBatchOverwrite').checked;
+  const category = document.getElementById('tkBatchCategory').value;
+  const pool = db.entries
+    .filter(e => articleStats(e).wordCount > 0)
+    .filter(e => overwrite || !e.img)
+    .filter(e => !category || e.t === category)
+    .filter(e => !tkHasPendingTask(e.id, ['image-generate', 'image-finalize']))
+    .slice();
+  if(category === 's'){
+    return pool.sort((a, b) => {
+      const ka = feastSortKeyOf(a), kb = feastSortKeyOf(b);
+      return (ka.month - kb.month) || (ka.day - kb.day) || a.n.localeCompare(b.n);
+    });
+  }
+  return pool.sort((a, b) => a.y - b.y);
+}
+// Only one batch type exists today, so this just calls imageCandidatePool() — kept as its own
+// dispatch point so a second service (audio-generate, proofread) is a one-line addition here
+// rather than a rewrite of every function below that calls it.
+function tkBatchPool(){
+  const type = document.getElementById('tkNewType').value;
+  if(type === 'image-generate') return imageCandidatePool();
+  return [];
+}
+function tkUpdateBatchStartMode(){
+  const input = document.getElementById('tkBatchStart');
+  const label = document.getElementById('tkBatchStartLabel');
+  if(tkIsFeastMode()){
+    input.type = 'text';
+    input.removeAttribute('inputmode');
+    input.placeholder = 'e.g. Aug 15';
+    label.textContent = 'Start feast day (optional \u2014 leave blank to begin at the earliest that still needs one)';
+  } else {
+    input.type = 'number';
+    input.inputmode = 'numeric';
+    input.placeholder = 'e.g. 1200';
+    label.textContent = 'Start year (optional \u2014 leave blank to begin at the earliest that still needs one)';
+  }
+}
+function tkRenderBatchStartPreview(){
+  const preview = document.getElementById('tkBatchStartPreview');
+  const pool = tkBatchPool();
+  const catVal = document.getElementById('tkBatchCategory').value;
+  const catLabel = catVal ? (TYPE_NAMES[catVal] + 's') : 'entries';
+  const feastMode = tkIsFeastMode();
+  if(!pool.length){ preview.textContent = 'No ' + catLabel + ' currently eligible.'; tkBatchStartIdx = -1; return; }
+  if(tkBatchStartIdx < 0){ preview.textContent = 'Will start at the earliest eligible ' + (feastMode ? 'feast' : (catVal ? TYPE_NAMES[catVal].toLowerCase() : 'entry')); return; }
+  if(tkBatchStartIdx >= pool.length) tkBatchStartIdx = pool.length - 1;
+  const e = pool[tkBatchStartIdx];
+  const posLabel = feastMode ? fmtMonthDay(feastSortKeyOf(e)) : fmtYear(e.y);
+  preview.textContent = e.n + ' (' + posLabel + ') \u2014 #' + (tkBatchStartIdx + 1) + ' of ' + pool.length + ' ' + catLabel + ' eligible';
+}
+function tkRenderBatchList(){
+  const listEl = document.getElementById('tkBatchList');
+  if(!listEl) return;
+  const pool = tkBatchPool();
+  const count = parseInt(document.getElementById('tkBatchCount').value, 10) || 5;
+  const startIdx = tkBatchStartIdx < 0 ? 0 : tkBatchStartIdx;
+  const batch = pool.slice(startIdx, startIdx + count);
+  if(!batch.length){ listEl.textContent = 'Nothing to queue at this position.'; return; }
+  const overwrite = document.getElementById('tkBatchOverwrite').checked;
+  const feastMode = tkIsFeastMode();
+  listEl.innerHTML = batch.map((e, i) => {
+    const note = (overwrite && e.img) ? ' <span class="tkBatchNote">(regenerating)</span>' : '';
+    const posLabel = feastMode ? fmtMonthDay(feastSortKeyOf(e)) : fmtYear(e.y);
+    return '<div class="tkBatchRow">' + (startIdx + i + 1) + '. ' + esc(e.n) + ' (' + posLabel + ')' + note + '</div>';
+  }).join('');
+}
+function tkRefreshBatchPreview(){
+  tkRenderBatchStartPreview();
+  tkRenderBatchList();
+}
+// Toggles the whole Add Task form between the batch selector (Category/Start/Quantity) and the
+// original plain Description field, based on which service is picked.
+function tkUpdateAddFormMode(){
+  const type = document.getElementById('tkNewType').value;
+  const isBatch = !!TK_BATCH_TYPES[type];
+  document.getElementById('tkBatchFields').classList.toggle('hidden', !isBatch);
+  document.getElementById('tkPlainFields').classList.toggle('hidden', isBatch);
+  if(isBatch){
+    tkBatchStartIdx = -1;
+    tkUpdateBatchStartMode();
+    tkRefreshBatchPreview();
+  }
+}
+document.getElementById('tkNewType').addEventListener('change', tkUpdateAddFormMode);
+document.getElementById('tkBatchCategory').addEventListener('change', () => {
+  tkBatchStartIdx = -1;
+  document.getElementById('tkBatchStart').value = '';
+  tkUpdateBatchStartMode();
+  tkRefreshBatchPreview();
+});
+document.getElementById('tkBatchStart').addEventListener('change', () => {
+  const pool = tkBatchPool();
+  if(!pool.length){ tkBatchStartIdx = -1; tkRefreshBatchPreview(); return; }
+  if(tkIsFeastMode()){
+    const md = parseMonthDay(document.getElementById('tkBatchStart').value);
+    if(!md){ tkBatchStartIdx = -1; tkRefreshBatchPreview(); return; }
+    const target = ordinalOfMD(md);
+    let idx = pool.findIndex(e => ordinalOfMD(feastSortKeyOf(e)) >= target);
+    tkBatchStartIdx = idx === -1 ? pool.length - 1 : idx;
+  } else {
+    const year = parseInt(document.getElementById('tkBatchStart').value, 10);
+    if(isNaN(year)){ tkBatchStartIdx = -1; tkRefreshBatchPreview(); return; }
+    let idx = pool.findIndex(e => e.y >= year);
+    tkBatchStartIdx = idx === -1 ? pool.length - 1 : idx;
+  }
+  tkRefreshBatchPreview();
+});
+document.getElementById('tkBatchStartPrev').addEventListener('click', () => {
+  const pool = tkBatchPool();
+  if(!pool.length) return;
+  tkBatchStartIdx = Math.max(0, (tkBatchStartIdx < 0 ? 0 : tkBatchStartIdx) - 1);
+  tkRefreshBatchPreview();
+});
+document.getElementById('tkBatchStartNext').addEventListener('click', () => {
+  const pool = tkBatchPool();
+  if(!pool.length) return;
+  tkBatchStartIdx = Math.min(pool.length - 1, (tkBatchStartIdx < 0 ? -1 : tkBatchStartIdx) + 1);
+  tkRefreshBatchPreview();
+});
+document.getElementById('tkBatchOverwrite').addEventListener('change', tkRefreshBatchPreview);
+document.getElementById('tkBatchCount').addEventListener('input', tkRenderBatchList);
 // One glyph per state, no label. Green check = settled, amber ring = waiting to run, half-ring
 // = running, blue dot = waiting on you, red cross = broken, grey cross = you said no.
 const TK_ICONS = {
-  queued: '\u25cb', in_progress: '\u25d0', proposed: '\u25cf',
+  queued: '\u25cb', in_progress: '\u25d0', proposed: '\u25cf', awaiting_review: '\u25cf',
   done: '\u2713', approved: '\u2713', rejected: '\u2715', error: '\u2715'
 };
 function tkStatusIcon(s){ return TK_ICONS[s] || '\u00b7'; }
@@ -5641,7 +5944,7 @@ function tkRows(){
   const tasks = (wlData && wlData.tasks) ? wlData.tasks.slice() : [];
   const filtered = tasks.filter(t => {
     if(tkFilter === 'all') return true;
-    if(tkFilter === 'review') return t.status === 'proposed';
+    if(tkFilter === 'review') return t.status === 'proposed' || t.status === 'awaiting_review';
     if(tkFilter === 'queued') return t.status === 'queued' || t.status === 'in_progress';
     return true;
   });
@@ -5804,7 +6107,7 @@ function tkRenderSummary(t){
 // finished scan says so, a failure says so, and only something actually awaiting a decision
 // says "Review".
 const TK_TITLES = {
-  proposed: ' : Review', done: ' : Completed Successfully', approved: ' : Approved',
+  proposed: ' : Review', awaiting_review: ' : Picture Review', done: ' : Completed Successfully', approved: ' : Approved',
   rejected: ' : Rejected', error: ' : Failed', queued: ' : Queued', in_progress: ' : Running'
 };
 
@@ -5817,10 +6120,18 @@ function renderTaskReview(){
   document.getElementById('tkTitleSecond').textContent = TK_TITLES[t.status] || ' : Task';
 
   const entry = t.entityId ? getEntry(t.entityId) : null;
-  const patch = (t.result && Array.isArray(t.result.patch)) ? t.result.patch : null;
+  const isImageReview = t.type === 'image-generate' && t.status === 'awaiting_review';
 
   let body;
-  if(entry){
+  if(isImageReview){
+    const r = t.result || {};
+    const path = tkImgSide === 'a' ? r.candidateA : r.candidateB;
+    body = '<div class="tkRvName">' + esc(r.name || tkTaskName(t)) + '</div>' +
+      '<div class="tkRvMeta">' + esc(t.entityId) + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
+      '<div class="tkImgWrap"><img src="' + esc(rawAssetUrl(path)) + '" alt="Candidate ' + tkImgSide.toUpperCase() + '">' +
+      '<div class="tkImgSide">Candidate ' + tkImgSide.toUpperCase() + '</div></div>';
+  } else if(entry){
+    const patch = (t.result && Array.isArray(t.result.patch)) ? t.result.patch : null;
     body = '<div class="tkRvName">' + esc(entry.n) + '</div>' +
       '<div class="tkRvMeta">' + esc(t.type) + ' \u00b7 ' + esc(t.entityId) + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
       '<div class="tkRvHead">Quick Facts</div>' + tkRenderFacts(entry, patch) +
@@ -5836,6 +6147,24 @@ function renderTaskReview(){
     '<br>swipe down to go back</div>';
   scroll.innerHTML = body;
   scroll.scrollTop = 0;
+
+  if(isImageReview){
+    lock.innerHTML =
+      '<textarea class="tkImgNotes" id="tkImgNotes" placeholder="Notes for the image generator (optional) \u2014 used to guide the finalize pass on Winner, or the next attempt on Neither"></textarea>' +
+      '<div class="tkImgNotesLabel"></div>' +
+      '<div class="tkLockBtns">' +
+        '<button class="tkBtn" id="tkOtherImage">Other image</button>' +
+        '<button class="tkBtn go" id="tkWinner">Winner</button>' +
+        '<button class="tkBtn no" id="tkNeither">Neither</button>' +
+      '</div>';
+    document.getElementById('tkOtherImage').addEventListener('click', () => {
+      tkImgSide = tkImgSide === 'a' ? 'b' : 'a';
+      renderTaskPanel();
+    });
+    document.getElementById('tkWinner').addEventListener('click', () => tkResolveImage('winner'));
+    document.getElementById('tkNeither').addEventListener('click', () => tkResolveImage('neither'));
+    return;
+  }
 
   // Nothing to decide on a task that's already settled — the bar renders empty and hides
   // itself (see .tkLockBar:empty), giving its height back to the content.
@@ -5858,6 +6187,70 @@ function renderTaskReview(){
       '<button class="tkBtn go" id="tkApprove">Approve</button>' +
       '<button class="tkBtn no" id="tkReject">Reject</button>' +
     '</div>';
+}
+
+// Winner queues an image-finalize task carrying the chosen candidate + any notes, and marks
+// this generate task done. Neither re-queues a fresh image-generate for the same entity with the
+// notes as guidance — since image-generate always writes to the same fixed candidate-a/-b paths
+// per entity, that alone replaces the rejected pair; nothing needs to be separately deleted here.
+// Either way the two candidate files stop being needed once a decision is made — image-finalize
+// deletes them itself once the final image is ready (see scripts/services/image-finalize.mjs),
+// and a Neither re-run simply overwrites them in place next time it executes.
+async function tkResolveImage(decision){
+  const t = tkTask(tkReviewIds[tkReviewIdx]);
+  if(!t) return;
+  const btns = ['tkOtherImage', 'tkWinner', 'tkNeither'].map(id => document.getElementById(id));
+  btns.forEach(b => { if(b) b.disabled = true; });
+
+  const notes = (document.getElementById('tkImgNotes') || {}).value || '';
+  const r = t.result || {};
+  const now = new Date().toISOString();
+  const newId = 'task-' + (decision === 'winner' ? 'image-finalize-' : 'image-generate-') + t.entityId + '-' + Date.now();
+
+  const newTask = decision === 'winner'
+    ? {
+        id: newId, type: 'image-finalize', entityId: t.entityId, status: 'queued',
+        description: 'Finalize image for ' + (r.name || t.entityId),
+        payload: {
+          winningCandidate: tkImgSide,
+          candidatePath: tkImgSide === 'a' ? r.candidateA : r.candidateB,
+          otherCandidatePath: tkImgSide === 'a' ? r.candidateB : r.candidateA,
+          notes: notes
+        },
+        result: null, error: null, createdAt: now, updatedAt: now
+      }
+    : {
+        id: newId, type: 'image-generate', entityId: t.entityId, status: 'queued',
+        description: 'Regenerate images for ' + (r.name || t.entityId) + ' (previous pair rejected)',
+        payload: { notes: notes },
+        result: null, error: null, createdAt: now, updatedAt: now
+      };
+
+  t.status = 'done';
+  t.updatedAt = now;
+  t.result = Object.assign({}, r, { decision: decision, decisionNotes: notes });
+  wlData.tasks.push(newTask);
+
+  const saved = await saveWorkLog(
+    (decision === 'winner' ? 'Picked winner for ' : 'Rejected candidates for ') + (r.name || t.entityId),
+    [t.id, newId]
+  );
+  if(!saved || saved.ok === false){
+    btns.forEach(b => { if(b) b.disabled = false; });
+    wlSetLog('Could not save \u2014 check your GitHub token and try again.', true);
+    return;
+  }
+
+  let next = tkReviewIdx + 1;
+  while(next < tkReviewIds.length){
+    const nt = tkTask(tkReviewIds[next]);
+    if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review')) break;
+    next++;
+  }
+  tkImgSide = 'a';
+  if(next >= tkReviewIds.length){ tkGoList(); return; }
+  tkReviewIdx = next;
+  renderTaskPanel();
 }
 
 // Single entry point every other part of this system calls after changing wlData.
@@ -5887,6 +6280,7 @@ function tkOpenReview(taskId){
   tkReviewIds = tkRows().map(t => t.id);
   tkReviewIdx = tkReviewIds.indexOf(taskId);
   if(tkReviewIdx < 0) return;
+  tkImgSide = 'a';
   tkView = 'review';
   renderTaskPanel();
 }
@@ -5896,6 +6290,7 @@ function tkStepReview(delta){
   const next = tkReviewIdx + delta;
   if(next < 0 || next >= tkReviewIds.length){ tkGoList(); return; }
   tkReviewIdx = next;
+  tkImgSide = 'a';
   renderTaskPanel();
 }
 
@@ -5933,6 +6328,7 @@ function openTaskPanel(){
     runSel.innerHTML = TK_SERVICES.map(s => '<option value="' + esc(s.id) + '">' + esc(s.label) + '</option>').join('');
     document.getElementById('tkNewType').innerHTML = TK_SERVICES.filter(s => s.id)
       .map(s => '<option value="' + esc(s.id) + '">' + esc(s.label) + '</option>').join('');
+    tkUpdateAddFormMode();
   }
   taskPanelEl.classList.add('open');
   tkScrimEl.classList.add('open');
@@ -5956,6 +6352,7 @@ document.getElementById('tkTabs').addEventListener('click', (e) => {
   if(!btn) return;
   tkView = btn.dataset.view;
   renderTaskPanel();
+  if(tkView === 'add' && TK_BATCH_TYPES[document.getElementById('tkNewType').value]) tkRefreshBatchPreview();
 });
 document.getElementById('tkHead').addEventListener('click', (e) => {
   const btn = e.target.closest('.spCol[data-sort]');
@@ -6031,7 +6428,6 @@ document.getElementById('tkRun').addEventListener('click', async () => {
 });
 document.getElementById('tkAdd').addEventListener('click', async () => {
   const type = document.getElementById('tkNewType').value;
-  const desc = document.getElementById('tkNewDesc').value.trim();
   const g = wlGh();
   if(!g.owner || !g.repo || !g.token){
     tkSetAddStatus('Enter your GitHub token under Manage \u2192 Import \u2192 Publish to GitHub first.', true);
@@ -6039,6 +6435,38 @@ document.getElementById('tkAdd').addEventListener('click', async () => {
   }
   if(!wlData) wlData = { v: 1, tasks: [] };
   if(!Array.isArray(wlData.tasks)) wlData.tasks = [];
+
+  if(TK_BATCH_TYPES[type]){
+    const pool = tkBatchPool();
+    const count = parseInt(document.getElementById('tkBatchCount').value, 10) || 5;
+    const startIdx = tkBatchStartIdx < 0 ? 0 : tkBatchStartIdx;
+    const batch = pool.slice(startIdx, startIdx + count);
+    if(!batch.length){
+      tkSetAddStatus('Nothing eligible to queue at this position.', true);
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    const newTasks = batch.map(e => {
+      const id = 'task-' + type + '-' + e.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+      return {
+        id: id, type: type, entityId: e.id, batchId: null, status: 'queued',
+        description: (TK_SERVICES.find(s => s.id === type) || {}).label + ' \u2014 ' + e.n,
+        payload: {}, result: null, createdAt: nowIso, updatedAt: nowIso, error: null
+      };
+    });
+    wlData.tasks.push(...newTasks);
+    tkSetAddStatus('Saving\u2026');
+    const saved = await saveWorkLog('Queue ' + newTasks.length + ' ' + type + ' task(s) via Task panel', newTasks.map(t => t.id));
+    if(saved.ok){
+      tkSetAddStatus('Queued ' + newTasks.length + ' \u2713 \u2014 switch to Task List and tap Run to process them.');
+      tkRefreshBatchPreview(); // the pool shrinks now that these entities have a pending task
+    }else{
+      tkSetAddStatus('Could not save: ' + saved.error, true);
+    }
+    return;
+  }
+
+  const desc = document.getElementById('tkNewDesc').value.trim();
   const nowIso = new Date().toISOString();
   // Id is time-based so two adds in the same session can never collide, and so the queue
   // reads chronologically in the raw file.
@@ -6049,7 +6477,7 @@ document.getElementById('tkAdd').addEventListener('click', async () => {
     payload: {}, result: null, createdAt: nowIso, updatedAt: nowIso, error: null
   });
   tkSetAddStatus('Saving\u2026');
-  const saved = await saveWorkLog('Queue task ' + id + ' via Task panel');
+  const saved = await saveWorkLog('Queue task ' + id + ' via Task panel', [id]);
   if(saved.ok){
     document.getElementById('tkNewDesc').value = '';
     tkSetAddStatus('Queued \u2713 \u2014 switch to Task List and tap Run to process it.');
@@ -6067,7 +6495,9 @@ function wlApplyTaskToDb(task){
   if(!entry) return { ok: false, note: 'no entry with id ' + task.entityId };
   const patch = task.result && task.result.patch;
   if(!Array.isArray(patch)) return { ok: false, note: 'task carries no patch array' };
-  return applyOnePatch(entry, patch);
+  const res = applyOnePatch(entry, patch);
+  if(res.ok) dirtyEntryIds.add(task.entityId);
+  return res;
 }
 
 async function wlResolveTasks(taskIds, approve){
@@ -6098,7 +6528,7 @@ async function wlResolveTasks(taskIds, approve){
   }
   const verb = approve ? 'Approved' : 'Rejected';
   wlSetLog(verb + ' ' + applied.length + (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') + ' \u00b7 saving work log\u2026', !!failed.length);
-  const saved = await saveWorkLog(verb + ' ' + applied.length + ' task(s) via Content Manager');
+  const saved = await saveWorkLog(verb + ' ' + applied.length + ' task(s) via Content Manager', applied);
   if(!saved.ok){
     wlSetLog('Content updated in this session, but the work log could not be saved: ' + saved.error + ' \u2014 tap Refresh and try again, or these items will still show as proposed next time.', true);
   }else{
@@ -9267,6 +9697,7 @@ async function approveReviewEntry(id, noteEl){
   if(!ex) return;
   delete ex.review;
   delete ex.reviewNote;
+  dirtyEntryIds.add(id);
   const ok = await publishReviewAction(noteEl, 'Approved and published \u2713 \u2014 now live on the public timeline.');
   render();
   if(editingId === id) openEditor(id);
@@ -9281,6 +9712,8 @@ async function deleteReviewEntry(id, noteEl){
   if(!ex) return;
   if(!confirm('Delete "' + ex.n + '" permanently? This cannot be undone.')) return;
   db.entries = db.entries.filter(e => e.id !== id);
+  deletedEntryIds.add(id);
+  dirtyEntryIds.delete(id);
   if(editingId === id){ editingId = null; openEditor(null); }
   const ok = await publishReviewAction(noteEl, 'Deleted and published \u2713');
   render();
@@ -9329,6 +9762,8 @@ async function saveCurrentEditorEntry(silent){
   if(ex && Array.isArray(ex.qa)) obj.qa = ex.qa;
   const idx = db.entries.findIndex(e => e.id === obj.id);
   if(idx >= 0) db.entries[idx] = obj; else db.entries.push(obj);
+  dirtyEntryIds.add(obj.id);
+  deletedEntryIds.delete(obj.id);
   editingId = obj.id;
   await saveDb(silent);
   renderMList();
@@ -9345,6 +9780,8 @@ document.getElementById('fDelete').addEventListener('click', async () => {
   if(!editingId){ openEditor(null); return; }
   if(!confirm('Delete this entry permanently?')) return;
   const wasCurrent = currentEntry && currentEntry.id === editingId;
+  deletedEntryIds.add(editingId);
+  dirtyEntryIds.delete(editingId);
   db.entries = db.entries.filter(e => e.id !== editingId);
   editingId = null;
   openEditor(null);
@@ -9770,14 +10207,18 @@ document.getElementById('aiRun').addEventListener('click', async () => {
         en.country = en.country || ''; en.img = en.img || ''; en.imgCap = en.imgCap || ''; en.audio = en.audio || ''; en.facts = en.facts || []; en.tier = en.tier || 1; en.alt = en.alt || []; en.tags = en.tags || [];
         const idx = db.entries.findIndex(x => x.id === en.id);
         if(idx >= 0) db.entries[idx] = en; else db.entries.push(en);
+        dirtyEntryIds.add(en.id);
+        deletedEntryIds.delete(en.id);
         done.push('Added: ' + en.n + ' (' + en.y + ')');
       } else if(op.op === 'update' && op.id){
         const en = getEntry(op.id);
-        if(en){ Object.assign(en, op.fields || {}); done.push('Updated: ' + en.n); }
+        if(en){ Object.assign(en, op.fields || {}); dirtyEntryIds.add(op.id); done.push('Updated: ' + en.n); }
         else done.push('Not found: ' + op.id);
       } else if(op.op === 'delete' && op.id){
         const en = getEntry(op.id);
         db.entries = db.entries.filter(x => x.id !== op.id);
+        deletedEntryIds.add(op.id);
+        dirtyEntryIds.delete(op.id);
         done.push('Deleted: ' + (en ? en.n : op.id));
       }
     });
@@ -10002,6 +10443,8 @@ function deleteEntries(ids){
     if(!ex){ missing++; notes.push(RESULT_FAIL + 'Not found (nothing deleted): ' + id); return; }
     const name = ex.n;
     db.entries = db.entries.filter(x => x.id !== id);
+    deletedEntryIds.add(id);
+    dirtyEntryIds.delete(id);
     // Keep the app coherent if the open card/editor was the thing just removed.
     if(currentEntry && currentEntry.id === id){ currentEntry = null; detail.classList.remove('open'); closeArticle(); }
     if(editingId === id){ editingId = null; openEditor(null); }
@@ -10025,6 +10468,7 @@ function mergeEntries(list){
       // A note only makes sense while an entry is actually held — clear it along with the
       // flag on approval, and don't let one linger on an entry that was never flagged.
       if(!ex.review) delete ex.reviewNote;
+      dirtyEntryIds.add(id);
       updated++; notes.push(RESULT_OK + 'Updated: ' + ex.n + (isReview(ex) ? ' [held for review]' : ''));
     } else {
       if(inc.n == null || inc.y == null){ skipped++; return; }
@@ -10051,6 +10495,8 @@ function mergeEntries(list){
       if(inc.review === true || inc.review === 'true') fresh.review = true;
       if(fresh.review && inc.reviewNote) fresh.reviewNote = String(inc.reviewNote);
       db.entries.push(fresh);
+      dirtyEntryIds.add(id);
+      deletedEntryIds.delete(id);
       added++; notes.push(RESULT_OK + 'Added: ' + inc.n + ' (' + inc.y + ')' + (fresh.review ? ' [held for review]' : ''));
     }
   });
@@ -10397,7 +10843,7 @@ function applyPatches(patchesObj){
     if(!Array.isArray(list)) return;
     list.forEach(patch => {
       const result = applyOnePatch(entry, patch);
-      if(result.ok) applied++; else skipped++;
+      if(result.ok){ applied++; dirtyEntryIds.add(id); } else skipped++;
       notes.push((result.ok ? RESULT_OK : RESULT_FAIL) + result.note);
     });
     // A patch mutates art.sections/quotes/links/facts in place (or reassigns just the
