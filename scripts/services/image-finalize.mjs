@@ -56,13 +56,19 @@ export async function runImageFinalize(task, dataJson){
   ];
   const prompt = promptParts.join('\n\n');
 
+  // The candidate this reads is already JPEG (image-generate.mjs writes candidates that way) —
+  // sent as-is, no local re-encoding needed. output_format/output_compression ask OpenAI to hand
+  // back JPEG too, so the refined result never exists as a PNG either. See image-generate.mjs
+  // for why this is done server-side instead of with a local image library.
   const imgBuf = await fsp.readFile(payload.candidatePath);
   const form = new FormData();
   form.append('model', 'gpt-image-2');
   form.append('prompt', prompt);
   form.append('size', '1024x1536');
   form.append('quality', 'high');
-  form.append('image', new Blob([imgBuf], { type: 'image/png' }), 'reference.png');
+  form.append('output_format', 'jpeg');
+  form.append('output_compression', '90');
+  form.append('image', new Blob([imgBuf], { type: 'image/jpeg' }), 'reference.jpg');
 
   const res = await fetch('https://api.openai.com/v1/images/edits', {
     method: 'POST',
@@ -74,10 +80,10 @@ export async function runImageFinalize(task, dataJson){
     throw new Error('OpenAI images/edits ' + res.status + ': ' + errText.slice(0, 300));
   }
   const data = await res.json();
-  const finalBuf = Buffer.from(data.data[0].b64_json, 'base64');
+  const finalBuf = Buffer.from(data.data[0].b64_json, 'base64'); // already JPEG bytes
 
   const folder = TYPE_FOLDERS[entry.t] || 'Other';
-  const finalPath = path.join('Images', folder, entry.id + '.png').split(path.sep).join('/');
+  const finalPath = path.join('Images', folder, entry.id + '.jpg').split(path.sep).join('/');
   await fsp.mkdir(path.dirname(finalPath), { recursive: true });
   await fsp.writeFile(finalPath, finalBuf);
 

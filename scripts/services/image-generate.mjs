@@ -94,18 +94,26 @@ export function articleText(entry){
     .join('\n\n');
 }
 
+// OpenAI encodes straight to JPEG on its side (output_format below) rather than this handler
+// decoding a PNG and re-encoding it — same result (no PNG ever touches the repo), no image
+// library needed here, and a smaller response over the wire. output_compression is JPEG-only
+// (ignored for png/webp) and defaults to 100 if omitted, which is barely smaller than PNG — 90
+// is a size/quality point well suited to a portrait shown at phone-article width.
 async function generateOneImage(prompt, quality, apiKey){
   const res = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-image-2', prompt, size: '1024x1536', quality })
+    body: JSON.stringify({
+      model: 'gpt-image-2', prompt, size: '1024x1536', quality,
+      output_format: 'jpeg', output_compression: 90
+    })
   });
   if(!res.ok){
     const errText = await res.text().catch(() => '');
     throw new Error('OpenAI images/generations ' + res.status + ': ' + errText.slice(0, 300));
   }
   const data = await res.json();
-  return Buffer.from(data.data[0].b64_json, 'base64');
+  return Buffer.from(data.data[0].b64_json, 'base64'); // already JPEG bytes
 }
 
 /**
@@ -137,8 +145,8 @@ export async function runImageGenerate(task, dataJson){
   const folder = TYPE_FOLDERS[entry.t] || 'Other';
   const dir = path.join('Images', folder);
   await fsp.mkdir(dir, { recursive: true });
-  const pathA = path.join(dir, entry.id + '-candidate-a.png').split(path.sep).join('/');
-  const pathB = path.join(dir, entry.id + '-candidate-b.png').split(path.sep).join('/');
+  const pathA = path.join(dir, entry.id + '-candidate-a.jpg').split(path.sep).join('/');
+  const pathB = path.join(dir, entry.id + '-candidate-b.jpg').split(path.sep).join('/');
 
   // Two separate calls, not one call asking for n=2 — keeps each candidate independently
   // retryable later and means a failure on one doesn't cost the other.
