@@ -2,15 +2,22 @@
 //
 // Service: "image-finalize"
 //
-// Runs after a human picks a winner in Picture Review. Takes the winning medium-quality
-// candidate as a reference image, asks OpenAI to refine it to high quality via the images/edits
-// endpoint (image-to-image, not a fresh text-to-image call) so the composition, subject,
-// clothing, and setting the reviewer actually chose survive into the final version rather than
-// being reinterpreted from scratch. Writes the final image, patches the entry's `img` field, and
-// deletes both candidate files — the finalized image supersedes them either way, so there's
-// nothing left for them to be a draft of.
+// Runs after a human picks a winner in Picture Review, and again each time a human sends a
+// finalized image back for another pass. Takes the reference image (the winning candidate the
+// first time; the previous final image on a redo) and asks OpenAI to refine it to high quality
+// via the images/edits endpoint (image-to-image, not a fresh text-to-image call) so the
+// composition, subject, clothing, and setting already chosen survive into the result rather than
+// being reinterpreted from scratch. Writes straight to the entry's permanent image path — but
+// does NOT touch the entry's `img` field or delete the reference candidates itself. This is a
+// human checkpoint, not the end of the line: it comes back as `awaiting_review` so a person can
+// approve it (which is what actually links it into the entry) or send it back again. See
+// tkResolveFinal() in index.html for that step.
 //
-// task.payload: { winningCandidate: 'a'|'b', candidatePath, otherCandidatePath, notes }
+// task.payload: { candidatePath, otherCandidatePath, notes }
+// candidatePath is the reference image to refine from — a medium-quality candidate the first
+// time, or the previous final image itself on a redo (see tkResolveFinal). otherCandidatePath is
+// only ever the OTHER medium candidate from the first pass, cleaned up here since it's never
+// used again either way; a redo passes null for it (nothing left to clean up).
 
 import { readFileSync } from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -87,16 +94,22 @@ export async function runImageFinalize(task, dataJson){
   await fsp.mkdir(path.dirname(finalPath), { recursive: true });
   await fsp.writeFile(finalPath, finalBuf);
 
-  // The candidates are spent either way — this session picked one and it's now been superseded
-  // by the refined version above, so nothing is left for either draft to be "the" copy of.
-  await unlinkQuiet(payload.candidatePath);
-  if(payload.otherCandidatePath) await unlinkQuiet(payload.otherCandidatePath);
+  // The reference is spent either way — this pass just superseded it — EXCEPT when it's a redo
+  // reading from finalPath itself, since that's the file just written above; deleting it now
+  // would delete the very output this task exists to produce.
+  if(payload.candidatePath !== finalPath) await unlinkQuiet(payload.candidatePath);
+  if(payload.otherCandidatePath && payload.otherCandidatePath !== finalPath){
+    await unlinkQuiet(payload.otherCandidatePath);
+  }
 
-  entry.img = finalPath;
-
+  // Deliberately NOT setting entry.img or returning plain "done" here — a human still has to
+  // approve this before it's linked into the entry. See the header comment above.
   return {
-    result: { entityId: entry.id, name: entry.n, img: finalPath },
-    summary: 'finalized image for ' + entry.n,
-    filesToCommit: ['data.json', finalPath, payload.candidatePath, payload.otherCandidatePath].filter(Boolean)
+    awaitingReview: true,
+    result: { entityId: entry.id, name: entry.n, finalPath },
+    summary: 'refined image for ' + entry.n + ', awaiting approval',
+    filesToCommit: Array.from(new Set(
+      [finalPath, payload.candidatePath, payload.otherCandidatePath].filter(Boolean)
+    ))
   };
 }
