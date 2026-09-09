@@ -1,9 +1,38 @@
 <!--
-VERSION: 338
-DATE: 2026-09-09T20:45:00-05:00
+VERSION: 339
+DATE: 2026-09-09T22:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- GitHub token: switched persistence from the 'change' event (fires on blur) to 'input' (fires on
+  every keystroke) — navigating straight from that field to Task Automation wasn't reliably
+  blurring it first on every mobile browser, so v336's fix still wasn't sticking for that path.
+- Sentence-reword review, redesigned around three real problems with the whole-article Before/
+  After toggle from v334: no way to jump straight to what changed, comparing before/after meant
+  losing your scroll position, and no way to tell "nothing to compare" from "the tool found
+  nothing" at a glance.
+  - Every section now renders BOTH its original and reworded text into the DOM up front (only
+    the reworded text if it has no fix — nothing to compare there). A small Original/Corrected
+    toggle sits right in that section's own header, only when it has a fix, and flips a
+    data-mode attribute via CSS — no re-render, so nothing else on screen moves and scroll
+    position never resets, exactly the "swap in place" behavior asked for.
+  - New "Show only fixed sections" checkbox, remembered across sessions via localStorage
+    (tk-sentence-hide-unfixed) — also a pure CSS toggle (hides .tkSentSection elements without
+    the .tkSentHasFix class), so switching it doesn't re-render or move anything either.
+  - tkRenderSentenceSections \u2192 tkRenderSentenceSectionSet: now returns {html, hasFix} per
+    section instead of one combined string, so the caller can decide per-section whether to
+    render one view or both.
+  - Removed the old single global Before/After toggle (tkSentenceShowBefore/-For, #tkToggleSentenceView)
+    entirely — fully superseded by the per-section version.
+  - New sticky, larger name+year header (tkRvSticky/tkRvNameBig/tkRvYearBig) for this review
+    specifically, replacing the plain tkRvName/tkRvMeta it used to share with every other review
+    type — position:sticky against #tkReviewScroll's own scroll context, so it stays visible while
+    scrolling a potentially long article section by section.
+  - New delegated listeners for the toggle buttons and the checkbox, bound once (alongside
+    tkChips' own) rather than per-render, since neither needs re-binding after a toggle — only a
+    task switch actually changes the DOM they're delegating from.
+
+v338 CHANGES (unchanged from the version this build started from):
 - Task Automation's All/Queued/Review filter chips now have icons (2x2 grid, clock, document
   with checkmark) matching Tom's reference mockup — plain inline SVG (new .tkChipIcon wrapper),
   same technique most of the app already uses, reusing the existing .spChip column layout
@@ -934,6 +963,34 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkReviewScroll p{color:#2B2F3A; margin:0 0 10px;}
   .tkReviewScroll b{color:#111827;}
   .tkRvName{font-size:19px; font-weight:700; color:#111827; line-height:1.25; margin:2px 0 2px;}
+  /* Sentence-reword review's own sticky header — bigger and pinned to the top of
+     #tkReviewScroll's own scroll context (that element is the overflow:auto ancestor, so
+     position:sticky here tracks ITS scrolling, not the page's) rather than the plain tkRvName/
+     tkRvMeta every other review type uses. This review runs long — a whole article, scrolled
+     section by section — so losing track of which entity is on screen is a real risk the
+     shorter reviews don't have. */
+  .tkRvSticky{
+    position:sticky; top:0; z-index:4; background:#fff;
+    margin:0 -20px 10px; padding:10px 20px 9px; border-bottom:1px solid #E9EAEE;
+  }
+  .tkRvNameBig{font-family:'Cinzel',serif; font-size:22px; font-weight:700; color:#111827; line-height:1.2;}
+  .tkRvYearBig{font-size:13px; font-weight:600; color:#8A7B4E; margin-top:2px;}
+  /* Sentence-reword review: "show only fixed sections" filter row, and each section's own block.
+     Every section renders both its original and reworded text up front (see
+     tkRenderSentenceRewordReview) — these rules are what actually show one and hide the other,
+     and what hides an unfixed section entirely when the filter is on. Both are pure CSS toggles,
+     flipped by the delegated listener near tkChips' own — never a re-render, so scroll position
+     and every other section's own toggle state survive untouched. */
+  .tkSentHideRow{margin:4px 0 10px;}
+  .tkSentSecHead{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:16px 0 5px;}
+  .tkSentToggle{
+    flex:0 0 auto; font-size:12px; font-weight:700; font-family:system-ui,-apple-system,sans-serif;
+    color:var(--gold-deep,#9A7B22); background:#F5F1E4; border:none; border-radius:12px;
+    padding:4px 11px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+  }
+  .tkSentBody[data-mode="corrected"] .tkSentVOrig{display:none;}
+  .tkSentBody[data-mode="original"] .tkSentVCorr{display:none;}
+  .tkSentSections.tkHideUnfixed .tkSentSection:not(.tkSentHasFix){display:none;}
   .tkRvMeta{font-size:12px; color:#6B7280; margin-bottom:12px; word-break:break-all; line-height:1.45;}
   .tkRvHead{
     font-size:11.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
@@ -3656,7 +3713,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v338';
+const APP_VERSION = 'v339';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5436,11 +5493,14 @@ function prefillGh(){
   // that Publish button would have their token quietly vanish the next time Manage opened, since
   // prefillGh() runs fresh on every open and re-reads whatever's actually in storage. Saving on
   // blur here means typing it in anywhere is enough, regardless of which button gets pressed
-  // afterward.
+  // afterward. Using 'input' rather than 'change': 'change' only fires on blur, and navigating
+  // straight from this field to Task Automation doesn't reliably blur it first on every mobile
+  // browser — 'input' saves on every keystroke instead, so there's no timing gap for a fast
+  // paste-then-navigate to fall through.
   const tokenEl = document.getElementById('ghToken');
   if(tokenEl && !tokenEl.dataset.persistBound){
     tokenEl.dataset.persistBound = '1';
-    tokenEl.addEventListener('change', () => {
+    tokenEl.addEventListener('input', () => {
       const val = tokenEl.value.trim();
       if(val) localStorage.setItem('gh-token', val);
     });
@@ -5986,11 +6046,13 @@ let tkFinalShowOriginal = false;   // final-review's toggle: false = final image
 let tkFinalShowOriginalFor = null; // task id the toggle above applies to; renderTaskReview resets
                                     // the toggle itself the moment this stops matching the task
                                     // on screen, so nothing else has to remember to reset it
-let tkSentenceShowBefore = false;  // sentence-reword review's own toggle: false = reworded
-                                    // ("After", the default — you're reviewing what would change),
-                                    // true = the untouched original. Same local-view-only pattern.
-let tkSentenceShowBeforeFor = null; // task id the toggle above applies to; reset the same way
-                                     // tkFinalShowOriginalFor is, the moment the task changes
+// Sentence-reword review's "show only fixed sections" filter. Unlike the toggles above, this is
+// a real remembered preference (Tom's ask), not a per-task view reset, so it lives in
+// localStorage rather than a plain variable — same pattern as gh-config/audio-gen-settings.
+// Per-section Original/Corrected toggles need no JS state at all: both versions render into the
+// DOM up front and a click just flips a data-mode attribute via CSS, so toggling one section (or
+// this filter) never re-renders the panel and never moves anything else on screen.
+let tkSentenceHideUnfixed = localStorage.getItem('tk-sentence-hide-unfixed') === '1';
 
 const TK_FINISHED = { done: 1, approved: 1, rejected: 1 };
 // Queued deliberately includes in_progress — a task that's running is still work you're
@@ -6453,20 +6515,17 @@ function tkSplitSentencesForDisplay(text){
   return out.filter(Boolean);
 }
 
-// Renders one view (either the untouched sections + beforeSpans, or afterSections + afterSpans)
-// as full article markup. Tags are stripped, same convention tkRenderArticle above uses — this
-// is for reading what changed, not reproducing formatting. Every sentence gets wrapped in its
-// own span: one overlapping a patch's span goes yellow (alternating shade by patchIndex, so two
-// edits near each other read as distinct blocks); everything else alternates a faint grey background,
-// purely so a sentence's length is visible without having to count words. counterRef is a single
-// {n} object threaded across the whole article so the grey alternation doesn't reset at every
-// paragraph or section boundary.
-function tkRenderSentenceSections(sections, spans, counterRef){
+// Renders one (sections, spans) pairing into per-section {html, hasFix} pieces. Called once for
+// the untouched original and once for the fully-reworded copy, so the caller can lay both
+// versions of every section into the DOM side by side. counterRef threads the grey alternation
+// across the whole article, same as before — one shared counter per call, not reset per section.
+function tkRenderSentenceSectionSet(sections, spans, counterRef){
   return sections.map((sec, si) => {
-    const paras = String(sec.b || '').split('\n\n');
     const secSpans = spans.filter(sp => sp.sectionIndex === si);
+    const hasFix = secSpans.length > 0;
+    const paras = String(sec.b || '').split('\n\n');
     let paraOffset = 0;
-    const body = paras.map(rawPara => {
+    const html = paras.map(rawPara => {
       const toPlainOffset = raw => rawPara.slice(0, raw).replace(/<[^>]*>/g, '').length;
       const plain = rawPara.replace(/<[^>]*>/g, '');
       const localSpans = secSpans
@@ -6493,25 +6552,48 @@ function tkRenderSentenceSections(sections, spans, counterRef){
       }).join(' ');
       return '<p class="tkPara">' + inner + '</p>';
     }).join('');
-    return '<div class="tkSection"><div class="tkSectionH">' + esc(sec.h || '') + '</div>' + body + '</div>';
-  }).join('');
+    return { html, hasFix };
+  });
 }
 
-// Top-level entry point: the toggle button plus whichever view is currently selected.
+// Every section renders once, in full, up front — both its original and reworded text where it
+// has a fix, both permanently in the DOM. A section's own toggle button (only shown when it
+// actually has a fix) flips a data-mode attribute that CSS uses to show one and hide the other;
+// "Show only fixed sections" flips a class on the wrapper that CSS uses to hide sections with no
+// fix at all. Neither ever re-renders the panel, so neither ever moves anything on screen or
+// disturbs scroll position — see the delegated listener set up once near tkChips' own, not here.
 function tkRenderSentenceRewordReview(entry, patches){
   const sections = (entry.art && entry.art.sections) || [];
   const preview = tkPreviewSentencePatches(sections, patches);
-  const showBefore = tkSentenceShowBefore;
-  const counter = { n: 0 };
-  const articleHtml = showBefore
-    ? tkRenderSentenceSections(sections, preview.beforeSpans, counter)
-    : tkRenderSentenceSections(preview.afterSections, preview.afterSpans, counter);
-  const headLabel = showBefore
-    ? 'Article \u2014 original'
-    : 'Article \u2014 reworded (' + patches.length + ' sentence' + (patches.length === 1 ? '' : 's') + ' fixed)';
-  return '<button class="tkBtn" id="tkToggleSentenceView">' + (showBefore ? 'Show reworded' : 'Show original') + '</button>' +
-    '<div class="tkRvHead">' + headLabel + '</div>' + articleHtml;
+  const beforeCounter = { n: 0 }, afterCounter = { n: 0 };
+  const beforeSet = tkRenderSentenceSectionSet(sections, preview.beforeSpans, beforeCounter);
+  const afterSet = tkRenderSentenceSectionSet(preview.afterSections, preview.afterSpans, afterCounter);
+  const fixedCount = afterSet.filter(s => s.hasFix).length;
+
+  const sectionsHtml = sections.map((sec, si) => {
+    const before = beforeSet[si], after = afterSet[si];
+    const headingHtml = '<span class="tkSectionH">' + esc(sec.h || '') + '</span>';
+    if(!after.hasFix){
+      return '<div class="tkSentSection"><div class="tkSentSecHead">' + headingHtml + '</div>' +
+        '<div class="tkSentBody" data-mode="corrected"><div class="tkSentV tkSentVCorr">' + after.html + '</div></div></div>';
+    }
+    return '<div class="tkSentSection tkSentHasFix">' +
+      '<div class="tkSentSecHead">' + headingHtml +
+        '<button class="tkSentToggle" type="button">Show original</button></div>' +
+      '<div class="tkSentBody" data-mode="corrected">' +
+        '<div class="tkSentV tkSentVOrig">' + before.html + '</div>' +
+        '<div class="tkSentV tkSentVCorr">' + after.html + '</div>' +
+      '</div></div>';
+  }).join('');
+
+  return '<label class="tkCheck tkSentHideRow"><input type="checkbox" id="tkHideUnfixedChk"' +
+      (tkSentenceHideUnfixed ? ' checked' : '') + '><span>Show only fixed sections</span></label>' +
+    '<div class="tkRvHead">' + fixedCount + ' of ' + sections.length + ' section' + (sections.length === 1 ? '' : 's') + ' fixed</div>' +
+    '<div class="tkSentSections' + (tkSentenceHideUnfixed ? ' tkHideUnfixed' : '') + '" id="tkSentSections">' +
+      (sectionsHtml || '<p class="tkRvEmpty">No sections in this article.</p>') +
+    '</div>';
 }
+
 
 // The scan/summary fallback — a task with nothing to point at. Rendered as stat tiles plus a
 // breakdown list rather than a sentence: these tasks carry a handful of numbers and nothing
@@ -6643,11 +6725,13 @@ function renderTaskReview(){
     // rendering as if zero sentences needed fixing — confusing, and indistinguishable from a task
     // that genuinely found nothing — say plainly what's going on and what to do about it.
     const isLegacyShape = !hasBundledPatches && t.result && Array.isArray(t.result.patch);
-    // Local view-only state, same pattern as tkFinalShowOriginal: resets the moment a different
-    // task is on screen, so a stale toggle from a previous review never carries over.
-    if(tkSentenceShowBeforeFor !== t.id){ tkSentenceShowBefore = false; tkSentenceShowBeforeFor = t.id; }
-    body = '<div class="tkRvName">' + esc(entry.n) + '</div>' +
-      '<div class="tkRvMeta">' + esc(t.type) + ' \u00b7 ' + esc(t.entityId) + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
+    // Sticky, larger name+year in place of the plain tkRvName/tkRvMeta this review type normally
+    // gets — this review runs long enough (a whole article, scrolled section by section) that
+    // losing track of which entity you're looking at is a real risk the other review types don't
+    // have. position:sticky against #tkReviewScroll's own scroll context (see its CSS), not the
+    // page, so it stays put exactly while scrolling THIS content.
+    body = '<div class="tkRvSticky"><div class="tkRvNameBig">' + esc(entry.n) + '</div>' +
+      '<div class="tkRvYearBig">' + esc(fmtYear(entry.y)) + '</div></div>' +
       (isLegacyShape
         ? '<p class="tkNote">This proposal was created before the whole-article review — its data is in the old one-sentence-at-a-time shape, so it can\u2019t be displayed here. Nothing on the entry has changed either way. Reject this, then requeue ' + esc(entry.n) + ' from Add Task to get a fresh, fully-reviewable version.</p>'
         : tkRenderSentenceRewordReview(entry, hasBundledPatches ? t.result.patches : []));
@@ -6674,16 +6758,6 @@ function renderTaskReview(){
     if(toggleBtn){
       toggleBtn.addEventListener('click', () => {
         tkFinalShowOriginal = !tkFinalShowOriginal;
-        renderTaskPanel();
-      });
-    }
-  }
-
-  if(isSentenceRewordReview){
-    const toggleBtn = document.getElementById('tkToggleSentenceView');
-    if(toggleBtn){
-      toggleBtn.addEventListener('click', () => {
-        tkSentenceShowBefore = !tkSentenceShowBefore;
         renderTaskPanel();
       });
     }
@@ -7094,6 +7168,29 @@ document.getElementById('tkChips').addEventListener('click', (e) => {
   if(!btn) return;
   tkFilter = btn.dataset.filter;
   renderTaskList();
+});
+// Sentence-reword review: per-section Original/Corrected toggle and the "show only fixed
+// sections" filter. Both versions of every section are already in the DOM (see
+// tkRenderSentenceRewordReview) — these just flip a data attribute or a class, never call
+// renderTaskPanel(), so neither ever re-renders the panel, moves anything else on screen, or
+// disturbs scroll position. Bound once here rather than inside renderTaskReview, since delegating
+// from the stable #tkReviewScroll container means it keeps working across every future re-render
+// (switching tasks) without needing to be re-attached each time.
+document.getElementById('tkReviewScroll').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tkSentToggle');
+  if(!btn) return;
+  const bodyEl = btn.closest('.tkSentSection').querySelector('.tkSentBody');
+  const showingCorrected = bodyEl.dataset.mode !== 'original';
+  bodyEl.dataset.mode = showingCorrected ? 'original' : 'corrected';
+  btn.textContent = showingCorrected ? 'Show corrected' : 'Show original';
+});
+document.getElementById('tkReviewScroll').addEventListener('change', (e) => {
+  const chk = e.target.closest('#tkHideUnfixedChk');
+  if(!chk) return;
+  tkSentenceHideUnfixed = chk.checked;
+  localStorage.setItem('tk-sentence-hide-unfixed', chk.checked ? '1' : '0');
+  const container = document.getElementById('tkSentSections');
+  if(container) container.classList.toggle('tkHideUnfixed', chk.checked);
 });
 document.getElementById('tkList').addEventListener('click', (e) => {
   const row = e.target.closest('.tkRow[data-task]');
