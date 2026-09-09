@@ -5,12 +5,12 @@
 // One task = one entity, queued via Task Automation's Add Task batch selector (Category/Start/
 // Quantity — the same picker shape image-generate uses; see sentenceRewordPool() in index.html).
 // This handler scans every section's `b` field for a paragraph containing a sentence over 40
-// words, asks Claude to reword just that one sentence into shorter ones, and — for every fix it
-// finds — spawns a separate `proposed` task carrying a single-edit patches-format tuple
-// (['article', matchText, 'U', replacement]). That reuses the exact review/approve path
-// age-backfill's spawned tasks already use: renderTaskReview()'s entry branch, tkRenderArticle()'s
-// match-and-preview, applyOnePatch() to actually merge an approved one in. This task itself never
-// touches data.json — only an approved child does, and only once a human taps Approve in the app.
+// words, asks Claude to reword just that one sentence into shorter ones, and — if it finds any —
+// spawns exactly ONE `proposed` task for the whole entity, carrying every fix as a `patches`
+// array (['article', matchText, 'U', replacement] tuples). Reviewing that one task shows the
+// WHOLE article at once (index.html's tkRenderSentenceRewordReview), not one screen per sentence
+// — a paragraph with three long sentences is one decision, not three. This task itself never
+// touches data.json — only an approved child does, and only once a human taps Approve.
 //
 // Scope, per content-authoring-skill.md's "Sentence length — write for the ear" section:
 //   - `art.sections[].b` only. Never `quotes`, `facts`, or anything else.
@@ -24,12 +24,13 @@
 //   - Applies to existing/seed entries only in practice: a freshly-drafted entry that already
 //     follows the word-count rule simply has nothing here to flag, so it never enters the pool.
 //
-// Audio invalidation: approving one of this task's spawned children also clears the entity's
-// `audio` field and queues its recorded files for deletion — see wlApplyTaskToDb() and
+// Audio invalidation: approving this task's bundled patches also clears the entity's `audio`
+// field and queues its recorded files for deletion — see wlApplyTaskToDb() and
 // publishToGitHub() in index.html. Nothing about that lives here; this handler only ever
 // proposes text changes.
 //
 // Requires ANTHROPIC_API_KEY as a repo secret, passed through by orchestrator.yml.
+
 
 import { stripHtml } from '../lib/text.mjs';
 
@@ -162,7 +163,7 @@ export async function runSentenceReword(task, dataJson){
   const fullText = sections.map(s => String(s.b || '')).join('\u0000');
 
   let sectionOffset = 0;
-  const spawnedTasks = [];
+  const patches = []; // every fix for this entity, bundled into one review instead of one task each
   let found = 0, reworded = 0, skippedTagMismatch = 0, apiErrors = 0;
 
   for(let si = 0; si < sections.length; si++){
@@ -194,15 +195,7 @@ export async function runSentenceReword(task, dataJson){
                 if(replacement && replacement !== sentence){
                   reworded++;
                   const element = occurrence > 1 ? sentence + '@' + occurrence : sentence;
-                  const nowIso = new Date().toISOString();
-                  spawnedTasks.push({
-                    id: 'task-sentence-reword-' + entry.id + '-' + si + '-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
-                    type: 'sentence-reword', entityId: entry.id, batchId: null, status: 'proposed',
-                    description: 'Reword long sentence \u2014 ' + entry.n,
-                    payload: { sectionIndex: si, wordCountBefore: wordCount(sentence) },
-                    result: { name: entry.n, patch: ['article', element, 'U', replacement] },
-                    error: null, createdAt: nowIso, updatedAt: nowIso
-                  });
+                  patches.push(['article', element, 'U', replacement]);
                 }
               }
             }
@@ -219,6 +212,17 @@ export async function runSentenceReword(task, dataJson){
     : reworded + ' of ' + found + ' long sentence(s) reworded and queued for review' +
       (skippedTagMismatch ? ' \u00b7 ' + skippedTagMismatch + ' skipped (spans a formatting tag)' : '') +
       (apiErrors ? ' \u00b7 ' + apiErrors + ' call(s) failed, rerun this task to retry those' : '');
+
+  const spawnedTasks = [];
+  if(patches.length){
+    const nowIso = new Date().toISOString();
+    spawnedTasks.push({
+      id: 'task-sentence-reword-' + entry.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
+      type: 'sentence-reword', entityId: entry.id, batchId: null, status: 'proposed',
+      description: 'Reword ' + patches.length + ' long sentence' + (patches.length === 1 ? '' : 's') + ' \u2014 ' + entry.n,
+      payload: {}, result: { name: entry.n, patches }, error: null, createdAt: nowIso, updatedAt: nowIso
+    });
+  }
 
   return {
     result: {
