@@ -1,9 +1,20 @@
 <!--
-VERSION: 337
-DATE: 2026-09-09T20:00:00-05:00
+VERSION: 338
+DATE: 2026-09-09T20:45:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Task Automation's All/Queued/Review filter chips now have icons (2x2 grid, clock, document
+  with checkmark) matching Tom's reference mockup — plain inline SVG (new .tkChipIcon wrapper),
+  same technique most of the app already uses, reusing the existing .spChip column layout
+  (icon above label) and .spChip.active color rule, so active/inactive state recolors both the
+  icon and label together automatically via currentColor. The clock icon reuses a path already
+  drawn elsewhere in the file rather than redrawing it. No new art assets — this component's own
+  precedent of custom commissioned PNG-mask icons (Saints/Councils/Eucharistic Miracles chip
+  bars) was considered but skipped here, since a grid/clock/document are simple enough shapes
+  that hand-drawn line art matches fine without needing bespoke art.
+
+v337 CHANGES (unchanged from the version this build started from):
 - Fixed: sentence splitting broke on abbreviations ("St. Augustine" → two fake sentences at "St."),
   affecting both what counts as an over-length sentence server-side and how the review displays
   sentence boundaries. New shared SENTENCE_ABBREVIATIONS list (St./Sts./Dr./Mr./Fr./c./i.e./e.g./
@@ -469,6 +480,13 @@ v332 CHANGES (unchanged from the version this build started from):
     -webkit-mask-position:center; mask-position:center;
     -webkit-mask-size:contain; mask-size:contain;
   }
+  /* Task Automation's own filter chips (.spChips/.spChip reused wholesale) use plain inline SVG
+     rather than the mask-image technique above — a grid, a clock, and a document are simple
+     enough shapes that hand-drawn line art matches the rest of the app fine, no commissioned
+     art needed. currentColor means the same .spChip.active{color:...} rule that recolors the
+     label recolors these too, automatically. */
+  .tkChipIcon{display:block; width:22px; height:22px;}
+  .tkChipIcon svg{width:100%; height:100%; display:block;}
   /* v304: Eucharistic Miracles' own chip icons grown 22px -> 32px — scoped to this one panel
      (via the data-type attribute openBrowsePanel() now sets on #browsePanel) rather than the
      shared base rule above, so Saints/Councils/Persecutions/Marian/Events' chip bars, already
@@ -3638,7 +3656,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v337';
+const APP_VERSION = 'v338';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5979,9 +5997,14 @@ const TK_FINISHED = { done: 1, approved: 1, rejected: 1 };
 // waiting on, not a separate state you'd want to hunt for. Finished items have no chip of
 // their own; they live under All, greyed.
 const TK_CHIPS = [
-  { id: 'all', label: 'All' },
-  { id: 'queued', label: 'Queued' },
-  { id: 'review', label: 'Review' }
+  { id: 'all', label: 'All',
+    icon: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>' },
+  { id: 'queued', label: 'Queued',
+    // Same clock path already used elsewhere in the app (see the other viewBox="0 0 24 24"
+    // circle+hand icon a few hundred lines up) — reused rather than redrawn, for consistency.
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>' },
+  { id: 'review', label: 'Review',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h9l4 4V21a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z"/><path d="M15 2.5V6.5a1 1 0 0 0 1 1H20"/><path d="M8.5 13.3l2.3 2.2L15.5 10.8"/></svg>' }
 ];
 // Services the orchestrator has a handler for. Drives the Run dropdown; keep in step with
 // SERVICE_HANDLERS in scripts/orchestrator.mjs.
@@ -6263,7 +6286,7 @@ function renderTaskList(){
     '<button class="spCol' + (tkSort === 'date' ? ' active' : '') + '" id="tkSortDate" data-sort="date">Date <span class="arrow">\u25b2</span></button>';
   document.getElementById('tkChips').innerHTML = TK_CHIPS.map(c =>
     '<button class="spChip' + (c.id === tkFilter ? ' active' : '') + '" data-filter="' + esc(c.id) + '"' +
-    ' aria-pressed="' + (c.id === tkFilter ? 'true' : 'false') + '"><span>' + esc(c.label) + '</span></button>'
+    ' aria-pressed="' + (c.id === tkFilter ? 'true' : 'false') + '"><span class="tkChipIcon">' + c.icon + '</span><span>' + esc(c.label) + '</span></button>'
   ).join('');
 
   const rows = tkRows();
