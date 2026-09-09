@@ -1,9 +1,33 @@
 <!--
-VERSION: 333
-DATE: 2026-09-08T20:00:00-05:00
+VERSION: 334
+DATE: 2026-09-09T12:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Sentence-reword review redesigned from one-task-per-sentence to one-task-per-entity, whole
+  article at a time:
+  - scripts/services/sentence-reword.mjs now bundles every long-sentence fix for an entity into a
+    single `result.patches` array on one spawned `proposed` task, instead of spawning a separate
+    task per fix. A paragraph with three long sentences is now one review, not three.
+  - New review renderer (tkRenderSentenceRewordReview + tkPreviewSentencePatches +
+    tkRenderSentenceSections + tkSplitSentencesForDisplay, plus a read-only locateTextInSections
+    alongside patchTextInSections) shows the WHOLE article, not just the one changed paragraph.
+    Every sentence is wrapped in its own span: one a patch actually touches goes yellow —
+    alternating between two shades by patch index, so two edits sitting near each other read as
+    distinct blocks rather than blurring into one — and every other untouched sentence gets a
+    faint grey background, purely so its length is visible without counting words.
+  - New "Show original" / "Show reworded" toggle (tkSentenceShowBefore, same local-view-only
+    reset-per-task pattern as image review's tkFinalShowOriginal), defaulting to the reworded
+    view. Before flips to the untouched original with the same sentences that would change still
+    marked, so you can compare either direction without leaving the screen.
+  - wlApplyTaskToDb() now applies either shape: a single result.patch (age-backfill and anything
+    else unchanged) or sentence-reword's result.patches array, applied in order — a patch that
+    fails to match is reported and skipped rather than aborting the ones that did.
+  - Approve/Reject and the audio-purge-on-approve behavior are unchanged — sentence-reword still
+    lands on the generic 'proposed' lock bar, and clearing entry.audio still only fires once at
+    least one patch actually applied.
+
+v333 CHANGES (unchanged from the version this build started from):
 - New service: "sentence-reword". Reworked the sentence-length cleanup pass (previously a manual
   chat-based batch job) into a proper Task Automation service, following the same patterns the
   existing age-backfill-scan and image-generate services already use, rather than as a separate
@@ -886,6 +910,13 @@ v332 CHANGES (unchanged from the version this build started from):
     box-shadow:0 0 6px rgba(201,165,66,.65), 0 0 14px rgba(201,165,66,.35);
   }
   .tkTarget .tkFactValue{font-weight:700;}
+  /* Sentence-reword review: every sentence gets one of these three treatments — plain (every
+     other one, so length is visible without counting words), or one of two yellow shades for a
+     sentence a patch actually touches, alternating per patch so two edits near each other in the
+     same paragraph read as clearly separate blocks rather than one blur of yellow. */
+  .tkSentAlt{background:#EFEFEA; border-radius:3px;}
+  .tkSentYellowA{background:#FBF3DC; border-radius:3px;}
+  .tkSentYellowB{background:#F5DFA0; border-radius:3px;}
   .tkRvEmpty{font-size:14px; color:#6B7280; line-height:1.5; padding:10px 0;}
   /* Picture Review — one candidate image at a time, plus a notes box that rides along with
      whichever decision button gets tapped. */
@@ -3575,7 +3606,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v333';
+const APP_VERSION = 'v334';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5891,6 +5922,11 @@ let tkFinalShowOriginal = false;   // final-review's toggle: false = final image
 let tkFinalShowOriginalFor = null; // task id the toggle above applies to; renderTaskReview resets
                                     // the toggle itself the moment this stops matching the task
                                     // on screen, so nothing else has to remember to reset it
+let tkSentenceShowBefore = false;  // sentence-reword review's own toggle: false = reworded
+                                    // ("After", the default — you're reviewing what would change),
+                                    // true = the untouched original. Same local-view-only pattern.
+let tkSentenceShowBeforeFor = null; // task id the toggle above applies to; reset the same way
+                                     // tkFinalShowOriginalFor is, the moment the task changes
 
 const TK_FINISHED = { done: 1, approved: 1, rejected: 1 };
 // Queued deliberately includes in_progress — a task that's running is still work you're
@@ -6263,6 +6299,103 @@ function tkRenderArticle(entry, patch){
   return '<div class="tkRvHead">Article</div>' + html;
 }
 
+// ==================== Sentence-reword review — whole article, Before/After ====================
+// Unlike a single-patch task (age-backfill, tkRenderArticle above), a sentence-reword task can
+// carry many patches for one entity, and the point of review is to read the WHOLE article with
+// every fix visible at once, not one screen per sentence.
+
+// Given the entity's real sections and every patch this task proposes, computes both views
+// without touching the entry: where each patch's ORIGINAL sentence sits in the untouched
+// sections (beforeSpans), a full working copy with every patch actually spliced in
+// (afterSections), and where each patch's REPLACEMENT text landed in that copy (afterSpans).
+// Patches are applied in array order against the working copy — same "each sees the previous
+// one's result" rule the patches format itself defines — so occurrence-numbered matches still
+// resolve correctly even after an earlier patch has changed the text around them.
+function tkPreviewSentencePatches(sections, patches){
+  const beforeSpans = [];
+  const afterSections = sections.map(s => ({ h: s.h, b: String(s.b || '') }));
+  const afterSpans = [];
+  patches.forEach((p, pi) => {
+    const parsed = patchParseElementOccurrence(p[1]);
+    const value = String(p[3] == null ? '' : p[3]);
+    const beforeHit = locateTextInSections(sections, parsed.text, parsed.occurrence);
+    if(beforeHit) beforeSpans.push(Object.assign({ patchIndex: pi }, beforeHit));
+    const afterHit = locateTextInSections(afterSections, parsed.text, parsed.occurrence);
+    if(afterHit){
+      const body = afterSections[afterHit.sectionIndex].b;
+      afterSections[afterHit.sectionIndex].b = body.slice(0, afterHit.start) + value + body.slice(afterHit.end);
+      afterSpans.push({ patchIndex: pi, sectionIndex: afterHit.sectionIndex, start: afterHit.start, end: afterHit.start + value.length });
+    }
+  });
+  return { beforeSpans, afterSections, afterSpans };
+}
+
+// Same sentence-boundary heuristic scripts/services/sentence-reword.mjs's own splitIntoSentences
+// uses, so what's outlined here matches what the server actually matched against.
+function tkSplitSentencesForDisplay(text){
+  return text.split(/(?<=[.!?])\s+(?=[A-Z0-9"'\u201C(])/).filter(Boolean);
+}
+
+// Renders one view (either the untouched sections + beforeSpans, or afterSections + afterSpans)
+// as full article markup. Tags are stripped, same convention tkRenderArticle above uses — this
+// is for reading what changed, not reproducing formatting. Every sentence gets wrapped in its
+// own span: one overlapping a patch's span goes yellow (alternating shade by patchIndex, so two
+// edits near each other read as distinct blocks); everything else alternates a faint grey background,
+// purely so a sentence's length is visible without having to count words. counterRef is a single
+// {n} object threaded across the whole article so the grey alternation doesn't reset at every
+// paragraph or section boundary.
+function tkRenderSentenceSections(sections, spans, counterRef){
+  return sections.map((sec, si) => {
+    const paras = String(sec.b || '').split('\n\n');
+    const secSpans = spans.filter(sp => sp.sectionIndex === si);
+    let paraOffset = 0;
+    const body = paras.map(rawPara => {
+      const toPlainOffset = raw => rawPara.slice(0, raw).replace(/<[^>]*>/g, '').length;
+      const plain = rawPara.replace(/<[^>]*>/g, '');
+      const localSpans = secSpans
+        .filter(sp => sp.start >= paraOffset && sp.start < paraOffset + rawPara.length)
+        .map(sp => ({
+          patchIndex: sp.patchIndex,
+          start: toPlainOffset(sp.start - paraOffset),
+          end: toPlainOffset(Math.min(sp.end, paraOffset + rawPara.length) - paraOffset)
+        }));
+      paraOffset += rawPara.length + 2; // '\n\n' separator
+      if(!plain.trim()) return '';
+      let cursor = 0;
+      const inner = tkSplitSentencesForDisplay(plain).map(sent => {
+        const found = plain.indexOf(sent, cursor);
+        const s = found === -1 ? cursor : found;
+        const e = s + sent.length;
+        cursor = e;
+        const hit = localSpans.find(ls => s < ls.end && e > ls.start);
+        const cls = hit
+          ? (hit.patchIndex % 2 === 0 ? 'tkSentYellowA' : 'tkSentYellowB')
+          : (counterRef.n % 2 === 0 ? 'tkSentAlt' : '');
+        counterRef.n++;
+        return '<span class="' + cls + '">' + esc(sent) + '</span>';
+      }).join(' ');
+      return '<p class="tkPara">' + inner + '</p>';
+    }).join('');
+    return '<div class="tkSection"><div class="tkSectionH">' + esc(sec.h || '') + '</div>' + body + '</div>';
+  }).join('');
+}
+
+// Top-level entry point: the toggle button plus whichever view is currently selected.
+function tkRenderSentenceRewordReview(entry, patches){
+  const sections = (entry.art && entry.art.sections) || [];
+  const preview = tkPreviewSentencePatches(sections, patches);
+  const showBefore = tkSentenceShowBefore;
+  const counter = { n: 0 };
+  const articleHtml = showBefore
+    ? tkRenderSentenceSections(sections, preview.beforeSpans, counter)
+    : tkRenderSentenceSections(preview.afterSections, preview.afterSpans, counter);
+  const headLabel = showBefore
+    ? 'Article \u2014 original'
+    : 'Article \u2014 reworded (' + patches.length + ' sentence' + (patches.length === 1 ? '' : 's') + ' fixed)';
+  return '<button class="tkBtn" id="tkToggleSentenceView">' + (showBefore ? 'Show reworded' : 'Show original') + '</button>' +
+    '<div class="tkRvHead">' + headLabel + '</div>' + articleHtml;
+}
+
 // The scan/summary fallback — a task with nothing to point at. Rendered as stat tiles plus a
 // breakdown list rather than a sentence: these tasks carry a handful of numbers and nothing
 // else, and on a full-screen panel a two-line paragraph left the screen looking empty.
@@ -6329,6 +6462,10 @@ function renderTaskReview(){
   const isFinalApproved = t.type === 'image-finalize' && t.status === 'done' &&
     t.result && t.result.decision === 'approve';
   const isFinalReview = isFinalPending || isFinalApproved;
+  // A sentence-reword task bundles every long-sentence fix for the entity into one review — the
+  // whole article, Before/After toggle — rather than the single-paragraph-marked view the generic
+  // entry branch below gives other patch-based tasks (age-backfill etc).
+  const isSentenceRewordReview = t.type === 'sentence-reword' && t.status === 'proposed';
   // Checked ahead of the entry/summary branches below regardless of type, so a failed task never
   // falls into "show the article as if nothing happened" just because it has a valid entityId.
   const isErrorReview = t.status === 'error';
@@ -6382,6 +6519,14 @@ function renderTaskReview(){
           '<div class="tkImgWrap"><img src="' + esc(rawAssetUrl(r.candidateB)) + '" alt="Original candidate B">' +
           '<div class="tkImgSide">Candidate B</div></div>'
         : '');
+  } else if(isSentenceRewordReview && entry){
+    const patches = (t.result && Array.isArray(t.result.patches)) ? t.result.patches : [];
+    // Local view-only state, same pattern as tkFinalShowOriginal: resets the moment a different
+    // task is on screen, so a stale toggle from a previous review never carries over.
+    if(tkSentenceShowBeforeFor !== t.id){ tkSentenceShowBefore = false; tkSentenceShowBeforeFor = t.id; }
+    body = '<div class="tkRvName">' + esc(entry.n) + '</div>' +
+      '<div class="tkRvMeta">' + esc(t.type) + ' \u00b7 ' + esc(t.entityId) + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
+      tkRenderSentenceRewordReview(entry, patches);
   } else if(entry){
     const patch = (t.result && Array.isArray(t.result.patch)) ? t.result.patch : null;
     body = '<div class="tkRvName">' + esc(entry.n) + '</div>' +
@@ -6405,6 +6550,16 @@ function renderTaskReview(){
     if(toggleBtn){
       toggleBtn.addEventListener('click', () => {
         tkFinalShowOriginal = !tkFinalShowOriginal;
+        renderTaskPanel();
+      });
+    }
+  }
+
+  if(isSentenceRewordReview){
+    const toggleBtn = document.getElementById('tkToggleSentenceView');
+    if(toggleBtn){
+      toggleBtn.addEventListener('click', () => {
+        tkSentenceShowBefore = !tkSentenceShowBefore;
         renderTaskPanel();
       });
     }
@@ -6936,17 +7091,37 @@ document.getElementById('tkAdd').addEventListener('click', async () => {
   }
 });
 
-// Applies one approved proposal's patch to the in-memory db, reusing the exact same
-// applyOnePatch() the Paste JSON importer uses — one code path for "a patch is applied to an
-// entry", whether it arrived by clipboard or by service. Returns the same {ok, note} shape.
+// Applies one approved proposal to the in-memory db, reusing the exact same applyOnePatch() the
+// Paste JSON importer uses — one code path for "a patch is applied to an entry", whether it
+// arrived by clipboard or by service. Most task types carry a single result.patch tuple;
+// sentence-reword bundles every long-sentence fix for the entity into result.patches instead, so
+// approving it applies all of them in array order — same "each sees the previous one's result"
+// rule the patches format itself defines. An individual patch that fails to match is reported and
+// skipped rather than aborting the ones that did, per that same spec's "never silent" rule; the
+// task counts as applied as long as at least one patch actually landed.
 function wlApplyTaskToDb(task){
   if(!task.entityId) return { ok: false, note: 'task has no entityId' };
   const entry = getEntry(task.entityId);
   if(!entry) return { ok: false, note: 'no entry with id ' + task.entityId };
+  const patches = task.result && Array.isArray(task.result.patches) ? task.result.patches : null;
   const patch = task.result && task.result.patch;
-  if(!Array.isArray(patch)) return { ok: false, note: 'task carries no patch array' };
-  const res = applyOnePatch(entry, patch);
-  if(res.ok){
+  if(!patches && !Array.isArray(patch)) return { ok: false, note: 'task carries no patch array' };
+
+  let anyOk = false;
+  const notes = [];
+  if(patches){
+    patches.forEach(p => {
+      const r = applyOnePatch(entry, p);
+      notes.push(r.note);
+      if(r.ok) anyOk = true;
+    });
+  }else{
+    const r = applyOnePatch(entry, patch);
+    notes.push(r.note);
+    anyOk = r.ok;
+  }
+
+  if(anyOk){
     dirtyEntryIds.add(task.entityId);
     // A reworded sentence changes the narrated words, so any existing recording is now stale.
     // Clearing entry.audio here means it travels to GitHub in the SAME data.json commit as the
@@ -6959,7 +7134,7 @@ function wlApplyTaskToDb(task){
       entry.audio = '';
     }
   }
-  return res;
+  return { ok: anyOk, note: notes.join('; ') };
 }
 
 async function wlResolveTasks(taskIds, approve){
@@ -11126,6 +11301,33 @@ function patchTextInSections(sections, matchText, occurrence, op, value){
     return { h: sec.h, b: out };
   });
   return { changed: done, sections: newSections };
+}
+
+// Read-only counterpart to patchTextInSections() above — same matching rules (anchor-span
+// protection, @N occurrence counting via the caller), but locates a match instead of editing it.
+// Used by the sentence-reword review (tkRenderSentenceRewordReview) to find where a patch's
+// original or replacement text actually sits, in RAW (tag-included) offsets, for highlighting.
+function locateTextInSections(sections, matchText, occurrence){
+  let seen = 0;
+  const re = new RegExp(xrefEscapeRegex(matchText), 'g');
+  for(let si = 0; si < sections.length; si++){
+    const body = String(sections[si].b || '');
+    const anchorRanges = [];
+    const anchorRe = /<a\b[^>]*>[\s\S]*?<\/a>/gi;
+    let am;
+    while((am = anchorRe.exec(body))){
+      anchorRanges.push([am.index, am.index + am[0].length]);
+    }
+    const overlapsAnchor = (start, len) => anchorRanges.some(([s, e]) => start < e && (start + len) > s);
+    re.lastIndex = 0;
+    let m;
+    while((m = re.exec(body))){
+      if(overlapsAnchor(m.index, m[0].length)) continue;
+      seen++;
+      if(seen === occurrence) return { sectionIndex: si, start: m.index, end: m.index + m[0].length };
+    }
+  }
+  return null;
 }
 
 // Parses a section-N insert/update value into {h, b}: first line is the heading (a leading
