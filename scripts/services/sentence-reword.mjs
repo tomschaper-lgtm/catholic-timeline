@@ -149,26 +149,42 @@ function buildPrompt(sentence, paragraph){
   ].join('\n');
 }
 
+// Retries a transient failure (server error, rate limit) up to twice before giving up, with a
+// short backoff — one bad call in a sequence of a dozen or more no longer costs a sentence its
+// fix. Does NOT retry a 4xx that isn't a rate limit (bad request, bad key) — that would just fail
+// the same way three times and waste the attempts. On a long article this matters: the more
+// sentences a task processes, the more chances there are for one transient hiccup, and previously
+// that one hiccup silently skipped that sentence rather than costing a moment's retry.
 async function rewordSentence(sentence, paragraph, apiKey){
-  const res = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: 500,
-      messages: [{ role: 'user', content: buildPrompt(sentence, paragraph) }]
-    })
-  });
-  if(!res.ok){
-    const errText = await res.text().catch(() => '');
-    throw new Error('Anthropic messages ' + res.status + ': ' + errText.slice(0, 300));
+  let lastErr;
+  for(let attempt = 0; attempt < 3; attempt++){
+    try{
+      const res = await fetch(ANTHROPIC_API_URL, {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: ANTHROPIC_MODEL,
+          max_tokens: 500,
+          messages: [{ role: 'user', content: buildPrompt(sentence, paragraph) }]
+        })
+      });
+      if(res.ok){
+        const data = await res.json();
+        return (data.content || []).map(b => b.text || '').join('').trim();
+      }
+      const errText = await res.text().catch(() => '');
+      lastErr = new Error('Anthropic messages ' + res.status + ': ' + errText.slice(0, 300));
+      if(res.status < 500 && res.status !== 429) break; // not transient — retrying won't help
+    }catch(networkErr){
+      lastErr = networkErr; // fetch itself failing (network blip) is retried the same as a 5xx
+    }
+    if(attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1))); // 1s, then 2s
   }
-  const data = await res.json();
-  return (data.content || []).map(b => b.text || '').join('').trim();
+  throw lastErr;
 }
 
 /**
@@ -190,7 +206,7 @@ export async function runSentenceReword(task, dataJson){
 
   let sectionOffset = 0;
   const patches = []; // every fix for this entity, bundled into one review instead of one task each
-  let found = 0, reworded = 0, skippedTagMismatch = 0, apiErrors = 0;
+  let found = 0, reworded = 0, skippedTagMismatch = 0, apiErrors = 0, skippedEntryLink = 0;
 
   for(let si = 0; si < sections.length; si++){
     const body = String(sections[si].b || '');
@@ -198,7 +214,15 @@ export async function runSentenceReword(task, dataJson){
     let paraOffset = 0;
 
     for(const para of paragraphs){
-      if(!paragraphHasEntryLink(para)){
+      if(paragraphHasEntryLink(para)){
+        // A paragraph with an entry: link is never touched, per spec — rewording it risks
+        // splitting the link's own sentence in a way that shifts or breaks which words carry it.
+        // But silently skipping a genuinely over-length sentence with zero record is exactly the
+        // kind of gap that looks like a missed detection rather than a deliberate choice — so
+        // this still checks (never fixes) whether the skipped paragraph actually had one, purely
+        // so it can be reported rather than vanish.
+        if(splitIntoSentences(para).some(s => wordCount(s) > MAX_SENTENCE_WORDS)) skippedEntryLink++;
+      }else{
         for(const sentence of splitIntoSentences(para)){
           if(wordCount(sentence) > MAX_SENTENCE_WORDS){
             found++;
@@ -233,11 +257,12 @@ export async function runSentenceReword(task, dataJson){
     sectionOffset += body.length + 1; // '\u0000' separator
   }
 
-  const summary = found === 0
+  const summary = (found === 0 && skippedEntryLink === 0)
     ? 'no sentences over ' + MAX_SENTENCE_WORDS + ' words found \u2014 nothing queued for review'
     : reworded + ' of ' + found + ' long sentence(s) reworded and queued for review' +
       (skippedTagMismatch ? ' \u00b7 ' + skippedTagMismatch + ' skipped (spans a formatting tag)' : '') +
-      (apiErrors ? ' \u00b7 ' + apiErrors + ' call(s) failed, rerun this task to retry those' : '');
+      (apiErrors ? ' \u00b7 ' + apiErrors + ' call(s) failed, rerun this task to retry those' : '') +
+      (skippedEntryLink ? ' \u00b7 ' + skippedEntryLink + ' long sentence(s) left untouched (in a paragraph with a cross-reference link \u2014 fix by hand)' : '');
 
   const spawnedTasks = [];
   if(patches.length){
@@ -246,7 +271,7 @@ export async function runSentenceReword(task, dataJson){
       id: 'task-sentence-reword-' + entry.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
       type: 'sentence-reword', entityId: entry.id, batchId: null, status: 'proposed',
       description: 'Reword ' + patches.length + ' long sentence' + (patches.length === 1 ? '' : 's') + ' \u2014 ' + entry.n,
-      payload: {}, result: { name: entry.n, patches }, error: null, createdAt: nowIso, updatedAt: nowIso
+      payload: {}, result: { name: entry.n, patches, apiErrors, skippedTagMismatch, skippedEntryLink }, error: null, createdAt: nowIso, updatedAt: nowIso
     });
   }
 
@@ -254,7 +279,7 @@ export async function runSentenceReword(task, dataJson){
     result: {
       entityId: entry.id, name: entry.n,
       sentencesFound: found, sentencesReworded: reworded,
-      skippedTagMismatch, apiErrors
+      skippedTagMismatch, apiErrors, skippedEntryLink
     },
     summary,
     spawnedTasks
