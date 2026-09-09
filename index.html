@@ -1,9 +1,22 @@
 <!--
-VERSION: 344
-DATE: 2026-09-10T11:45:00-05:00
+VERSION: 345
+DATE: 2026-09-10T13:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Sentence-reword: fixed a real bug in scripts/services/sentence-reword.mjs (this file itself is
+  unchanged this version — logged here since the changelog is the unified record across both) —
+  a reworded sentence could come back truncated mid-thought ("Pope Gelasius I, writing in" with
+  nothing after it) and get spliced into the article as if it were a finished replacement.
+  rewordSentence() never checked whether the API's response had actually finished. Now checks
+  two things: the API's own stop_reason === 'max_tokens' (the direct, mechanical signal a length
+  cap was hit — confirmed this really is a token-budget issue, not Claude producing bad content)
+  and a new looksComplete() backstop (does the text end in real sentence-ending punctuation),
+  which would catch an incomplete reply regardless of cause. Either one now retries with the same
+  budget rather than accepting the fragment; max_tokens also raised 500 \u2192 700 for headroom.
+  Verified against three mocked failure scenarios plus the normal path before shipping.
+
+v344 CHANGES (unchanged from the version this build started from):
 - Sentence-reword: found a second, likely bigger source of "long sentences that just never got
   touched" than the API-retry gap fixed last version — a paragraph containing an entry: cross-
   reference link is (correctly, per spec) never reworded at all, but scripts/services/
@@ -3796,7 +3809,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v344';
+const APP_VERSION = 'v345';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
