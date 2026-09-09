@@ -1,9 +1,20 @@
 <!--
-VERSION: 341
-DATE: 2026-09-10T09:00:00-05:00
+VERSION: 342
+DATE: 2026-09-10T10:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Task List's single "Task" column split into two: Task (which service — "Reword long
+  sentences", "Finalize images", "Age backfill" — fixed width, ellipses if it doesn't fit, plain
+  non-sortable header) and Entry (which saint/entry, if any — the old column's flexible width and
+  what "sort by name" now actually sorts). Previously one blended column mixed entry names
+  ("St. Andrew") with descriptions that happened to have an entry name baked in ("Finalize image
+  for St. John Chrysostom"), which read inconsistently and couldn't be sorted by either piece
+  cleanly. New tkServiceLabel()/tkEntryName() helpers; tkTaskName() (the review screen's own
+  fallback header) is unchanged. A scan task with no entry (age-backfill-scan run manually) shows
+  an em dash in the Entry column rather than a blank cell or its own id.
+
+v341 CHANGES (unchanged from the version this build started from):
 - Sentence-reword review, three refinements from real usage:
   - Fixed: a multi-sentence replacement from one patch rendered as one solid block of yellow
     instead of alternating shade by shade — the shade was keyed to patchIndex, not sentence
@@ -933,6 +944,20 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkStatus{flex:0 0 26px; font-size:15px; line-height:1; text-align:center; font-weight:400;}
   .tkStatusSpacer{flex:0 0 26px;}
   .tkDate{flex:0 0 74px; font-size:12.5px; color:#6B7280; text-align:right; font-variant-numeric:tabular-nums;}
+  /* Task (which service) and Entry (which saint/entry, if any) are two separate columns now —
+     previously one blended column mixed "St. Andrew" (an entry name) with "Finalize image for
+     St. John Chrysostom" (a description with the entry baked in), which read inconsistently and
+     couldn't be scanned or sorted by either piece cleanly on its own. Task gets a fixed width
+     (service names are short and few — "Reword long sentences" is the longest and just ellipses
+     rather than pushing Entry's flexible column around) with a plain, non-sortable header label,
+     since there's nothing useful to alphabetize among four service names. Entry keeps the old
+     column's flexible width and is what "sort by name" now actually sorts. Header and row widths
+     must stay identical or the columns drift apart, same rule as every other list in this app. */
+  .tkColTask{flex:0 0 92px; min-width:0;}
+  .tkTaskType{
+    flex:0 0 92px; min-width:0; font-size:12.5px; color:#4B5266;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
   #tkSortName{flex:1 1 auto; min-width:0;}
   #tkSortDate{flex:0 0 74px; justify-content:flex-end; min-width:0;}
   .tkStatus.queued, .tkStatus.in_progress{color:#8A6D1C;}
@@ -945,6 +970,7 @@ v332 CHANGES (unchanged from the version this build started from):
   .spRow.tkRow{padding-left:12px; padding-right:14px;}
   .spRow.tkRow .spName{color:#111827; font-size:15px;}
   .spRow.tkRow.tkFinished .spName{color:#9AA0AE;}
+  .spRow.tkRow.tkFinished .tkTaskType{color:#B4B8C4;}
   .spRow.tkRow.tkFinished .tkDate{color:#B4B8C4;}
   /* Views: exactly one is active at a time. Each is a flex column that owns the panel's
      remaining height, so the list's own scroller and the review view's locked bottom bar
@@ -3739,7 +3765,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v341';
+const APP_VERSION = 'v342';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6347,6 +6373,21 @@ function tkTaskName(t){
   // then the id, so a row always says something meaningful.
   return (t.result && t.result.name) || t.description || t.id;
 }
+// The two pieces the list splits tkTaskName() into: which service this is, and which entry (if
+// any) it's about. A scan task (age-backfill-scan with no entityId) has no entry — tkEntryName()
+// returns '' for it rather than falling back to the task id, so that column reads as genuinely
+// blank instead of showing something that looks like a name but isn't one.
+function tkServiceLabel(t){
+  const svc = TK_SERVICES.find(s => s.id === t.type);
+  return svc ? svc.label : t.type;
+}
+function tkEntryName(t){
+  if(t.entityId){
+    const e = getEntry(t.entityId);
+    if(e) return e.n;
+  }
+  return (t.result && t.result.name) || '';
+}
 function tkTask(id){ return ((wlData && wlData.tasks) || []).find(t => t.id === id) || null; }
 
 function tkRows(){
@@ -6358,7 +6399,7 @@ function tkRows(){
     return true;
   });
   filtered.sort((a, b) => {
-    if(tkSort === 'name') return String(tkTaskName(a)).localeCompare(String(tkTaskName(b)));
+    if(tkSort === 'name') return String(tkEntryName(a)).localeCompare(String(tkEntryName(b)));
     // date — newest first, which is what a log should show without being asked
     return String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''));
   });
@@ -6370,7 +6411,8 @@ function renderTaskList(){
   // "Task" starts over the task text rather than over the glyph.
   document.getElementById('tkHead').innerHTML =
     '<span class="tkStatusSpacer" aria-hidden="true"></span>' +
-    '<button class="spCol' + (tkSort === 'name' ? ' active' : '') + '" id="tkSortName" data-sort="name">Task <span class="arrow">\u25b2</span></button>' +
+    '<span class="tkColTask">Task</span>' +
+    '<button class="spCol' + (tkSort === 'name' ? ' active' : '') + '" id="tkSortName" data-sort="name">Entry <span class="arrow">\u25b2</span></button>' +
     '<button class="spCol' + (tkSort === 'date' ? ' active' : '') + '" id="tkSortDate" data-sort="date">Date <span class="arrow">\u25b2</span></button>';
   document.getElementById('tkChips').innerHTML = TK_CHIPS.map(c =>
     '<button class="spChip' + (c.id === tkFilter ? ' active' : '') + '" data-filter="' + esc(c.id) + '"' +
@@ -6391,9 +6433,11 @@ function renderTaskList(){
 
   document.getElementById('tkList').innerHTML = rows.map(t => {
     const finished = !!TK_FINISHED[t.status];
+    const entryName = tkEntryName(t);
     return '<div class="spRow tkRow' + (finished ? ' tkFinished' : '') + '" data-task="' + esc(t.id) + '">' +
       '<span class="tkStatus ' + esc(t.status || '') + '" title="' + esc(tkStatusLabel(t.status)) + '">' + tkStatusIcon(t.status) + '</span>' +
-      '<span class="spName">' + esc(String(tkTaskName(t))) + '</span>' +
+      '<span class="tkTaskType" title="' + esc(tkServiceLabel(t)) + '">' + esc(tkServiceLabel(t)) + '</span>' +
+      '<span class="spName tkEntryName">' + esc(entryName || '\u2014') + '</span>' +
       '<span class="tkDate">' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</span>' +
       '</div>';
   }).join('') || '<div class="spEmpty">Nothing matches.</div>';
