@@ -1,9 +1,27 @@
 <!--
-VERSION: 339
-DATE: 2026-09-09T22:00:00-05:00
+VERSION: 340
+DATE: 2026-09-09T23:15:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Settings tab reorganized/retired:
+  - Removed "Suggest Next Batch to Work On", "Instruct Claude", and "Draft Article with Claude"
+    entirely — HTML, click handlers, and the shared callClaude()/extractJson()/FACT_HINTS helpers
+    they alone depended on. All three called the Anthropic API directly with no key attached,
+    which only ever worked while this file ran as a claude.ai artifact — on this deployed site
+    they've been non-functional the whole time, not just unused. (Draft Article had already been
+    display:none since v282 for exactly this reason and was never actually reachable.)
+  - Media Base Paths moved from Settings into Import, right after Publish to GitHub — pure
+    relocation, every reference to it is by element id so no JS changed.
+  - The now-empty Settings tab (panel-settings) removed entirely, along with its entry in
+    MGMT_TAB_TITLES.
+  - The bottom nav slot that opened Settings now opens Task Automation directly instead (same
+    panel as the hamburger menu's Task : Automation row, same icon) — closes Manage first so
+    the two full-screen overlays are never shown stacked. The generic tab-switching listener is
+    now scoped to .mgmtTab[data-tab] specifically, since this button deliberately has no
+    data-tab (it navigates away rather than switching to a sibling panel).
+
+v339 CHANGES (unchanged from the version this build started from):
 - GitHub token: switched persistence from the 'change' event (fires on blur) to 'input' (fires on
   every keystroke) — navigating straight from that field to Task Automation wasn't reliably
   blurring it first on every mobile browser, so v336's fix still wasn't sticking for that path.
@@ -2578,12 +2596,13 @@ v332 CHANGES (unchanged from the version this build started from):
   #panel-entries #mEditor .eStory{ min-height:62vh; }
   #panel-entries #mEditor .eQuotesLinks{ min-height:110px; }
 
-  /* v282: Draft Article with Claude hidden (not deleted — its click handler is wired at
-     script load via getElementById('fDraft'), so removing the element outright would throw).
-     Save + Delete split the row 50/50.
-     v303: this styling now targets #editorFooterBar instead of #panel-entries #mEditor .mtool —
+  /* v303: this styling now targets #editorFooterBar instead of #panel-entries #mEditor .mtool —
      the buttons themselves moved to that fixed bar (see its own rule block, above the tab bar
-     CSS), so they read the same way (white pill, red Delete) whether they're pinned or not. */
+     CSS), so they read the same way (white pill, red Delete) whether they're pinned or not.
+     Save + Delete split the row 50/50 (Draft Article with Claude, once a third button here, was
+     removed entirely in the same pass that took Instruct Claude and What Should I Work On out of
+     Settings — all three called the Anthropic API directly with no key, which only ever worked
+     inside an artifact sandbox, not on this deployed site). */
   #editorFooterBar .mbtn{
     background:#fff; color:#12141F; border-color:rgba(0,0,0,.3); flex:1 1 0; padding:18px 16px;
   }
@@ -3335,6 +3354,18 @@ v332 CHANGES (unchanged from the version this build started from):
         </details>
       </details>
 
+      <details class="ghbox">
+        <summary>Media Base Paths</summary>
+        <div class="mgrid2">
+          <div class="mfield"><label>Images folder</label><input type="text" id="imgBase" placeholder="e.g. images/ or https://yoursite.com/images/"></div>
+          <div class="mfield"><label>Audio folder</label><input type="text" id="audioBase" placeholder="e.g. audio/ or https://yoursite.com/audio/"></div>
+        </div>
+        <button class="mbtn" id="assetBaseSave">Save Base Paths</button>
+        <details class="mHelp"><summary>What this does</summary>
+          <div class="hint">Set these once, then in an entry's Image and Audio fields you only need to type the file name (e.g. <b>augustine.jpg</b>) instead of the whole path. A value that already starts with <b>http://</b>, <b>https://</b>, or <b>/</b> is left exactly as typed, so existing full-URL entries keep working unchanged.</div>
+        </details>
+      </details>
+
       <div class="mbox">
         <h3>Import JSON Data From&hellip;</h3>
         <div class="mtool mtoolSplit">
@@ -3376,42 +3407,6 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
       </div>
     </div>
 
-    <!-- ===== TAB: Settings ===== -->
-    <div class="mgmtPanel" id="panel-settings">
-      <div class="mbox">
-        <h3>Suggest Next Batch to Work On</h3>
-        <div class="mfield"><input type="text" id="batchHint" placeholder="Optional: e.g. &quot;Eucharistic miracles&quot;, &quot;saints&quot;, &quot;missing quotes&quot; — leave blank to let the site decide"></div>
-        <button class="mbtn" id="batchSuggest">What Should I Work On?</button>
-        <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">Finds up to 5 entries with the most missing content (full article, quotes, links, facts, country) and produces a copyable list. Paste it into a Claude chat along with the timeline JSON skill and say &ldquo;work on my website content&rdquo; — then bring Claude's reply back here via Paste JSON.</div>
-        </details>
-      </div>
-
-      <div class="mbox">
-        <h3>Instruct Claude</h3>
-        <div class="mfield">
-          <textarea id="aiCmd" placeholder="e.g. Add an entry for the apparition at Guadalupe of 1531... or: Write a full article for St. Augustine and save it... or: Move Fatima's description to mention the three children by name."></textarea>
-        </div>
-        <button class="mbtn" id="aiRun">Run Instruction</button>
-        <div class="mlog" id="aiLog"></div>
-        <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">Claude can search the web, then add, update, or delete entries — including writing full articles into the database. Changes save automatically; keep backups with Export.</div>
-        </details>
-      </div>
-
-      <details class="ghbox">
-        <summary>Media Base Paths</summary>
-        <div class="mgrid2">
-          <div class="mfield"><label>Images folder</label><input type="text" id="imgBase" placeholder="e.g. images/ or https://yoursite.com/images/"></div>
-          <div class="mfield"><label>Audio folder</label><input type="text" id="audioBase" placeholder="e.g. audio/ or https://yoursite.com/audio/"></div>
-        </div>
-        <button class="mbtn" id="assetBaseSave">Save Base Paths</button>
-        <details class="mHelp"><summary>What this does</summary>
-          <div class="hint">Set these once, then in an entry's Image and Audio fields you only need to type the file name (e.g. <b>augustine.jpg</b>) instead of the whole path. A value that already starts with <b>http://</b>, <b>https://</b>, or <b>/</b> is left exactly as typed, so existing full-URL entries keep working unchanged.</div>
-        </details>
-      </details>
-    </div>
-
     <!-- ===== TAB: Logs (changelog.json, fetched privately via the GitHub API) ===== -->
     <div class="mgmtPanel logPanel" id="panel-logs">
       <div class="logSearchRow">
@@ -3441,7 +3436,6 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
  <div class="editorFooterBar" id="editorFooterBar">
   <button class="mbtn danger" id="fDelete">Delete</button>
   <button class="mbtn" id="fSave">Save Entry</button>
-  <button class="mbtn" id="fDraft" style="display:none;">Draft Article with Claude</button>
  </div>
 
  <div class="mgmtTabBar" role="tablist">
@@ -3457,9 +3451,9 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V6m0 0l-3.5 3.5M12 6l3.5 3.5M5 16.5V19a1 1 0 001 1h12a1 1 0 001-1v-2.5"/></svg>
    <span>Import</span>
   </button>
-  <button class="mgmtTab" data-tab="settings">
-   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.09a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-   <span>Settings</span>
+  <button class="mgmtTab" id="mgmtAutomationBtn" type="button">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5l2 2 3.5-3.5M4 13l2 2 3.5-3.5M4 19.5l2 2 3.5-3.5M13 7h7M13 14h7M13 21h7"/></svg>
+   <span>Automation</span>
   </button>
   <button class="mgmtTab" data-tab="logs">
    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
@@ -3713,7 +3707,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v339';
+const APP_VERSION = 'v340';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -9909,7 +9903,6 @@ const MGMT_TAB_TITLES = {
   entries:  {first: 'Content',     second: ' Edit Entries'},
   export:   {first: 'Content',     second: ' Export Data'},
   import:   {first: 'Content',     second: ' Import Data'},
-  settings: {first: 'Application', second: ' Settings'},
   logs:     {first: 'Application', second: ' Change Logs'}
 };
 function switchMgmtTab(tab){
@@ -9923,7 +9916,16 @@ function switchMgmtTab(tab){
   }
   if(tab === 'logs') loadChangelog();
 }
-document.querySelectorAll('.mgmtTab').forEach(t => t.addEventListener('click', () => switchMgmtTab(t.dataset.tab)));
+document.querySelectorAll('.mgmtTab[data-tab]').forEach(t => t.addEventListener('click', () => switchMgmtTab(t.dataset.tab)));
+// Automation isn't a Manage tab — it's the same Task Automation panel reachable from the
+// hamburger menu (openTaskPanel/#taskPanelBtn), just promoted to the bottom bar since it's used
+// far more than Settings ever was. Closing Manage first keeps this to one full-screen overlay at
+// a time, consistent with how the rest of the app behaves — Task Automation and Manage have
+// never been shown stacked before, and there's no reason to start now.
+document.getElementById('mgmtAutomationBtn').addEventListener('click', () => {
+  manage.classList.remove('open');
+  openTaskPanel();
+});
 
 // ---- Exit Content Manager: Save & Exit / Exit Without Saving / Cancel ----
 const mgmtExitModal = document.getElementById('mgmtExitModal');
@@ -10267,8 +10269,7 @@ function renderExportSummary(){
   const statEl = document.getElementById('mExStatBox');
   if(statEl){
     // "Complete" for this count means the article body alone is over 550 words —
-    // country/quotes/links do not factor in, unlike the richer entryNeeds() check
-    // used by "What Should I Work On?".
+    // country/quotes/links don't factor in, just word count.
     const EX_COMPLETE_WORD_MIN = 550;
     let complete = 0, incomplete = 0, totalWords = 0, totalChars = 0;
     evs.forEach(e => {
@@ -10702,87 +10703,6 @@ document.getElementById('fDelete').addEventListener('click', async () => {
   if(wasCurrent){ currentEntry = null; detail.classList.remove('open'); closeArticle(); }
 });
 
-// ---- Claude API helper: handles long searches (pause_turn), truncation, and real error messages ----
-async function callClaude(userContent, maxTokens){
-  const messages = [{role: 'user', content: userContent}];
-  for(let attempt = 0; attempt < 4; attempt++){
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: maxTokens,
-        messages: messages,
-        tools: [{type: "web_search_20250305", name: "web_search"}]
-      })
-    });
-    if(!resp.ok){
-      let msg = 'HTTP ' + resp.status;
-      try{
-        const e = await resp.json();
-        if(e && e.error && e.error.message) msg = e.error.message;
-      }catch(ignore){}
-      if(resp.status === 401 || resp.status === 403){
-        msg += ' — the Claude features only work while this file is running as an artifact inside the Claude app';
-      }
-      throw new Error(msg);
-    }
-    const data = await resp.json();
-    if(data.stop_reason === 'pause_turn'){
-      // Long-running web search paused the turn; send it back to continue.
-      messages.push({role: 'assistant', content: data.content});
-      continue;
-    }
-    if(data.stop_reason === 'max_tokens'){
-      throw new Error('Reply was cut off before finishing — try a smaller or simpler request');
-    }
-    return (data.content || []).map(b => b.type === 'text' ? b.text : '').join('');
-  }
-  throw new Error('Web search ran too long — try again or simplify the request');
-}
-function extractJson(text){
-  const clean = String(text).replace(/```json|```/g, '').trim();
-  const s = clean.indexOf('{'), e = clean.lastIndexOf('}');
-  if(s < 0 || e <= s) throw new Error('No JSON found in the reply — try again');
-  try{ return JSON.parse(clean.slice(s, e + 1)); }
-  catch(err){ throw new Error('The reply was not valid JSON (possibly truncated) — try again'); }
-}
-
-// Draft article with Claude (fills the form for review; you press Save to keep it)
-const FACT_HINTS = {
-  s: "Feast day; Born; Died; Title (e.g. Doctor of the Church, Martyr, Virgin, Pope); Beatified; Canonized; Patronage; Religious order; Major works; Attributes in art",
-  c: "Ecumenical number (e.g. 21st ecumenical); Convoked by; Location; Dates; Condemned; Defined; Key documents; Number of sessions",
-  p: "Regime or ruler; Region; Span of years; Cause; Notable martyrs; Estimated toll; Ended by",
-  m: "Seer(s); Location; Date(s); Title of Our Lady; Words or message; Approval status (diocesan or papal, with year); Feast day; Shrine",
-  u: "Location; Date; What occurred; Scientific findings; Approval status; Where venerated",
-  e: "Date; Location; Key figures; Significance; Related document or decree"
-};
-document.getElementById('fDraft').addEventListener('click', async () => {
-  const n = document.getElementById('fName').value.trim();
-  const y = document.getElementById('fYear').value;
-  const t = document.getElementById('fType').value;
-  if(!n){ setStatus('Enter a name first'); return; }
-  setStatus('Drafting… (web search can take a minute)');
-  try{
-    const text = await callClaude(
-"Write an in-depth reference article on \"" + n + "\" (" + TYPE_NAMES[t] + ", AD " + y + ", Catholic Church history). Search newadvent.org (Catholic Encyclopedia) first as the primary source; supplement with vatican.va, papal documents, or other reputable Catholic sources. Write from a faithful Catholic perspective, factual and precise with dates.\n" +
-"Respond ONLY with raw JSON, no fences:\n" +
-"{\"sections\":[{\"h\":\"heading\",\"b\":\"paragraphs separated by \\n\\n\"}],\"quotes\":[{\"text\":\"authentic quote\",\"source\":\"attribution\"}],\"links\":[{\"label\":\"New Advent: ...\",\"url\":\"https://www.newadvent.org/...\"}],\"facts\":[{\"label\":\"...\",\"value\":\"...\"}],\"country\":\"...\"}\n" +
-"country: the single modern country name only (e.g. \"Italy\", \"Spain\", \"Algeria\") for the place most associated with this entry. For a person who lived in multiple countries, use the one where they spent the most time; if unclear, use where they died.\n" +
-"Aim for depth: roughly 5-8 sections and about 900-1400 words total. Cover, as fits the subject: historical context and background; the life story or the events in detail; teaching, doctrine, or significance; controversies, opposition, or aftermath; and legacy, canonization, or veneration. Section bodies may use simple HTML (<b>, <i>, <u>, <ul>/<ol> with <li>, <br>) sparingly and purposefully.\n" +
-"quotes: 0-4 authentic, exactly-worded quotations with attribution — never invent or paraphrase a quotation.\n" +
-"links: New Advent first if it exists, then vatican.va or other reputable Catholic sources (up to 4 total).\n" +
-"facts: a Quick Facts list suited to this type. Use these labels where they genuinely apply — " + (FACT_HINTS[t] || FACT_HINTS.e) + ". Keep each value short (a date, a name, a place). Omit any fact you cannot verify.", 8000);
-    const parsed = extractJson(text);
-    document.getElementById('fArt').value = (parsed.sections || []).map(x => '## ' + (x.h||'') + '\n' + (x.b||'')).join('\n\n');
-    document.getElementById('fQuotes').value = serializePairs(parsed.quotes, 'text', 'source');
-    document.getElementById('fLinks').value = serializePairs(parsed.links, 'label', 'url');
-    document.getElementById('fFacts').value = serializeFacts(parsed.facts);
-    if(parsed.country) document.getElementById('fCountry').value = parsed.country;
-    setStatus('Draft ready — review, then Save');
-  }catch(err){ setStatus('Draft failed: ' + err.message); }
-});
-
 // ---- Auto-Link Cross-References (deterministic, no AI — scans db.entries in memory) ----
 //
 // THE RULE: a link is created only where an entry's actual NAME appears — its display name,
@@ -11081,66 +11001,6 @@ async function applyManualLinkList(text, statusPrefix, localStatusElId){
   }
   return true;
 }
-
-
-document.getElementById('aiRun').addEventListener('click', async () => {
-  const cmd = document.getElementById('aiCmd').value.trim();
-  const log = document.getElementById('aiLog');
-  if(!cmd){ return; }
-  log.textContent = 'Working… (web search can take a minute)';
-  const catalog = db.entries.slice().sort((a,b) => a.y - b.y)
-    .map(e => e.id + ' | ' + e.y + ' | ' + e.n + ' | ' + e.t).join('\n');
-  try{
-    const text = await callClaude(
-"You are the content manager for a Catholic Church history timeline database. Be faithful to Catholic teaching and precise with facts; search the web (especially newadvent.org and vatican.va) if needed.\n" +
-"Types: s=Saint, c=Council, p=Persecution, e=Event, m=Marian Apparition, u=Eucharistic Miracle.\n" +
-"Regions: rome, west, brit, east, holy, africa, americas, asia.\n" +
-"Current entries (id | year | name | type):\n" + catalog + "\n\n" +
-"USER INSTRUCTION: " + cmd + "\n\n" +
-"Respond ONLY with raw JSON, no fences:\n" +
-"{\"summary\":\"one sentence describing what you did\",\"ops\":[\n" +
-"{\"op\":\"add\",\"entry\":{\"y\":0,\"n\":\"\",\"t\":\"s\",\"r\":\"rome\",\"country\":\"\",\"d\":\"short description\",\"art\":{\"sections\":[{\"h\":\"\",\"b\":\"\"}],\"quotes\":[],\"links\":[]},\"facts\":[{\"label\":\"\",\"value\":\"\"}],\"tier\":1,\"alt\":[],\"tags\":[]}},\n" +
-"{\"op\":\"update\",\"id\":\"existing-id\",\"fields\":{\"d\":\"...\"}},\n" +
-"{\"op\":\"delete\",\"id\":\"existing-id\"}\n" +
-"]}\n" +
-"country: the single modern country name only (e.g. \"Italy\", \"Poland\") for the place most associated with the entry — for people who moved around, the country they lived in most, or where they died if unclear. Include it on adds when placeable; include it on updates only when the instruction concerns it.\n" +
-"Article section bodies (art.sections[].b) may use simple HTML for readability: <b>, <i>, <u>, <ul>/<ol> with <li>, <br>. Use sparingly. When writing a full article, aim for depth: roughly 5-8 sections, ~900-1400 words, with only authentic quotations.\n" +
-"facts is an optional Quick Facts list ([{label,value} or {label,value,url}]) shown as a panel on the article. Use labels suited to the type — Saint: Feast day, Born, Died, Title, Canonized, Patronage, Order, Major works. Council: Ecumenical number, Convoked by, Location, Defined, Key documents. Persecution: Ruler/regime, Region, Span, Notable martyrs, Ended by. Marian: Seer(s), Location, Date(s), Approval status, Feast day. Eucharistic: Location, Date, Findings, Approval. Event: Date, Location, Key figures, Significance. Keep values short; omit unverifiable facts.\n" +
-"tier (1-3) sets zoom prominence: 1 = always visible (major figures/events), 2 = appears when zoomed in, 3 = appears only at deep zoom (minor). Default 1. alt is an array of alternate names/nicknames for search (e.g. [\"JPII\",\"Karol Wojtyła\"]). tags is an array of short associated search terms/symbols for the entry (e.g. for St. Peter: [\"fish\",\"keys\",\"boat\",\"nets\",\"pope\"]).\n" +
-"Use only the ops needed. For updates, include only changed fields (y, n, t, r, country, d, art, facts, tier, alt, tags, img, imgCap, audio). Keep it focused — handle one coherent change per instruction.", 4000);
-    const parsed = extractJson(text);
-    const done = [];
-    (parsed.ops || []).forEach(op => {
-      if(op.op === 'add' && op.entry && op.entry.n){
-        const en = op.entry;
-        en.id = slug(en.n, en.y);
-        en.art = en.art || {sections:[], quotes:[], links:[]};
-        en.country = en.country || ''; en.img = en.img || ''; en.imgCap = en.imgCap || ''; en.audio = en.audio || ''; en.facts = en.facts || []; en.tier = en.tier || 1; en.alt = en.alt || []; en.tags = en.tags || [];
-        const idx = db.entries.findIndex(x => x.id === en.id);
-        if(idx >= 0) db.entries[idx] = en; else db.entries.push(en);
-        dirtyEntryIds.add(en.id);
-        deletedEntryIds.delete(en.id);
-        done.push('Added: ' + en.n + ' (' + en.y + ')');
-      } else if(op.op === 'update' && op.id){
-        const en = getEntry(op.id);
-        if(en){ Object.assign(en, op.fields || {}); dirtyEntryIds.add(op.id); done.push('Updated: ' + en.n); }
-        else done.push('Not found: ' + op.id);
-      } else if(op.op === 'delete' && op.id){
-        const en = getEntry(op.id);
-        db.entries = db.entries.filter(x => x.id !== op.id);
-        deletedEntryIds.add(op.id);
-        dirtyEntryIds.delete(op.id);
-        done.push('Deleted: ' + (en ? en.n : op.id));
-      }
-    });
-    await saveDb();
-    renderMList();
-    render();
-    log.textContent = (parsed.summary || 'Done.') + '\n' + done.join('\n');
-  }catch(err){
-    log.textContent = 'Failed: ' + err.message;
-  }
-});
 
 // ---- JSON view / export / merge import / restore / reset ----
 let jsonFileName = 'catholic-timeline.json';
@@ -12030,64 +11890,6 @@ document.getElementById('pasteClear').addEventListener('click', () => {
   setStatus('Cleared');
   const el = document.getElementById('pasteJsonStatus');
   el.classList.remove('show'); el.textContent = '';
-});
-
-// ---- Suggest Next Batch: find entries most in need of content, output a copyable work order ----
-function entryNeeds(e){
-  const needs = [];
-  const art = e.art || {};
-  const sections = art.sections || [];
-  const wordCount = sections.reduce((sum, s) => sum + String(s.b || '').trim().split(/\s+/).filter(Boolean).length, 0);
-  const isStub = sections.length <= 1 && (!sections[0] || !sections[0].h || /^overview$/i.test(sections[0].h));
-  if(isStub || wordCount < 300) needs.push('art (full article, currently ' + wordCount + ' words)');
-  if(!art.quotes || !art.quotes.length) needs.push('quotes');
-  if(!art.links || !art.links.length) needs.push('links');
-  if(!e.facts || !e.facts.length) needs.push('facts');
-  if(!e.country) needs.push('country');
-  return needs;
-}
-function suggestBatch(hint){
-  let pool = db.entries.slice();
-  const h = fold(hint || '');
-  if(h){
-    const matched = pool.filter(e =>
-      fold(e.n).includes(h) || fold(TYPE_NAMES[e.t] || '').includes(h) ||
-      fold(REGION_NAMES[e.r] || '').includes(h) || fold(e.country || '').includes(h) ||
-      (h === 'quotes' && (!e.art || !e.art.quotes || !e.art.quotes.length)) ||
-      (h === 'links' && (!e.art || !e.art.links || !e.art.links.length)) ||
-      (h === 'facts' && (!e.facts || !e.facts.length)) ||
-      (h === 'country' && !e.country)
-    );
-    if(matched.length) pool = matched;
-  }
-  const scored = pool.map(e => ({e: e, needs: entryNeeds(e)})).filter(x => x.needs.length);
-  scored.sort((a, b) => b.needs.length - a.needs.length || a.e.y - b.e.y);
-  return scored.slice(0, 5);
-}
-function openPlainView(title, sub, text, fname){
-  document.getElementById('jsonTitle').textContent = title;
-  document.getElementById('jsonSub').textContent = sub;
-  document.getElementById('jsonText').value = text;
-  jsonFileName = fname;
-  document.getElementById('jsonView').classList.add('open');
-  document.getElementById('jsonView').scrollTop = 0;
-}
-document.getElementById('batchSuggest').addEventListener('click', () => {
-  const hint = document.getElementById('batchHint').value.trim();
-  const top = suggestBatch(hint);
-  if(!top.length){
-    setStatus('Nothing found needing work' + (hint ? ' matching "' + hint + '"' : '') + ' — try a different hint or check Reset filters');
-    return;
-  }
-  const list = top.map(x => ({id: x.e.id, n: x.e.n, y: x.e.y, t: TYPE_NAMES[x.e.t], r: REGION_NAMES[x.e.r], needs: x.needs}));
-  const text =
-'Work on my Catholic Church timeline content.\n\n' +
-'Use the "timeline-entry-json-skill.md" instructions to fill in the fields listed under "needs" for each entry below (search the web for facts as the skill directs). Respond with JSON in the skill\'s update format: for each entry, {"id": "...", plus only the changed fields}.\n\n' +
-JSON.stringify({entries: list}, null, 1) +
-'\n\nAfter I paste your reply into Paste JSON (Add/Update) and Apply, I may come back and ask "what should I work on next?" — you can tell me to press "What Should I Work On?" again.';
-  openPlainView('Suggested Next Batch',
-    top.length + ' entries' + (hint ? ' matching "' + hint + '"' : '') + ' — copy this to a Claude chat (with the timeline skill in its knowledge) and say "work on my website content"',
-    text, 'batch-suggestion.txt');
 });
 
 // Full restore (replaces everything) — for recovering a backup after artifact recreation
