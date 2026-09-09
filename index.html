@@ -1,9 +1,35 @@
 <!--
-VERSION: 335
-DATE: 2026-09-09T18:30:00-05:00
+VERSION: 337
+DATE: 2026-09-09T20:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed: sentence splitting broke on abbreviations ("St. Augustine" → two fake sentences at "St."),
+  affecting both what counts as an over-length sentence server-side and how the review displays
+  sentence boundaries. New shared SENTENCE_ABBREVIATIONS list (St./Sts./Dr./Mr./Fr./c./i.e./e.g./
+  A.D./etc. and more) — a candidate boundary is skipped when the word right before the period is
+  a known abbreviation, in tkSplitSentencesForDisplay (index.html), the batch-eligibility heuristic
+  paragraphHasLongSentence (now reuses that same function instead of its own cruder split), and
+  splitIntoSentences (scripts/services/sentence-reword.mjs) — all three kept in exact agreement so
+  what's detected server-side, what's offered in the batch preview, and what's shown in review all
+  draw the same boundaries.
+
+v336 CHANGES (unchanged from the version this build started from):
+- Fixed: sentence-reword's batch picker was offering entries that already have recorded audio —
+  the original spec (skip those by default in a bulk sweep, since approving a fix purges the
+  recording) never actually got carried into sentenceRewordPool() when this was rebuilt against
+  the real Task Automation system. Restored, via the same "Regenerate even entries that already
+  have one" checkbox image-generate uses — relabeled per type (TK_BATCH_OVERWRITE_LABEL) so it
+  reads correctly for either "already has an image" or "already has recorded audio". Unchecked by
+  default; switching Service now also resets it rather than carrying a stale check to a type it
+  wasn't set on.
+- Fixed: the GitHub token only ever got saved to localStorage from inside the unrelated "Save to
+  GitHub (Publish)" button. Since Manage's fields are re-read fresh from localStorage every time
+  the panel opens (prefillGh()), anyone using Task Automation without also happening to click that
+  Publish button would find their token quietly gone next time Manage opened. Now saved on blur as
+  soon as it's entered, independent of which button gets pressed afterward.
+
+v335 CHANGES (unchanged from the version this build started from):
 - Sentence-reword review: a proposal left over from before v334 (old single result.patch shape,
   one task per sentence) now says plainly that it predates the current review and to reject and
   requeue that entity, instead of silently rendering as if zero sentences needed fixing — which
@@ -2797,7 +2823,7 @@ v332 CHANGES (unchanged from the version this build started from):
           <p class="tkNote" id="tkBatchStartPreview"></p>
           <label class="tkLabel" for="tkBatchCount">Quantity</label>
           <input type="number" id="tkBatchCount" inputmode="numeric" value="5">
-          <label class="tkCheck" id="tkBatchOverwriteRow"><input type="checkbox" id="tkBatchOverwrite"><span>Regenerate even entries that already have one</span></label>
+          <label class="tkCheck" id="tkBatchOverwriteRow"><input type="checkbox" id="tkBatchOverwrite"><span id="tkBatchOverwriteLabel">Regenerate even entries that already have one</span></label>
           <label class="tkLabel">Will queue</label>
           <div class="tkBatchList" id="tkBatchList"></div>
         </div>
@@ -3612,7 +3638,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v335';
+const APP_VERSION = 'v337';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5387,6 +5413,20 @@ function prefillGh(){
   set('ghBranch', c.branch || GH_DEFAULTS.branch);
   set('ghPath', c.path || GH_DEFAULTS.path);
   set('ghToken', localStorage.getItem('gh-token') || '');
+  // The token used to only get saved to localStorage inside publishToGitHub() — a different
+  // button entirely (publishing data.json). Anyone using Task Automation without ever clicking
+  // that Publish button would have their token quietly vanish the next time Manage opened, since
+  // prefillGh() runs fresh on every open and re-reads whatever's actually in storage. Saving on
+  // blur here means typing it in anywhere is enough, regardless of which button gets pressed
+  // afterward.
+  const tokenEl = document.getElementById('ghToken');
+  if(tokenEl && !tokenEl.dataset.persistBound){
+    tokenEl.dataset.persistBound = '1';
+    tokenEl.addEventListener('change', () => {
+      const val = tokenEl.value.trim();
+      if(val) localStorage.setItem('gh-token', val);
+    });
+  }
 }
 // ---- Record Audio Narration card: voice id + every pacing/voice-tuning field is remembered
 // per-device via localStorage, so the owner only has to set them up once (see triggerWorkflow's
@@ -5961,10 +6001,14 @@ const TK_SERVICES = [
 // scan task (plain description). Add a new entry here — and a pool function below, following
 // imageCandidatePool()'s shape — when a future service (audio-generate, proofread) joins this.
 const TK_BATCH_TYPES = { 'image-generate': true, 'sentence-reword': true };
-// Batch types whose "Regenerate even entries that already have one" checkbox actually means
-// something. Sentence-reword has no such concept — an entry is either still carrying a
-// sentence over 40 words or it isn't, so the row is hidden rather than shown as a dead control.
-const TK_BATCH_HAS_OVERWRITE = { 'image-generate': true };
+// Batch types whose overwrite checkbox actually does something, and what it should say — the
+// concept is the same (include entries a bulk sweep would otherwise skip as "already done") but
+// what "already done" means differs: an image already generated, vs. audio already recorded.
+const TK_BATCH_HAS_OVERWRITE = { 'image-generate': true, 'sentence-reword': true };
+const TK_BATCH_OVERWRITE_LABEL = {
+  'image-generate': 'Regenerate even entries that already have one',
+  'sentence-reword': 'Include entries that already have recorded audio (approving a fix there will delete that audio)'
+};
 let tkBatchStartIdx = -1;   // -1 = "start at the earliest eligible" — same convention as audioStartIdx
 function tkIsFeastMode(){
   if(document.getElementById('tkBatchCategory').value !== 's') return false;
@@ -6003,11 +6047,13 @@ function imageCandidatePool(){
 // authoritative check. The real one (actual HTML-aware word count, the exact verbatim sentence
 // text) happens server-side in scripts/services/sentence-reword.mjs when the task actually runs;
 // this only has to be good enough that the batch list Tom sees roughly matches what will qualify.
+// Reuses tkSplitSentencesForDisplay (defined below — function declarations hoist) so this rough
+// eligibility check and the actual review use the same abbreviation-aware sentence boundaries.
 function paragraphHasLongSentence(html){
   if(/href\s*=\s*["']entry:/i.test(html)) return false; // whole paragraph skipped per spec
   const plain = stripHtml(html).replace(/\s+/g, ' ').trim();
   if(!plain) return false;
-  return plain.split(/(?:[.!?])\s+/).some(s => s.trim().split(' ').filter(Boolean).length > 40);
+  return tkSplitSentencesForDisplay(plain).some(s => s.trim().split(' ').filter(Boolean).length > 40);
 }
 function entryHasLongSentence(e){
   const sections = (e.art && e.art.sections) || [];
@@ -6015,10 +6061,16 @@ function entryHasLongSentence(e){
 }
 function sentenceRewordPool(){
   const category = document.getElementById('tkBatchCategory').value;
+  const includeRecorded = document.getElementById('tkBatchOverwrite').checked;
   const pool = db.entries
     .filter(e => articleStats(e).wordCount > 0)
     .filter(e => !category || e.t === category)
     .filter(e => !tkHasPendingTask(e.id, ['sentence-reword']))
+    // Skipped by default: approving a reword purges the entity's recorded audio, so a routine
+    // bulk sweep must not silently do that to entries someone already spent time narrating.
+    // Ticking "Include entries that already have recorded audio" opts back in for a deliberate,
+    // one-at-a-time pass where that trade-off is intentional.
+    .filter(e => includeRecorded || !e.audio)
     .filter(entryHasLongSentence)
     .slice();
   if(tkIsFeastMode()){
@@ -6077,7 +6129,10 @@ function tkRenderBatchList(){
   const overwrite = TK_BATCH_HAS_OVERWRITE[type] && document.getElementById('tkBatchOverwrite').checked;
   const feastMode = tkIsFeastMode();
   listEl.innerHTML = batch.map((e, i) => {
-    const note = (overwrite && e.img) ? ' <span class="tkBatchNote">(regenerating)</span>' : '';
+    const note = overwrite
+      ? (type === 'sentence-reword' && e.audio ? ' <span class="tkBatchNote">(will erase recorded audio)</span>'
+        : type === 'image-generate' && e.img ? ' <span class="tkBatchNote">(regenerating)</span>' : '')
+      : '';
     const posLabel = feastMode ? fmtMonthDay(feastSortKeyOf(e)) : fmtYear(e.y);
     return '<div class="tkBatchRow">' + (startIdx + i + 1) + '. ' + esc(e.n) + ' (' + posLabel + ')' + note + '</div>';
   }).join('');
@@ -6100,7 +6155,10 @@ function tkUpdateAddFormMode(){
   document.getElementById('tkPlainFields').classList.toggle('hidden', isBatch);
   if(isBatch){
     tkBatchStartIdx = -1;
-    document.getElementById('tkBatchOverwriteRow').classList.toggle('hidden', !TK_BATCH_HAS_OVERWRITE[type]);
+    const hasOverwrite = !!TK_BATCH_HAS_OVERWRITE[type];
+    document.getElementById('tkBatchOverwriteRow').classList.toggle('hidden', !hasOverwrite);
+    if(hasOverwrite) document.getElementById('tkBatchOverwriteLabel').textContent = TK_BATCH_OVERWRITE_LABEL[type];
+    document.getElementById('tkBatchOverwrite').checked = false;
     tkUpdateOrderVisibility();
     tkUpdateBatchStartMode();
     tkRefreshBatchPreview();
@@ -6336,10 +6394,40 @@ function tkPreviewSentencePatches(sections, patches){
   return { beforeSpans, afterSections, afterSpans };
 }
 
+// Titles, honorifics, and other common abbreviations that end in a period but do NOT end a
+// sentence. Lowercase, no trailing period — the check strips it before comparing. Without this,
+// "St. Paul" or "Dr. Smith" splits into two fake sentences since a period-space-capital is
+// otherwise indistinguishable from a real sentence boundary. Keep this identical to the same
+// constant in scripts/services/sentence-reword.mjs — this is the display-side twin of the split
+// that decides what actually counts as "too long" server-side, and they need to agree on where a
+// sentence really ends or the review would mark something different from what was matched.
+const SENTENCE_ABBREVIATIONS = new Set([
+  'st','sts','ss','dr','mr','mrs','ms','fr','msgr','bl','ven','abp','card','rev',
+  'gen','col','capt','lt','sgt','maj','adm','prof','pres','gov','sen','rep','hon',
+  'vs','etc','al','no','vol','ch','v','c','ca','ed','eds','tr','pp',
+  'jan','feb','mar','apr','jun','jul','aug','sep','sept','oct','nov','dec',
+  'i.e','e.g','a.d','b.c','a.m','p.m','u.s','u.k'
+]);
+
 // Same sentence-boundary heuristic scripts/services/sentence-reword.mjs's own splitIntoSentences
-// uses, so what's outlined here matches what the server actually matched against.
+// uses, so what's outlined here matches what the server actually matched against. A candidate
+// boundary (punctuation, then whitespace, then what looks like a new sentence) is skipped rather
+// than split on when the word right before the punctuation is a known abbreviation.
 function tkSplitSentencesForDisplay(text){
-  return text.split(/(?<=[.!?])\s+(?=[A-Z0-9"'\u201C(])/).filter(Boolean);
+  const boundary = /[.!?]\s+(?=[A-Z0-9"'\u201C(])/g;
+  const out = [];
+  let start = 0, m;
+  while((m = boundary.exec(text))){
+    const cutAt = m.index + 1; // right after the punctuation mark
+    const wordMatch = /(?:^|[^A-Za-z.])((?:[A-Za-z]\.)*[A-Za-z]+)\.$/.exec(text.slice(start, cutAt));
+    const word = wordMatch ? wordMatch[1].toLowerCase() : '';
+    if(SENTENCE_ABBREVIATIONS.has(word)) continue; // not a real sentence boundary — keep scanning
+    out.push(text.slice(start, cutAt));
+    start = boundary.lastIndex;
+  }
+  const last = text.slice(start);
+  if(last) out.push(last);
+  return out.filter(Boolean);
 }
 
 // Renders one view (either the untouched sections + beforeSpans, or afterSections + afterSpans)
