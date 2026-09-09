@@ -1,9 +1,47 @@
 <!--
-VERSION: 330
+VERSION: 332
 DATE: 2026-09-08T00:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Final image review now has a "Compare to original" toggle \u2014 flips the main image between
+  the finished result and the medium-quality candidate that was actually used as the reference
+  for the very first refinement pass (winningOriginal, new field on the image-finalize result,
+  propagated forward unchanged through any later redo so it always points at the true original
+  regardless of how many refinement rounds happened). Stays available after Approve too: an
+  approved image-finalize task (status done, result.decision === 'approve') now also renders
+  through the same review branch, toggle included, purely for viewing \u2014 the Approve/Redo/Back
+  to candidates buttons only show while still pending. isFinalReview split into isFinalPending
+  (drives the action buttons) and the broader isFinalReview (drives what's shown on screen).
+  Tasks approved before this version won't have winningOriginal on their result, so the toggle
+  button simply doesn't render for those \u2014 no error, nothing to compare against.
+
+- A failed task (image-generate or image-finalize erroring out — an OpenAI 500, etc.) now shows
+  its actual error message when you open it in Review, instead of falling through to the plain
+  article-preview branch just because it has a valid entityId. New isErrorReview branch in
+  renderTaskReview(), checked ahead of the entry/summary branches so this applies regardless of
+  type. If it's a failed image-finalize, whatever reference image(s) it was using are shown too
+  (they were never deleted — see below). Lock bar offers a single Retry button (new
+  tkRetryTask()): a task's payload never changes once created, so retrying is just clearing the
+  error and setting it back to queued for the next orchestrator run to pick up.
+- Fixed a real bug behind a report that a redo note ("change the pope's expression") had no
+  effect: scripts/services/image-finalize.mjs's refinement prompt told the model to preserve the
+  reference image "as closely as possible... don't redesign the scene," with no carve-out for a
+  note asking for a specific change — that blanket instruction was likely winning out over the
+  note. Now states the note as an explicit exception when one is present.
+- Candidates are no longer deleted at any point (previously image-finalize deleted the two medium
+  candidates once the high-quality version was written). They're left in the repo so a person can
+  come back later and reconsider the original pick, not just nudge the most recent result. The
+  original pair (originalA/originalB in the task payload) is carried forward through every redo,
+  so it stays reachable no matter how many refinement rounds happen. Final review now shows both
+  originals below the current result, with a "Back to candidates" button (new
+  tkRestartFromCandidates()) that re-opens the same Winner/Neither picker Picture Review used the
+  first time — no new OpenAI call, since both images already exist on disk.
+  Note: this is "kept indefinitely," not an actual time-based sweep — nothing currently deletes
+  old candidates even after an entry is approved. Storage cost is trivial at this catalog's scale,
+  but say the word if an actual cleanup pass (a real few-days-old sweep, or delete-on-approve)
+  turns out to matter later; it isn't built yet.
+
 - Added a second review step for images: previously image-finalize wrote the high-quality image
   and linked it into the entry automatically, with no human check on the refined result (only the
   earlier medium-quality candidate pick was reviewed). image-finalize now stops at
@@ -3501,7 +3539,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v330';
+const APP_VERSION = 'v332';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5794,6 +5832,12 @@ let tkReviewIds = [];      // the queue being worked through, captured when revi
 let tkReviewIdx = 0;
 let tkImgSide = 'a';       // which candidate Picture Review is currently showing — local view
                             // state only, reset whenever the on-screen task changes
+let tkFinalShowOriginal = false;   // final-review's toggle: false = final image, true = the
+                                    // winning original before refinement — same local-view-only
+                                    // pattern as tkImgSide above
+let tkFinalShowOriginalFor = null; // task id the toggle above applies to; renderTaskReview resets
+                                    // the toggle itself the moment this stops matching the task
+                                    // on screen, so nothing else has to remember to reset it
 
 const TK_FINISHED = { done: 1, approved: 1, rejected: 1 };
 // Queued deliberately includes in_progress — a task that's running is still work you're
@@ -6185,10 +6229,35 @@ function renderTaskReview(){
   // A finalize task reaches awaiting_review once the high-quality image exists on disk but
   // hasn't been linked into the entry yet (see scripts/services/image-finalize.mjs) — this is
   // the last human checkpoint before it goes live, distinct from the earlier candidate pick.
-  const isFinalReview = t.type === 'image-finalize' && t.status === 'awaiting_review';
+  // isFinalPending drives the action buttons below; isFinalReview additionally covers an
+  // already-approved task, purely so the final/original toggle stays viewable later — approving
+  // doesn't erase the ability to see what changed.
+  const isFinalPending = t.type === 'image-finalize' && t.status === 'awaiting_review';
+  const isFinalApproved = t.type === 'image-finalize' && t.status === 'done' &&
+    t.result && t.result.decision === 'approve';
+  const isFinalReview = isFinalPending || isFinalApproved;
+  // Checked ahead of the entry/summary branches below regardless of type, so a failed task never
+  // falls into "show the article as if nothing happened" just because it has a valid entityId.
+  const isErrorReview = t.status === 'error';
 
   let body;
-  if(isImageReview){
+  if(isErrorReview){
+    const r = t.result || {};
+    const p = t.payload || {};
+    const refs = [];
+    if(t.type === 'image-finalize'){
+      if(p.candidatePath) refs.push({ path: p.candidatePath, label: 'Reference image used' });
+      if(p.otherCandidatePath) refs.push({ path: p.otherCandidatePath, label: 'Other candidate' });
+    }
+    body = '<div class="tkRvName">' + esc((r && r.name) || tkTaskName(t)) + '</div>' +
+      '<div class="tkRvMeta">' + esc(t.type) + ' \u00b7 ' + esc(t.entityId || '') + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
+      '<p class="tkNote err">' + esc(String(t.error || 'Unknown error').slice(0, 2000)) + '</p>' +
+      (refs.length
+        ? '<div class="tkRvHead">Images from this attempt</div>' +
+          refs.map(im => '<div class="tkImgWrap"><img src="' + esc(rawAssetUrl(im.path)) + '" alt="' + esc(im.label) + '">' +
+            '<div class="tkImgSide">' + esc(im.label) + '</div></div>').join('')
+        : '');
+  } else if(isImageReview){
     const r = t.result || {};
     const path = tkImgSide === 'a' ? r.candidateA : r.candidateB;
     body = '<div class="tkRvName">' + esc(r.name || tkTaskName(t)) + '</div>' +
@@ -6197,10 +6266,29 @@ function renderTaskReview(){
       '<div class="tkImgSide">Candidate ' + tkImgSide.toUpperCase() + '</div></div>';
   } else if(isFinalReview){
     const r = t.result || {};
+    // Local view-only state, same pattern as tkImgSide: resets the moment a different task is
+    // on screen, so a stale toggle from a previous review never carries over.
+    if(tkFinalShowOriginalFor !== t.id){ tkFinalShowOriginal = false; tkFinalShowOriginalFor = t.id; }
+    const showOriginal = tkFinalShowOriginal && !!r.winningOriginal;
+    const mainPath = showOriginal ? r.winningOriginal : r.finalPath;
+    const mainLabel = showOriginal ? 'Original (before this refinement)' : 'Final image';
+    const hasOriginals = !!(r.candidateA && r.candidateB);
     body = '<div class="tkRvName">' + esc(r.name || tkTaskName(t)) + '</div>' +
       '<div class="tkRvMeta">' + esc(t.entityId) + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
-      '<div class="tkImgWrap"><img src="' + esc(rawAssetUrl(r.finalPath)) + '" alt="Final image">' +
-      '<div class="tkImgSide">Final image</div></div>';
+      (r.winningOriginal
+        ? '<button class="tkBtn" id="tkToggleOriginal">' + (showOriginal ? 'Show final' : 'Compare to original') + '</button>'
+        : '') +
+      '<div class="tkImgWrap"><img src="' + esc(rawAssetUrl(mainPath)) + '" alt="' + esc(mainLabel) + '">' +
+      '<div class="tkImgSide">' + esc(mainLabel) + '</div></div>' +
+      // The full A/B candidate pair (as opposed to just the one that won) only matters while
+      // "Back to candidates" is still on offer, i.e. before approval \u2014 see the lock bar below.
+      (isFinalPending && hasOriginals
+        ? '<div class="tkRvHead">Original candidates</div>' +
+          '<div class="tkImgWrap"><img src="' + esc(rawAssetUrl(r.candidateA)) + '" alt="Original candidate A">' +
+          '<div class="tkImgSide">Candidate A</div></div>' +
+          '<div class="tkImgWrap"><img src="' + esc(rawAssetUrl(r.candidateB)) + '" alt="Original candidate B">' +
+          '<div class="tkImgSide">Candidate B</div></div>'
+        : '');
   } else if(entry){
     const patch = (t.result && Array.isArray(t.result.patch)) ? t.result.patch : null;
     body = '<div class="tkRvName">' + esc(entry.n) + '</div>' +
@@ -6218,6 +6306,25 @@ function renderTaskReview(){
     '<br>swipe down to go back</div>';
   scroll.innerHTML = body;
   scroll.scrollTop = 0;
+
+  if(isFinalReview){
+    const toggleBtn = document.getElementById('tkToggleOriginal');
+    if(toggleBtn){
+      toggleBtn.addEventListener('click', () => {
+        tkFinalShowOriginal = !tkFinalShowOriginal;
+        renderTaskPanel();
+      });
+    }
+  }
+
+  if(isErrorReview){
+    lock.innerHTML =
+      '<div class="tkLockBtns">' +
+        '<button class="tkBtn go" id="tkRetryTask">Retry</button>' +
+      '</div>';
+    document.getElementById('tkRetryTask').addEventListener('click', () => tkRetryTask());
+    return;
+  }
 
   if(isImageReview){
     lock.innerHTML =
@@ -6237,16 +6344,22 @@ function renderTaskReview(){
     return;
   }
 
-  if(isFinalReview){
+  if(isFinalPending){
+    const r = t.result || {};
+    const hasOriginals = !!(r.candidateA && r.candidateB);
     lock.innerHTML =
       '<textarea class="tkImgNotes" id="tkImgNotes" placeholder="Notes for another pass (optional) \u2014 only used if you send this back"></textarea>' +
       '<div class="tkImgNotesLabel"></div>' +
       '<div class="tkLockBtns">' +
         '<button class="tkBtn go" id="tkApproveFinal">Approve</button>' +
         '<button class="tkBtn no" id="tkRedoFinal">Redo</button>' +
+        (hasOriginals ? '<button class="tkBtn" id="tkRestartOriginals">Back to candidates</button>' : '') +
       '</div>';
     document.getElementById('tkApproveFinal').addEventListener('click', () => tkResolveFinal('approve'));
     document.getElementById('tkRedoFinal').addEventListener('click', () => tkResolveFinal('redo'));
+    if(hasOriginals){
+      document.getElementById('tkRestartOriginals').addEventListener('click', () => tkRestartFromCandidates());
+    }
     return;
   }
 
@@ -6299,6 +6412,8 @@ async function tkResolveImage(decision){
           winningCandidate: tkImgSide,
           candidatePath: tkImgSide === 'a' ? r.candidateA : r.candidateB,
           otherCandidatePath: tkImgSide === 'a' ? r.candidateB : r.candidateA,
+          originalA: r.candidateA,
+          originalB: r.candidateB,
           notes: notes
         },
         result: null, error: null, createdAt: now, updatedAt: now
@@ -6328,7 +6443,7 @@ async function tkResolveImage(decision){
   let next = tkReviewIdx + 1;
   while(next < tkReviewIds.length){
     const nt = tkTask(tkReviewIds[next]);
-    if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review')) break;
+    if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review' || nt.status === 'error')) break;
     next++;
   }
   tkImgSide = 'a';
@@ -6337,16 +6452,51 @@ async function tkResolveImage(decision){
   renderTaskPanel();
 }
 
+// A task's payload is never touched once it's created, so a failed attempt \u2014 image-generate
+// or image-finalize, an OpenAI hiccup or anything else a handler throws on \u2014 can simply be
+// requeued as-is: same entity, same reference image(s), same notes. The orchestrator will pick
+// it back up next time it runs (the app's own Run button, or the Actions tab). No new task is
+// created; this just clears the error and puts it back at the front of the line.
+async function tkRetryTask(){
+  const t = tkTask(tkReviewIds[tkReviewIdx]);
+  if(!t) return;
+  const btn = document.getElementById('tkRetryTask');
+  if(btn) btn.disabled = true;
+
+  t.status = 'queued';
+  t.error = null;
+  t.updatedAt = new Date().toISOString();
+
+  const saved = await saveWorkLog('Requeued after error: ' + ((t.result && t.result.name) || t.entityId || t.id), [t.id]);
+  if(!saved || saved.ok === false){
+    if(btn) btn.disabled = false;
+    wlSetLog('Could not save \u2014 check your GitHub token and try again.', true);
+    return;
+  }
+
+  let next = tkReviewIdx + 1;
+  while(next < tkReviewIds.length){
+    const nt = tkTask(tkReviewIds[next]);
+    if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review' || nt.status === 'error')) break;
+    next++;
+  }
+  if(next >= tkReviewIds.length){ tkGoList(); return; }
+  tkReviewIdx = next;
+  renderTaskPanel();
+}
+
 // Approve links the already-written final image (scripts/services/image-finalize.mjs writes it
 // straight to its permanent Images/ path, so there's no file to move) into the entry and
 // publishes right away — no further orchestrator run needed, this is the last step. Redo queues
-// another image-finalize pass using the SAME final image as the new reference (the two medium
-// candidates are already gone by this point — deleted the first time this entity was finalized —
-// so there's nothing earlier to go back to), carrying fresh notes to steer the next attempt.
+// another image-finalize pass using the SAME final image as the new reference, for a quick nudge
+// ("make the expression softer") without redoing the whole composition. The original medium
+// candidates are no longer deleted at any point, so if a redo isn't the right tool — the whole
+// composition needs to change, not just a detail — tkRestartFromCandidates() below is the other
+// option, offered alongside this one whenever both originals are still known.
 async function tkResolveFinal(decision){
   const t = tkTask(tkReviewIds[tkReviewIdx]);
   if(!t) return;
-  const btns = ['tkApproveFinal', 'tkRedoFinal'].map(id => document.getElementById(id));
+  const btns = ['tkApproveFinal', 'tkRedoFinal', 'tkRestartOriginals'].map(id => document.getElementById(id));
   btns.forEach(b => { if(b) b.disabled = true; });
 
   const notes = (document.getElementById('tkImgNotes') || {}).value || '';
@@ -6384,7 +6534,12 @@ async function tkResolveFinal(decision){
     const newTask = {
       id: newId, type: 'image-finalize', entityId: t.entityId, status: 'queued',
       description: 'Refine image for ' + (r.name || t.entityId) + ' (previous attempt sent back)',
-      payload: { candidatePath: r.finalPath, otherCandidatePath: null, notes: notes },
+      payload: {
+        candidatePath: r.finalPath, otherCandidatePath: null,
+        originalA: r.candidateA || null, originalB: r.candidateB || null,
+        winningOriginal: r.winningOriginal || null,
+        notes: notes
+      },
       result: null, error: null, createdAt: now, updatedAt: now
     };
     t.status = 'done';
@@ -6402,9 +6557,54 @@ async function tkResolveFinal(decision){
   let next = tkReviewIdx + 1;
   while(next < tkReviewIds.length){
     const nt = tkTask(tkReviewIds[next]);
-    if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review')) break;
+    if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review' || nt.status === 'error')) break;
     next++;
   }
+  if(next >= tkReviewIds.length){ tkGoList(); return; }
+  tkReviewIdx = next;
+  renderTaskPanel();
+}
+
+// The more drastic sibling of Redo above: instead of nudging the current final image, this goes
+// all the way back to the original candidate pair and re-opens the SAME picker Picture Review
+// used the first time (tkResolveImage's Winner/Neither), reusing that screen entirely rather than
+// building a second one. No OpenAI call here \u2014 both images already exist on disk from the
+// first image-generate pass, so this just relabels them as a fresh awaiting_review task.
+async function tkRestartFromCandidates(){
+  const t = tkTask(tkReviewIds[tkReviewIdx]);
+  if(!t) return;
+  const r = t.result || {};
+  if(!r.candidateA || !r.candidateB) return; // button is hidden in this case; defensive no-op
+  const btns = ['tkApproveFinal', 'tkRedoFinal', 'tkRestartOriginals'].map(id => document.getElementById(id));
+  btns.forEach(b => { if(b) b.disabled = true; });
+
+  const now = new Date().toISOString();
+  const newId = 'task-image-generate-' + t.entityId + '-' + Date.now();
+  const newTask = {
+    id: newId, type: 'image-generate', entityId: t.entityId, status: 'awaiting_review',
+    description: 'Re-review original candidates for ' + (r.name || t.entityId),
+    payload: {},
+    result: { entityId: t.entityId, name: r.name, candidateA: r.candidateA, candidateB: r.candidateB },
+    error: null, createdAt: now, updatedAt: now
+  };
+  t.status = 'done';
+  t.updatedAt = now;
+  t.result = Object.assign({}, r, { decision: 'restart-from-originals' });
+  wlData.tasks.push(newTask);
+  const saved = await saveWorkLog('Back to original candidates for ' + (r.name || t.entityId), [t.id, newId]);
+  if(!saved || saved.ok === false){
+    btns.forEach(b => { if(b) b.disabled = false; });
+    wlSetLog('Could not save \u2014 check your GitHub token and try again.', true);
+    return;
+  }
+
+  let next = tkReviewIdx + 1;
+  while(next < tkReviewIds.length){
+    const nt = tkTask(tkReviewIds[next]);
+    if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review' || nt.status === 'error')) break;
+    next++;
+  }
+  tkImgSide = 'a';
   if(next >= tkReviewIds.length){ tkGoList(); return; }
   tkReviewIdx = next;
   renderTaskPanel();
