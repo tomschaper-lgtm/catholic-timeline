@@ -1,9 +1,37 @@
 <!--
-VERSION: 342
-DATE: 2026-09-10T10:00:00-05:00
+VERSION: 344
+DATE: 2026-09-10T11:45:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Sentence-reword: found a second, likely bigger source of "long sentences that just never got
+  touched" than the API-retry gap fixed last version — a paragraph containing an entry: cross-
+  reference link is (correctly, per spec) never reworded at all, but scripts/services/
+  sentence-reword.mjs previously skipped it with zero record, indistinguishable from "this
+  paragraph never had a long sentence in the first place." New skippedEntryLink counter: still
+  never touches a linked paragraph, but now checks (without fixing) whether it actually contained
+  an over-length sentence, and reports the count in the parent scan task's summary, the child
+  review task's own result, and a new note in the review screen itself (same place the apiErrors
+  note from last version shows, both able to appear together). Old tasks predate this field and
+  won't show the note, correctly — nothing new to report for them.
+
+v343 CHANGES (unchanged from the version this build started from):
+- Approve/Reject buttons (and the lock bar around them) taller, more padding — scoped to
+  .tkLockBtns specifically so Add Task's own buttons elsewhere are untouched.
+- Sentence-reword: scripts/services/sentence-reword.mjs's rewordSentence() now retries a
+  transient failure (5xx, 429, or a network error) up to twice with backoff before giving up,
+  instead of silently skipping that one sentence on the first hiccup. On a long article
+  processing a dozen-plus sentences sequentially, one bad call was likely on any given run — this
+  is almost certainly why a clearly over-length sentence was sitting unfixed while others nearby
+  got caught. Does not retry a plain 4xx (bad request, bad key), since that would just fail the
+  same way three times. Any sentence that still fails after retries now also surfaces directly in
+  the review screen itself (new apiErrors/skippedTagMismatch on the child task's own result,
+  threaded through tkRenderSentenceRewordReview's new third argument) rather than only in the
+  parent scan task's summary — a red note under the fixed-count line saying how many, and that
+  rejecting and requeuing will retry them. Old tasks predate these result fields and simply won't
+  show the note, which is correct — there's nothing new to report for them.
+
+v342 CHANGES (unchanged from the version this build started from):
 - Task List's single "Task" column split into two: Task (which service — "Reword long
   sentences", "Finalize images", "Age backfill" — fixed width, ellipses if it doesn't fit, plain
   non-sortable header) and Entry (which saint/entry, if any — the old column's flexible width and
@@ -1048,6 +1076,7 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkSentFixedRow{display:flex; align-items:center; gap:10px; margin-top:7px;}
   .tkSentHideRow{margin:0;}
   .tkSentFixedCount{font-size:12px; font-weight:600; color:#8A90A0;}
+  .tkSentErrNote{font-size:12.5px; color:#96291A; line-height:1.4; margin:6px 0 0;}
   /* Sentence-reword review: each section's own block. Every section renders both its original
      and reworded text up front (see tkRenderSentenceRewordReview) — but which one shows is ONE
      shared state for the whole article (#tkSentSections' own data-mode), not per section: Tom's
@@ -1149,7 +1178,7 @@ v332 CHANGES (unchanged from the version this build started from):
      grey stripe taking height from the content. */
   .tkLockBar{
     flex:0 0 auto; border-top:1px solid #C7CAD3; background:#F7F7F4;
-    padding:11px 20px calc(11px + env(safe-area-inset-bottom));
+    padding:16px 20px calc(16px + env(safe-area-inset-bottom));
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
   }
   .tkLockBar:empty{display:none;}
@@ -1160,7 +1189,9 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkCheck.disabled{color:#9AA0AE;}
   .tkCheckNote{display:block; font-size:12px; color:#8A90A0; margin-top:2px;}
   .tkLockBtns{display:flex; gap:9px;}
-  .tkLockBtns .tkBtn{flex:1 1 0;}
+  /* Approve/Reject specifically get more room than tkBtn's base padding — scoped to the lock
+     bar rather than raising .tkBtn globally, so Add Task's own buttons elsewhere aren't affected. */
+  .tkLockBtns .tkBtn{flex:1 1 0; padding:16px 15px; font-size:15px;}
   .tkProgress{font-size:12px; color:#6B7280; text-align:center; margin:8px 0 0;}
   .tkActions{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 8px;}
   .tkBtn{
@@ -3765,7 +3796,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v342';
+const APP_VERSION = 'v344';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6637,7 +6668,7 @@ function tkRenderSentenceSectionSet(sections, spans, counterRef){
 // ever re-renders the panel, so neither ever moves anything on screen or disturbs scroll
 // position. Returns the sticky filter row and the section blocks separately, since the caller
 // places the former inside the sticky name/year header and the latter in the normal scroll body.
-function tkRenderSentenceRewordReview(entry, patches){
+function tkRenderSentenceRewordReview(entry, patches, taskResult){
   const sections = (entry.art && entry.art.sections) || [];
   const preview = tkPreviewSentencePatches(sections, patches);
   const beforeCounter = { n: 0 }, afterCounter = { n: 0 };
@@ -6665,7 +6696,21 @@ function tkRenderSentenceRewordReview(entry, patches){
     '<label class="tkCheck tkSentHideRow"><input type="checkbox" id="tkHideUnfixedChk"' +
       (tkSentenceHideUnfixed ? ' checked' : '') + '><span>Fixed sections</span></label>' +
     '<span class="tkSentFixedCount">' + fixedCount + ' of ' + sections.length + ' sections fixed</span>' +
-    '</div>';
+    '</div>' +
+    // Two gaps that were previously invisible — a sentence just never becoming a patch reads
+    // identically whether it wasn't actually long, failed its API call, or sat in a paragraph
+    // the tool is never allowed to touch. Old tasks predate these result fields and simply won't
+    // show either note, which is correct — there's nothing new to report for them.
+    (taskResult && taskResult.apiErrors
+      ? '<p class="tkSentErrNote">' + taskResult.apiErrors + ' sentence' + (taskResult.apiErrors === 1 ? '' : 's') +
+        ' couldn\u2019t be reworded (a repeated API error) and ' + (taskResult.apiErrors === 1 ? 'is' : 'are') +
+        ' not included here \u2014 reject this and requeue ' + esc(entry.n) + ' to retry.</p>'
+      : '') +
+    (taskResult && taskResult.skippedEntryLink
+      ? '<p class="tkSentErrNote">' + taskResult.skippedEntryLink + ' long sentence' + (taskResult.skippedEntryLink === 1 ? '' : 's') +
+        ' sit' + (taskResult.skippedEntryLink === 1 ? 's' : '') + ' in a paragraph with a cross-reference link, so ' +
+        (taskResult.skippedEntryLink === 1 ? 'it was' : 'they were') + ' left untouched by design \u2014 fix by hand if it needs shortening.</p>'
+      : '');
   const sectionsWrapHtml = '<div class="tkSentSections' + (tkSentenceHideUnfixed ? ' tkHideUnfixed' : '') + '" id="tkSentSections" data-mode="corrected">' +
       (sectionsHtml || '<p class="tkRvEmpty">No sections in this article.</p>') +
     '</div>';
@@ -6811,7 +6856,7 @@ function renderTaskReview(){
     // main timeline article view's own hierarchy) with name underneath in the panel-title
     // sans-serif; the "Fixed sections" filter rides along in the same sticky block, so it too
     // stays reachable without scrolling back up.
-    const rv = isLegacyShape ? null : tkRenderSentenceRewordReview(entry, hasBundledPatches ? t.result.patches : []);
+    const rv = isLegacyShape ? null : tkRenderSentenceRewordReview(entry, hasBundledPatches ? t.result.patches : [], t.result);
     body = '<div class="tkRvSticky"><div class="tkRvYearBig">' + esc(fmtYear(entry.y)) + '</div>' +
       '<div class="tkRvNameBig">' + esc(entry.n) + '</div>' +
       (rv ? rv.fixedRowHtml : '') + '</div>' +
