@@ -149,12 +149,25 @@ function buildPrompt(sentence, paragraph){
   ].join('\n');
 }
 
-// Retries a transient failure (server error, rate limit) up to twice before giving up, with a
-// short backoff — one bad call in a sequence of a dozen or more no longer costs a sentence its
-// fix. Does NOT retry a 4xx that isn't a rate limit (bad request, bad key) — that would just fail
-// the same way three times and waste the attempts. On a long article this matters: the more
-// sentences a task processes, the more chances there are for one transient hiccup, and previously
-// that one hiccup silently skipped that sentence rather than costing a moment's retry.
+// A properly finished rewording should end in real sentence-ending punctuation (allowing a
+// trailing closing quote/paren after it). Anything else means the text was cut off before it
+// finished, whatever the cause — this is a backstop that catches truncation even if stop_reason
+// somehow doesn't flag it, not a replacement for that check.
+function looksComplete(text){
+  return /[.!?][)"'\u201D]*$/.test(text.trim());
+}
+
+// Retries a transient failure (server error, rate limit, OR a truncated response) up to twice
+// before giving up, with a short backoff — one bad call in a sequence of a dozen or more no
+// longer costs a sentence its fix. Does NOT retry a 4xx that isn't a rate limit (bad request, bad
+// key), since that would just fail the same way three times and waste the attempts.
+//
+// Truncation specifically: a dangling sentence fragment ("Pope Gelasius I, writing in" — nothing
+// after it) reported in review meant a cut-off response was being accepted as if it were a
+// finished one. Two checks now guard against that — the API's own stop_reason === 'max_tokens'
+// (the direct, mechanical signal a length cap was hit) and looksComplete() above (a backstop that
+// catches an incomplete-looking reply regardless of why it's incomplete). Either one triggers a
+// retry with the same widened budget, never a silently-accepted fragment.
 async function rewordSentence(sentence, paragraph, apiKey){
   let lastErr;
   for(let attempt = 0; attempt < 3; attempt++){
@@ -168,17 +181,25 @@ async function rewordSentence(sentence, paragraph, apiKey){
         },
         body: JSON.stringify({
           model: ANTHROPIC_MODEL,
-          max_tokens: 500,
+          max_tokens: 700,
           messages: [{ role: 'user', content: buildPrompt(sentence, paragraph) }]
         })
       });
       if(res.ok){
         const data = await res.json();
-        return (data.content || []).map(b => b.text || '').join('').trim();
+        const text = (data.content || []).map(b => b.text || '').join('').trim();
+        if(data.stop_reason === 'max_tokens'){
+          lastErr = new Error('Anthropic response hit max_tokens before finishing \u2014 stop_reason confirms a mechanical cutoff, not a Claude quality issue');
+        }else if(text && !looksComplete(text)){
+          lastErr = new Error('Anthropic response looks cut off (doesn\u2019t end in sentence-ending punctuation): "' + text.slice(-60) + '"');
+        }else{
+          return text;
+        }
+      }else{
+        const errText = await res.text().catch(() => '');
+        lastErr = new Error('Anthropic messages ' + res.status + ': ' + errText.slice(0, 300));
+        if(res.status < 500 && res.status !== 429) break; // not transient — retrying won't help
       }
-      const errText = await res.text().catch(() => '');
-      lastErr = new Error('Anthropic messages ' + res.status + ': ' + errText.slice(0, 300));
-      if(res.status < 500 && res.status !== 429) break; // not transient — retrying won't help
     }catch(networkErr){
       lastErr = networkErr; // fetch itself failing (network blip) is retried the same as a 5xx
     }
