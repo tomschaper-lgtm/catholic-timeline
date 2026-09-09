@@ -1,9 +1,45 @@
 <!--
-VERSION: 332
-DATE: 2026-09-08T00:00:00-05:00
+VERSION: 333
+DATE: 2026-09-08T20:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- New service: "sentence-reword". Reworked the sentence-length cleanup pass (previously a manual
+  chat-based batch job) into a proper Task Automation service, following the same patterns the
+  existing age-backfill-scan and image-generate services already use, rather than as a separate
+  parallel system:
+  - Registered in TK_SERVICES ("Reword long sentences") and TK_BATCH_TYPES, so Add Task offers
+    the same Category/Start/Quantity batch picker image-generate uses. New sentenceRewordPool()
+    (+ entryHasLongSentence()/paragraphHasLongSentence() heuristics) feeds it — same shape as
+    imageCandidatePool(), including honoring the shared feast-day/year Order-by control.
+  - One task per entity, handled server-side by the new scripts/services/sentence-reword.mjs.
+    Scans each section's paragraphs (skipping any paragraph containing an entry: cross-reference
+    link entirely), finds sentences over 40 words, asks Claude to reword just that sentence, and
+    spawns one `proposed` task per fix — each carrying a single-edit patches-format tuple
+    (['article', matchText, 'U', replacement]). This is the exact same shape age-backfill's
+    spawned tasks already use, so it needed zero changes to renderTaskReview(), tkRenderArticle(),
+    tkResolveCurrent(), or applyOnePatch() — the existing review/approve screen just works.
+  - tkHasPendingTask() now also checks 'proposed' status (harmless for image-generate/finalize,
+    which never reach that status) so a batch doesn't re-offer an entity that already has an
+    unresolved reword proposal sitting in review.
+  - The "Regenerate even entries that already have one" checkbox is hidden for sentence-reword
+    (new TK_BATCH_HAS_OVERWRITE map) — there's no "overwrite" concept here, an entry either still
+    has a sentence over 40 words or it doesn't. The "(regenerating)" note in the batch preview
+    list is now also gated to image-generate only, for the same reason.
+  - Audio invalidation: approving a sentence-reword proposal (wlApplyTaskToDb) clears the entry's
+    audio field in memory alongside the text patch, so both publish together in the same
+    data.json commit. New ghDeleteFile() + purgeStaleAudioFiles() then walk that entity's
+    versioned audio+timing file pairs and delete them — but only called from publishToGitHub()
+    AFTER its data.json commit already succeeded, never before, so there's no window where a live
+    entry points at an already-deleted file.
+  - Requires an ANTHROPIC_API_KEY repo secret (orchestrator.yml now passes it through) — the
+    rewording itself runs on Claude alone, no OpenAI call.
+  - Retires the parallel standalone sentence-reword system (separate workQueue.sentenceReword.json,
+    its own Action, its own review panel) built in an earlier session before this one — that
+    system never matched the app's real Task Automation architecture and should be deleted (see
+    chat for the exact file list).
+
+v332 CHANGES (unchanged from the version this build started from):
 - Final image review now has a "Compare to original" toggle \u2014 flips the main image between
   the finished result and the medium-quality candidate that was actually used as the reference
   for the very first refinement pass (winningOriginal, new field on the image-finalize result,
@@ -2724,7 +2760,7 @@ CHANGES:
           <p class="tkNote" id="tkBatchStartPreview"></p>
           <label class="tkLabel" for="tkBatchCount">Quantity</label>
           <input type="number" id="tkBatchCount" inputmode="numeric" value="5">
-          <label class="tkCheck"><input type="checkbox" id="tkBatchOverwrite"><span>Regenerate even entries that already have one</span></label>
+          <label class="tkCheck" id="tkBatchOverwriteRow"><input type="checkbox" id="tkBatchOverwrite"><span>Regenerate even entries that already have one</span></label>
           <label class="tkLabel">Will queue</label>
           <div class="tkBatchList" id="tkBatchList"></div>
         </div>
@@ -3539,7 +3575,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v332';
+const APP_VERSION = 'v333';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5403,12 +5439,23 @@ async function publishToGitHub(){
     if(sha) body.sha = sha;
     const put = await fetch(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, hdr), body: JSON.stringify(body) });
     if(put.status === 200 || put.status === 201){
-      st.textContent = 'Committed \u2713 — your site updates in about a minute.';
       dirtyEntryIds.clear();
       deletedEntryIds.clear();
       // This session's db.entries may now include changes from elsewhere (the merge above) —
       // reflect that on screen rather than leaving the visible list one publish behind.
       if(mergedWithRemote){ renderMList(); render(); }
+      // Deliberately AFTER the commit above succeeds, never before: data.json (with entry.audio
+      // already blank — see wlApplyTaskToDb) is live first, so there is no window where a
+      // published entry still points at an audio file this step is about to delete.
+      if(audioPurgeQueue.size){
+        st.textContent = 'Committed \u2713 \u2014 clearing stale audio for reworded entries\u2026';
+        const purged = await purgeStaleAudioFiles();
+        st.textContent = 'Committed \u2713 — your site updates in about a minute.' +
+          (purged.count ? ' Removed ' + purged.count + ' stale audio file(s) from ' + purged.entities +
+            ' entit' + (purged.entities === 1 ? 'y' : 'ies') + '.' : '');
+      }else{
+        st.textContent = 'Committed \u2713 — your site updates in about a minute.';
+      }
       return true;
     }
     else { let m = ''; try{ m = (await put.json()).message; }catch(e){} throw new Error(m || ('commit failed ' + put.status)); }
@@ -5687,6 +5734,12 @@ function updateLogThumbVisibility(){
 // Reuses the Publish section's owner/repo/branch/token fields, so nothing new to configure.
 let wlData = null;   // parsed workLog.json
 let wlSha = null;    // its blob sha, needed to commit an update without clobbering
+// Entity ids whose recorded audio needs deleting because a sentence-reword patch changed their
+// narrated text. Populated at Approve time (see wlApplyTaskToDb), drained by
+// purgeStaleAudioFiles() — which publishToGitHub() calls only AFTER data.json's own commit
+// succeeds, never before, so there's no window where a live entry points at an already-deleted
+// file (see publishToGitHub for the full sequencing note).
+let audioPurgeQueue = new Set();
 
 const WL_PATH = 'workLog.json';
 const WL_ORCHESTRATOR_WORKFLOW = 'orchestrator.yml';
@@ -5859,12 +5912,17 @@ const TK_SERVICES = [
   // filter dropdown so a run can be aimed at it specifically, which is the actual bug this
   // entry fixes — a queued image-finalize task had no way to be selected and run on its own,
   // only reachable via "Any service" (see tkNewType population below for the addable filter).
-  { id: 'image-finalize', label: 'Finalize images', addable: false }
+  { id: 'image-finalize', label: 'Finalize images', addable: false },
+  { id: 'sentence-reword', label: 'Reword long sentences' }
 ];
 // Services that queue one task per entity (Category/Start/Quantity picker) rather than a single
 // scan task (plain description). Add a new entry here — and a pool function below, following
 // imageCandidatePool()'s shape — when a future service (audio-generate, proofread) joins this.
-const TK_BATCH_TYPES = { 'image-generate': true };
+const TK_BATCH_TYPES = { 'image-generate': true, 'sentence-reword': true };
+// Batch types whose "Regenerate even entries that already have one" checkbox actually means
+// something. Sentence-reword has no such concept — an entry is either still carrying a
+// sentence over 40 words or it isn't, so the row is hidden rather than shown as a dead control.
+const TK_BATCH_HAS_OVERWRITE = { 'image-generate': true };
 let tkBatchStartIdx = -1;   // -1 = "start at the earliest eligible" — same convention as audioStartIdx
 function tkIsFeastMode(){
   if(document.getElementById('tkBatchCategory').value !== 's') return false;
@@ -5877,7 +5935,10 @@ function tkIsFeastMode(){
 function tkHasPendingTask(entityId, types){
   return ((wlData && wlData.tasks) || []).some(t =>
     t.entityId === entityId && types.includes(t.type) &&
-    (t.status === 'queued' || t.status === 'in_progress' || t.status === 'awaiting_review'));
+    // 'proposed' matters here too: sentence-reword's spawned per-sentence tasks sit at
+    // 'proposed' awaiting a human decision, and re-queuing the same entity while one is still
+    // unresolved would just find the same long sentence again and duplicate the proposal.
+    (t.status === 'queued' || t.status === 'in_progress' || t.status === 'awaiting_review' || t.status === 'proposed'));
 }
 function imageCandidatePool(){
   const overwrite = document.getElementById('tkBatchOverwrite').checked;
@@ -5896,12 +5957,42 @@ function imageCandidatePool(){
   }
   return pool.sort((a, b) => a.y - b.y);
 }
-// Only one batch type exists today, so this just calls imageCandidatePool() — kept as its own
-// dispatch point so a second service (audio-generate, proofread) is a one-line addition here
-// rather than a rewrite of every function below that calls it.
+// Cheap client-side heuristic, used only to build a sensible Add Task preview list — NOT the
+// authoritative check. The real one (actual HTML-aware word count, the exact verbatim sentence
+// text) happens server-side in scripts/services/sentence-reword.mjs when the task actually runs;
+// this only has to be good enough that the batch list Tom sees roughly matches what will qualify.
+function paragraphHasLongSentence(html){
+  if(/href\s*=\s*["']entry:/i.test(html)) return false; // whole paragraph skipped per spec
+  const plain = stripHtml(html).replace(/\s+/g, ' ').trim();
+  if(!plain) return false;
+  return plain.split(/(?:[.!?])\s+/).some(s => s.trim().split(' ').filter(Boolean).length > 40);
+}
+function entryHasLongSentence(e){
+  const sections = (e.art && e.art.sections) || [];
+  return sections.some(sec => String(sec.b || '').split('\n\n').some(p => paragraphHasLongSentence(p)));
+}
+function sentenceRewordPool(){
+  const category = document.getElementById('tkBatchCategory').value;
+  const pool = db.entries
+    .filter(e => articleStats(e).wordCount > 0)
+    .filter(e => !category || e.t === category)
+    .filter(e => !tkHasPendingTask(e.id, ['sentence-reword']))
+    .filter(entryHasLongSentence)
+    .slice();
+  if(tkIsFeastMode()){
+    return pool.sort((a, b) => {
+      const ka = feastSortKeyOf(a), kb = feastSortKeyOf(b);
+      return (ka.month - kb.month) || (ka.day - kb.day) || a.n.localeCompare(b.n);
+    });
+  }
+  return pool.sort((a, b) => a.y - b.y);
+}
+// Dispatch point for services that queue one task per entity — one line per service here, one
+// pool function above, nothing else in the shared selector changes when a new one joins.
 function tkBatchPool(){
   const type = document.getElementById('tkNewType').value;
   if(type === 'image-generate') return imageCandidatePool();
+  if(type === 'sentence-reword') return sentenceRewordPool();
   return [];
 }
 function tkUpdateBatchStartMode(){
@@ -5940,7 +6031,8 @@ function tkRenderBatchList(){
   const startIdx = tkBatchStartIdx < 0 ? 0 : tkBatchStartIdx;
   const batch = pool.slice(startIdx, startIdx + count);
   if(!batch.length){ listEl.textContent = 'Nothing to queue at this position.'; return; }
-  const overwrite = document.getElementById('tkBatchOverwrite').checked;
+  const type = document.getElementById('tkNewType').value;
+  const overwrite = TK_BATCH_HAS_OVERWRITE[type] && document.getElementById('tkBatchOverwrite').checked;
   const feastMode = tkIsFeastMode();
   listEl.innerHTML = batch.map((e, i) => {
     const note = (overwrite && e.img) ? ' <span class="tkBatchNote">(regenerating)</span>' : '';
@@ -5966,6 +6058,7 @@ function tkUpdateAddFormMode(){
   document.getElementById('tkPlainFields').classList.toggle('hidden', isBatch);
   if(isBatch){
     tkBatchStartIdx = -1;
+    document.getElementById('tkBatchOverwriteRow').classList.toggle('hidden', !TK_BATCH_HAS_OVERWRITE[type]);
     tkUpdateOrderVisibility();
     tkUpdateBatchStartMode();
     tkRefreshBatchPreview();
@@ -6853,7 +6946,19 @@ function wlApplyTaskToDb(task){
   const patch = task.result && task.result.patch;
   if(!Array.isArray(patch)) return { ok: false, note: 'task carries no patch array' };
   const res = applyOnePatch(entry, patch);
-  if(res.ok) dirtyEntryIds.add(task.entityId);
+  if(res.ok){
+    dirtyEntryIds.add(task.entityId);
+    // A reworded sentence changes the narrated words, so any existing recording is now stale.
+    // Clearing entry.audio here means it travels to GitHub in the SAME data.json commit as the
+    // text change (both ride dirtyEntryIds together) — the actual audio/timing files are only
+    // deleted afterward, once that commit has actually succeeded (see purgeStaleAudioFiles(),
+    // called from publishToGitHub()), so there's never a window where a live entry points at an
+    // already-deleted file.
+    if(task.type === 'sentence-reword' && entry.audio){
+      audioPurgeQueue.add(task.entityId);
+      entry.audio = '';
+    }
+  }
   return res;
 }
 
@@ -9996,6 +10101,59 @@ async function audioFileExists(repoPath){
   const viaGitHub = await audioPathExistsOnGitHub(repoPath);
   if(viaGitHub !== null) return viaGitHub;
   return audioUrlExists(resolveAsset(repoPath, db.settings && db.settings.audioBase));
+}
+// Deletes one repo file via the Contents API. A 404 on the lookup means it's already gone,
+// which counts as success here — the goal ("this file shouldn't exist") is already true.
+async function ghDeleteFile(path, message){
+  const g = wlGh();
+  if(!g.owner || !g.repo || !g.token) return { ok: false, error: 'GitHub token not set' };
+  const api = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' +
+    path.split('/').map(encodeURIComponent).join('/');
+  try{
+    const lookup = await fetch(api + '?ref=' + encodeURIComponent(g.branch), { headers: g.hdr, cache: 'no-store' });
+    if(lookup.status === 404) return { ok: true, skipped: true };
+    if(!lookup.ok) return { ok: false, error: 'lookup failed (' + lookup.status + ')' };
+    const meta = await lookup.json();
+    const del = await fetch(api, {
+      method: 'DELETE',
+      headers: Object.assign({'Content-Type':'application/json'}, g.hdr),
+      body: JSON.stringify({ message: message, sha: meta.sha, branch: g.branch })
+    });
+    if(del.status === 200) return { ok: true };
+    let m = ''; try{ m = (await del.json()).message; }catch(e){}
+    return { ok: false, error: m || ('delete failed ' + del.status) };
+  }catch(err){ return { ok: false, error: err.message }; }
+}
+// Drains audioPurgeQueue: for each entity, walks the same version/extension convention
+// autoDetectAudio() checks (audio/{folder}/{id}-v{N}.{mp3|wav}, plus its paired {N}.json timing
+// file) and deletes whatever it finds. Called by publishToGitHub() ONLY after data.json's own
+// commit has already succeeded — see the sequencing note on wlApplyTaskToDb and on
+// publishToGitHub itself. entry.audio is already cleared and published by that point, so this is
+// pure cleanup: nothing here is on the critical path for the entry to read correctly.
+async function purgeStaleAudioFiles(){
+  if(!audioPurgeQueue.size) return { count: 0, entities: 0 };
+  const ids = Array.from(audioPurgeQueue);
+  let fileCount = 0;
+  for(const id of ids){
+    const entry = getEntry(id);
+    const folder = entry && AUDIO_TYPE_FOLDERS[entry.t];
+    if(folder){
+      for(let v = 1; v <= AUDIO_CHECK_MAX_VERSIONS; v++){
+        let hitAny = false;
+        for(const ext of AUDIO_CHECK_EXTS.concat(['json'])){
+          const p = 'audio/' + folder + '/' + entry.id + '-v' + v + '.' + ext;
+          if(await audioPathExistsOnGitHub(p)){
+            hitAny = true;
+            const res = await ghDeleteFile(p, 'Remove stale audio (sentence reworded) \u2014 ' + entry.id);
+            if(res.ok && !res.skipped) fileCount++;
+          }
+        }
+        if(!hitAny) break; // versions are contiguous — first fully-missing version means nothing higher exists
+      }
+    }
+    audioPurgeQueue.delete(id);
+  }
+  return { count: fileCount, entities: ids.length };
 }
 async function autoDetectAudio(entry){
   if(!entry || entry.audio || audioAutoDetectChecked.has(entry.id)) return;
