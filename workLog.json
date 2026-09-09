@@ -185,7 +185,7 @@
       "id": "task-image-finalize-st-john-chrysostom-407-1788866203026",
       "type": "image-finalize",
       "entityId": "st-john-chrysostom-407",
-      "status": "queued",
+      "status": "error",
       "description": "Finalize image for St. John Chrysostom",
       "payload": {
         "winningCandidate": "a",
@@ -194,9 +194,9 @@
         "notes": ""
       },
       "result": null,
-      "error": null,
+      "error": "Error: ENOENT: no such file or directory, open 'Images/Saints/st-john-chrysostom-407-candidate-a.png'\n    at async open (node:internal/fs/promises:637:25)\n    at async Object.readFile (node:internal/fs/promises:1249:14)\n    at async runImageFinalize (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/image-finalize.mjs:70:18)\n    at async main (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/orchestrator.mjs:158:20)",
       "createdAt": "2026-09-08T11:16:43.026Z",
-      "updatedAt": "2026-09-09T18:35:18.163Z"
+      "updatedAt": "2026-09-09T18:37:49.586Z"
     },
     {
       "id": "task-sentence-reword-st-james-the-less-62-1788929972082-431",
@@ -345,12 +345,19 @@
       "type": "sentence-reword",
       "entityId": "st-basil-the-great-379",
       "batchId": null,
-      "status": "queued",
+      "status": "done",
       "description": "Reword long sentences — St. Basil the Great",
       "payload": {},
-      "result": null,
+      "result": {
+        "entityId": "st-basil-the-great-379",
+        "name": "St. Basil the Great",
+        "sentencesFound": 6,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0
+      },
       "createdAt": "2026-09-09T18:37:19.923Z",
-      "updatedAt": "2026-09-09T18:37:19.923Z",
+      "updatedAt": "2026-09-09T18:38:09.136Z",
       "error": null
     },
     {
@@ -358,12 +365,19 @@
       "type": "sentence-reword",
       "entityId": "st-gregory-nazianzen-390",
       "batchId": null,
-      "status": "queued",
+      "status": "done",
       "description": "Reword long sentences — St. Gregory Nazianzen",
       "payload": {},
-      "result": null,
+      "result": {
+        "entityId": "st-gregory-nazianzen-390",
+        "name": "St. Gregory Nazianzen",
+        "sentencesFound": 8,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0
+      },
       "createdAt": "2026-09-09T18:37:19.923Z",
-      "updatedAt": "2026-09-09T18:37:19.923Z",
+      "updatedAt": "2026-09-09T18:38:37.126Z",
       "error": null
     },
     {
@@ -371,13 +385,137 @@
       "type": "sentence-reword",
       "entityId": "st-elizabeth-ann-seton-1821",
       "batchId": null,
-      "status": "queued",
+      "status": "done",
       "description": "Reword long sentences — St. Elizabeth Ann Seton",
       "payload": {},
-      "result": null,
+      "result": {
+        "entityId": "st-elizabeth-ann-seton-1821",
+        "name": "St. Elizabeth Ann Seton",
+        "sentencesFound": 6,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0
+      },
       "createdAt": "2026-09-09T18:37:19.923Z",
-      "updatedAt": "2026-09-09T18:37:19.923Z",
+      "updatedAt": "2026-09-09T18:38:58.250Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-st-basil-the-great-379-1788979089136-8530",
+      "type": "sentence-reword",
+      "entityId": "st-basil-the-great-379",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — St. Basil the Great",
+      "payload": {},
+      "result": {
+        "name": "St. Basil the Great",
+        "patches": [
+          [
+            "article",
+            "It was, remarkably, a family that would produce several saints across a single generation: Basil's own grandmother, mother, brother Gregory of Nyssa, and sister Macrina the Younger are all honored by the Church, a household in which holiness seems to have been, quite simply, the family inheritance.",
+            "U",
+            "It was, remarkably, a family that would produce several saints across a single generation. Basil's own grandmother, mother, brother Gregory of Nyssa, and sister Macrina the Younger are all honored by the Church. In this household, holiness seems to have been, quite simply, the family inheritance."
+          ],
+          [
+            "article",
+            "His most enduring practical achievement was the <b>Basiliad</b>, an enormous charitable complex he built just outside the city — hospital, hospice for lepers, shelter for travelers, and refuge for the poor all combined, so extensive that contemporaries described it as a small city in its own right.",
+            "U",
+            "His most enduring practical achievement was the <b>Basiliad</b>, an enormous charitable complex he built just outside the city. It combined a hospital, a hospice for lepers, a shelter for travelers, and a refuge for the poor. It was so extensive that contemporaries described it as a small city in its own right."
+          ],
+          [
+            "article",
+            "In this, Basil taught by deed what he never tired of teaching by word: that love of God cannot be separated from concrete, organized, sacrificial love of the poor, and that a bishop's cathedral and a bishop's hospital belong, in the end, to the very same mission.",
+            "U",
+            "In this, Basil taught by deed what he never tired of teaching by word. Love of God cannot be separated from concrete, organized, sacrificial love of the poor. And a bishop's cathedral and a bishop's hospital belong, in the end, to the very same mission."
+          ],
+          [
+            "article",
+            "He died on 1 January 379, not yet fifty years old, without living to see the final vindication of the Nicene faith at Constantinople two years later — a vindication his own tireless theological labor had done so much to prepare.",
+            "U",
+            "He died on 1 January 379, not yet fifty years old. He did not live to see the final vindication of the Nicene faith at Constantinople two years later — a vindication his own tireless theological labor had done so much to prepare."
+          ]
+        ]
+      },
+      "error": null,
+      "createdAt": "2026-09-09T18:38:09.136Z",
+      "updatedAt": "2026-09-09T18:38:09.136Z"
+    },
+    {
+      "id": "task-sentence-reword-st-gregory-nazianzen-390-1788979117126-6403",
+      "type": "sentence-reword",
+      "entityId": "st-gregory-nazianzen-390",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — St. Gregory Nazianzen",
+      "payload": {},
+      "result": {
+        "name": "St. Gregory Nazianzen",
+        "patches": [
+          [
+            "article",
+            "Gregory's own deepest longing throughout his life was for the quiet of monastic retirement and theological study, a temperament that sits movingly beside the record of a man who was, again and again, called out of that quiet into the most turbulent controversies of his age.",
+            "U",
+            "Gregory's own deepest longing throughout his life was for the quiet of monastic retirement and theological study. This temperament sits movingly beside the record of a man who was, again and again, called out of that quiet into the most turbulent controversies of his age."
+          ],
+          [
+            "article",
+            "This pattern — genuine reluctance overcome, again and again, by a deeper sense of duty to friends and to the Church — would repeat itself across the whole of Gregory's public life, never once because he sought advancement, but always because someone he could not refuse had asked something of him that he alone seemed equipped to give.",
+            "U",
+            "This pattern — genuine reluctance overcome, again and again, by a deeper sense of duty to friends and to the Church — would repeat itself across the whole of Gregory's public life. Never once did he act because he sought advancement; he always acted because someone he could not refuse had asked something of him that he alone seemed equipped to give."
+          ],
+          [
+            "article",
+            "In 379, at the urgent request of Basil and of the sorely persecuted Nicene faithful of <b>Constantinople</b>, a city that had been almost entirely in Arian hands for decades, Gregory reluctantly agreed to travel there and take up their spiritual care.",
+            "U",
+            "In 379, Basil and the sorely persecuted Nicene faithful of <b>Constantinople</b> urgently requested Gregory's help. The city had been almost entirely in Arian hands for decades. Gregory reluctantly agreed to travel there and take up their spiritual care."
+          ],
+          [
+            "article",
+            "He began with nothing more than a single house, converted into a small chapel he called Anastasia, \"Resurrection\" — a fitting name, since it was from this humble beginning that Nicene orthodoxy would, within two years, rise again to become the faith publicly professed throughout the imperial capital.",
+            "U",
+            "He began with nothing more than a single house, converted into a small chapel he called Anastasia, \"Resurrection.\" It was a fitting name, since it was from this humble beginning that Nicene orthodoxy would, within two years, rise again to become the faith publicly professed throughout the imperial capital."
+          ],
+          [
+            "article",
+            "The Church still recites, at every Mass, the Nicene-Constantinopolitan Creed whose confession of the Trinity Gregory's Theological Orations did so much to secure and to clarify, and the Eastern Church still honors him, alongside Basil and John Chrysostom, as one of its Three Holy Hierarchs.",
+            "U",
+            "The Church still recites, at every Mass, the Nicene-Constantinopolitan Creed, whose confession of the Trinity Gregory's Theological Orations did so much to secure and to clarify. The Eastern Church still honors him, alongside Basil and John Chrysostom, as one of its Three Holy Hierarchs."
+          ]
+        ]
+      },
+      "error": null,
+      "createdAt": "2026-09-09T18:38:37.126Z",
+      "updatedAt": "2026-09-09T18:38:37.126Z"
+    },
+    {
+      "id": "task-sentence-reword-st-elizabeth-ann-seton-1821-1788979138250-7426",
+      "type": "sentence-reword",
+      "entityId": "st-elizabeth-ann-seton-1821",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Elizabeth Ann Seton",
+      "payload": {},
+      "result": {
+        "name": "St. Elizabeth Ann Seton",
+        "patches": [
+          [
+            "article",
+            "William died shortly after their arrival in Italy, and Elizabeth, staying on for a period with the devoutly Catholic Filicchi family who had hosted them, found herself deeply moved by a faith and manner of religious life entirely unlike anything in her own Episcopalian upbringing.",
+            "U",
+            "William died shortly after their arrival in Italy. Elizabeth stayed on for a period with the devoutly Catholic Filicchi family who had hosted them. She found herself deeply moved by a faith and manner of religious life entirely unlike anything in her own Episcopalian upbringing."
+          ],
+          [
+            "article",
+            "Returning to New York as a widow with five young children to support, Elizabeth began a serious, sustained investigation of Catholic teaching that would culminate in her formal reception into the <b>Catholic Church</b> in 1805 — a decision that cost her, almost immediately, the friendship and social standing of much of her own Protestant New York circle.",
+            "U",
+            "Returning to New York as a widow with five young children to support, Elizabeth began a serious, sustained investigation of Catholic teaching. This would culminate in her formal reception into the <b>Catholic Church</b> in 1805 — a decision that cost her, almost immediately, the friendship and social standing of much of her own Protestant New York circle."
+          ]
+        ]
+      },
+      "error": null,
+      "createdAt": "2026-09-09T18:38:58.250Z",
+      "updatedAt": "2026-09-09T18:38:58.250Z"
     }
   ]
 }
