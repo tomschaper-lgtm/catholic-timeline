@@ -52,16 +52,42 @@ function paragraphHasEntryLink(paragraphRaw){
   return /href\s*=\s*["']entry:/i.test(paragraphRaw);
 }
 
-// Heuristic sentence boundary: punctuation, then whitespace, then what looks like the start of
-// a new sentence. Imperfect on abbreviations ("St. Augustine") and mid-sentence quotes — that's
-// acceptable here, since a wrong split just means Claude sees a slightly different chunk than a
-// human would call "one sentence," and every resulting proposal is reviewed before it touches
-// anything.
+// Titles, honorifics, and other common abbreviations that end in a period but do NOT end a
+// sentence. Lowercase, no trailing period — the check strips it before comparing. Without this,
+// "St. Paul" or "Dr. Smith" splits into two fake sentences (and, worse, could get counted or
+// matched as its own over-length fragment) since a period-space-capital is otherwise
+// indistinguishable from a real sentence boundary. Keep this identical to the same constant in
+// index.html's tkSplitSentencesForDisplay — the review has to mark the same sentence boundaries
+// this handler actually matched against, or what's highlighted won't line up with what changed.
+const SENTENCE_ABBREVIATIONS = new Set([
+  'st','sts','ss','dr','mr','mrs','ms','fr','msgr','bl','ven','abp','card','rev',
+  'gen','col','capt','lt','sgt','maj','adm','prof','pres','gov','sen','rep','hon',
+  'vs','etc','al','no','vol','ch','v','c','ca','ed','eds','tr','pp',
+  'jan','feb','mar','apr','jun','jul','aug','sep','sept','oct','nov','dec',
+  'i.e','e.g','a.d','b.c','a.m','p.m','u.s','u.k'
+]);
+
+// Heuristic sentence boundary: punctuation, then whitespace, then what looks like the start of a
+// new sentence — except when the word right before the punctuation is a known abbreviation
+// (St., Dr., c., etc.), in which case that's not really a boundary and scanning continues. Still
+// imperfect on anything not in the list above, and on mid-sentence quotes — that's acceptable
+// here, since a wrong split just means Claude sees a slightly different chunk than a human would
+// call "one sentence," and every resulting proposal is reviewed before it touches anything.
 function splitIntoSentences(paragraphRaw){
-  return paragraphRaw
-    .split(/(?<=[.!?])\s+(?=[A-Z0-9"'\u201C(])/)
-    .map(s => s.trim())
-    .filter(Boolean);
+  const boundary = /[.!?]\s+(?=[A-Z0-9"'\u201C(])/g;
+  const out = [];
+  let start = 0, m;
+  while((m = boundary.exec(paragraphRaw))){
+    const cutAt = m.index + 1; // right after the punctuation mark
+    const wordMatch = /(?:^|[^A-Za-z.])((?:[A-Za-z]\.)*[A-Za-z]+)\.$/.exec(paragraphRaw.slice(start, cutAt));
+    const word = wordMatch ? wordMatch[1].toLowerCase() : '';
+    if(SENTENCE_ABBREVIATIONS.has(word)) continue; // not a real sentence boundary — keep scanning
+    out.push(paragraphRaw.slice(start, cutAt).trim());
+    start = boundary.lastIndex;
+  }
+  const last = paragraphRaw.slice(start).trim();
+  if(last) out.push(last);
+  return out.filter(Boolean);
 }
 
 // A sentence chunk that opens a tracked tag without closing it (or vice versa) means the
