@@ -1,9 +1,15 @@
 <!--
-VERSION: 334
-DATE: 2026-09-09T12:00:00-05:00
+VERSION: 335
+DATE: 2026-09-09T18:30:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Sentence-reword review: a proposal left over from before v334 (old single result.patch shape,
+  one task per sentence) now says plainly that it predates the current review and to reject and
+  requeue that entity, instead of silently rendering as if zero sentences needed fixing — which
+  was indistinguishable from a task that genuinely found nothing.
+
+v334 CHANGES (unchanged from the version this build started from):
 - Sentence-reword review redesigned from one-task-per-sentence to one-task-per-entity, whole
   article at a time:
   - scripts/services/sentence-reword.mjs now bundles every long-sentence fix for an entity into a
@@ -3606,7 +3612,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v334';
+const APP_VERSION = 'v335';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6520,13 +6526,20 @@ function renderTaskReview(){
           '<div class="tkImgSide">Candidate B</div></div>'
         : '');
   } else if(isSentenceRewordReview && entry){
-    const patches = (t.result && Array.isArray(t.result.patches)) ? t.result.patches : [];
+    const hasBundledPatches = t.result && Array.isArray(t.result.patches);
+    // A task queued before this whole-article review existed carries the old single result.patch
+    // shape (one task per sentence) instead of the array this screen reads. Rather than silently
+    // rendering as if zero sentences needed fixing — confusing, and indistinguishable from a task
+    // that genuinely found nothing — say plainly what's going on and what to do about it.
+    const isLegacyShape = !hasBundledPatches && t.result && Array.isArray(t.result.patch);
     // Local view-only state, same pattern as tkFinalShowOriginal: resets the moment a different
     // task is on screen, so a stale toggle from a previous review never carries over.
     if(tkSentenceShowBeforeFor !== t.id){ tkSentenceShowBefore = false; tkSentenceShowBeforeFor = t.id; }
     body = '<div class="tkRvName">' + esc(entry.n) + '</div>' +
       '<div class="tkRvMeta">' + esc(t.type) + ' \u00b7 ' + esc(t.entityId) + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
-      tkRenderSentenceRewordReview(entry, patches);
+      (isLegacyShape
+        ? '<p class="tkNote">This proposal was created before the whole-article review — its data is in the old one-sentence-at-a-time shape, so it can\u2019t be displayed here. Nothing on the entry has changed either way. Reject this, then requeue ' + esc(entry.n) + ' from Add Task to get a fresh, fully-reviewable version.</p>'
+        : tkRenderSentenceRewordReview(entry, hasBundledPatches ? t.result.patches : []));
   } else if(entry){
     const patch = (t.result && Array.isArray(t.result.patch)) ? t.result.patch : null;
     body = '<div class="tkRvName">' + esc(entry.n) + '</div>' +
