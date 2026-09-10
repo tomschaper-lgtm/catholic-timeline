@@ -1,9 +1,25 @@
 <!--
-VERSION: 358
-DATE: 2026-09-11T16:00:00-05:00
+VERSION: 359
+DATE: 2026-09-10T17:51:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Add Task's Start year/feast field only updated tkBatchStartIdx on 'change', which fires on
+  blur — typing a year (e.g. 420) and tapping Add Task without first tapping away left the field
+  showing 420 while the batch was silently still queuing from "earliest eligible" (year/feast
+  0). Now also bound to 'input', so the position updates live as you type and no blur is needed.
+  The old inline anonymous change handler is now the named tkApplyBatchStartValue(), bound to
+  both events.
+- Review Mode: new Generate Images / Record Audio quick-queue buttons on the article view, next
+  to (independent of) the existing Approve/Delete bar — shown whenever Review Mode + Manage are
+  unlocked for any entry with article text, not just one awaiting approval. One tap queues a
+  task straight into workLog.json the same way the Task Automation panel's batch Add Task does,
+  without leaving the article. Each button disables itself, with a title tooltip explaining why,
+  when that entity already has a pending task of that type; Record Audio also disables when no
+  Voice ID is set or the entry still has an unresolved 40+ word sentence (same gate
+  audioGeneratePool() uses). New tkQueueQuickTask().
+
+v358 CHANGES (unchanged from the version this build started from):
 - A recorded-audio task that lands on "done" instead of the proper awaiting_review (most likely
   cause: an older, pre-review-gate audio-generate.mjs is what's actually deployed — see chat)
   used to open into a dead end: the article text with no audio player anywhere, no way to hear
@@ -4017,7 +4033,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v358';
+const APP_VERSION = 'v359';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
