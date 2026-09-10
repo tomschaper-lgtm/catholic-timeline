@@ -33,7 +33,17 @@
 // publishToGitHub() in index.html. Nothing about that lives here; this handler only ever
 // proposes text changes.
 //
-// Requires ANTHROPIC_API_KEY as a repo secret, passed through by orchestrator.yml.
+// Provider: defaults to Claude (ANTHROPIC_API_KEY), but a task's payload.provider === 'openai'
+// routes every sentence in that task through GPT-5.6 Luna (OPENAI_API_KEY) instead — chosen per
+// batch at Add Task time (index.html), not a global switch, so the two can be compared directly
+// on the same real articles. Luna is a reasoning model whose reasoning tokens share the SAME
+// output budget as its visible answer — reasoning.effort is set explicitly to 'low' here rather
+// than left at Luna's 'medium' default, since a mechanical rewording task doesn't need deep
+// reasoning and leaving it at default would risk rediscovering the exact max_tokens exhaustion
+// already found and fixed on the Claude side, just for a different reason.
+//
+// Requires ANTHROPIC_API_KEY and/or OPENAI_API_KEY as repo secrets (whichever provider a given
+// task actually uses), passed through by orchestrator.yml.
 
 
 import { stripHtml } from '../lib/text.mjs';
@@ -41,6 +51,8 @@ import { stripHtml } from '../lib/text.mjs';
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 // A single named constant so bumping the model later is a one-line change.
 const ANTHROPIC_MODEL = 'claude-sonnet-5';
+const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
+const OPENAI_MODEL = 'gpt-5.6-luna';
 const MAX_SENTENCE_WORDS = 40;
 const TRACKED_TAGS = ['b', 'i', 'u', 'blockquote', 'a'];
 
@@ -194,26 +206,15 @@ function looksComplete(text){
   return /[.!?][)"'\u201D]*$/.test(text.trim());
 }
 
-// Retries a transient failure (server error, rate limit, OR a truncated response) up to twice
-// before giving up, with a short backoff — one bad call in a sequence of a dozen or more no
-// longer costs a sentence its fix. Does NOT retry a 4xx that isn't a rate limit (bad request, bad
-// key), since that would just fail the same way three times and waste the attempts.
-//
-// Truncation specifically: a dangling sentence fragment ("Pope Gelasius I, writing in" — nothing
-// after it) reported in review meant a cut-off response was being accepted as if it were a
-// finished one. Two checks guard against that — the API's own stop_reason === 'max_tokens' (the
-// direct, mechanical signal a length cap was hit) and looksComplete() above (a backstop that
-// catches an incomplete-looking reply regardless of why it's incomplete). What real runs then
-// showed: a max_tokens cutoff is usually deterministic, not transient — retrying with the exact
-// same budget hits the exact same wall every time (three real, billed generations, three
-// identical failures, zero chance of a different outcome). TOKEN_BUDGETS escalates the budget on
-// each retry instead of repeating it, so a retry actually has room to finish where the first
-// attempt didn't.
-const TOKEN_BUDGETS = [700, 1200, 2000];
-async function rewordSentence(sentence, paragraph, links, apiKey){
-  let lastErr;
-  for(let attempt = 0; attempt < 3; attempt++){
-    try{
+// One "single attempt" function per provider — same signature (sentence, paragraph, links,
+// maxTokens, apiKey), same return shape ({text, truncated}), same thrown-error shape (a plain
+// Error, with .retryable set false only for a definite non-transient 4xx). The retry loop below
+// is entirely provider-agnostic as a result — it doesn't know or care which one it's calling.
+const PROVIDERS = {
+  anthropic: {
+    label: 'Claude',
+    apiKeyEnv: 'ANTHROPIC_API_KEY',
+    async call(sentence, paragraph, links, maxTokens, apiKey){
       const res = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
         headers: {
@@ -223,30 +224,100 @@ async function rewordSentence(sentence, paragraph, links, apiKey){
         },
         body: JSON.stringify({
           model: ANTHROPIC_MODEL,
-          max_tokens: TOKEN_BUDGETS[attempt],
+          max_tokens: maxTokens,
           messages: [{ role: 'user', content: buildPrompt(sentence, paragraph, links) }]
         })
       });
-      if(res.ok){
-        const data = await res.json();
-        const text = (data.content || []).map(b => b.text || '').join('').trim();
-        if(data.stop_reason === 'max_tokens'){
-          const repetitive = looksRepetitive(text);
-          lastErr = new Error('Anthropic response hit max_tokens before finishing (budget ' + TOKEN_BUDGETS[attempt] +
-            ', generated ' + text.length + ' chars' + (repetitive ? ', looks like a repetition loop' : '') +
-            ') \u2014 end of what it generated: "\u2026' + text.slice(-200) + '"');
-        }else if(text && !looksComplete(text)){
-          lastErr = new Error('Anthropic response looks cut off (doesn\u2019t end in sentence-ending punctuation): "' + text.slice(-60) + '"');
-        }else{
-          return text;
-        }
-      }else{
+      if(!res.ok){
         const errText = await res.text().catch(() => '');
-        lastErr = new Error('Anthropic messages ' + res.status + ': ' + errText.slice(0, 300));
-        if(res.status < 500 && res.status !== 429) break; // not transient — retrying won't help
+        const err = new Error('Anthropic messages ' + res.status + ': ' + errText.slice(0, 300));
+        err.retryable = res.status >= 500 || res.status === 429;
+        throw err;
       }
-    }catch(networkErr){
-      lastErr = networkErr; // fetch itself failing (network blip) is retried the same as a 5xx
+      const data = await res.json();
+      const text = (data.content || []).map(b => b.text || '').join('').trim();
+      return { text, truncated: data.stop_reason === 'max_tokens' };
+    }
+  },
+  openai: {
+    label: 'GPT-5.6 Luna',
+    apiKeyEnv: 'OPENAI_API_KEY',
+    async call(sentence, paragraph, links, maxTokens, apiKey){
+      const res = await fetch(OPENAI_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + apiKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: OPENAI_MODEL,
+          input: buildPrompt(sentence, paragraph, links),
+          max_output_tokens: maxTokens,
+          // Explicit and low, not left at Luna's 'medium' default — reasoning tokens share this
+          // same budget with the visible answer, and a mechanical split-this-sentence task has
+          // no real use for deep reasoning. See the file header for why this matters here
+          // specifically, given what the Claude side just taught about token budgets.
+          reasoning: { effort: 'low' }
+        })
+      });
+      if(!res.ok){
+        const errText = await res.text().catch(() => '');
+        const err = new Error('OpenAI responses ' + res.status + ': ' + errText.slice(0, 300));
+        err.retryable = res.status >= 500 || res.status === 429;
+        throw err;
+      }
+      const data = await res.json();
+      const msgItem = (data.output || []).find(o => o.type === 'message');
+      const textBlock = msgItem && (msgItem.content || []).find(c => c.type === 'output_text');
+      const text = ((textBlock && textBlock.text) || '').trim();
+      // Best-effort truncation signal, per OpenAI's documented incomplete-response shape — this
+      // is a secondary check regardless: looksComplete() below is the real backstop, exactly as
+      // it already is for Claude, so getting this exactly right isn't load-bearing on its own.
+      const truncated = data.status === 'incomplete' ||
+        (data.incomplete_details && data.incomplete_details.reason === 'max_output_tokens') ||
+        (msgItem && msgItem.status && msgItem.status !== 'completed');
+      return { text, truncated };
+    }
+  }
+};
+
+// Retries a transient failure (server error, rate limit, OR a truncated response) up to twice
+// before giving up, with a short backoff — one bad call in a sequence of a dozen or more no
+// longer costs a sentence its fix. Does NOT retry a 4xx that isn't a rate limit (bad request, bad
+// key), since that would just fail the same way three times and waste the attempts.
+//
+// Truncation specifically: a dangling sentence fragment ("Pope Gelasius I, writing in" — nothing
+// after it) reported in review meant a cut-off response was being accepted as if it were a
+// finished one. Two checks guard against that — the provider's own truncation signal (the direct,
+// mechanical signal a length cap was hit) and looksComplete() above (a backstop that catches an
+// incomplete-looking reply regardless of why it's incomplete, and regardless of provider). What
+// real runs then showed: a token-limit cutoff is usually deterministic, not transient — retrying
+// with the exact same budget hits the exact same wall every time (three real, billed generations,
+// three identical failures, zero chance of a different outcome). TOKEN_BUDGETS escalates the
+// budget on each retry instead of repeating it, so a retry actually has room to finish where the
+// first attempt didn't.
+const TOKEN_BUDGETS = [700, 1200, 2000];
+async function rewordSentence(sentence, paragraph, links, provider, apiKey){
+  const p = PROVIDERS[provider] || PROVIDERS.anthropic;
+  let lastErr;
+  for(let attempt = 0; attempt < 3; attempt++){
+    try{
+      const { text, truncated } = await p.call(sentence, paragraph, links, TOKEN_BUDGETS[attempt], apiKey);
+      if(truncated){
+        const repetitive = looksRepetitive(text);
+        lastErr = new Error(p.label + ' response hit its token limit before finishing (budget ' + TOKEN_BUDGETS[attempt] +
+          ', generated ' + text.length + ' chars' + (repetitive ? ', looks like a repetition loop' : '') +
+          ') \u2014 end of what it generated: "\u2026' + text.slice(-200) + '"');
+      }else if(!text){
+        lastErr = new Error(p.label + ' returned an empty response');
+      }else if(!looksComplete(text)){
+        lastErr = new Error(p.label + ' response looks cut off (doesn\u2019t end in sentence-ending punctuation): "' + text.slice(-60) + '"');
+      }else{
+        return text;
+      }
+    }catch(err){
+      if(err && err.retryable === false){ lastErr = err; break; } // not transient — retrying won't help
+      lastErr = err; // network blip or a retryable HTTP status — same backoff-and-retry as a truncation
     }
     if(attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1))); // 1s, then 2s
   }
@@ -257,8 +328,10 @@ async function rewordSentence(sentence, paragraph, links, apiKey){
  * Handler signature expected by scripts/orchestrator.mjs: (task, dataJson) => outcome
  */
 export async function runSentenceReword(task, dataJson){
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if(!apiKey) throw new Error('Missing ANTHROPIC_API_KEY secret (add it under repo Settings \u2192 Secrets \u2192 Actions).');
+  const provider = (task.payload && task.payload.provider === 'openai') ? 'openai' : 'anthropic';
+  const providerInfo = PROVIDERS[provider];
+  const apiKey = process.env[providerInfo.apiKeyEnv];
+  if(!apiKey) throw new Error('Missing ' + providerInfo.apiKeyEnv + ' secret (add it under repo Settings \u2192 Secrets \u2192 Actions).');
 
   const entry = (dataJson.entries || []).find(e => e.id === task.entityId);
   if(!entry){
@@ -301,7 +374,7 @@ export async function runSentenceReword(task, dataJson){
               // kind of high failure count this was built to prevent.
               if(found > 1) await new Promise(r => setTimeout(r, 400));
               try{
-                replacement = await rewordSentence(sentence, para, links, apiKey);
+                replacement = await rewordSentence(sentence, para, links, provider, apiKey);
               }catch(apiErr){
                 // One bad call doesn't stop the rest of this entity's sentences — reported in
                 // the summary; a rerun of this same task will simply retry whatever's left,
@@ -337,7 +410,7 @@ export async function runSentenceReword(task, dataJson){
 
   const summary = (found === 0)
     ? 'no sentences over ' + MAX_SENTENCE_WORDS + ' words found \u2014 nothing queued for review'
-    : reworded + ' of ' + found + ' long sentence(s) reworded and queued for review' +
+    : reworded + ' of ' + found + ' long sentence(s) reworded via ' + providerInfo.label + ' and queued for review' +
       (skippedTagMismatch ? ' \u00b7 ' + skippedTagMismatch + ' skipped (spans a formatting tag)' : '') +
       (apiErrors ? ' \u00b7 ' + apiErrors + ' call(s) failed after retries \u2014 ' + apiErrorSamples.join(' | ') : '') +
       (linkNotPreserved ? ' \u00b7 ' + linkNotPreserved + ' left untouched (contains a cross-reference link that didn\u2019t survive the rewording \u2014 fix by hand)' : '');
@@ -349,7 +422,7 @@ export async function runSentenceReword(task, dataJson){
       id: 'task-sentence-reword-' + entry.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
       type: 'sentence-reword', entityId: entry.id, batchId: null, status: 'proposed',
       description: 'Reword ' + patches.length + ' long sentence' + (patches.length === 1 ? '' : 's') + ' \u2014 ' + entry.n,
-      payload: {}, result: { name: entry.n, patches, apiErrors, apiErrorSamples, skippedTagMismatch, linkNotPreserved }, error: null, createdAt: nowIso, updatedAt: nowIso
+      payload: {}, result: { name: entry.n, patches, apiErrors, apiErrorSamples, skippedTagMismatch, linkNotPreserved, provider, providerLabel: providerInfo.label }, error: null, createdAt: nowIso, updatedAt: nowIso
     });
   }
 
@@ -357,7 +430,7 @@ export async function runSentenceReword(task, dataJson){
     result: {
       entityId: entry.id, name: entry.n,
       sentencesFound: found, sentencesReworded: reworded,
-      skippedTagMismatch, apiErrors, apiErrorSamples, linkNotPreserved
+      skippedTagMismatch, apiErrors, apiErrorSamples, linkNotPreserved, provider, providerLabel: providerInfo.label
     },
     summary,
     spawnedTasks
