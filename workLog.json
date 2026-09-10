@@ -4167,14 +4167,25 @@
       "type": "sentence-reword",
       "entityId": "st-john-leonardi-1609",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. John Leonardi",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-john-leonardi-1609",
+        "name": "St. John Leonardi",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-10T21:13:59.694Z",
-      "updatedAt": "2026-09-10T21:15:52.666Z",
+      "updatedAt": "2026-09-10T21:16:00.789Z",
       "error": null
     },
     {
@@ -4363,6 +4374,47 @@
       "error": null,
       "createdAt": "2026-09-10T21:15:51.386Z",
       "updatedAt": "2026-09-10T21:15:51.386Z"
+    },
+    {
+      "id": "task-sentence-reword-st-john-leonardi-1609-1789074960789-1488",
+      "type": "sentence-reword",
+      "entityId": "st-john-leonardi-1609",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — St. John Leonardi",
+      "payload": {},
+      "result": {
+        "name": "St. John Leonardi",
+        "patches": [
+          [
+            "article",
+            "Born in 1541 at Diecimo, near Lucca in Tuscany, <b>John</b> trained as a pharmacist's assistant in his youth, becoming a certified apothecary — a trade that gave him direct daily contact with the sick and poor of Lucca and, eventually, drew him toward a religious vocation.",
+            "U",
+            "Born in 1541 at Diecimo, near Lucca in Tuscany, <b>John</b> trained as a pharmacist's assistant in his youth. He became a certified apothecary, a trade that gave him direct daily contact with Lucca's sick and poor. Eventually, this work drew him toward a religious vocation."
+          ],
+          [
+            "article",
+            "The persecution John faced from Lucca's civic authorities proved so lasting that he spent much of the remainder of his life effectively banished from his own home city, only occasionally readmitted by special and reluctant permission of the Senate, extracted under papal pressure — a painful irony for a man whose whole mission had been the spiritual renewal of that same community.",
+            "U",
+            "The persecution John faced from Lucca's civic authorities proved so lasting that he spent much of the remainder of his life effectively banished from his own home city. He was only occasionally readmitted by special and reluctant permission of the Senate, extracted under papal pressure—a painful irony for a man whose whole mission had been the spiritual renewal of that same community."
+          ],
+          [
+            "article",
+            "Working from Rome, where he established the convent of Santa Maria in Portico (later Campitelli) in 1601, John also became a key co-founder, alongside Cardinal Jerome Vives, of a seminary dedicated to training missionaries for foreign lands — a project that helped lay the groundwork for what would become, over a decade later, the Sacred Congregation for the Propagation of the Faith (<a href=\"entry:propaganda-fide-founded-1622\">Propaganda Fide</a>), founded formally in 1622.",
+            "U",
+            "Working from Rome, John established the convent of Santa Maria in Portico (later Campitelli) in 1601. He also became a key co-founder, alongside Cardinal Jerome Vives, of a seminary dedicated to training missionaries for foreign lands. This project helped lay the groundwork for what would become, over a decade later, the Sacred Congregation for the Propagation of the Faith (<a href=\"entry:propaganda-fide-founded-1622\">Propaganda Fide</a>), founded formally in 1622."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-10T21:16:00.789Z",
+      "updatedAt": "2026-09-10T21:16:00.789Z"
     }
   ]
 }
