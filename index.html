@@ -1,9 +1,66 @@
 <!--
-VERSION: 354
-DATE: 2026-09-11T09:00:00-05:00
+VERSION: 358
+DATE: 2026-09-11T16:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- A recorded-audio task that lands on "done" instead of the proper awaiting_review (most likely
+  cause: an older, pre-review-gate audio-generate.mjs is what's actually deployed — see chat)
+  used to open into a dead end: the article text with no audio player anywhere, no way to hear
+  the recording without leaving the app for the live site. That fallback review branch now shows
+  a player whenever the entry actually has audio, regardless of why the task didn't go through
+  the normal review path — a straightforward defensive fix, independent of the root cause.
+
+v357 CHANGES (unchanged from the version this build started from):
+- Root-caused a real confusion: watching the orchestrator run live on GitHub showed it processing
+  St. Hildegard when the Task List appeared to show St. Jerome "first." Traced to two unrelated
+  orderings colliding — the orchestrator processes queued tasks strictly by array position
+  (whatever order they physically sit in workLog.tasks), while the Task List sorts by date,
+  newest first. Retrying a failed task flips its status back to queued in place without moving
+  it, so an old task retried minutes ago still runs before one queued fresh yesterday — with no
+  visual signal that these two orders could ever diverge.
+- Queued and Running split into separate filter chips — in_progress tasks used to be invisible,
+  lumped into the same "Queued" bucket as ones that hadn't started.
+- The Queued view no longer sorts by date at all — it now shows true array/processing order, so
+  "top of Queued" actually means "runs next," matching what the orchestrator will really do
+  instead of what looked most recently added.
+- New "Up next" line above the task list, driven by the current Run count/service selection —
+  shows exactly which entities a Run right now would process, in real order, before you even
+  press the button. New tkUpdateUpNext(), refreshed on every list render and on every count/
+  service change.
+- scripts/orchestrator.mjs (this file unchanged this version — logged here since the changelog is
+  the unified record) and orchestrator.yml: workLog.json now commits twice per task — once the
+  moment it flips to in_progress (before the handler even runs), once after its outcome is known
+  — instead of once at the very end of the whole run. This is what makes any of the above
+  meaningful on a live run: previously nothing in workLog.json changed until the entire batch
+  finished, so refreshing mid-run showed nothing different no matter how good the UI got. New
+  commitWorkLog() in orchestrator.mjs, mirroring commitFiles()' own git safety pattern but
+  best-effort rather than fatal — a failed push here costs one visibility update, not the task's
+  actual result, and orchestrator.yml's trailing commit step remains the final safety net.
+  Traded-off cost, flagged plainly: meaningfully more git commits per run (up to 2\u00d7 the task
+  count, on top of whatever content commits already happen) — worth it for a real run, but not
+  free.
+
+v356 CHANGES (unchanged from the version this build started from):
+- triggerWorkflow() now shows live step-by-step status while a run is in progress — Checkout,
+  Install ffmpeg, Run orchestrator, etc., each with its own \u2713/\u2717/\u23f3/\u00b7. This is
+  genuinely real: GitHub's Jobs API returns live per-step status while a run is still going. Full
+  log TEXT is NOT available the same way — confirmed via GitHub's own API docs and a long-standing
+  community-reported issue that the logs endpoint 404s for the entire duration a job is running —
+  so that's deliberately not attempted here; this shows structure (which step, what state), not
+  console output. New tkFetchStepsSummary()/tkStepIcon(), tested against every real step state
+  before shipping. Applies to every workflow this app triggers, not just the orchestrator, since
+  triggerWorkflow() is shared by all of them.
+
+v355 CHANGES (unchanged from the version this build started from):
+- Fixed the floating system transport control (iOS's Now Playing widget) persisting over the
+  Approve/Reject buttons after leaving an audio review. It tracks the <audio> element itself, not
+  this app's view state — once it's played, replacing the element's HTML or navigating away
+  doesn't make the OS drop it; only explicitly pausing, clearing src, and calling load() actually
+  releases it. New tkStopAudioPlayer(), called before any review re-render and on every way out
+  of one (tkGoList, closeTaskPanel).
+
+v354 CHANGES (unchanged from the version this build started from):
 - scripts/services/sentence-reword.mjs (this file unchanged this version — logged here since the
   changelog is the unified record): GPT-5.6 Luna's reasoning.effort dropped from 'low' to 'none'.
   A real failure on St. Francis of Assisi showed only 194 output characters against a full
@@ -3217,6 +3274,7 @@ v332 CHANGES (unchanged from the version this build started from):
         <select class="tkRunType" id="tkRunType" aria-label="Which service to run"></select>
       </div>
       <div class="tkNotice" id="tkNotice"></div>
+      <p class="tkNote" id="tkUpNext"></p>
       <div class="tkBar" style="padding-bottom:8px;"><span class="tkNote" id="tkCount" style="margin:0;"></span></div>
       <div class="spHead" id="tkHead"></div>
       <div class="spListWrap" id="tkListWrap">
@@ -3954,7 +4012,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v354';
+const APP_VERSION = 'v358';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6356,6 +6414,8 @@ const TK_CHIPS = [
     // Same clock path already used elsewhere in the app (see the other viewBox="0 0 24 24"
     // circle+hand icon a few hundred lines up) — reused rather than redrawn, for consistency.
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>' },
+  { id: 'running', label: 'Running',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 8.5v7l6-3.5-6-3.5z" fill="currentColor" stroke="none"/></svg>' },
   { id: 'review', label: 'Review',
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h9l4 4V21a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z"/><path d="M15 2.5V6.5a1 1 0 0 0 1 1H20"/><path d="M8.5 13.3l2.3 2.2L15.5 10.8"/></svg>' }
 ];
@@ -6700,9 +6760,21 @@ function tkRows(){
   const filtered = tasks.filter(t => {
     if(tkFilter === 'all') return true;
     if(tkFilter === 'review') return t.status === 'proposed' || t.status === 'awaiting_review';
-    if(tkFilter === 'queued') return t.status === 'queued' || t.status === 'in_progress';
+    if(tkFilter === 'queued') return t.status === 'queued';
+    if(tkFilter === 'running') return t.status === 'in_progress';
     return true;
   });
+  if(tkFilter === 'queued' && tkSort !== 'name'){
+    // Deliberately NOT sorted by date here, even though every other view defaults to it. The
+    // orchestrator processes queued tasks strictly in array position — whatever order they
+    // physically sit in workLog.tasks — which has no reliable relationship to any date field:
+    // retrying a failed task flips its status back to queued in place without moving it, so an
+    // old task retried minutes ago still runs before a task queued fresh yesterday. `tasks` above
+    // is already a plain .slice() of that same array, so leaving it unsorted here is what makes
+    // "top of Queued" actually mean "runs next" — sorting it by date would make this view
+    // actively misleading instead of just uninformative.
+    return filtered;
+  }
   filtered.sort((a, b) => {
     if(tkSort === 'name') return String(tkEntryName(a)).localeCompare(String(tkEntryName(b)));
     // date — newest first, which is what a log should show without being asked
@@ -6711,7 +6783,28 @@ function tkRows(){
   return filtered;
 }
 
+// Shows exactly what pressing Run right now would actually process, in the order it would
+// actually process them — the direct answer to "I had no idea it was going to do Hildegard, not
+// Jerome." Mirrors the orchestrator's own selection exactly: queued tasks, filtered to the
+// selected service (or any), array order (never date-sorted — see the note in tkRows() on why
+// date has no reliable relationship to processing order), first N per the current Run count.
+function tkUpdateUpNext(){
+  const el = document.getElementById('tkUpNext');
+  if(!el) return;
+  const type = document.getElementById('tkRunType').value;
+  const n = Math.max(1, Math.min(50, parseInt(document.getElementById('tkRunCount').value, 10) || 5));
+  const pool = ((wlData && wlData.tasks) || []).filter(t => t.status === 'queued' && (!type || t.type === type));
+  if(!pool.length){ el.textContent = 'Nothing queued' + (type ? ' for ' + tkServiceLabel({ type: type }) : '') + ' right now.'; return; }
+  const batch = pool.slice(0, n);
+  const names = batch.map(t => tkEntryName(t) || tkServiceLabel(t));
+  const shown = names.slice(0, 4).join(', ') + (names.length > 4 ? ', +' + (names.length - 4) + ' more' : '');
+  el.textContent = 'Up next (' + batch.length + ' of ' + pool.length + ' queued): ' + shown;
+}
+document.getElementById('tkRunType').addEventListener('change', tkUpdateUpNext);
+document.getElementById('tkRunCount').addEventListener('input', tkUpdateUpNext);
+
 function renderTaskList(){
+  tkUpdateUpNext();
   // Status has no header cell of its own — just a spacer the width of the icon column, so
   // "Task" starts over the task text rather than over the glyph.
   document.getElementById('tkHead').innerHTML =
@@ -7042,7 +7135,22 @@ const TK_TITLES = {
   rejected: ' : Rejected', error: ' : Failed', queued: ' : Queued', in_progress: ' : Running'
 };
 
+// The floating system transport control (iOS's Now Playing widget, same thing a music app
+// triggers) tracks the <audio> element itself, not this app's own view state — once it's played
+// even briefly, pausing alone or letting scroll.innerHTML overwrite it isn't enough to make the
+// OS drop it; the control can keep floating over whatever's on screen next. Explicitly pausing,
+// clearing src, and calling load() actually releases the element from that tracking. Called
+// before any re-render that might replace an existing player, and on every way out of a review
+// (tkGoList, closeTaskPanel) — not just when the player being left behind is an audio review.
+function tkStopAudioPlayer(){
+  const player = document.getElementById('tkAudioPlayer');
+  if(!player) return;
+  player.pause();
+  player.removeAttribute('src');
+  player.load();
+}
 function renderTaskReview(){
+  tkStopAudioPlayer();
   const scroll = document.getElementById('tkReviewScroll');
   const lock = document.getElementById('tkLockBar');
   const t = tkTask(tkReviewIds[tkReviewIdx]);
@@ -7158,8 +7266,13 @@ function renderTaskReview(){
         : rv.sectionsHtml);
   } else if(entry){
     const patch = (t.result && Array.isArray(t.result.patch)) ? t.result.patch : null;
+    const audioNote = (t.type === 'audio-generate' && entry.audio)
+      ? '<audio class="tkAudioPlayer" controls preload="metadata" src="' + esc(rawAssetUrl(entry.audio)) + '"></audio>' +
+        '<p class="tkNote">Already published \u2014 this task finished as \u201c' + esc(tkStatusLabel(t.status)) + '\u201d rather than going through review, so there\u2019s nothing to approve or reject here. Just the recording, for reference.</p>'
+      : '';
     body = '<div class="tkRvName">' + esc(entry.n) + '</div>' +
       '<div class="tkRvMeta">' + esc(t.type) + ' \u00b7 ' + esc(t.entityId) + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
+      audioNote +
       '<div class="tkRvHead">Quick Facts</div>' + tkRenderFacts(entry, patch) +
       tkRenderArticle(entry, patch);
   }else{
@@ -7587,6 +7700,7 @@ function renderTaskPanel(){
 }
 
 function tkGoList(){
+  tkStopAudioPlayer();
   tkView = 'list';
   tkReviewIds = [];
   renderTaskPanel();
@@ -7680,6 +7794,7 @@ function openTaskPanel(){
   loadWorkLog();
 }
 function closeTaskPanel(){
+  tkStopAudioPlayer();
   taskPanelEl.classList.remove('open');
   tkScrimEl.classList.remove('open');
 }
@@ -7990,6 +8105,32 @@ async function wlResolveTasks(taskIds, approve){
 // Reuses the same owner/repo/branch/token fields as Publish above. workflow_dispatch itself
 // returns no run info (just 204 No Content), so after firing it this polls the workflow's
 // recent runs for one that started after the dispatch, and reports when it finishes.
+// The closest thing to "live progress" GitHub's API actually supports while a run is still in
+// progress. Full log TEXT is not an option — the logs endpoint reliably 404s for the entire
+// duration a job is running, a confirmed, long-standing GitHub API limitation, not something
+// worth quietly working around and having fail on the first real attempt. This is deliberately
+// structural instead: which named step (Checkout, Install ffmpeg, Run orchestrator, ...) is done,
+// which one is currently running, which one already failed. Enough to answer "did it even get
+// past setup" or "is it stuck before the script started at all" honestly, without promising
+// something that isn't really there.
+function tkStepIcon(step){
+  if(step.status !== 'completed') return step.status === 'in_progress' ? '\u23f3' : '\u00b7'; // queued
+  if(step.conclusion === 'success') return '\u2713';
+  if(step.conclusion === 'skipped') return '\u2013';
+  return '\u2717'; // failure, cancelled, timed_out — all worth flagging as not-clean
+}
+async function tkFetchStepsSummary(owner, repo, runId, hdr){
+  try{
+    const res = await fetch('https://api.github.com/repos/' + owner + '/' + repo + '/actions/runs/' + runId + '/jobs', { headers: hdr, cache: 'no-store' });
+    if(!res.ok) return '';
+    const data = await res.json();
+    const job = (data.jobs || [])[0]; // every workflow this app triggers has exactly one job
+    if(!job || !job.steps) return '';
+    return job.steps.map(s => tkStepIcon(s) + ' ' + s.name).join('  ');
+  }catch(e){
+    return ''; // best-effort — a failed step-status fetch shouldn't break the run-status polling it rides alongside
+  }
+}
 async function triggerWorkflow(filename, inputs, logElId, maxAttempts){
   maxAttempts = maxAttempts || 20; // ~60s default — plenty for Resize/Convert, which finish in seconds
   const v = id => document.getElementById(id).value.trim();
@@ -8028,7 +8169,9 @@ async function triggerWorkflow(filename, inputs, logElId, maxAttempts){
         log.textContent = filename + ': ' + run.conclusion + ' (finished in ' + secs + 's). Details: ' + run.html_url;
         return;
       }
-      log.textContent = filename + ' is running\u2026 (' + run.status + ', ' + Math.round((i + 1) * 3) + 's so far)';
+      const stepsText = await tkFetchStepsSummary(owner, repo, run.id, hdr);
+      log.textContent = filename + ' is running\u2026 (' + run.status + ', ' + Math.round((i + 1) * 3) + 's so far)' +
+        (stepsText ? ' \u2014 ' + stepsText : '');
     }
     log.textContent = filename + ' is still running \u2014 check the Actions tab on GitHub for the result.';
   }catch(err){
