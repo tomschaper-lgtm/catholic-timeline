@@ -4737,14 +4737,25 @@
       "type": "sentence-reword",
       "entityId": "st-paul-67",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Paul",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-paul-67",
+        "name": "St. Paul",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-10T23:00:43.483Z",
-      "updatedAt": "2026-09-10T23:03:53.321Z",
+      "updatedAt": "2026-09-10T23:04:01.296Z",
       "error": null
     },
     {
@@ -5353,6 +5364,47 @@
       "error": null,
       "createdAt": "2026-09-10T23:03:52.244Z",
       "updatedAt": "2026-09-10T23:03:52.244Z"
+    },
+    {
+      "id": "task-sentence-reword-st-paul-67-1789081441296-2664",
+      "type": "sentence-reword",
+      "entityId": "st-paul-67",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — St. Paul",
+      "payload": {},
+      "result": {
+        "name": "St. Paul",
+        "patches": [
+          [
+            "article",
+            "The event was so decisive that Paul returns to it again and again in his letters as the pattern of grace: God had chosen him before he was born and called him by grace to preach among the Gentiles the faith he had once tried to destroy.",
+            "U",
+            "The event was so decisive that Paul returns to it again and again in his letters as the pattern of grace. God had chosen him before he was born and called him by grace to preach among the Gentiles the faith he had once tried to destroy."
+          ],
+          [
+            "article",
+            "His labours are recorded in the Acts of the Apostles and confirmed by his own letters:<ul><li>into Cyprus and the cities of Asia Minor</li><li>across the Aegean into Greece — Philippi, Thessalonica, Corinth, and Athens, where he preached at the Areopagus</li><li>through Ephesus and back to Jerusalem</li></ul>Everywhere he founded churches and appointed elders, enduring shipwreck, scourging, imprisonment, and stoning for the sake of the Gospel.",
+            "U",
+            "His labours are recorded in the Acts of the Apostles and confirmed by his own letters:<ul><li>into Cyprus and the cities of Asia Minor</li><li>across the Aegean into Greece — Philippi, Thessalonica, Corinth, and Athens, where he preached at the Areopagus</li><li>through Ephesus and back to Jerusalem</li></ul>Everywhere he founded churches and appointed elders. He endured shipwreck, scourging, imprisonment, and stoning for the sake of the Gospel."
+          ],
+          [
+            "article",
+            "In the persecution under <b><a href=\"entry:persecution-under-nero-64\">Nero</a></b>, about the year 64–67, he was martyred — beheaded, as befitted a Roman citizen, by tradition at the place now called Tre Fontane, and buried on the Ostian Way beneath the basilica of St. Paul Outside the Walls.",
+            "U",
+            "In the persecution under <b><a href=\"entry:persecution-under-nero-64\">Nero</a></b>, about the year 64–67, he was martyred — beheaded, as befitted a Roman citizen. By tradition, this occurred at the place now called Tre Fontane, and he was buried on the Ostian Way beneath the basilica of St. Paul Outside the Walls."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-10T23:04:01.296Z",
+      "updatedAt": "2026-09-10T23:04:01.296Z"
     }
   ]
 }
