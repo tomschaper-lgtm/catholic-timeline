@@ -5101,14 +5101,25 @@
       "type": "sentence-reword",
       "entityId": "sts-pontian-hippolytus-235",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Sts. Pontian & Hippolytus",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "sts-pontian-hippolytus-235",
+        "name": "Sts. Pontian & Hippolytus",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-10T23:00:43.483Z",
-      "updatedAt": "2026-09-10T23:08:42.244Z",
+      "updatedAt": "2026-09-10T23:08:52.191Z",
       "error": null
     },
     {
@@ -6519,6 +6530,47 @@
       "error": null,
       "createdAt": "2026-09-10T23:08:41.142Z",
       "updatedAt": "2026-09-10T23:08:41.142Z"
+    },
+    {
+      "id": "task-sentence-reword-sts-pontian-hippolytus-235-1789081732191-6721",
+      "type": "sentence-reword",
+      "entityId": "sts-pontian-hippolytus-235",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Sts. Pontian & Hippolytus",
+      "payload": {},
+      "result": {
+        "name": "Sts. Pontian & Hippolytus",
+        "patches": [
+          [
+            "article",
+            "<b>Hippolytus</b>, a learned Roman priest and one of the most productive theological writers of his generation, had broken communion with the Roman Church nearly two decades earlier, objecting first to Pope Zephyrinus's Christology and then to Pope Callistus I's willingness to readmit grave sinners to communion after penance.",
+            "U",
+            "<b>Hippolytus</b>, a learned Roman priest and one of the most productive theological writers of his generation, had broken communion with the Roman Church nearly two decades earlier. He objected first to Pope Zephyrinus's Christology and then to Pope Callistus I's willingness to readmit grave sinners to communion after penance."
+          ],
+          [
+            "article",
+            "Rather than leave the Roman see vacant while unable to govern from exile, Pontian took the unprecedented step of resigning the papacy on 28 September 235 — the first pope in history known to have done so — clearing the way for a successor to be elected in Rome.",
+            "U",
+            "Unable to govern from exile, Pontian took the unprecedented step of resigning the papacy on 28 September 235. He was the first pope in history known to have done so, clearing the way for a successor to be elected in Rome."
+          ],
+          [
+            "article",
+            "<a href=\"entry:pope-st-fabian-250\">Pope St. Fabian</a> later arranged for the remains of both men to be brought back to Rome and buried with honor on the same day, 13 August — Pontian in the papal crypt of the Catacomb of Callistus, and Hippolytus, fittingly reconciled at last, nearby on the Via Tiburtina.",
+            "U",
+            "<a href=\"entry:pope-st-fabian-250\">Pope St. Fabian</a> later arranged for both men’s remains to be brought back to Rome and buried with honor on the same day, 13 August. Pontian was buried in the papal crypt of the Catacomb of Callistus, and Hippolytus, fittingly reconciled at last, nearby on the Via Tiburtina."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-10T23:08:52.191Z",
+      "updatedAt": "2026-09-10T23:08:52.191Z"
     }
   ]
 }
