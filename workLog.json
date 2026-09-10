@@ -4115,14 +4115,25 @@
       "type": "sentence-reword",
       "entityId": "st-faustina-kowalska-1938",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Faustina Kowalska",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-faustina-kowalska-1938",
+        "name": "St. Faustina Kowalska",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-10T21:13:59.694Z",
-      "updatedAt": "2026-09-10T21:15:34.964Z",
+      "updatedAt": "2026-09-10T21:15:39.889Z",
       "error": null
     },
     {
@@ -4253,6 +4264,41 @@
       "error": null,
       "createdAt": "2026-09-10T21:15:33.808Z",
       "updatedAt": "2026-09-10T21:15:33.808Z"
+    },
+    {
+      "id": "task-sentence-reword-st-faustina-kowalska-1938-1789074939889-7384",
+      "type": "sentence-reword",
+      "entityId": "st-faustina-kowalska-1938",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Faustina Kowalska",
+      "payload": {},
+      "result": {
+        "name": "St. Faustina Kowalska",
+        "patches": [
+          [
+            "article",
+            "Even as she held these positions, she reported an ongoing series of visions and conversations with Christ concerning what he described to her as his boundless mercy toward sinners, a message she was told to record faithfully for the wider Church.",
+            "U",
+            "Even as she held these positions, she reported an ongoing series of visions and conversations with Christ concerning his boundless mercy toward sinners. He told her to record this message faithfully for the wider Church."
+          ],
+          [
+            "article",
+            "Canonized in 2000 by <a href=\"entry:st-john-paul-ii-2005\">Pope John Paul II</a> — himself a fellow Pole with a lifelong devotion to her message — the pope declared the Sunday after Easter <b>'Divine Mercy Sunday'</b> for the universal Church at her canonization, formally establishing the very feast Faustina had reported Christ requesting more than sixty years earlier.",
+            "U",
+            "Canonized in 2000 by <a href=\"entry:st-john-paul-ii-2005\">Pope John Paul II</a> — himself a fellow Pole with a lifelong devotion to her message — she received formal recognition of her reported message. At her canonization, the pope declared the Sunday after Easter <b>'Divine Mercy Sunday'</b> for the universal Church, formally establishing the very feast Faustina had reported Christ requesting more than sixty years earlier."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-10T21:15:39.889Z",
+      "updatedAt": "2026-09-10T21:15:39.889Z"
     }
   ]
 }
