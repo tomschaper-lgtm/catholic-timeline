@@ -35,9 +35,16 @@
 // one `git pull --rebase` is attempted; if that still fails, the task is marked `error` (not
 // silently retried and not silently dropped) with a message telling you to just rerun the
 // orchestrator — the underlying work already happened, only the publish step needs redoing.
-// workLog.json itself is still written once at the end of the run (see bottom of main()) — it's
-// bookkeeping, not content, and already merges safely on the CMS side (see saveWorkLog in
-// index.html) if something else changed it in the meantime.
+//
+// workLog.json itself is committed the same way now, not once at the end of the run — twice per
+// task (once the moment it flips to in_progress, before the handler even runs, and once after its
+// outcome is known), via commitWorkLog(). This used to be a single write at the very end, on the
+// theory that it's bookkeeping, not content. That theory was right about safety (it does merge
+// safely on the CMS side, see saveWorkLog in index.html) but wrong about visibility: a single
+// end-of-run write meant nobody watching mid-run could tell which task was actually running, or
+// see anything change until the whole batch finished. Best-effort, not fatal — a failed workLog
+// push here just costs one visibility update; orchestrator.yml's own trailing commit step is
+// still the final safety net for whatever a per-task push missed.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
@@ -102,6 +109,34 @@ function commitFiles(dataJson, filePaths, message){
   }
 }
 
+// Same git safety pattern as commitFiles, but always for the one file, and best-effort rather
+// than fatal: a failed workLog.json push here is a lost visibility update, not lost work — the
+// task's real outcome already lives in the return value the caller has in hand, and the final
+// write at the end of the whole run (see bottom of main()) still captures it either way. Logging
+// a warning and moving on is the right response, not aborting an otherwise-healthy run over a
+// status update that will get written again in a few seconds anyway.
+function commitWorkLog(workLog, message){
+  writeFileSync(WORKLOG_PATH, JSON.stringify(workLog, null, 2) + '\n');
+  try{
+    execSync('git add "' + WORKLOG_PATH + '"', { stdio: 'inherit' });
+    try{ execSync('git diff --cached --quiet'); return true; }catch(_e){ /* there IS a staged diff, fall through to commit */ }
+    execSync('git commit -m ' + JSON.stringify(message), { stdio: 'inherit' });
+    execSync('git push', { stdio: 'inherit' });
+    return true;
+  }catch(err){
+    console.warn('workLog.json push failed, attempting one rebase-and-retry: ' + err.message);
+    try{
+      execSync('git pull --rebase --autostash', { stdio: 'inherit' });
+      execSync('git push', { stdio: 'inherit' });
+      return true;
+    }catch(err2){
+      try{ execSync('git rebase --abort', { stdio: 'ignore' }); }catch(_e){}
+      console.warn('Could not publish workLog.json update after rebase retry (continuing anyway): ' + err2.message);
+      return false;
+    }
+  }
+}
+
 async function main(){
   const workLog = JSON.parse(readFileSync(WORKLOG_PATH, 'utf8'));
   let dataJson = JSON.parse(readFileSync(DATA_PATH, 'utf8'));
@@ -127,7 +162,6 @@ async function main(){
     return;
   }
 
-  const newTasks = [];
   const summaryLines = [
     'Orchestrator run: ' + nowIso(),
     'Requested: up to ' + MAX_TASKS + (TASK_TYPE ? ' of type "' + TASK_TYPE + '"' : ' of any type'),
@@ -144,6 +178,7 @@ async function main(){
       task.status = 'error';
       task.error = 'No service registered for type "' + task.type + '"';
       summaryLines.push('\u2717 ' + task.id + ' (' + task.type + '): no handler registered');
+      commitWorkLog(workLog, 'No handler for ' + task.id);
       continue;
     }
 
@@ -155,6 +190,12 @@ async function main(){
     }
 
     task.status = 'in_progress';
+    // Committed BEFORE the (potentially slow) handler call, not after — this is the whole point:
+    // someone watching the app mid-run sees THIS task, by name, as in_progress, rather than
+    // whatever workLog.json still said from before the run started. Best-effort (see
+    // commitWorkLog) — a failed push here doesn't stop the run, it just costs one visibility
+    // update that the next commit supersedes anyway.
+    commitWorkLog(workLog, 'Start ' + task.id);
 
     try{
       const out = (await handler(task, dataJson, workLog)) || {};
@@ -165,6 +206,7 @@ async function main(){
         deferredCount++;
         deferredReason = out.reason || 'the service ran out of budget';
         summaryLines.push('\u23f8 ' + task.id + ' (' + task.type + '): deferred \u2014 ' + deferredReason);
+        commitWorkLog(workLog, 'Defer ' + task.id);
         continue;
       }
 
@@ -182,6 +224,7 @@ async function main(){
         task.error = 'Generated successfully but could not publish \u2014 the repo changed underneath this run. Rerun the orchestrator to retry (this will redo the generation).';
         task.updatedAt = nowIso();
         summaryLines.push('\u2717 ' + task.id + ' (' + task.type + '): generated but publish failed, see error');
+        commitWorkLog(workLog, 'Publish failed for ' + task.id);
         continue;
       }
 
@@ -193,9 +236,10 @@ async function main(){
         (out.awaitingReview ? '\u23f3 ' : '\u2713 ') + task.id + ' (' + task.type + '): ' + out.summary
       );
       if(out.spawnedTasks && out.spawnedTasks.length){
-        newTasks.push(...out.spawnedTasks);
+        workLog.tasks.push(...out.spawnedTasks);
         summaryLines.push('  \u2192 spawned ' + out.spawnedTasks.length + ' task(s), status "proposed"');
       }
+      commitWorkLog(workLog, 'Finish ' + task.id + ' (' + task.status + ')');
     }catch(err){
       if(err && err.deferred){
         task.status = 'queued';
@@ -203,16 +247,16 @@ async function main(){
         deferredCount++;
         deferredReason = err.message || 'the service ran out of budget';
         summaryLines.push('\u23f8 ' + task.id + ' (' + task.type + '): deferred \u2014 ' + deferredReason);
+        commitWorkLog(workLog, 'Defer ' + task.id);
         continue;
       }
       task.status = 'error';
       task.error = String((err && err.stack) || err);
       task.updatedAt = nowIso();
       summaryLines.push('\u2717 ' + task.id + ' (' + task.type + '): ' + err.message);
+      commitWorkLog(workLog, 'Error on ' + task.id);
     }
   }
-
-  workLog.tasks.push(...newTasks);
 
   if(deferredCount > 0){
     // Plain language, no jargon — this is read in the app by someone deciding whether to try
