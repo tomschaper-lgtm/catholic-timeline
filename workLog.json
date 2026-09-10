@@ -4037,14 +4037,25 @@
       "type": "sentence-reword",
       "entityId": "st-matthew-70",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Matthew",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-matthew-70",
+        "name": "St. Matthew",
+        "sentencesFound": 3,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 1,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-10T21:13:59.694Z",
-      "updatedAt": "2026-09-10T21:15:13.602Z",
+      "updatedAt": "2026-09-10T21:15:21.337Z",
       "error": null
     },
     {
@@ -4121,6 +4132,41 @@
       "createdAt": "2026-09-10T21:13:59.694Z",
       "updatedAt": "2026-09-10T21:13:59.694Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-st-matthew-70-1789074921337-5403",
+      "type": "sentence-reword",
+      "entityId": "st-matthew-70",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Matthew",
+      "payload": {},
+      "result": {
+        "name": "St. Matthew",
+        "patches": [
+          [
+            "article",
+            "Jesus's call to Matthew came with a directness that admits no elaboration: passing by the customs post, he said only, \"follow me.\" Matthew, Scripture tells us, rose and followed him, leaving behind, in that single instant, both his post and the income it represented, with no recorded hesitation or bargaining.",
+            "U",
+            "Jesus's call to Matthew came with a directness that admits no elaboration. Passing by the customs post, he said only, \"follow me.\"\n\nMatthew, Scripture tells us, rose and followed him, leaving behind, in that single instant, both his post and the income it represented, with no recorded hesitation or bargaining."
+          ],
+          [
+            "article",
+            "It was placed first in the New Testament's traditional ordering, though not the longest of the four Gospels (that distinction belongs to Luke), a position St. Augustine defended as fitting given how thoroughly it bridges the Old Covenant and the New.",
+            "U",
+            "It was placed first in the New Testament's traditional ordering, though it is not the longest of the four Gospels. That distinction belongs to Luke, while St. Augustine defended Matthew's position as fitting because it thoroughly bridges the Old Covenant and the New."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 1,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-10T21:15:21.337Z",
+      "updatedAt": "2026-09-10T21:15:21.337Z"
     }
   ]
 }
