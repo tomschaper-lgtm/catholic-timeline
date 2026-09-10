@@ -1,9 +1,69 @@
 <!--
-VERSION: 346
-DATE: 2026-09-10T15:00:00-05:00
+VERSION: 350
+DATE: 2026-09-10T23:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Sentence-reword no longer blanket-skips an entire paragraph just because it contains a
+  cross-reference link (scripts/services/sentence-reword.mjs, this file unchanged this version —
+  logged here since the changelog is the unified record). That old rule gave up on every long
+  sentence in a linked paragraph even when the link and the long sentence were entirely different
+  sentences. Now: a sentence containing a link is still attempted, with the exact link(s) it must
+  preserve spelled out in the prompt (buildPrompt's new links parameter); the reply is checked
+  afterward (new extractEntryLinks/linksPreserved) to confirm every link survived character for
+  character before the fix is accepted. If even one didn't, the sentence is left untouched — same
+  outcome the old skip gave, just reached after actually trying instead of never attempting it.
+  Tracked tags (hasBalancedTags) now include <a>, so a split that tears an anchor tag in half is
+  still caught the same fail-safe way as before. Renamed result field skippedEntryLink →
+  linkNotPreserved to match what it now actually measures; review note wording updated to match.
+  Verified against a mocked run with one link preserved correctly, one dropped, and one plain
+  sentence before shipping — 2 of 3 recovered instead of the old blanket 1 of 3.
+
+v349 CHANGES (unchanged from the version this build started from):
+- Fixed a real gap in scripts/services/sentence-reword.mjs (this file itself unchanged this
+  version — logged here since the changelog is the unified record): a failed reword call was
+  counted but its actual error message was thrown away, leaving "a repeated API error" as the
+  only thing visible anywhere — not even in the Action's own run log. Now logs every failure via
+  console.error and keeps the first 3 actual messages (apiErrorSamples), shown directly in the
+  review screen's own note instead of a bare count.
+- Added a 400ms gap between consecutive sentence-reword API calls (not just the existing retry
+  backoff within one sentence's own attempts) — a likely cause of a high failure rate on an
+  article with many long sentences: calls fired back-to-back with zero spacing can cascade into
+  repeated rate-limit failures if the account's per-minute limit is still open on the next
+  sentence, which 3 retries with a short backoff doesn't reliably clear.
+
+v348 CHANGES (unchanged from the version this build started from):
+- Audio recording is now review-gated instead of direct-commit. scripts/services/audio-generate.mjs
+  still writes and commits the audio+timing files (so they exist and can be listened to) but no
+  longer touches entry.audio/entry.audioTiming or commits data.json — the task now finishes
+  awaiting_review instead of done, same three-way status split image-generate/image-finalize
+  already use. Article text and images stay fully live throughout; only the audio itself waits.
+- New audio review screen: a native player plus a sentence-highlighting display — every cue
+  (heading and sentence) from the take's own result.cues rendered as its own span, highlighted in
+  sync with playback via timeupdate, tap any sentence to seek there directly. This is a review-
+  scoped parallel to the public article view's own wireSentenceCues()/light-bar system (not a
+  shared instance of it — that one's tightly bound to the main article view's specific DOM and
+  auto-scroll, which doesn't apply to a separate overlay never open at the same time), driven
+  directly off the task's own result rather than a separately-fetched timing.json. New
+  tkCueIndexForTime/tkSetActiveCue/tkRenderAudioReviewArticle, tested against mock cue data before
+  shipping. Player source uses rawAssetUrl() (raw.githubusercontent.com) rather than the deployed
+  site, so there's no GitHub Pages deploy-lag wait before a just-generated take can be reviewed.
+- Approve (tkResolveAudio) sets entry.audio/entry.audioTiming and publishes — same pattern
+  tkResolveFinal already uses for entry.img. Reject deletes the rejected take's two files via
+  ghDeleteFile (the same helper sentence-reword's own audio-purge uses) rather than leaving them
+  as orphaned dead weight in the repo, since nothing in data.json ever pointed at them.
+- Panel title for an awaiting_review task now reads "Audio Review" specifically for audio-generate
+  instead of the previously-hardcoded "Picture Review", which was only ever accurate when
+  image-generate was the sole service that reached this status.
+
+v347 CHANGES (unchanged from the version this build started from):
+- Add Task's own selector state (Service, Category, Order by, Quantity, Overwrite) now remembered
+  across sessions, same pattern as the GitHub token / audio settings — new tkAddFormFields via
+  prefillTkAddForm()/saveTkAddFormSettings(), localStorage key tk-add-form-settings. Deliberately
+  excludes the typed Start year/feast value itself: pool composition shifts as tasks get approved,
+  so a remembered position would go stale fast — Start always resets to "earliest eligible."
+
+v346 CHANGES (unchanged from the version this build started from):
 - Audio recording brought into Task Automation as a real orchestrator service, replacing the
   separate "Record Audio Narration" batch form that triggered generate-audio.yml directly outside
   workLog.json. New scripts/services/audio-generate.mjs, a port of the standalone
@@ -1152,6 +1212,12 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkSentSections[data-mode="corrected"] .tkSentHasFix .tkSentVOrig{display:none;}
   .tkSentSections[data-mode="original"] .tkSentHasFix .tkSentVCorr{display:none;}
   .tkSentSections.tkHideUnfixed .tkSentSection:not(.tkSentHasFix){display:none;}
+  /* Audio review: native player plus a plain highlight on whichever sentence is currently
+     playing — a simpler cousin of the public article view's glowing edge-bar (see the comment on
+     tkSetActiveCue in JS for why this doesn't just reuse that system directly). */
+  .tkAudioPlayer{width:100%; margin:2px 0 10px;}
+  .tkCue{transition:background-color .12s ease; border-radius:3px; cursor:pointer;}
+  .tkCue.tkCuePlaying{background:#FBF3DC; box-shadow:0 0 0 2px #E8D48A;}
   .tkRvMeta{font-size:12px; color:#6B7280; margin-bottom:12px; word-break:break-all; line-height:1.45;}
   .tkRvHead{
     font-size:11.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
@@ -3824,7 +3890,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v346';
+const APP_VERSION = 'v350';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6164,6 +6230,56 @@ let tkFinalShowOriginalFor = null; // task id the toggle above applies to; rende
 // DOM up front and a click just flips a data-mode attribute via CSS, so toggling one section (or
 // this filter) never re-renders the panel and never moves anything else on screen.
 let tkSentenceHideUnfixed = localStorage.getItem('tk-sentence-hide-unfixed') === '1';
+// Audio review's own sentence-highlighting player — the same underlying idea as the public
+// article view's wireSentenceCues()/setActiveCue() (a "light bar" that follows the active
+// sentence), but that system is tightly bound to the main article view's own DOM (#artStoryText,
+// audioScrollEl(), driveAudioFollow()'s auto-scroll) and isn't meaningfully shareable with a
+// separate overlay that's never open at the same time. This is a parallel, review-scoped version:
+// simpler (a plain highlight on the active cue's span, not the glowing edge-bar geometry), driven
+// directly off t.result.cues rather than a separately-fetched timing.json, since the review
+// screen already has the cues sitting on the task's own result.
+let tkAudioCues = [];    // the current review's cues array, or [] between reviews
+let tkAudioCueIdx = -1;  // index into tkAudioCues currently highlighted, or -1
+function tkCueIndexForTime(sec){
+  for(let i = 0; i < tkAudioCues.length; i++){
+    const c = tkAudioCues[i];
+    if(sec >= c.start && sec < c.end) return i;
+    if(sec < c.start) break; // cues are chronological — nothing earlier will match either
+  }
+  return -1;
+}
+function tkSetActiveCue(idx){
+  if(idx === tkAudioCueIdx) return;
+  const old = document.querySelector('.tkCue[data-cue-idx="' + tkAudioCueIdx + '"]');
+  if(old) old.classList.remove('tkCuePlaying');
+  tkAudioCueIdx = idx;
+  if(idx < 0) return;
+  const now = document.querySelector('.tkCue[data-cue-idx="' + idx + '"]');
+  if(now) now.classList.add('tkCuePlaying');
+}
+// Renders every section's heading (if it was actually narrated — read_headings may have been off
+// for this take) and sentence cues as individually addressable spans, grouped by section exactly
+// the way narrateEntry() generated them — sections only, no paragraph breaks, since the narration
+// itself collapses a section's paragraphs into one continuous block before it's ever sent to
+// ElevenLabs (see sectionParts() in audio-generate.mjs), so there's no paragraph structure here
+// to preserve or lose.
+function tkRenderAudioReviewArticle(entry, cues){
+  const sections = (entry.art && entry.art.sections) || [];
+  const bySection = {};
+  cues.forEach((c, i) => { (bySection[c.section] = bySection[c.section] || []).push(Object.assign({ idx: i }, c)); });
+  return sections.map((sec, si) => {
+    const secCues = bySection[si] || [];
+    const headingCue = secCues.find(c => c.type === 'heading');
+    const sentenceCues = secCues.filter(c => c.type === 'sentence');
+    const headingHtml = headingCue
+      ? '<span class="tkCue" data-cue-idx="' + headingCue.idx + '">' + esc(headingCue.text) + '</span>'
+      : esc(sec.h || '');
+    const bodyHtml = sentenceCues.map(c => '<span class="tkCue" data-cue-idx="' + c.idx + '">' + esc(c.text) + '</span>').join(' ');
+    if(!headingHtml && !bodyHtml) return '';
+    return '<div class="tkSection"><div class="tkSectionH">' + headingHtml + '</div>' +
+      (bodyHtml ? '<p class="tkPara">' + bodyHtml + '</p>' : '') + '</div>';
+  }).join('');
+}
 
 const TK_FINISHED = { done: 1, approved: 1, rejected: 1 };
 // Queued deliberately includes in_progress — a task that's running is still work you're
@@ -6212,6 +6328,38 @@ function tkIsFeastMode(){
   if(document.getElementById('tkBatchCategory').value !== 's') return false;
   const orderSel = document.getElementById('tkBatchOrder');
   return !orderSel || orderSel.value !== 'year';
+}
+// Add Task's own selector state, remembered across sessions — same "remembered on this device"
+// pattern as audio-gen-settings/gh-config. Deliberately excludes tkBatchStart (the typed
+// year/feast value itself): pool composition shifts as tasks get approved and reword/recording
+// pools fill in, so a remembered position would go stale fast — this always resets to "start at
+// the earliest eligible" instead, which stays correct no matter how the pool has changed.
+const TK_ADD_FORM_FIELDS = { tkNewType: 'select', tkBatchCategory: 'select', tkBatchOrder: 'select', tkBatchCount: 'text', tkBatchOverwrite: 'checkbox' };
+function prefillTkAddForm(){
+  let c = {};
+  try{ c = JSON.parse(localStorage.getItem('tk-add-form-settings') || '{}'); }catch(e){}
+  ['tkNewType', 'tkBatchCategory', 'tkBatchOrder', 'tkBatchCount'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el && (id in c)) el.value = c[id];
+  });
+  // Rebuilds visibility/labels for whatever type was just restored — this also resets Overwrite
+  // to false as a side effect (see tkUpdateAddFormMode), so the remembered Overwrite value is
+  // restored after, not before.
+  tkUpdateAddFormMode();
+  const ow = document.getElementById('tkBatchOverwrite');
+  if(ow && ('tkBatchOverwrite' in c) && !ow.disabled){
+    ow.checked = !!c.tkBatchOverwrite;
+    tkRefreshBatchPreview(); // overwrite changed after tkUpdateAddFormMode's own refresh — redo it to match
+  }
+}
+function saveTkAddFormSettings(){
+  const c = {};
+  Object.keys(TK_ADD_FORM_FIELDS).forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    c[id] = TK_ADD_FORM_FIELDS[id] === 'checkbox' ? el.checked : el.value;
+  });
+  localStorage.setItem('tk-add-form-settings', JSON.stringify(c));
 }
 // An entity already sitting in the queue/in-flight/awaiting-review for this exact service
 // shouldn't be offered again — otherwise re-opening Add Task before a run finishes would let you
@@ -6431,6 +6579,11 @@ document.getElementById('tkBatchStartNext').addEventListener('click', () => {
   tkBatchStartIdx = Math.min(pool.length - 1, (tkBatchStartIdx < 0 ? -1 : tkBatchStartIdx) + 1);
   tkRefreshBatchPreview();
 });
+document.getElementById('tkNewType').addEventListener('change', saveTkAddFormSettings);
+document.getElementById('tkBatchCategory').addEventListener('change', saveTkAddFormSettings);
+document.getElementById('tkBatchOrder').addEventListener('change', saveTkAddFormSettings);
+document.getElementById('tkBatchOverwrite').addEventListener('change', saveTkAddFormSettings);
+document.getElementById('tkBatchCount').addEventListener('input', saveTkAddFormSettings);
 document.getElementById('tkBatchOverwrite').addEventListener('change', tkRefreshBatchPreview);
 document.getElementById('tkBatchCount').addEventListener('input', tkRenderBatchList);
 // One glyph per state, no label. Green check = settled, amber ring = waiting to run, half-ring
@@ -6758,13 +6911,16 @@ function tkRenderSentenceRewordReview(entry, patches, taskResult){
     // show either note, which is correct — there's nothing new to report for them.
     (taskResult && taskResult.apiErrors
       ? '<p class="tkSentErrNote">' + taskResult.apiErrors + ' sentence' + (taskResult.apiErrors === 1 ? '' : 's') +
-        ' couldn\u2019t be reworded (a repeated API error) and ' + (taskResult.apiErrors === 1 ? 'is' : 'are') +
-        ' not included here \u2014 reject this and requeue ' + esc(entry.n) + ' to retry.</p>'
+        ' couldn\u2019t be reworded and ' + (taskResult.apiErrors === 1 ? 'is' : 'are') +
+        ' not included here \u2014 reject this and requeue ' + esc(entry.n) + ' to retry.' +
+        (taskResult.apiErrorSamples && taskResult.apiErrorSamples.length
+          ? '<br>' + taskResult.apiErrorSamples.map(m => esc(m)).join('<br>')
+          : '') + '</p>'
       : '') +
-    (taskResult && taskResult.skippedEntryLink
-      ? '<p class="tkSentErrNote">' + taskResult.skippedEntryLink + ' long sentence' + (taskResult.skippedEntryLink === 1 ? '' : 's') +
-        ' sit' + (taskResult.skippedEntryLink === 1 ? 's' : '') + ' in a paragraph with a cross-reference link, so ' +
-        (taskResult.skippedEntryLink === 1 ? 'it was' : 'they were') + ' left untouched by design \u2014 fix by hand if it needs shortening.</p>'
+    (taskResult && taskResult.linkNotPreserved
+      ? '<p class="tkSentErrNote">' + taskResult.linkNotPreserved + ' long sentence' + (taskResult.linkNotPreserved === 1 ? '' : 's') +
+        ' contain' + (taskResult.linkNotPreserved === 1 ? 's' : '') + ' a cross-reference link that didn\u2019t come through the rewording unchanged, so ' +
+        (taskResult.linkNotPreserved === 1 ? 'it was' : 'they were') + ' left untouched rather than risk the link \u2014 fix by hand if it needs shortening.</p>'
       : '');
   const sectionsWrapHtml = '<div class="tkSentSections' + (tkSentenceHideUnfixed ? ' tkHideUnfixed' : '') + '" id="tkSentSections" data-mode="corrected">' +
       (sectionsHtml || '<p class="tkRvEmpty">No sections in this article.</p>') +
@@ -6825,7 +6981,8 @@ function renderTaskReview(){
   const t = tkTask(tkReviewIds[tkReviewIdx]);
   if(!t){ tkGoList(); return; }
 
-  document.getElementById('tkTitleSecond').textContent = TK_TITLES[t.status] || ' : Task';
+  document.getElementById('tkTitleSecond').textContent =
+    (t.status === 'awaiting_review' && t.type === 'audio-generate') ? ' : Audio Review' : (TK_TITLES[t.status] || ' : Task');
 
   const entry = t.entityId ? getEntry(t.entityId) : null;
   const isImageReview = t.type === 'image-generate' && t.status === 'awaiting_review';
@@ -6839,6 +6996,10 @@ function renderTaskReview(){
   const isFinalApproved = t.type === 'image-finalize' && t.status === 'done' &&
     t.result && t.result.decision === 'approve';
   const isFinalReview = isFinalPending || isFinalApproved;
+  // Review-gated (see the long comment in audio-generate.mjs's runAudioGenerate) — the audio and
+  // timing files exist and are committed, but nothing in data.json points at them yet, so the
+  // article and its images stay fully live throughout; only the audio waits on this screen.
+  const isAudioReview = t.type === 'audio-generate' && t.status === 'awaiting_review';
   // A sentence-reword task bundles every long-sentence fix for the entity into one review — the
   // whole article, Before/After toggle — rather than the single-paragraph-marked view the generic
   // entry branch below gives other patch-based tasks (age-backfill etc).
@@ -6896,6 +7057,16 @@ function renderTaskReview(){
           '<div class="tkImgWrap"><img src="' + esc(rawAssetUrl(r.candidateB)) + '" alt="Original candidate B">' +
           '<div class="tkImgSide">Candidate B</div></div>'
         : '');
+  } else if(isAudioReview && entry){
+    const r = t.result || {};
+    const cues = Array.isArray(r.cues) ? r.cues : [];
+    tkAudioCues = cues; tkAudioCueIdx = -1;
+    body = '<div class="tkRvSticky"><div class="tkRvYearBig">' + esc(fmtYear(entry.y)) + '</div>' +
+      '<div class="tkRvNameBig">' + esc(entry.n) + '</div></div>' +
+      '<audio class="tkAudioPlayer" id="tkAudioPlayer" controls preload="metadata" src="' + esc(rawAssetUrl(r.audio)) + '"></audio>' +
+      '<p class="tkNote">' + (r.durationSec || 0) + 's \u00b7 ' + cues.length + ' cue' + (cues.length === 1 ? '' : 's') +
+      ' \u2014 play it and watch the highlighted sentence follow along to check timing and pronunciation together.</p>' +
+      tkRenderAudioReviewArticle(entry, cues);
   } else if(isSentenceRewordReview && entry){
     const hasBundledPatches = t.result && Array.isArray(t.result.patches);
     // A task queued before this whole-article review existed carries the old single result.patch
@@ -6946,6 +7117,15 @@ function renderTaskReview(){
     }
   }
 
+  if(isAudioReview){
+    // Only the timeupdate listener goes here — a fresh #tkAudioPlayer element is part of `body`
+    // on every render (scroll.innerHTML = body replaces it), so binding to it here never
+    // accumulates. Tap-to-seek is different: #tkReviewScroll itself persists across renders, so
+    // that listener is bound once, near tkChips' own delegated listeners, not here — see there.
+    const player = document.getElementById('tkAudioPlayer');
+    if(player) player.addEventListener('timeupdate', () => tkSetActiveCue(tkCueIndexForTime(player.currentTime)));
+  }
+
   if(isErrorReview){
     lock.innerHTML =
       '<div class="tkLockBtns">' +
@@ -6989,6 +7169,17 @@ function renderTaskReview(){
     if(hasOriginals){
       document.getElementById('tkRestartOriginals').addEventListener('click', () => tkRestartFromCandidates());
     }
+    return;
+  }
+
+  if(isAudioReview){
+    lock.innerHTML =
+      '<div class="tkLockBtns">' +
+        '<button class="tkBtn go" id="tkApproveAudio">Approve</button>' +
+        '<button class="tkBtn no" id="tkRejectAudio">Reject</button>' +
+      '</div>';
+    document.getElementById('tkApproveAudio').addEventListener('click', () => tkResolveAudio('approve'));
+    document.getElementById('tkRejectAudio').addEventListener('click', () => tkResolveAudio('reject'));
     return;
   }
 
@@ -7204,6 +7395,69 @@ async function tkResolveFinal(decision){
   renderTaskPanel();
 }
 
+// Approve sets entry.audio/entry.audioTiming (the files themselves are already committed — this
+// is the step that actually links them in) and publishes, same pattern tkResolveFinal uses for
+// entry.img. Reject deletes the rejected take's two files via ghDeleteFile (the same helper
+// sentence-reword's own audio-purge uses) rather than leaving them as orphaned dead weight in the
+// repo — nothing in data.json ever pointed at them, so there's nothing else to clean up.
+async function tkResolveAudio(decision){
+  const t = tkTask(tkReviewIds[tkReviewIdx]);
+  if(!t) return;
+  const btns = ['tkApproveAudio', 'tkRejectAudio'].map(id => document.getElementById(id));
+  btns.forEach(b => { if(b) b.disabled = true; });
+  const r = t.result || {};
+  const now = new Date().toISOString();
+
+  if(decision === 'approve'){
+    const entry = getEntry(t.entityId);
+    if(!entry){
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog('Could not find entry ' + t.entityId + ' \u2014 nothing approved.', true);
+      return;
+    }
+    entry.audio = r.audio;
+    entry.audioTiming = r.audioTiming;
+    dirtyEntryIds.add(t.entityId);
+    const published = await publishToGitHub();
+    if(!published){
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog('Could not publish the audio \u2014 check your GitHub token and try again.', true);
+      return;
+    }
+    t.status = 'done';
+    t.updatedAt = now;
+    t.result = Object.assign({}, r, { decision: 'approve' });
+    const saved = await saveWorkLog('Approved audio for ' + (r.name || t.entityId), [t.id]);
+    if(!saved || saved.ok === false){
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog('Audio published, but the task list didn\u2019t update \u2014 refresh and it should show as done.', true);
+      return;
+    }
+  }else{
+    wlSetLog('Removing the rejected recording\u2026');
+    if(r.audio) await ghDeleteFile(r.audio, 'Remove rejected audio take \u2014 ' + t.entityId);
+    if(r.audioTiming) await ghDeleteFile(r.audioTiming, 'Remove rejected audio timing \u2014 ' + t.entityId);
+    t.status = 'rejected';
+    t.updatedAt = now;
+    const saved = await saveWorkLog('Rejected audio for ' + (r.name || t.entityId), [t.id]);
+    if(!saved || saved.ok === false){
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog('Files removed, but the task list didn\u2019t update \u2014 refresh and it should show as rejected.', true);
+      return;
+    }
+  }
+
+  let next2 = tkReviewIdx + 1;
+  while(next2 < tkReviewIds.length){
+    const nt = tkTask(tkReviewIds[next2]);
+    if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review' || nt.status === 'error')) break;
+    next2++;
+  }
+  if(next2 >= tkReviewIds.length){ tkGoList(); return; }
+  tkReviewIdx = next2;
+  renderTaskPanel();
+}
+
 // The more drastic sibling of Redo above: instead of nudging the current final image, this goes
 // all the way back to the original candidate pair and re-opens the SAME picker Picture Review
 // used the first time (tkResolveImage's Winner/Neither), reusing that screen entirely rather than
@@ -7351,7 +7605,7 @@ function openTaskPanel(){
     runSel.innerHTML = TK_SERVICES.map(s => '<option value="' + esc(s.id) + '">' + esc(s.label) + '</option>').join('');
     document.getElementById('tkNewType').innerHTML = TK_SERVICES.filter(s => s.id && s.addable !== false)
       .map(s => '<option value="' + esc(s.id) + '">' + esc(s.label) + '</option>').join('');
-    tkUpdateAddFormMode();
+    prefillTkAddForm();
   }
   taskPanelEl.classList.add('open');
   tkScrimEl.classList.add('open');
@@ -7399,14 +7653,24 @@ document.getElementById('tkChips').addEventListener('click', (e) => {
 // working across every future re-render (switching tasks) without needing to be re-attached.
 document.getElementById('tkReviewScroll').addEventListener('click', (e) => {
   const btn = e.target.closest('.tkSentToggle');
-  if(!btn) return;
-  const container = document.getElementById('tkSentSections');
-  if(!container) return;
-  const showingCorrected = container.dataset.mode !== 'original';
-  const newMode = showingCorrected ? 'original' : 'corrected';
-  container.dataset.mode = newMode;
-  const label = newMode === 'original' ? 'Original' : 'Corrected';
-  container.querySelectorAll('.tkSentToggle').forEach(b => { b.textContent = label; });
+  if(btn){
+    const container = document.getElementById('tkSentSections');
+    if(!container) return;
+    const showingCorrected = container.dataset.mode !== 'original';
+    const newMode = showingCorrected ? 'original' : 'corrected';
+    container.dataset.mode = newMode;
+    const label = newMode === 'original' ? 'Original' : 'Corrected';
+    container.querySelectorAll('.tkSentToggle').forEach(b => { b.textContent = label; });
+    return;
+  }
+  // Audio review: tapping a sentence seeks the player there directly — handy for jumping
+  // straight to a specific word to re-check pronunciation without scrubbing by ear.
+  const cueEl = e.target.closest('.tkCue[data-cue-idx]');
+  if(cueEl){
+    const player = document.getElementById('tkAudioPlayer');
+    const c = tkAudioCues[parseInt(cueEl.dataset.cueIdx, 10)];
+    if(player && c) player.currentTime = c.start;
+  }
 });
 document.getElementById('tkReviewScroll').addEventListener('change', (e) => {
   const chk = e.target.closest('#tkHideUnfixedChk');
