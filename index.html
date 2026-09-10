@@ -2308,6 +2308,11 @@ v332 CHANGES (unchanged from the version this build started from):
   .reviewActBtn.approve:hover{background:#458a56;}
   .reviewActBtn.del{background:transparent; color:#E08876; border-color:rgba(212,91,69,.6);}
   .reviewActBtn.del:hover{background:var(--persec); color:#fff;}
+  /* Review Mode quick-queue buttons (Generate Images / Record Audio) — same bar/button shape as
+     Approve/Delete, neutral gold styling since they don't carry the same weight as approve/delete. */
+  .reviewActBtn.queue{background:transparent; color:var(--gold-bright); border-color:rgba(201,165,66,.5);}
+  .reviewActBtn.queue:hover{background:rgba(201,165,66,.12);}
+  .reviewActBtn.queue:disabled{opacity:.45; cursor:default; pointer-events:none;}
   .reviewActionNote{font-size:13.5px; color:var(--muted); text-align:center; margin-top:10px; min-height:1.2em;}
   .factrow{display:flex; gap:14px; padding:7px 0; border-bottom:1px solid rgba(201,165,66,.14); font-size:calc(17.5px * var(--txt)); line-height:1.5;}
   .factrow:last-child{border-bottom:none;}
@@ -6675,7 +6680,12 @@ document.getElementById('tkBatchOrder').addEventListener('change', () => {
   tkUpdateBatchStartMode();
   tkRefreshBatchPreview();
 });
-document.getElementById('tkBatchStart').addEventListener('change', () => {
+// Reads the typed Start value and updates tkBatchStartIdx to match. Bound to both 'input' and
+// 'change' below. 'input' matters on top of 'change' because 'change' only fires on blur — on
+// mobile, tapping "Add Task" right after typing a year (e.g. 420) doesn't blur the field first,
+// so tkBatchStartIdx was silently left at its -1 "earliest eligible" default and the batch
+// queued from the wrong end of the pool despite the typed value sitting right there in the box.
+function tkApplyBatchStartValue(){
   const pool = tkBatchPool();
   if(!pool.length){ tkBatchStartIdx = -1; tkRefreshBatchPreview(); return; }
   if(tkIsFeastMode()){
@@ -6691,7 +6701,9 @@ document.getElementById('tkBatchStart').addEventListener('change', () => {
     tkBatchStartIdx = idx === -1 ? pool.length - 1 : idx;
   }
   tkRefreshBatchPreview();
-});
+}
+document.getElementById('tkBatchStart').addEventListener('input', tkApplyBatchStartValue);
+document.getElementById('tkBatchStart').addEventListener('change', tkApplyBatchStartValue);
 document.getElementById('tkBatchStartPrev').addEventListener('click', () => {
   const pool = tkBatchPool();
   if(!pool.length) return;
@@ -7947,6 +7959,38 @@ function tkAudioPayload(){
     sectionPauseMs: v('audioSectionPause')
   };
 }
+// Queues a single image-generate or audio-generate task for one entity, used by the Review Mode
+// quick-action buttons on the article view. Same task shape tkAdd's batch path builds (one map()
+// entry, just inlined for a single e), so both routes land identical tasks in workLog.json.
+async function tkQueueQuickTask(type, entry, btnEl, noteEl){
+  const g = wlGh();
+  if(!g.owner || !g.repo || !g.token){
+    if(noteEl) noteEl.textContent = 'Enter your GitHub token under Manage \u2192 Import \u2192 Publish to GitHub first.';
+    return;
+  }
+  if(!wlData) wlData = { v: 1, tasks: [] };
+  if(!Array.isArray(wlData.tasks)) wlData.tasks = [];
+  const payload = type === 'audio-generate' ? tkAudioPayload() : {};
+  if(type === 'audio-generate') saveAudioGenSettings(); // remembered for next time, same as the batch path
+  const nowIso = new Date().toISOString();
+  const id = 'task-' + type + '-' + entry.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+  const newTask = {
+    id: id, type: type, entityId: entry.id, batchId: null, status: 'queued',
+    description: (TK_SERVICES.find(s => s.id === type) || {}).label + ' \u2014 ' + entry.n,
+    payload: payload, result: null, createdAt: nowIso, updatedAt: nowIso, error: null
+  };
+  wlData.tasks.push(newTask);
+  if(btnEl) btnEl.disabled = true;
+  if(noteEl) noteEl.textContent = 'Saving\u2026';
+  const saved = await saveWorkLog('Queue ' + type + ' task via quick action \u2014 ' + entry.n, [id]);
+  if(saved && saved.ok){
+    if(noteEl) noteEl.textContent = 'Queued \u2713 \u2014 switch to Task List and tap Run to process it.';
+  } else {
+    wlData.tasks = wlData.tasks.filter(t => t.id !== id); // roll back so a retry doesn't double-queue
+    if(btnEl) btnEl.disabled = false;
+    if(noteEl) noteEl.textContent = 'Could not save: ' + ((saved && saved.error) || 'unknown error');
+  }
+}
 document.getElementById('tkAdd').addEventListener('click', async () => {
   const type = document.getElementById('tkNewType').value;
   const g = wlGh();
@@ -8526,6 +8570,33 @@ function fillArticleBody(d, peek){
       '</div>' +
       '<p class="reviewActionNote" id="reviewActionNote"></p>';
   }
+  // Review Mode quick actions: a fast way to queue Generate Images / Record Audio for whatever
+  // entry is open right now, without going through the full Task Automation panel. Independent of
+  // isReview(d) — this is for any entry while Review Mode is on, not just one awaiting approval.
+  // Mirrors tkHasPendingTask's "don't offer what's already queued" rule and audioGeneratePool's
+  // "no long sentences left to reword" gate so a quick tap can't produce a task that's immediately
+  // redundant or wrong; disabled buttons carry a title tooltip explaining why.
+  if(reviewMode && manageUnlocked() && articleStats(d).wordCount > 0){
+    const imgPending = tkHasPendingTask(d.id, ['image-generate', 'image-finalize']);
+    const audioPending = tkHasPendingTask(d.id, ['audio-generate']);
+    const hasVoiceId = !!document.getElementById('audioVoiceId').value.trim();
+    const needsReword = entryHasLongSentence(d);
+    const audioDisabled = audioPending || !hasVoiceId || needsReword;
+    const imgTitle = imgPending ? 'Already queued for images.' : (d.img ? 'Will regenerate the existing image.' : '');
+    const audioTitle = audioPending ? 'Already queued for recording.'
+      : !hasVoiceId ? 'Set a Voice ID under Import \u2192 Voice & pacing settings first.'
+      : needsReword ? 'Has a sentence over 40 words \u2014 reword it first.'
+      : (d.audio ? 'Will replace the existing recording.' : '');
+    html += '<div class="reviewActionBar">' +
+      '<button type="button" class="reviewActBtn queue" id="tkQuickImageBtn"' +
+        (imgPending ? ' disabled' : '') + (imgTitle ? ' title="' + esc(imgTitle) + '"' : '') +
+        '>Generate Images</button>' +
+      '<button type="button" class="reviewActBtn queue" id="tkQuickAudioBtn"' +
+        (audioDisabled ? ' disabled' : '') + (audioTitle ? ' title="' + esc(audioTitle) + '"' : '') +
+        '>Record Audio</button>' +
+      '</div>' +
+      '<p class="reviewActionNote" id="tkQuickNote"></p>';
+  }
   // Clearance for the fixed bottom audio bar (see .audioBottomBar) — it's always present once
   // the entry has audio (not just while playing, per Tom's spec), so this is unconditional on
   // d.audio too, not on play state, to avoid a layout jump when the bar's own visibility toggles.
@@ -8540,6 +8611,13 @@ function fillArticleBody(d, peek){
     const noteEl = document.getElementById('reviewActionNote');
     document.getElementById('reviewApproveBtn').addEventListener('click', () => approveReviewEntry(d.id, noteEl));
     document.getElementById('reviewDeleteBtn').addEventListener('click', () => deleteReviewEntry(d.id, noteEl));
+  }
+  if(reviewMode && manageUnlocked() && articleStats(d).wordCount > 0){
+    const quickNoteEl = document.getElementById('tkQuickNote');
+    const imgBtn = document.getElementById('tkQuickImageBtn');
+    const audioBtn = document.getElementById('tkQuickAudioBtn');
+    if(imgBtn) imgBtn.addEventListener('click', () => tkQueueQuickTask('image-generate', d, imgBtn, quickNoteEl));
+    if(audioBtn) audioBtn.addEventListener('click', () => tkQueueQuickTask('audio-generate', d, audioBtn, quickNoteEl));
   }
 
   // Hand the photo to the body-level flying element and cache the geometry the morph
