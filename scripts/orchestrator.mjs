@@ -46,6 +46,7 @@ import { runAgeBackfillScan } from './services/age-backfill.mjs';
 import { runImageGenerate } from './services/image-generate.mjs';
 import { runImageFinalize } from './services/image-finalize.mjs';
 import { runSentenceReword } from './services/sentence-reword.mjs';
+import { runAudioGenerate } from './services/audio-generate.mjs';
 
 const WORKLOG_PATH = process.env.WORKLOG_PATH || 'workLog.json';
 const DATA_PATH = process.env.DATA_PATH || 'data.json';
@@ -59,6 +60,7 @@ const SERVICE_HANDLERS = {
   'image-generate': runImageGenerate,
   'image-finalize': runImageFinalize,
   'sentence-reword': runSentenceReword,
+  'audio-generate': runAudioGenerate,
 };
 
 function nowIso(){ return new Date().toISOString(); }
