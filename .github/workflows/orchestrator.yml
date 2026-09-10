@@ -6,8 +6,10 @@ name: Orchestrator
 #
 # Content-writing handlers (image-generate, audio-generate) commit their own output — data.json
 # fields, image files, audio files — right after each task, not in one batch commit at the end.
-# See the comment at the top of scripts/orchestrator.mjs for why. workLog.json itself is still
-# committed once at the end of the run, in the last step below.
+# workLog.json itself now commits per-task too (twice per task — once on start, once on finish),
+# not just once at the end — see the comment at the top of scripts/orchestrator.mjs for both. The
+# "Commit updated work log" step below is the final safety net for whatever a per-task push
+# inside the script missed, not the primary way workLog.json gets published anymore.
 
 on:
   workflow_dispatch:
