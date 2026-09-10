@@ -4141,14 +4141,25 @@
       "type": "sentence-reword",
       "entityId": "st-john-henry-newman-1890",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. John Henry Newman",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-john-henry-newman-1890",
+        "name": "St. John Henry Newman",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-10T21:13:59.694Z",
-      "updatedAt": "2026-09-10T21:15:41.068Z",
+      "updatedAt": "2026-09-10T21:15:51.386Z",
       "error": null
     },
     {
@@ -4299,6 +4310,59 @@
       "error": null,
       "createdAt": "2026-09-10T21:15:39.889Z",
       "updatedAt": "2026-09-10T21:15:39.889Z"
+    },
+    {
+      "id": "task-sentence-reword-st-john-henry-newman-1890-1789074951386-9756",
+      "type": "sentence-reword",
+      "entityId": "st-john-henry-newman-1890",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — St. John Henry Newman",
+      "payload": {},
+      "result": {
+        "name": "St. John Henry Newman",
+        "patches": [
+          [
+            "article",
+            "Born in London in 1801, <b>John Henry Newman</b> was elected a fellow of Oriel College, Oxford, in 1822 and ordained an Anglican priest two years later, becoming, as vicar of the university church of St. Mary's, one of the most influential preachers in Oxford.",
+            "U",
+            "Born in London in 1801, <b>John Henry Newman</b> was elected a fellow of Oriel College, Oxford, in 1822. He was ordained an Anglican priest two years later and became, as vicar of the university church of St. Mary's, one of Oxford's most influential preachers."
+          ],
+          [
+            "article",
+            "Newman's studies into the doctrinal history of the early Church gradually convinced him that the claims of Roman Catholicism, rather than Anglicanism, represented authentic continuity with historic Christianity — a conclusion he reached only slowly and painfully over roughly six years, aware of the devastating cost it would exact in friendships, reputation, and his entire academic career.",
+            "U",
+            "Newman's studies into the doctrinal history of the early Church gradually convinced him that Roman Catholicism, rather than Anglicanism, represented authentic continuity with historic Christianity. He reached this conclusion only slowly and painfully over roughly six years, aware of the devastating cost it would exact in friendships, reputation, and his entire academic career."
+          ],
+          [
+            "article",
+            "Newman's most influential theological work, written just before his conversion, argued that Christian doctrine develops organically over time — much as a living idea grows and is more fully understood without changing its essential nature — a framework that offered a sophisticated answer to critics who pointed to doctrines like the Marian dogmas as later 'additions' unknown to the early Church, and one that would prove deeply influential at the <a href=\"entry:second-vatican-council-1962\">Second Vatican Council</a> nearly a century later.",
+            "U",
+            "Newman's most influential theological work, written just before his conversion, argued that Christian doctrine develops organically over time.  \nIt compared doctrine to a living idea, more fully understood without changing its essential nature, offering critics a sophisticated answer.  \nCritics pointed to the Marian dogmas as later 'additions' unknown to the early Church; the framework would prove deeply influential at the <a href=\"entry:second-vatican-council-1962\">Second Vatican Council</a> nearly a century later."
+          ],
+          [
+            "article",
+            "Years of suspicion from some Catholic authorities, coupled with a public attack from the Anglican writer Charles Kingsley questioning his honesty, prompted Newman to write his <i>Apologia Pro Vita Sua</i> in 1864 — a searching, deeply personal account of his own intellectual and spiritual journey that won broad public admiration and effectively silenced his critics, restoring his reputation as one of the era's most respected religious thinkers.",
+            "U",
+            "Years of suspicion from some Catholic authorities, coupled with a public attack from the Anglican writer Charles Kingsley questioning his honesty, prompted Newman to write his <i>Apologia Pro Vita Sua</i> in 1864. It was a searching, deeply personal account of his own intellectual and spiritual journey that won broad public admiration, effectively silenced his critics, and restored his reputation as one of the era's most respected religious thinkers."
+          ],
+          [
+            "article",
+            "Newman died at Birmingham in 1890 and was canonized in 2019 by Pope Francis, and declared a Doctor of the Church in 2025 by Pope Leo XIV, honoring a thinker whose patient, searching wrestling with the historical development of Christian truth continues to shape Catholic theology to this day.",
+            "U",
+            "Newman died at Birmingham in 1890 and was canonized in 2019 by Pope Francis. Pope Leo XIV declared him a Doctor of the Church in 2025, honoring a thinker whose patient, searching wrestling with the historical development of Christian truth continues to shape Catholic theology to this day."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-10T21:15:51.386Z",
+      "updatedAt": "2026-09-10T21:15:51.386Z"
     }
   ]
 }
