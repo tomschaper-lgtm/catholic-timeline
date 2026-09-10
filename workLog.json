@@ -4089,14 +4089,25 @@
       "type": "sentence-reword",
       "entityId": "st-francis-of-assisi-1226",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Francis of Assisi",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-francis-of-assisi-1226",
+        "name": "St. Francis of Assisi",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-10T21:13:59.694Z",
-      "updatedAt": "2026-09-10T21:15:30.562Z",
+      "updatedAt": "2026-09-10T21:15:33.808Z",
       "error": null
     },
     {
@@ -4213,6 +4224,35 @@
       "error": null,
       "createdAt": "2026-09-10T21:15:29.222Z",
       "updatedAt": "2026-09-10T21:15:29.222Z"
+    },
+    {
+      "id": "task-sentence-reword-st-francis-of-assisi-1226-1789074933808-3007",
+      "type": "sentence-reword",
+      "entityId": "st-francis-of-assisi-1226",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Francis of Assisi",
+      "payload": {},
+      "result": {
+        "name": "St. Francis of Assisi",
+        "patches": [
+          [
+            "article",
+            "Francis's evident joy and total commitment to Gospel poverty drew disciples almost immediately, and by 1210 he had gathered enough companions to seek papal approval for a simple rule of life, granted informally by Pope Innocent III — the founding moment of what would become the <b>Order of Friars Minor</b>, an order that within Francis's own lifetime had grown from a handful of companions to thousands of friars spread across Europe and beyond, a scale of growth that genuinely surprised and, at times, troubled Francis himself, who had never envisioned founding a large, formally organized institution.",
+            "U",
+            "Francis's evident joy and total commitment to Gospel poverty drew disciples almost immediately. By 1210, he had gathered enough companions to seek papal approval for a simple rule of life.\n\nPope Innocent III granted that approval informally—the founding moment of what would become the <b>Order of Friars Minor</b>. Within Francis's own lifetime, it grew from a handful of companions to thousands of friars spread across Europe and beyond, genuinely surprising and sometimes troubling Francis, who had never envisioned founding a large, formally organized institution."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-10T21:15:33.808Z",
+      "updatedAt": "2026-09-10T21:15:33.808Z"
     }
   ]
 }
