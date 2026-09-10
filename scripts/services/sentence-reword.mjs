@@ -16,9 +16,13 @@
 //   - `art.sections[].b` only. Never `quotes`, `facts`, or anything else.
 //   - Never exceed 40 words — no exception tier (the old manual chat-based cleanup pass allowed
 //     one sentence under 60 per article; that carve-out is deliberately not carried over here).
-//   - A paragraph containing an `entry:` cross-reference link is skipped in its entirety, so a
-//     rewrite can never land mid-link or shift which word carries the link. Other paragraphs in
-//     the same section remain eligible.
+//   - A sentence containing an `entry:` cross-reference link is still attempted, not skipped —
+//     Claude is told exactly which link(s) to copy verbatim, and the reply is checked afterward
+//     (extractEntryLinks/linksPreserved) to confirm every one actually survived character for
+//     character before the fix is accepted. If even one didn't, the sentence is left untouched,
+//     same outcome the old blanket per-paragraph skip gave, just arrived at after actually
+//     trying rather than never attempting it — this used to give up on every long sentence in a
+//     linked paragraph even when the link and the long sentence were different sentences entirely.
 //   - Meaning and certainty-tier wording ("tradition holds…", "may have…") must survive exactly —
 //     this is a mechanical split for the ear, never a chance to re-research or re-word content.
 //   - Applies to existing/seed entries only in practice: a freshly-drafted entry that already
@@ -38,18 +42,30 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 // A single named constant so bumping the model later is a one-line change.
 const ANTHROPIC_MODEL = 'claude-sonnet-5';
 const MAX_SENTENCE_WORDS = 40;
-const TRACKED_TAGS = ['b', 'i', 'u', 'blockquote'];
+const TRACKED_TAGS = ['b', 'i', 'u', 'blockquote', 'a'];
 
 function wordCount(rawText){
   const plain = stripHtml(rawText).replace(/\s+/g, ' ').trim();
   return plain ? plain.split(' ').length : 0;
 }
 
-// A paragraph containing an entry: cross-reference link is left alone entirely, per the spec
-// above — this mirrors the plain existence check the app itself would make, not the fuller
-// anchor-span math applyOnePatch() does when it actually applies a patch later.
-function paragraphHasEntryLink(paragraphRaw){
-  return /href\s*=\s*["']entry:/i.test(paragraphRaw);
+// Every entry: cross-reference link inside a sentence, as its exact verbatim substring (opening
+// tag through closing </a>, attributes and all). Used two ways: fed into the prompt so Claude
+// knows exactly what to preserve untouched, and checked against the response afterward — see
+// linksPreserved() below. Plain paragraphs without any link return an empty array, same as before.
+function extractEntryLinks(text){
+  const re = /<a\b[^>]*href\s*=\s*["']entry:[^"']*["'][^>]*>[\s\S]*?<\/a>/gi;
+  return text.match(re) || [];
+}
+// A sentence containing a link is no longer skipped outright — it's attempted like any other,
+// then checked here: every link extracted from the ORIGINAL sentence must appear byte-for-byte,
+// unchanged, somewhere in the REPLACEMENT. If even one doesn't (reworded, dropped, moved into a
+// different tag), the whole replacement is rejected and the sentence is left untouched — same
+// fail-safe instinct as hasBalancedTags, just verified after the call instead of guessed at
+// before it. This is what recovers the sentences a blanket "paragraph has a link, skip it
+// entirely" used to give up on without even trying.
+function linksPreserved(originalLinks, replacement){
+  return originalLinks.every(link => replacement.includes(link));
 }
 
 // Titles, honorifics, and other common abbreviations that end in a period but do NOT end a
@@ -123,15 +139,24 @@ function occurrenceAt(fullText, matchText, charIndex){
   return count;
 }
 
-function buildPrompt(sentence, paragraph){
-  return [
+function buildPrompt(sentence, paragraph, links){
+  const lines = [
     'You are reworking one over-length sentence in a Catholic saints-and-history article so it reads well aloud \u2014 the article is narrated as audio.',
     '',
     'Rules:',
     '- Split it into two or three sentences, each targeting 15\u201325 words; 35 is an acceptable rare stretch; never exceed 40 words in any resulting sentence.',
     '- Preserve the exact meaning and every fact \u2014 add nothing, remove nothing.',
     '- Preserve certainty-tier wording exactly as written (e.g. "tradition holds\u2026", "may have\u2026", "Scripture states\u2026") \u2014 never make a qualified claim read as more certain, or a certain claim read as hedged.',
-    '- If the original sentence contains inline HTML tags (<b>, <i>, <u>, <blockquote>), preserve them, applied to the same words, across the rewritten sentences.',
+    '- If the original sentence contains inline HTML tags (<b>, <i>, <u>, <blockquote>), preserve them, applied to the same words, across the rewritten sentences.'
+  ];
+  if(links && links.length){
+    lines.push(
+      '- This sentence contains ' + (links.length === 1 ? 'a cross-reference link' : links.length + ' cross-reference links') +
+      ' that must be copied into your answer EXACTLY as shown below, character for character \u2014 same tag, same attributes, same visible text inside it, applied to the same words it currently marks. Do not reword, paraphrase, shorten, or move the text inside the link:'
+    );
+    links.forEach(link => lines.push('  ' + link));
+  }
+  lines.push(
     '- Do not merge this sentence with anything before or after it \u2014 only rework the text given below.',
     '- Return ONLY the replacement text \u2014 no preamble, no surrounding quotation marks, no explanation, no markdown.',
     '',
@@ -146,7 +171,8 @@ function buildPrompt(sentence, paragraph){
     '"""',
     '',
     'Return only its replacement.'
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 // A properly finished rewording should end in real sentence-ending punctuation (allowing a
@@ -168,7 +194,7 @@ function looksComplete(text){
 // (the direct, mechanical signal a length cap was hit) and looksComplete() above (a backstop that
 // catches an incomplete-looking reply regardless of why it's incomplete). Either one triggers a
 // retry with the same widened budget, never a silently-accepted fragment.
-async function rewordSentence(sentence, paragraph, apiKey){
+async function rewordSentence(sentence, paragraph, links, apiKey){
   let lastErr;
   for(let attempt = 0; attempt < 3; attempt++){
     try{
@@ -182,7 +208,7 @@ async function rewordSentence(sentence, paragraph, apiKey){
         body: JSON.stringify({
           model: ANTHROPIC_MODEL,
           max_tokens: 700,
-          messages: [{ role: 'user', content: buildPrompt(sentence, paragraph) }]
+          messages: [{ role: 'user', content: buildPrompt(sentence, paragraph, links) }]
         })
       });
       if(res.ok){
@@ -227,7 +253,8 @@ export async function runSentenceReword(task, dataJson){
 
   let sectionOffset = 0;
   const patches = []; // every fix for this entity, bundled into one review instead of one task each
-  let found = 0, reworded = 0, skippedTagMismatch = 0, apiErrors = 0, skippedEntryLink = 0;
+  let found = 0, reworded = 0, skippedTagMismatch = 0, apiErrors = 0, linkNotPreserved = 0;
+  const apiErrorSamples = []; // first few actual error messages — surfaced in the review, not just a bare count
 
   for(let si = 0; si < sections.length; si++){
     const body = String(sections[si].b || '');
@@ -235,39 +262,50 @@ export async function runSentenceReword(task, dataJson){
     let paraOffset = 0;
 
     for(const para of paragraphs){
-      if(paragraphHasEntryLink(para)){
-        // A paragraph with an entry: link is never touched, per spec — rewording it risks
-        // splitting the link's own sentence in a way that shifts or breaks which words carry it.
-        // But silently skipping a genuinely over-length sentence with zero record is exactly the
-        // kind of gap that looks like a missed detection rather than a deliberate choice — so
-        // this still checks (never fixes) whether the skipped paragraph actually had one, purely
-        // so it can be reported rather than vanish.
-        if(splitIntoSentences(para).some(s => wordCount(s) > MAX_SENTENCE_WORDS)) skippedEntryLink++;
-      }else{
-        for(const sentence of splitIntoSentences(para)){
-          if(wordCount(sentence) > MAX_SENTENCE_WORDS){
-            found++;
-            if(!hasBalancedTags(sentence)){
-              skippedTagMismatch++;
-            }else{
-              const sentIdxInPara = para.indexOf(sentence);
-              if(sentIdxInPara !== -1){
-                const charIndex = sectionOffset + paraOffset + sentIdxInPara;
-                const occurrence = occurrenceAt(fullText, sentence, charIndex);
-                let replacement = null;
-                try{
-                  replacement = await rewordSentence(sentence, para, apiKey);
-                }catch(apiErr){
-                  // One bad call doesn't stop the rest of this entity's sentences — reported in
-                  // the summary; a rerun of this same task will simply retry whatever's left,
-                  // since nothing about this task's own state is affected by a per-sentence miss.
-                  apiErrors++;
-                }
-                if(replacement && replacement !== sentence){
-                  reworded++;
-                  const element = occurrence > 1 ? sentence + '@' + occurrence : sentence;
-                  patches.push(['article', element, 'U', replacement]);
-                }
+      for(const sentence of splitIntoSentences(para)){
+        if(wordCount(sentence) > MAX_SENTENCE_WORDS){
+          found++;
+          if(!hasBalancedTags(sentence)){
+            skippedTagMismatch++;
+          }else{
+            const sentIdxInPara = para.indexOf(sentence);
+            if(sentIdxInPara !== -1){
+              const charIndex = sectionOffset + paraOffset + sentIdxInPara;
+              const occurrence = occurrenceAt(fullText, sentence, charIndex);
+              const links = extractEntryLinks(sentence);
+              let replacement = null;
+              // A small gap between consecutive calls, not just the retry backoff within one
+              // sentence's own attempts — an article with many long sentences was firing every
+              // call back-to-back with zero spacing, which a rate limit doesn't forgive just
+              // because each individual call retries; if the account's per-minute limit is
+              // still open on the NEXT sentence, that one fails too, cascading into exactly the
+              // kind of high failure count this was built to prevent.
+              if(found > 1) await new Promise(r => setTimeout(r, 400));
+              try{
+                replacement = await rewordSentence(sentence, para, links, apiKey);
+              }catch(apiErr){
+                // One bad call doesn't stop the rest of this entity's sentences — reported in
+                // the summary; a rerun of this same task will simply retry whatever's left,
+                // since nothing about this task's own state is affected by a per-sentence miss.
+                // The actual message is what was missing before: this used to just increment a
+                // counter and throw the real reason away, leaving "a repeated API error" as the
+                // only thing anyone could see — logged here (shows in the Action's own run log)
+                // and sampled below (shows in the app itself, in the review's own note).
+                const msg = String((apiErr && apiErr.message) || apiErr);
+                console.error('Reword failed for "' + sentence.slice(0, 60) + '...": ' + msg);
+                if(apiErrorSamples.length < 3) apiErrorSamples.push(msg.slice(0, 200));
+                apiErrors++;
+              }
+              if(replacement && links.length && !linksPreserved(links, replacement)){
+                // Asked Claude to preserve the link verbatim and it didn't (reworded, dropped, or
+                // moved it) — don't risk a broken or mismatched cross-reference. The sentence is
+                // left exactly as it was, same outcome as the old paragraph-level skip, just
+                // arrived at after actually trying rather than never attempting it at all.
+                linkNotPreserved++;
+              }else if(replacement && replacement !== sentence){
+                reworded++;
+                const element = occurrence > 1 ? sentence + '@' + occurrence : sentence;
+                patches.push(['article', element, 'U', replacement]);
               }
             }
           }
@@ -278,12 +316,12 @@ export async function runSentenceReword(task, dataJson){
     sectionOffset += body.length + 1; // '\u0000' separator
   }
 
-  const summary = (found === 0 && skippedEntryLink === 0)
+  const summary = (found === 0)
     ? 'no sentences over ' + MAX_SENTENCE_WORDS + ' words found \u2014 nothing queued for review'
     : reworded + ' of ' + found + ' long sentence(s) reworded and queued for review' +
       (skippedTagMismatch ? ' \u00b7 ' + skippedTagMismatch + ' skipped (spans a formatting tag)' : '') +
-      (apiErrors ? ' \u00b7 ' + apiErrors + ' call(s) failed, rerun this task to retry those' : '') +
-      (skippedEntryLink ? ' \u00b7 ' + skippedEntryLink + ' long sentence(s) left untouched (in a paragraph with a cross-reference link \u2014 fix by hand)' : '');
+      (apiErrors ? ' \u00b7 ' + apiErrors + ' call(s) failed after retries \u2014 ' + apiErrorSamples.join(' | ') : '') +
+      (linkNotPreserved ? ' \u00b7 ' + linkNotPreserved + ' left untouched (contains a cross-reference link that didn\u2019t survive the rewording \u2014 fix by hand)' : '');
 
   const spawnedTasks = [];
   if(patches.length){
@@ -292,7 +330,7 @@ export async function runSentenceReword(task, dataJson){
       id: 'task-sentence-reword-' + entry.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
       type: 'sentence-reword', entityId: entry.id, batchId: null, status: 'proposed',
       description: 'Reword ' + patches.length + ' long sentence' + (patches.length === 1 ? '' : 's') + ' \u2014 ' + entry.n,
-      payload: {}, result: { name: entry.n, patches, apiErrors, skippedTagMismatch, skippedEntryLink }, error: null, createdAt: nowIso, updatedAt: nowIso
+      payload: {}, result: { name: entry.n, patches, apiErrors, apiErrorSamples, skippedTagMismatch, linkNotPreserved }, error: null, createdAt: nowIso, updatedAt: nowIso
     });
   }
 
@@ -300,7 +338,7 @@ export async function runSentenceReword(task, dataJson){
     result: {
       entityId: entry.id, name: entry.n,
       sentencesFound: found, sentencesReworded: reworded,
-      skippedTagMismatch, apiErrors, skippedEntryLink
+      skippedTagMismatch, apiErrors, apiErrorSamples, linkNotPreserved
     },
     summary,
     spawnedTasks
