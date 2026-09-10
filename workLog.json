@@ -4063,14 +4063,25 @@
       "type": "sentence-reword",
       "entityId": "st-jerome-420",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Jerome",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-jerome-420",
+        "name": "St. Jerome",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-10T21:13:59.694Z",
-      "updatedAt": "2026-09-10T21:15:22.566Z",
+      "updatedAt": "2026-09-10T21:15:29.222Z",
       "error": null
     },
     {
@@ -4167,6 +4178,41 @@
       "error": null,
       "createdAt": "2026-09-10T21:15:21.337Z",
       "updatedAt": "2026-09-10T21:15:21.337Z"
+    },
+    {
+      "id": "task-sentence-reword-st-jerome-420-1789074929222-5803",
+      "type": "sentence-reword",
+      "entityId": "st-jerome-420",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Jerome",
+      "payload": {},
+      "result": {
+        "name": "St. Jerome",
+        "patches": [
+          [
+            "article",
+            "Returning to Rome in 382, Jerome became secretary and close theological advisor to <b><a href=\"entry:pope-st-damasus-i-384\">Pope Damasus I</a></b>, who set him the task that would occupy much of the rest of his life: producing a reliable, unified Latin translation of the Scriptures to replace the confusing, inconsistent array of Old Latin versions then in circulation.",
+            "U",
+            "Returning to Rome in 382, Jerome became secretary and close theological advisor to <b><a href=\"entry:pope-st-damasus-i-384\">Pope Damasus I</a></b>. He set Jerome a task that would occupy much of the rest of his life: producing a reliable, unified Latin translation of the Scriptures. This would replace the confusing, inconsistent array of Old Latin versions then in circulation."
+          ],
+          [
+            "article",
+            "He wrote that he had put aside all his study because now was a time for weeping, not for words—proof that even the most single-minded scholar of his generation understood that love of neighbor could, when the moment demanded it, take precedence even over love of the sacred text.",
+            "U",
+            "He wrote that he had put aside all his study because now was a time for weeping, not for words. This proved that even the most single-minded scholar of his generation understood love of neighbor could, when the moment demanded it, take precedence over love of the sacred text."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-10T21:15:29.222Z",
+      "updatedAt": "2026-09-10T21:15:29.222Z"
     }
   ]
 }
