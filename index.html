@@ -1,9 +1,31 @@
 <!--
-VERSION: 350
-DATE: 2026-09-10T23:00:00-05:00
+VERSION: 352
+DATE: 2026-09-11T00:15:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- scripts/services/sentence-reword.mjs (unchanged this version — logged here since the changelog
+  is the unified record): a max_tokens failure only ever recorded THAT it happened, never what
+  Claude was actually generating when it got cut off — v351's budget escalation fixed the wasted-
+  retry symptom but left the underlying "why does a ~150-word task ever need 700+ tokens" an open
+  question. Now captures the actual content: a new looksRepetitive() heuristic flags the classic
+  LLM degenerate-repetition failure (the same chunk of text repeating), and the error message
+  includes the last 200 characters of what was actually generated, so the next real occurrence is
+  visible instead of guessed at. Verified against a simulated repetition loop — correctly flagged,
+  and the captured tail visibly shows the repeating phrase.
+
+v351 CHANGES (unchanged from the version this build started from):
+- Fixed the actual cause of St. Cyprian's 3 failures, now that the error-surfacing fix from
+  v349 made it possible to see it at all: every one was stop_reason max_tokens, meaning the
+  700-token budget was too small for that particular rewording, and all 3 retries used the exact
+  same budget — a deterministic failure retried three times with zero chance of a different
+  result, each one a real, billed generation. scripts/services/sentence-reword.mjs (unchanged
+  this version — logged here since the changelog is the unified record) now escalates the budget
+  per attempt (700 \u2192 1200 \u2192 2000, new TOKEN_BUDGETS) instead of repeating it. Verified
+  against a mock where a 700-token budget truncates and a 1200-token retry succeeds — confirms
+  the fix actually resolves this failure mode rather than just describing it better.
+
+v350 CHANGES (unchanged from the version this build started from):
 - Sentence-reword no longer blanket-skips an entire paragraph just because it contains a
   cross-reference link (scripts/services/sentence-reword.mjs, this file unchanged this version —
   logged here since the changelog is the unified record). That old rule gave up on every long
@@ -3890,7 +3912,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v350';
+const APP_VERSION = 'v352';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
