@@ -175,6 +175,17 @@ function buildPrompt(sentence, paragraph, links){
   return lines.join('\n');
 }
 
+// A crude but useful signal for the classic LLM degenerate-repetition failure mode: the same
+// substantial chunk of text appearing more than once. Not a general repetition detector — just
+// specific enough to flag "got stuck re-generating the same phrase," the leading suspect for why
+// a task that should produce ~150 words ever gets anywhere near a 700+ token ceiling.
+function looksRepetitive(text){
+  const chunk = text.slice(0, 40);
+  if(chunk.length < 40) return false;
+  const re = new RegExp(chunk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+  return (text.match(re) || []).length >= 2;
+}
+
 // A properly finished rewording should end in real sentence-ending punctuation (allowing a
 // trailing closing quote/paren after it). Anything else means the text was cut off before it
 // finished, whatever the cause — this is a backstop that catches truncation even if stop_reason
@@ -190,10 +201,15 @@ function looksComplete(text){
 //
 // Truncation specifically: a dangling sentence fragment ("Pope Gelasius I, writing in" — nothing
 // after it) reported in review meant a cut-off response was being accepted as if it were a
-// finished one. Two checks now guard against that — the API's own stop_reason === 'max_tokens'
-// (the direct, mechanical signal a length cap was hit) and looksComplete() above (a backstop that
-// catches an incomplete-looking reply regardless of why it's incomplete). Either one triggers a
-// retry with the same widened budget, never a silently-accepted fragment.
+// finished one. Two checks guard against that — the API's own stop_reason === 'max_tokens' (the
+// direct, mechanical signal a length cap was hit) and looksComplete() above (a backstop that
+// catches an incomplete-looking reply regardless of why it's incomplete). What real runs then
+// showed: a max_tokens cutoff is usually deterministic, not transient — retrying with the exact
+// same budget hits the exact same wall every time (three real, billed generations, three
+// identical failures, zero chance of a different outcome). TOKEN_BUDGETS escalates the budget on
+// each retry instead of repeating it, so a retry actually has room to finish where the first
+// attempt didn't.
+const TOKEN_BUDGETS = [700, 1200, 2000];
 async function rewordSentence(sentence, paragraph, links, apiKey){
   let lastErr;
   for(let attempt = 0; attempt < 3; attempt++){
@@ -207,7 +223,7 @@ async function rewordSentence(sentence, paragraph, links, apiKey){
         },
         body: JSON.stringify({
           model: ANTHROPIC_MODEL,
-          max_tokens: 700,
+          max_tokens: TOKEN_BUDGETS[attempt],
           messages: [{ role: 'user', content: buildPrompt(sentence, paragraph, links) }]
         })
       });
@@ -215,7 +231,10 @@ async function rewordSentence(sentence, paragraph, links, apiKey){
         const data = await res.json();
         const text = (data.content || []).map(b => b.text || '').join('').trim();
         if(data.stop_reason === 'max_tokens'){
-          lastErr = new Error('Anthropic response hit max_tokens before finishing \u2014 stop_reason confirms a mechanical cutoff, not a Claude quality issue');
+          const repetitive = looksRepetitive(text);
+          lastErr = new Error('Anthropic response hit max_tokens before finishing (budget ' + TOKEN_BUDGETS[attempt] +
+            ', generated ' + text.length + ' chars' + (repetitive ? ', looks like a repetition loop' : '') +
+            ') \u2014 end of what it generated: "\u2026' + text.slice(-200) + '"');
         }else if(text && !looksComplete(text)){
           lastErr = new Error('Anthropic response looks cut off (doesn\u2019t end in sentence-ending punctuation): "' + text.slice(-60) + '"');
         }else{
@@ -293,7 +312,7 @@ export async function runSentenceReword(task, dataJson){
                 // and sampled below (shows in the app itself, in the review's own note).
                 const msg = String((apiErr && apiErr.message) || apiErr);
                 console.error('Reword failed for "' + sentence.slice(0, 60) + '...": ' + msg);
-                if(apiErrorSamples.length < 3) apiErrorSamples.push(msg.slice(0, 200));
+                if(apiErrorSamples.length < 3) apiErrorSamples.push(msg.slice(0, 400));
                 apiErrors++;
               }
               if(replacement && links.length && !linksPreserved(links, replacement)){
