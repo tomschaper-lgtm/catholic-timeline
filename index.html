@@ -1,9 +1,34 @@
 <!--
-VERSION: 352
-DATE: 2026-09-11T00:15:00-05:00
+VERSION: 353
+DATE: 2026-09-11T01:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Sentence-reword can now run on GPT-5.6 Luna (OpenAI) instead of Claude, chosen per batch —
+  scripts/services/sentence-reword.mjs (this file unchanged this version — logged here since the
+  changelog is the unified record) refactored its single Claude-only call into a provider
+  abstraction (new PROVIDERS map: Anthropic Messages API + OpenAI's current Responses API), with
+  one shared retry/token-escalation loop neither provider needs to know about. Luna's own
+  reasoning.effort is set explicitly to 'low' rather than left at its 'medium' default — it's a
+  reasoning model whose reasoning tokens share the same output budget as the visible answer, and
+  a mechanical rewording task has no real use for deep reasoning; leaving it at default risked
+  rediscovering the exact max_tokens exhaustion just found and fixed on the Claude side, for a
+  different reason. Requires a new OPENAI_API_KEY secret (orchestrator.yml now passes it through)
+  — distinct from IMAGEGEN_API_KEY, matching content-pipeline-vision.md's own established naming
+  (IMAGEGEN_API_KEY for images, OPENAI_API_KEY for text). Verified against both providers with
+  mocked responses before shipping — correct endpoint, correct model, correct reasoning settings,
+  both producing patches correctly.
+- New Model picker on Add Task, shown only for "Reword long sentences" — remembered across
+  sessions (joins the existing persisted Add Task fields). The provider that actually produced a
+  given batch of fixes now shows in that review's own header, so two batches run on different
+  models stay identifiable while comparing results.
+- Fixed a latent gap found while wiring this: this app has no generic `.hidden{display:none}`
+  rule — every hidden-toggleable element needs its own explicit selector — and the Overwrite
+  checkbox row's hidden state never had one. Never surfaced before now since every batch type
+  built so far has overwrite enabled, so it was never actually exercised in the hidden direction.
+  Fixed alongside the new Model row's own selector.
+
+v352 CHANGES (unchanged from the version this build started from):
 - scripts/services/sentence-reword.mjs (unchanged this version — logged here since the changelog
   is the unified record): a max_tokens failure only ever recorded THAT it happened, never what
   Claude was actually generating when it got cut off — v351's budget escalation fixed the wasted-
@@ -1179,6 +1204,7 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkBatchNote{color:#8A6D1C; font-style:italic;}
   #tkBatchFields.hidden, #tkPlainFields.hidden{display:none;}
   #tkBatchOrder.hidden, #tkBatchOrderLabel.hidden{display:none;}
+  #tkBatchOverwriteRow.hidden, #tkRewordProviderRow.hidden{display:none;}
   /* Review view: scrolling entry above, locked options below.
      `color` is set explicitly here and NOT left to inherit: the panel sits inside the app's
      dark theme, whose body colour is parchment, so any element that didn't name its own colour
@@ -3151,6 +3177,13 @@ v332 CHANGES (unchanged from the version this build started from):
           <label class="tkLabel" for="tkBatchCount">Quantity</label>
           <input type="number" id="tkBatchCount" inputmode="numeric" value="5">
           <label class="tkCheck" id="tkBatchOverwriteRow"><input type="checkbox" id="tkBatchOverwrite"><span id="tkBatchOverwriteLabel">Regenerate even entries that already have one</span></label>
+          <div id="tkRewordProviderRow" class="hidden">
+            <label class="tkLabel" for="tkRewordProvider">Model</label>
+            <select id="tkRewordProvider">
+              <option value="">Claude</option>
+              <option value="openai">GPT-5.6 Luna (OpenAI)</option>
+            </select>
+          </div>
           <label class="tkLabel">Will queue</label>
           <div class="tkBatchList" id="tkBatchList"></div>
         </div>
@@ -3912,7 +3945,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v352';
+const APP_VERSION = 'v353';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6356,11 +6389,11 @@ function tkIsFeastMode(){
 // year/feast value itself): pool composition shifts as tasks get approved and reword/recording
 // pools fill in, so a remembered position would go stale fast — this always resets to "start at
 // the earliest eligible" instead, which stays correct no matter how the pool has changed.
-const TK_ADD_FORM_FIELDS = { tkNewType: 'select', tkBatchCategory: 'select', tkBatchOrder: 'select', tkBatchCount: 'text', tkBatchOverwrite: 'checkbox' };
+const TK_ADD_FORM_FIELDS = { tkNewType: 'select', tkBatchCategory: 'select', tkBatchOrder: 'select', tkBatchCount: 'text', tkBatchOverwrite: 'checkbox', tkRewordProvider: 'select' };
 function prefillTkAddForm(){
   let c = {};
   try{ c = JSON.parse(localStorage.getItem('tk-add-form-settings') || '{}'); }catch(e){}
-  ['tkNewType', 'tkBatchCategory', 'tkBatchOrder', 'tkBatchCount'].forEach(id => {
+  ['tkNewType', 'tkBatchCategory', 'tkBatchOrder', 'tkBatchCount', 'tkRewordProvider'].forEach(id => {
     const el = document.getElementById(id);
     if(el && (id in c)) el.value = c[id];
   });
@@ -6552,6 +6585,7 @@ function tkUpdateAddFormMode(){
     document.getElementById('tkBatchOverwriteRow').classList.toggle('hidden', !hasOverwrite);
     if(hasOverwrite) document.getElementById('tkBatchOverwriteLabel').textContent = TK_BATCH_OVERWRITE_LABEL[type];
     document.getElementById('tkBatchOverwrite').checked = false;
+    document.getElementById('tkRewordProviderRow').classList.toggle('hidden', type !== 'sentence-reword');
     tkUpdateOrderVisibility();
     tkUpdateBatchStartMode();
     tkRefreshBatchPreview();
@@ -6606,6 +6640,7 @@ document.getElementById('tkBatchCategory').addEventListener('change', saveTkAddF
 document.getElementById('tkBatchOrder').addEventListener('change', saveTkAddFormSettings);
 document.getElementById('tkBatchOverwrite').addEventListener('change', saveTkAddFormSettings);
 document.getElementById('tkBatchCount').addEventListener('input', saveTkAddFormSettings);
+document.getElementById('tkRewordProvider').addEventListener('change', saveTkAddFormSettings);
 document.getElementById('tkBatchOverwrite').addEventListener('change', tkRefreshBatchPreview);
 document.getElementById('tkBatchCount').addEventListener('input', tkRenderBatchList);
 // One glyph per state, no label. Green check = settled, amber ring = waiting to run, half-ring
@@ -6925,7 +6960,8 @@ function tkRenderSentenceRewordReview(entry, patches, taskResult){
   const fixedRowHtml = '<div class="tkSentFixedRow">' +
     '<label class="tkCheck tkSentHideRow"><input type="checkbox" id="tkHideUnfixedChk"' +
       (tkSentenceHideUnfixed ? ' checked' : '') + '><span>Fixed sections</span></label>' +
-    '<span class="tkSentFixedCount">' + fixedCount + ' of ' + sections.length + ' sections fixed</span>' +
+    '<span class="tkSentFixedCount">' + fixedCount + ' of ' + sections.length + ' sections fixed' +
+      (taskResult && taskResult.providerLabel ? ' \u00b7 ' + esc(taskResult.providerLabel) : '') + '</span>' +
     '</div>' +
     // Two gaps that were previously invisible — a sentence just never becoming a patch reads
     // identically whether it wasn't actually long, failed its API call, or sat in a paragraph
@@ -7813,12 +7849,15 @@ document.getElementById('tkAdd').addEventListener('click', async () => {
     const nowIso = new Date().toISOString();
     const audioPayload = type === 'audio-generate' ? tkAudioPayload() : null;
     if(audioPayload) saveAudioGenSettings(); // remembered for next time, same as every other change to these fields
+    const rewordPayload = type === 'sentence-reword'
+      ? { provider: document.getElementById('tkRewordProvider').value || 'anthropic' }
+      : null;
     const newTasks = batch.map(e => {
       const id = 'task-' + type + '-' + e.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
       return {
         id: id, type: type, entityId: e.id, batchId: null, status: 'queued',
         description: (TK_SERVICES.find(s => s.id === type) || {}).label + ' \u2014 ' + e.n,
-        payload: audioPayload || {}, result: null, createdAt: nowIso, updatedAt: nowIso, error: null
+        payload: audioPayload || rewordPayload || {}, result: null, createdAt: nowIso, updatedAt: nowIso, error: null
       };
     });
     wlData.tasks.push(...newTasks);
