@@ -37,10 +37,12 @@
 // routes every sentence in that task through GPT-5.6 Luna (OPENAI_API_KEY) instead — chosen per
 // batch at Add Task time (index.html), not a global switch, so the two can be compared directly
 // on the same real articles. Luna is a reasoning model whose reasoning tokens share the SAME
-// output budget as its visible answer — reasoning.effort is set explicitly to 'low' here rather
-// than left at Luna's 'medium' default, since a mechanical rewording task doesn't need deep
-// reasoning and leaving it at default would risk rediscovering the exact max_tokens exhaustion
-// already found and fixed on the Claude side, just for a different reason.
+// output budget as its visible answer — reasoning.effort is set to 'none' here, not left at
+// Luna's 'medium' default. This started as 'low' on the theory that a mechanical rewording task
+// doesn't need deep reasoning; a real failure on St. Francis of Assisi then showed only 194
+// output characters against a full 2000-token budget, which 'low' reasoning can't explain on its
+// own — confirming reasoning tokens really were eating an unpredictable share of the same budget
+// even at the lower setting. 'none' removes that variable entirely.
 //
 // Requires ANTHROPIC_API_KEY and/or OPENAI_API_KEY as repo secrets (whichever provider a given
 // task actually uses), passed through by orchestrator.yml.
@@ -253,11 +255,14 @@ const PROVIDERS = {
           model: OPENAI_MODEL,
           input: buildPrompt(sentence, paragraph, links),
           max_output_tokens: maxTokens,
-          // Explicit and low, not left at Luna's 'medium' default — reasoning tokens share this
-          // same budget with the visible answer, and a mechanical split-this-sentence task has
-          // no real use for deep reasoning. See the file header for why this matters here
-          // specifically, given what the Claude side just taught about token budgets.
-          reasoning: { effort: 'low' }
+          // 'none', not 'low' — a real failure on St. Francis of Assisi showed only 194 output
+          // characters against a full 2000-token budget, which 'low' reasoning can't explain by
+          // itself: that's nowhere near enough visible text to exhaust a budget that size on its
+          // own, meaning something invisible (reasoning tokens, sharing this same budget) was
+          // consuming nearly all of it first. A mechanical split-this-sentence task has no real
+          // use for reasoning at any level — 'none' should leave the full budget available for
+          // the actual answer instead of an unpredictable amount of it.
+          reasoning: { effort: 'none' }
         })
       });
       if(!res.ok){
