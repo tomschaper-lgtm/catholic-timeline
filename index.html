@@ -1,9 +1,18 @@
 <!--
-VERSION: 353
-DATE: 2026-09-11T01:00:00-05:00
+VERSION: 354
+DATE: 2026-09-11T09:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- scripts/services/sentence-reword.mjs (this file unchanged this version — logged here since the
+  changelog is the unified record): GPT-5.6 Luna's reasoning.effort dropped from 'low' to 'none'.
+  A real failure on St. Francis of Assisi showed only 194 output characters against a full
+  2000-token budget — far too little visible text to exhaust a budget that size on its own,
+  meaning reasoning tokens (sharing the same budget) were eating most of it even at 'low'. 'none'
+  removes that variable entirely rather than guessing at a still-nonzero effort level. Verified
+  the request now actually sends reasoning.effort: 'none' before shipping.
+
+v353 CHANGES (unchanged from the version this build started from):
 - Sentence-reword can now run on GPT-5.6 Luna (OpenAI) instead of Claude, chosen per batch —
   scripts/services/sentence-reword.mjs (this file unchanged this version — logged here since the
   changelog is the unified record) refactored its single Claude-only call into a provider
@@ -3945,7 +3954,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v353';
+const APP_VERSION = 'v354';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
