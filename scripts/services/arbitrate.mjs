@@ -19,7 +19,7 @@
 //
 // Only a proposal its judge actually sided with becomes a "debate" bundled into the one review
 // task for this entity — a proposal where the judge upheld the original resolves silently,
-// same "only surface an actual decision" rule proofread's own PASS→done design follows. A task
+// same "only surface an actual decision" rule the app's other review screens all follow. A task
 // can end up with debates from both directions mixed together; each debate carries its own
 // proposedBy/arbitratedBy model names (not a single task-wide pair) since which one played which
 // role flips between debates within the same task.
@@ -43,10 +43,11 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// Reuses proofread.mjs's own skill doc for the proposer role's base methodology — not duplicated
-// here — plus this service's own appendix requiring concrete before/after text on every finding.
+// Reuses the shared fact-check methodology doc for the proposer role's base instructions — see
+// arbitrate-factcheck-skill.md's own header for why it isn't called "proofreader-skill.md"
+// anymore (the standalone proofread service it was originally written for is retired).
 const PROPOSE_SYSTEM_PROMPT =
-  readFileSync(join(__dirname, 'proofreader-skill.md'), 'utf8') + '\n\n---\n\n' +
+  readFileSync(join(__dirname, 'arbitrate-factcheck-skill.md'), 'utf8') + '\n\n---\n\n' +
   readFileSync(join(__dirname, 'arbitrate-propose-appendix.md'), 'utf8');
 const JUDGE_SYSTEM_PROMPT = readFileSync(join(__dirname, 'arbitrate-judge-skill.md'), 'utf8');
 
@@ -85,8 +86,7 @@ async function callAnthropic(systemPrompt, userInput, maxTokens, apiKey, model){
   return { text, truncated, tokensUsed };
 }
 
-// Same endpoint/shape as the real scripts/services/sentence-reword.mjs's OpenAI path (and
-// proofread.mjs, copied from that same confirmed source).
+// Same endpoint/shape as the real scripts/services/sentence-reword.mjs's OpenAI path.
 async function callOpenAI(systemPrompt, userInput, maxTokens, apiKey, model){
   const res = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -176,7 +176,7 @@ function stripFence(raw){
   return String(raw || '').replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
 }
 
-// Generic escalating-budget retry, same philosophy as proofread.mjs/sentence-reword.mjs: a
+// Generic escalating-budget retry, same philosophy as sentence-reword.mjs: a
 // length cutoff is usually deterministic, so retrying at a bigger budget beats repeating the
 // same one. Works identically for any of the three providers above, in either role.
 async function callWithRetry(provider, systemPrompt, userInput){
@@ -209,10 +209,10 @@ async function callWithRetry(provider, systemPrompt, userInput){
   throw lastErr;
 }
 
-// Deliberately duplicated from proofread.mjs rather than shared, to avoid touching that
-// already-shipped, already-working file for this build. Same behavior: strip the allowed tag
-// set to plain text preserving paragraph/list breaks, append Quoted Sources and Quick Facts as
-// numbered pseudo-sections — see proofreader-skill.md Part 0 for the full rationale.
+// Same HTML-stripping/section-building approach the (now-retired) standalone proofread service
+// used. Same behavior: strip the allowed tag set to plain text preserving paragraph/list breaks,
+// append Quoted Sources and Quick Facts as numbered pseudo-sections — see
+// arbitrate-factcheck-skill.md Part 0 for the full rationale.
 function stripHtmlForReview(html){
   return String(html || '')
     .replace(/<br\s*\/?>/gi, '\n')
