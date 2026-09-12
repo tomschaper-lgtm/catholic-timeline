@@ -10,6 +10,10 @@ name: Orchestrator
 # not just once at the end — see the comment at the top of scripts/orchestrator.mjs for both. The
 # "Commit updated work log" step below is the final safety net for whatever a per-task push
 # inside the script missed, not the primary way workLog.json gets published anymore.
+#
+# GEMINI_API_KEY added for the new "arbitrate" service (scripts/services/arbitrate.mjs) — create
+# it under repo Settings → Secrets → Actions before that service's first real run; it's the one
+# manual step this file can't do for you.
 
 on:
   workflow_dispatch:
@@ -59,6 +63,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
       - name: Commit updated work log
         run: |
