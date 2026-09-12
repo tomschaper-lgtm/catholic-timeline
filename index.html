@@ -1,9 +1,23 @@
 <!--
-VERSION: 361
-DATE: 2026-09-12T10:55:00-05:00
+VERSION: 363
+DATE: 2026-09-12T11:31:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Removed the retired standalone proofread service's now-dead code, rather than leaving it dormant
+  as v362 did: proofreadPool(), its tkBatchPool() dispatch line, the Proofread Review title case,
+  isProofreadReview, its render-body branch, its lock-bar branch, and tkResolveProofread() are all
+  gone. Also caught a leftover TK_BATCH_OVERWRITE_LABEL['proofread'] entry v362's cleanup missed.
+  scripts/services/proofread.mjs is deleted from the repo entirely (separate file, not shown in
+  this diff); scripts/services/proofreader-skill.md is renamed to arbitrate-factcheck-skill.md
+  and its header rewritten, since arbitrate.mjs still reads it as the shared base fact-check
+  methodology for whichever model is proposing — nothing about its content changed otherwise.
+- Collapsed Add Task's Proofread/Arbitrate split back into one option: "Proofread articles" now
+  queues an 'arbitrate' task directly \u2014 the full OpenAI/Gemini debate always runs, nothing
+  separate to pick. The plain single-model 'proofread' task type, its pool function, and its
+  review screen are unchanged in the code but no longer reachable from Add Task (no dropdown
+  option creates one anymore) \u2014 left in place rather than ripped out, since nothing depends on
+  removing them and there's no behavior difference either way.
 - Arbitrate Review screen, for the new "arbitrate" service (scripts/services/arbitrate.mjs,
   separate files, not shown in this diff). Whole article rendered with any debated sentence
   highlighted pale yellow (tkDebateSent) showing the arbitrated revision by default; tapping it
@@ -4073,7 +4087,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v361';
+const APP_VERSION = 'v363';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6505,23 +6519,21 @@ const TK_SERVICES = [
   { id: 'image-finalize', label: 'Finalize images', addable: false },
   { id: 'sentence-reword', label: 'Reword long sentences' },
   { id: 'audio-generate', label: 'Record audio narration' },
-  { id: 'proofread', label: 'Proofread articles' },
-  { id: 'arbitrate', label: 'Arbitrate (fact-check debate)' }
+  { id: 'arbitrate', label: 'Proofread articles' }
 ];
 // Services that queue one task per entity (Category/Start/Quantity picker) rather than a single
 // scan task (plain description). Add a new entry here — and a pool function below, following
 // imageCandidatePool()'s shape — when a future service (proofread, pronunciation-fix) joins this.
-const TK_BATCH_TYPES = { 'image-generate': true, 'sentence-reword': true, 'audio-generate': true, 'proofread': true, 'arbitrate': true };
+const TK_BATCH_TYPES = { 'image-generate': true, 'sentence-reword': true, 'audio-generate': true, 'arbitrate': true };
 // Batch types whose overwrite checkbox actually does something, and what it should say — the
 // concept is the same (include entries a bulk sweep would otherwise skip as "already done") but
 // what "already done" means differs: an image already generated, audio already recorded, etc.
-const TK_BATCH_HAS_OVERWRITE = { 'image-generate': true, 'sentence-reword': true, 'audio-generate': true, 'proofread': true, 'arbitrate': true };
+const TK_BATCH_HAS_OVERWRITE = { 'image-generate': true, 'sentence-reword': true, 'audio-generate': true, 'arbitrate': true };
 const TK_BATCH_OVERWRITE_LABEL = {
   'image-generate': 'Regenerate even entries that already have one',
   'sentence-reword': 'Include entries that already have recorded audio (approving a fix there will delete that audio)',
   'audio-generate': 'Regenerate even entries that already have audio',
-  'proofread': 'Re-check entries already proofread',
-  'arbitrate': 'Re-check entries already proofread or arbitrated'
+  'arbitrate': 'Re-check entries already proofread'
 };
 let tkBatchStartIdx = -1;   // -1 = "start at the earliest eligible" — same convention every batch pool below follows
 function tkIsFeastMode(){
@@ -6654,27 +6666,9 @@ function audioGeneratePool(){
 // "Already done" here reads straight off entry.qc.proofread (see qc-and-tags-schema.md) rather
 // than scanning task history — cheap, and it's exactly the same field the entry-list status
 // badge reads, so the batch picker and the badge can never disagree about what's been checked.
-function proofreadPool(){
-  const category = document.getElementById('tkBatchCategory').value;
-  const includeChecked = document.getElementById('tkBatchOverwrite').checked;
-  const pool = db.entries
-    .filter(e => articleStats(e).wordCount > 0)
-    .filter(e => !category || e.t === category)
-    .filter(e => !tkHasPendingTask(e.id, ['proofread']))
-    .filter(e => includeChecked || !(e.qc && e.qc.proofread))
-    .slice();
-  if(tkIsFeastMode()){
-    return pool.sort((a, b) => {
-      const ka = feastSortKeyOf(a), kb = feastSortKeyOf(b);
-      return (ka.month - kb.month) || (ka.day - kb.day) || a.n.localeCompare(b.n);
-    });
-  }
-  return pool.sort((a, b) => a.y - b.y);
-}
-// Same "already checked" signal as proofreadPool (entry.qc.proofread) — both services write the
-// same field, so a Proofread pass and an Arbitrate pass agree on what still needs a look, whether
-// covered as "proofread": true keeps a pending arbitrate task from double-queuing against one
-// already running or awaiting review.
+// "Already checked" reads entry.qc.proofread directly (see qc-and-tags-schema.md) rather than
+// scanning task history — cheap, and it's exactly the field the entry-list status badge reads
+// too, so the batch picker and the badge can never disagree about what's been checked.
 function arbitratePool(){
   const category = document.getElementById('tkBatchCategory').value;
   const includeChecked = document.getElementById('tkBatchOverwrite').checked;
@@ -6699,7 +6693,6 @@ function tkBatchPool(){
   if(type === 'image-generate') return imageCandidatePool();
   if(type === 'sentence-reword') return sentenceRewordPool();
   if(type === 'audio-generate') return audioGeneratePool();
-  if(type === 'proofread') return proofreadPool();
   if(type === 'arbitrate') return arbitratePool();
   return [];
 }
@@ -7450,7 +7443,6 @@ function renderTaskReview(){
 
   document.getElementById('tkTitleSecond').textContent =
     (t.status === 'awaiting_review' && t.type === 'audio-generate') ? ' : Audio Review' :
-    (t.status === 'awaiting_review' && t.type === 'proofread') ? ' : Proofread Review' :
     (t.status === 'awaiting_review' && t.type === 'arbitrate') ? ' : Arbitrate Review' :
     (TK_TITLES[t.status] || ' : Task');
 
@@ -7471,11 +7463,6 @@ function renderTaskReview(){
   // article and its images stay fully live throughout; only the audio waits on this screen.
   const isAudioReview = t.type === 'audio-generate' && t.status === 'awaiting_review';
   // Only a task with an actual finding ever reaches awaiting_review — see
-  // scripts/services/proofread.mjs. A clean PASS finishes straight at 'done' (its qc.proofread
-  // status is what shows on the entry itself), so there's no "nothing to see here" case to
-  // render below.
-  const isProofreadReview = t.type === 'proofread' && t.status === 'awaiting_review';
-  // Same "only a real decision reaches awaiting_review" rule as proofread — see
   // scripts/services/arbitrate.mjs: a debate the arbitrator sided with the original on never
   // becomes part of t.result.debates in the first place. tkDebateIdx/tkDebateShown/tkDebateEditing
   // are this screen's own local view state (which debate is on screen, which sentences are
@@ -7552,20 +7539,6 @@ function renderTaskReview(){
       '<p class="tkNote">' + (r.durationSec || 0) + 's \u00b7 ' + cues.length + ' cue' + (cues.length === 1 ? '' : 's') +
       ' \u2014 play it and watch the highlighted sentence follow along to check timing and pronunciation together.</p>' +
       tkRenderAudioReviewArticle(entry, cues);
-  } else if(isProofreadReview){
-    const r = t.result || {};
-    const findings = r.findings || [];
-    body = '<div class="tkRvName">' + esc(r.name || tkTaskName(t)) + '</div>' +
-      '<div class="tkRvMeta">' + esc(t.entityId || '') + ' \u00b7 ' + esc(r.model || '') + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
-      findings.map((f, i) =>
-        '<div class="tkRvHead">' + (i + 1) + '. ' + esc(f.severity) + ' \u00b7 ' + esc(f.category) + '</div>' +
-        '<p class="tkNote' + (f.severity === 'ERROR' ? ' err' : '') + '">' +
-          '<b>' + esc(f.section) + ', sentence ' + esc(f.sentence) + ':</b> \u201c' + esc(f.text) + '\u201d<br>' +
-          esc(f.concern) + '<br>' +
-          '<b>Suggested:</b> ' + esc(f.suggestedCorrection) +
-          (f.source && f.source !== 'Not externally verified' ? '<br><i>' + esc(f.source) + '</i>' : '') +
-        '</p>'
-      ).join('');
   } else if(isArbitrateReview && entry){
     body = tkRenderArbitrateReview(entry, t);
   } else if(isSentenceRewordReview && entry){
@@ -7686,18 +7659,6 @@ function renderTaskReview(){
       '</div>';
     document.getElementById('tkApproveAudio').addEventListener('click', () => tkResolveAudio('approve'));
     document.getElementById('tkRejectAudio').addEventListener('click', () => tkResolveAudio('reject'));
-    return;
-  }
-
-  // Nothing to accept or reject here — proofread never proposes a content change, only findings
-  // to read. One plain action just dismisses the task to 'done'; entry.qc.proofread already
-  // carries the actual verdict regardless of whether this gets tapped.
-  if(isProofreadReview){
-    lock.innerHTML =
-      '<div class="tkLockBtns">' +
-        '<button class="tkBtn go" id="tkAckProofread">Mark reviewed</button>' +
-      '</div>';
-    document.getElementById('tkAckProofread').addEventListener('click', () => tkResolveProofread());
     return;
   }
 
@@ -8034,35 +7995,6 @@ async function tkResolveAudio(decision){
   }
   if(next2 >= tkReviewIds.length){ tkGoList(); return; }
   tkReviewIdx = next2;
-  renderTaskPanel();
-}
-
-// Dismisses a proofread findings task to 'done'. Nothing to publish here — unlike every other
-// resolve function above, proofread never touches article content, so there's no GitHub commit
-// to make on this path; the actual verdict already lives in entry.qc.proofread, written by
-// scripts/services/proofread.mjs when the task first ran. This button just clears it from Review.
-async function tkResolveProofread(){
-  const t = tkTask(tkReviewIds[tkReviewIdx]);
-  if(!t) return;
-  const btn = document.getElementById('tkAckProofread');
-  if(btn) btn.disabled = true;
-  t.status = 'done';
-  t.updatedAt = new Date().toISOString();
-  const r = t.result || {};
-  const saved = await saveWorkLog('Reviewed proofread findings for ' + (r.name || t.entityId), [t.id]);
-  if(!saved || saved.ok === false){
-    if(btn) btn.disabled = false;
-    wlSetLog('Marked reviewed, but the task list didn\u2019t update \u2014 refresh and it should show as done.', true);
-    return;
-  }
-  let next3 = tkReviewIdx + 1;
-  while(next3 < tkReviewIds.length){
-    const nt = tkTask(tkReviewIds[next3]);
-    if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review' || nt.status === 'error')) break;
-    next3++;
-  }
-  if(next3 >= tkReviewIds.length){ tkGoList(); return; }
-  tkReviewIdx = next3;
   renderTaskPanel();
 }
 
