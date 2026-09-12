@@ -55,6 +55,7 @@ import { runImageFinalize } from './services/image-finalize.mjs';
 import { runSentenceReword } from './services/sentence-reword.mjs';
 import { runAudioGenerate } from './services/audio-generate.mjs';
 import { runProofread } from './services/proofread.mjs';
+import { runArbitrate } from './services/arbitrate.mjs';
 
 const WORKLOG_PATH = process.env.WORKLOG_PATH || 'workLog.json';
 const DATA_PATH = process.env.DATA_PATH || 'data.json';
@@ -70,6 +71,7 @@ const SERVICE_HANDLERS = {
   'sentence-reword': runSentenceReword,
   'audio-generate': runAudioGenerate,
   'proofread': runProofread,
+  'arbitrate': runArbitrate,
 };
 
 function nowIso(){ return new Date().toISOString(); }
