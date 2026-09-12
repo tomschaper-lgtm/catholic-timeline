@@ -1,9 +1,21 @@
 <!--
-VERSION: 363
-DATE: 2026-09-12T11:31:00-05:00
+VERSION: 364
+DATE: 2026-09-12T11:47:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Task List: swipe left on a row to reveal a red Delete button, standard iOS list pattern (tap
+  elsewhere, or the row itself, to dismiss without deleting). One row open at a time; deleting
+  removes the task from workLog.json entirely (a real cancel for a queued task, just clutter
+  removal for anything finished) with no confirmation dialog \u2014 the swipe-then-tap already is
+  the confirmation. New tkDeleteTask()/tkCloseSwipedRow(), touch handlers on #tkList mirroring
+  the axis-lock pattern the review view's own swipe already used, and .tkRowWrap/.tkRowDeleteBtn
+  CSS. Also fixed a real bug this surfaced in saveWorkLog(): its merge-on-conflict logic could
+  only overlay a touched id's content onto the remote copy, never remove one, so a deleted task
+  would silently reappear if a remote merge happened to trigger (e.g. an orchestrator commit
+  landing in between) \u2014 saveWorkLog now takes an optional third deletedIds argument, stripped
+  from the merged result explicitly. Every existing call site is unaffected (all pass exactly two
+  arguments; the new one defaults to empty).
 - Removed the retired standalone proofread service's now-dead code, rather than leaving it dormant
   as v362 did: proofreadPool(), its tkBatchPool() dispatch line, the Proofread Review title case,
   isProofreadReview, its render-body branch, its lock-bar branch, and tkResolveProofread() are all
@@ -1283,6 +1295,19 @@ v332 CHANGES (unchanged from the version this build started from):
   .spRow.tkRow.tkFinished .spName{color:#9AA0AE;}
   .spRow.tkRow.tkFinished .tkTaskType{color:#B4B8C4;}
   .spRow.tkRow.tkFinished .tkDate{color:#B4B8C4;}
+  /* Swipe-to-delete: .tkRowDeleteBtn sits behind the row, revealed as .tkRow (the visible layer,
+     needs its own opaque background so it actually covers the button when closed) slides left.
+     JS sets the transform directly (see the touch handlers) rather than a CSS class, since the
+     translation amount tracks the finger continuously during the gesture, not just a toggled
+     open/closed endpoint. */
+  .tkRowWrap{position:relative; overflow:hidden;}
+  .tkRowDeleteBtn{
+    position:absolute; top:0; right:0; bottom:0; width:76px;
+    display:flex; align-items:center; justify-content:center;
+    background:#D9382B; color:#fff; font-weight:600; font-size:14px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  }
+  .spRow.tkRow{background:#fff; position:relative;}
   /* Views: exactly one is active at a time. Each is a flex column that owns the panel's
      remaining height, so the list's own scroller and the review view's locked bottom bar
      both size correctly without measuring anything in JS. */
@@ -4087,7 +4112,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v363';
+const APP_VERSION = 'v364';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6350,8 +6375,17 @@ async function loadWorkLog(){
 // second reviewer approved it after this session's last load. Overlaying the whole local
 // wlData.tasks array here (the previous behavior) would silently revert that reviewer's already-
 // saved decision the moment this session saved anything else.
-async function saveWorkLog(message, touchedIds){
+//
+// deletedIds (optional, for tkDeleteTask) is separate from touchedIds on purpose: overlaying
+// can only ever SET an id's content from local onto the merged copy, never remove one — a
+// deleted task is, by definition, absent from local wlData.tasks, so it would never be visited
+// by the touchedIds overlay loop below and would silently survive a merge (reappearing) if the
+// remote had moved since this session's last load. deletedIds are stripped from the merged
+// result explicitly, after the overlay, so a delete can't get resurrected by a concurrent Action
+// commit the same way an overlay-only approach would let it.
+async function saveWorkLog(message, touchedIds, deletedIds){
   const ids = touchedIds || [];
+  const dels = deletedIds || [];
   const g = wlGh();
   if(!g.owner || !g.repo || !g.token) return { ok: false, error: 'GitHub token not set' };
   const api = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' + WL_PATH;
@@ -6371,6 +6405,7 @@ async function saveWorkLog(message, touchedIds){
             const byId = {};
             remote.tasks.forEach(t => { byId[t.id] = t; });
             wlData.tasks.forEach(t => { if(ids.indexOf(t.id) !== -1) byId[t.id] = t; });
+            dels.forEach(id => { delete byId[id]; });
             wlData.tasks = Object.keys(byId).map(k => byId[k]);
           }
         }catch(e){ /* remote unparseable — fall through and write ours */ }
@@ -6448,6 +6483,10 @@ let tkDebateTaskId = null;
 let tkDebateIdx = 0;
 let tkDebateShown = new Set();
 let tkDebateEditing = false; // true while the Edit textarea replaces the debate detail block
+// Task List's swipe-to-delete: which row (by task id) is currently swiped open, or null. Only
+// ever one at a time — starting a swipe on a different row, or any re-render, closes whichever
+// row was open before.
+let tkSwipedRowId = null;
 function tkCueIndexForTime(sec){
   for(let i = 0; i < tkAudioCues.length; i++){
     const c = tkAudioCues[i];
@@ -6951,13 +6990,39 @@ function renderTaskList(){
   document.getElementById('tkList').innerHTML = rows.map(t => {
     const finished = !!TK_FINISHED[t.status];
     const entryName = tkEntryName(t);
-    return '<div class="spRow tkRow' + (finished ? ' tkFinished' : '') + '" data-task="' + esc(t.id) + '">' +
-      '<span class="tkStatus ' + esc(t.status || '') + '" title="' + esc(tkStatusLabel(t.status)) + '">' + tkStatusIcon(t.status) + '</span>' +
-      '<span class="tkTaskType" title="' + esc(tkServiceLabel(t)) + '">' + esc(tkServiceLabel(t)) + '</span>' +
-      '<span class="spName tkEntryName">' + esc(entryName || '\u2014') + '</span>' +
-      '<span class="tkDate">' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</span>' +
-      '</div>';
+    return '<div class="tkRowWrap" data-task="' + esc(t.id) + '">' +
+      '<div class="tkRowDeleteBtn" data-task="' + esc(t.id) + '">Delete</div>' +
+      '<div class="spRow tkRow' + (finished ? ' tkFinished' : '') + '" data-task="' + esc(t.id) + '">' +
+        '<span class="tkStatus ' + esc(t.status || '') + '" title="' + esc(tkStatusLabel(t.status)) + '">' + tkStatusIcon(t.status) + '</span>' +
+        '<span class="tkTaskType" title="' + esc(tkServiceLabel(t)) + '">' + esc(tkServiceLabel(t)) + '</span>' +
+        '<span class="spName tkEntryName">' + esc(entryName || '\u2014') + '</span>' +
+        '<span class="tkDate">' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</span>' +
+      '</div></div>';
   }).join('') || '<div class="spEmpty">Nothing matches.</div>';
+  // A fresh render (new filter, a delete, Refresh) always starts every row closed — carrying a
+  // swiped-open row across a re-render would mean matching it back up by id for no real benefit.
+  tkSwipedRowId = null;
+}
+
+// Removes a task entirely — for a queued task this is a real cancel (it'll never run); for
+// anything else it's just clearing clutter out of the list. No confirmation dialog: the swipe
+// (or the tap that dismissed a previously-open row) plus a deliberate tap on the red button IS
+// the confirmation, same two-step gesture as Mail/Reminders. Rolls the local list back to what
+// it was before if the save fails, so the UI never shows a delete that didn't actually happen.
+async function tkDeleteTask(id){
+  const t = tkTask(id);
+  if(!t) return;
+  tkCloseSwipedRow();
+  const before = wlData.tasks.slice();
+  wlData.tasks = wlData.tasks.filter(x => x.id !== id);
+  renderTaskList();
+  const label = tkServiceLabel(t) + (t.entityId ? ' \u2014 ' + tkEntryName(t) : '');
+  const saved = await saveWorkLog('Removed task: ' + label, [], [id]);
+  if(!saved || saved.ok === false){
+    wlData.tasks = before;
+    renderTaskList();
+    wlSetLog('Could not remove that task \u2014 check your GitHub token and try again.', true);
+  }
 }
 
 // ---- Review view ----
@@ -8372,9 +8437,72 @@ document.getElementById('tkReviewScroll').addEventListener('change', (e) => {
   const container = document.getElementById('tkSentSections');
   if(container) container.classList.toggle('tkHideUnfixed', chk.checked);
 });
+// Task List swipe-to-delete — same axis-lock idea the review view's own swipe (just below) uses:
+// the gesture is left alone until it's clearly more horizontal than vertical, so a normal
+// vertical scroll of the list is never hijacked by a diagonal touch. Only one row is ever open
+// at a time; starting a swipe on a different row closes whichever was open first.
+const TK_DELETE_WIDTH = 76;
+let tkListTouch = null;
+let tkListJustSwiped = false; // true briefly after a swipe/dismiss touch ends, so the click that
+                               // same touch also fires doesn't additionally open the row
+function tkCloseSwipedRow(){
+  if(!tkSwipedRowId) return;
+  const wrap = document.querySelector('.tkRowWrap[data-task="' + tkSwipedRowId.replace(/"/g, '\\"') + '"]');
+  const row = wrap && wrap.querySelector('.tkRow');
+  if(row){ row.style.transition = 'transform .15s ease'; row.style.transform = 'translateX(0px)'; }
+  tkSwipedRowId = null;
+}
+document.getElementById('tkList').addEventListener('touchstart', (e) => {
+  const wrap = e.target.closest('.tkRowWrap[data-task]');
+  if(!wrap) return;
+  const row = wrap.querySelector('.tkRow');
+  const touch = e.touches[0];
+  // A tap anywhere while a DIFFERENT row is open just dismisses it — same as this touch not
+  // having happened, not also a navigation — matching the standard iOS swipe-list convention.
+  const dismissOnly = !!(tkSwipedRowId && tkSwipedRowId !== wrap.dataset.task);
+  if(dismissOnly) tkCloseSwipedRow();
+  tkListTouch = {
+    id: wrap.dataset.task, row, dx: 0, locked: null, dismissOnly,
+    startX: touch.clientX, startY: touch.clientY,
+    wasOpen: tkSwipedRowId === wrap.dataset.task
+  };
+  row.style.transition = 'none';
+}, {passive:true});
+document.getElementById('tkList').addEventListener('touchmove', (e) => {
+  if(!tkListTouch) return;
+  const touch = e.touches[0];
+  const dx = touch.clientX - tkListTouch.startX, dy = touch.clientY - tkListTouch.startY;
+  if(tkListTouch.locked === null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)){
+    tkListTouch.locked = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+  }
+  if(tkListTouch.locked !== 'x') return; // vertical — let it scroll the list normally
+  e.preventDefault();
+  const base = tkListTouch.wasOpen ? -TK_DELETE_WIDTH : 0;
+  tkListTouch.dx = Math.max(-TK_DELETE_WIDTH, Math.min(0, base + dx));
+  tkListTouch.row.style.transform = 'translateX(' + tkListTouch.dx + 'px)';
+}, {passive:false});
+document.getElementById('tkList').addEventListener('touchend', () => {
+  if(!tkListTouch) return;
+  const { id, row, locked, dismissOnly, dx } = tkListTouch;
+  row.style.transition = 'transform .15s ease';
+  if(locked === 'x'){
+    const openNow = dx <= -TK_DELETE_WIDTH / 2;
+    row.style.transform = 'translateX(' + (openNow ? -TK_DELETE_WIDTH : 0) + 'px)';
+    tkSwipedRowId = openNow ? id : null;
+  }
+  if(locked === 'x' || dismissOnly){
+    tkListJustSwiped = true;
+    setTimeout(() => { tkListJustSwiped = false; }, 300);
+  }
+  tkListTouch = null;
+});
 document.getElementById('tkList').addEventListener('click', (e) => {
+  const delBtn = e.target.closest('.tkRowDeleteBtn[data-task]');
+  if(delBtn){ tkDeleteTask(delBtn.dataset.task); return; }
+  if(tkListJustSwiped) return;
   const row = e.target.closest('.tkRow[data-task]');
   if(!row) return;
+  if(tkSwipedRowId){ tkCloseSwipedRow(); return; }
   // One path for every row. A proposal opens with Approve/Reject; anything already settled
   // opens the same view with an empty (hidden) action bar. Nothing needs a separate mode.
   tkOpenReview(row.dataset.task);
