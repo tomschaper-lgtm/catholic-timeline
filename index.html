@@ -1,9 +1,23 @@
 <!--
-VERSION: 360
-DATE: 2026-09-11T17:31:00-05:00
+VERSION: 361
+DATE: 2026-09-12T10:55:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Arbitrate Review screen, for the new "arbitrate" service (scripts/services/arbitrate.mjs,
+  separate files, not shown in this diff). Whole article rendered with any debated sentence
+  highlighted pale yellow (tkDebateSent) showing the arbitrated revision by default; tapping it
+  (or a Quick Facts/Quoted Sources debate card, rendered separately since those aren't running
+  prose to highlight within) previews the original in grey and focuses that debate in the sticky
+  footer. Footer: Prev/Next through open debates, "Claude vs {proposer} \u2713" model badges with
+  "{arbiter} ruled" credit (tkArbitrateModelLabel), the concern and any arbitrator comment, and
+  Approve (applies the fix, purges stale audio, publishes, optional "Record audio" checkbox
+  defaulted checked \u2014 queues via the existing tkQueueQuickTask) / Override (keeps Claude's
+  original, no content change) / Edit (plain textarea, saved verbatim, no text-matching \u2014
+  works even if the proposal's exact wording can no longer be found). A task finishes at 'done'
+  once every debate on it is resolved, same as every other review screen. Added to the Add Task
+  service dropdown and its own batch pool (arbitratePool(), same entry.qc.proofread signal
+  proofreadPool() already reads, since both services write that same field).
 - New service: proofread. Sends an entity's article (sections, quotes, Quick Facts) to OpenAI
   for a factual/theological/editorial QC pass — see scripts/services/proofread.mjs and
   proofreader-skill.md (new files, not shown in this diff). Added to the Add Task service
@@ -1391,6 +1405,22 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkSentAlt{background:#EFEFEA; border-radius:3px;}
   .tkSentYellowA{background:#FBF3DC; border-radius:3px;}
   .tkSentYellowB{background:#F5DFA0; border-radius:3px;}
+  /* Arbitrate Review — pale-yellow debate highlight (same tone as tkSentYellowB above, on
+     purpose: "a change under discussion" reads consistently with sentence-reword's own yellow),
+     grey preview when tapped to show the original, and a heavier ring on whichever debate the
+     sticky footer currently describes. */
+  .tkDebateSent{background:#F5DFA0; border-radius:3px; cursor:pointer;}
+  .tkDebateSent.tkShowOrig{background:#EFEFEA;}
+  .tkDebateSent.tkDebateCurrent{box-shadow:0 0 0 2px var(--gold-deep,#9A7B22); outline:none;}
+  .tkDebateCard{border:1px solid #E7E1CE; border-radius:10px; padding:10px 12px; margin:8px 0; cursor:pointer;}
+  .tkDebateCard.tkDebateCurrent{border-color:var(--gold-deep,#9A7B22); box-shadow:0 0 0 2px var(--gold-deep,#9A7B22);}
+  .tkDebateNav{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;}
+  .tkDebateCount{font-size:12px; color:#6B7280; font-weight:600; text-transform:uppercase; letter-spacing:.04em;}
+  .tkDebateModels{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;}
+  .tkModelBadge{background:#F5F1E4; color:var(--gold-deep,#9A7B22); border-radius:12px; padding:4px 11px; font-size:12px; font-weight:700;}
+  .tkModelBadge.winner{background:var(--gold,#C9A542); color:var(--navy-deep,#070F22);}
+  .tkDebateVs{font-size:11px; color:#9AA5BF; text-transform:uppercase;}
+  .tkDebateRuled{font-size:12px; color:#6B7280; font-style:italic;}
   .tkRvEmpty{font-size:14px; color:#6B7280; line-height:1.5; padding:10px 0;}
   /* Picture Review — one candidate image at a time, plus a notes box that rides along with
      whichever decision button gets tapped. */
@@ -4043,7 +4073,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v360';
+const APP_VERSION = 'v361';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6393,6 +6423,17 @@ let tkSentenceHideUnfixed = localStorage.getItem('tk-sentence-hide-unfixed') ===
 // screen already has the cues sitting on the task's own result.
 let tkAudioCues = [];    // the current review's cues array, or [] between reviews
 let tkAudioCueIdx = -1;  // index into tkAudioCues currently highlighted, or -1
+// Arbitrate Review's own local-view state — same reset-on-task-change pattern as tkFinalShowOriginal/
+// tkFinalShowOriginalFor above. tkDebateIdx is a position among the CURRENT task's still-open
+// (unresolved) debates, not a raw array index — see tkArbitrateOpenDebates(). tkDebateShown holds
+// the debate indices (into t.result.debates, the raw array) currently toggled to show their
+// original wording instead of the arbitrated revision; tapping a highlighted sentence flips its
+// membership and the whole panel re-renders, same reactive-redraw approach every other review
+// screen here already uses rather than hand-patching the DOM.
+let tkDebateTaskId = null;
+let tkDebateIdx = 0;
+let tkDebateShown = new Set();
+let tkDebateEditing = false; // true while the Edit textarea replaces the debate detail block
 function tkCueIndexForTime(sec){
   for(let i = 0; i < tkAudioCues.length; i++){
     const c = tkAudioCues[i];
@@ -6464,21 +6505,23 @@ const TK_SERVICES = [
   { id: 'image-finalize', label: 'Finalize images', addable: false },
   { id: 'sentence-reword', label: 'Reword long sentences' },
   { id: 'audio-generate', label: 'Record audio narration' },
-  { id: 'proofread', label: 'Proofread articles' }
+  { id: 'proofread', label: 'Proofread articles' },
+  { id: 'arbitrate', label: 'Arbitrate (fact-check debate)' }
 ];
 // Services that queue one task per entity (Category/Start/Quantity picker) rather than a single
 // scan task (plain description). Add a new entry here — and a pool function below, following
 // imageCandidatePool()'s shape — when a future service (proofread, pronunciation-fix) joins this.
-const TK_BATCH_TYPES = { 'image-generate': true, 'sentence-reword': true, 'audio-generate': true, 'proofread': true };
+const TK_BATCH_TYPES = { 'image-generate': true, 'sentence-reword': true, 'audio-generate': true, 'proofread': true, 'arbitrate': true };
 // Batch types whose overwrite checkbox actually does something, and what it should say — the
 // concept is the same (include entries a bulk sweep would otherwise skip as "already done") but
 // what "already done" means differs: an image already generated, audio already recorded, etc.
-const TK_BATCH_HAS_OVERWRITE = { 'image-generate': true, 'sentence-reword': true, 'audio-generate': true, 'proofread': true };
+const TK_BATCH_HAS_OVERWRITE = { 'image-generate': true, 'sentence-reword': true, 'audio-generate': true, 'proofread': true, 'arbitrate': true };
 const TK_BATCH_OVERWRITE_LABEL = {
   'image-generate': 'Regenerate even entries that already have one',
   'sentence-reword': 'Include entries that already have recorded audio (approving a fix there will delete that audio)',
   'audio-generate': 'Regenerate even entries that already have audio',
-  'proofread': 'Re-check entries already proofread'
+  'proofread': 'Re-check entries already proofread',
+  'arbitrate': 'Re-check entries already proofread or arbitrated'
 };
 let tkBatchStartIdx = -1;   // -1 = "start at the earliest eligible" — same convention every batch pool below follows
 function tkIsFeastMode(){
@@ -6628,6 +6671,27 @@ function proofreadPool(){
   }
   return pool.sort((a, b) => a.y - b.y);
 }
+// Same "already checked" signal as proofreadPool (entry.qc.proofread) — both services write the
+// same field, so a Proofread pass and an Arbitrate pass agree on what still needs a look, whether
+// covered as "proofread": true keeps a pending arbitrate task from double-queuing against one
+// already running or awaiting review.
+function arbitratePool(){
+  const category = document.getElementById('tkBatchCategory').value;
+  const includeChecked = document.getElementById('tkBatchOverwrite').checked;
+  const pool = db.entries
+    .filter(e => articleStats(e).wordCount > 0)
+    .filter(e => !category || e.t === category)
+    .filter(e => !tkHasPendingTask(e.id, ['arbitrate']))
+    .filter(e => includeChecked || !(e.qc && e.qc.proofread))
+    .slice();
+  if(tkIsFeastMode()){
+    return pool.sort((a, b) => {
+      const ka = feastSortKeyOf(a), kb = feastSortKeyOf(b);
+      return (ka.month - kb.month) || (ka.day - kb.day) || a.n.localeCompare(b.n);
+    });
+  }
+  return pool.sort((a, b) => a.y - b.y);
+}
 // Dispatch point for services that queue one task per entity — one line per service here, one
 // pool function above, nothing else in the shared selector changes when a new one joins.
 function tkBatchPool(){
@@ -6636,6 +6700,7 @@ function tkBatchPool(){
   if(type === 'sentence-reword') return sentenceRewordPool();
   if(type === 'audio-generate') return audioGeneratePool();
   if(type === 'proofread') return proofreadPool();
+  if(type === 'arbitrate') return arbitratePool();
   return [];
 }
 function tkUpdateBatchStartMode(){
@@ -7096,9 +7161,175 @@ function tkRenderSentenceSectionSet(sections, spans, counterRef){
 // ever re-renders the panel, so neither ever moves anything on screen or disturbs scroll
 // position. Returns the sticky filter row and the section blocks separately, since the caller
 // places the former inside the sticky name/year header and the latter in the normal scroll body.
+// ---------------------------------------------------------------------------------------------
+// Arbitrate Review — helpers. A task's t.result.debates (from scripts/services/arbitrate.mjs)
+// is a flat array; "resolved" state (approved/overridden) is written directly onto each debate
+// object and persisted via saveWorkLog, same as everything else in workLog.json. Debates are
+// navigated by position among the still-OPEN ones (tkArbitrateOpenDebates), not raw array index,
+// so resolving one naturally slides the next into view.
+// ---------------------------------------------------------------------------------------------
+
+function tkArbitrateModelLabel(modelId){
+  const m = String(modelId || '').toLowerCase();
+  if(m.includes('luna')) return 'Luna';
+  if(m.includes('gemini')) return 'Gemini';
+  if(m.includes('claude')) return 'Claude';
+  return modelId || 'Model';
+}
+// { idx: <raw index into t.result.debates>, debate } for every debate not yet resolved, in
+// original order. idx is what approve/override/edit need to mutate the right object; the
+// position WITHIN this returned array is what tkDebateIdx actually counts.
+function tkArbitrateOpenDebates(debates){
+  return (debates || []).map((debate, idx) => ({ debate, idx })).filter(x => !x.debate.resolved);
+}
+// "before" may carry a trailing "@N" (Nth occurrence) per arbitrate-propose-appendix.md's
+// convention, same as json-import-skill.md's patches use for verbatim article-text matching.
+function tkParseBeforeText(raw){
+  const m = /^(.*)@(\d+)$/.exec(raw || '');
+  return m ? { text: m[1], n: parseInt(m[2], 10) } : { text: raw || '', n: 1 };
+}
+function tkNthIndexOf(haystack, needle, n){
+  if(!needle) return -1;
+  let idx = -1;
+  for(let i = 0; i < n; i++){
+    idx = haystack.indexOf(needle, idx + 1);
+    if(idx === -1) return -1;
+  }
+  return idx;
+}
+// For an 'article' debate only, locates where its `before` text falls in that section's PLAIN
+// text (for deciding which sentence to highlight). 'facts'/'quotes' debates are addressed by
+// position instead (see tkApplyDebateText) and never go through this — they're not part of the
+// running article prose to highlight within.
+function tkFindDebateSpan(sections, debate){
+  if(debate.kind !== 'article') return null;
+  const secIdx = sections.findIndex(s => (s.h || '').trim() === debate.section);
+  if(secIdx === -1) return null;
+  const plainFull = stripHtml(sections[secIdx].b || '');
+  const { text: needle, n } = tkParseBeforeText(debate.before);
+  const plainNeedle = stripHtml(needle);
+  const at = tkNthIndexOf(plainFull, plainNeedle, n);
+  if(at === -1) return null;
+  return { sectionIndex: secIdx, start: at, end: at + plainNeedle.length };
+}
+// Actually applies a debate's fix — 'facts'/'quotes' are addressed by position (debate.sentence,
+// 1-based, exactly matching how proofreader-skill.md numbered them going out); 'article' matches
+// debate.before verbatim in that section's raw HTML, same discipline (and same "can't span a tag
+// boundary") as json-import-skill.md's own patches system. Returns false, applying nothing, if
+// the text can't be found — most likely because the article changed since this task ran; Edit is
+// the fallback for that case.
+function tkApplyDebateText(entry, debate){
+  const { kind, section, sentence, before, after } = debate;
+  const { text: needle, n } = tkParseBeforeText(before);
+  if(kind === 'facts'){
+    const f = (entry.facts || [])[parseInt(sentence, 10) - 1];
+    if(!f) return false;
+    const at = tkNthIndexOf(f.value || '', needle, n);
+    if(at === -1) return false;
+    f.value = f.value.slice(0, at) + after + f.value.slice(at + needle.length);
+    return true;
+  }
+  if(kind === 'quotes'){
+    const q = ((entry.art && entry.art.quotes) || [])[parseInt(sentence, 10) - 1];
+    if(!q) return false;
+    const at = tkNthIndexOf(q.text || '', needle, n);
+    if(at === -1) return false;
+    q.text = q.text.slice(0, at) + after + q.text.slice(at + needle.length);
+    return true;
+  }
+  const sections = (entry.art && entry.art.sections) || [];
+  const secIdx = sections.findIndex(s => (s.h || '').trim() === section);
+  if(secIdx === -1) return false;
+  const raw = sections[secIdx].b || '';
+  const at = tkNthIndexOf(raw, needle, n);
+  if(at === -1) return false;
+  sections[secIdx].b = raw.slice(0, at) + after + raw.slice(at + needle.length);
+  return true;
+}
+// Renders every section's paragraphs, marking any sentence containing an open 'article' debate
+// as a clickable, colored span: pale yellow showing the arbitrated revision by default, or grey
+// (tapped) showing the original wording — tkDebateShown (a Set of raw debate indices) is the only
+// state, flipped by the delegated click handler near tkChips' own, followed by a full re-render,
+// same reactive-redraw pattern every other review screen here uses. currentIdx gets a heavier
+// highlight so it's obvious which sentence the sticky footer below is currently talking about.
+function tkRenderArbitrateArticle(entry, openArticleDebates, currentIdx){
+  const sections = (entry.art && entry.art.sections) || [];
+  const hits = openArticleDebates
+    .map(x => ({ idx: x.idx, debate: x.debate, span: tkFindDebateSpan(sections, x.debate) }))
+    .filter(x => x.span);
+  return sections.map((sec, si) => {
+    const secHits = hits.filter(h => h.span.sectionIndex === si);
+    const plainFull = stripHtml(sec.b || '');
+    const paras = plainFull.split(/\n{2,}/).filter(Boolean);
+    const paraList = paras.length ? paras : (plainFull ? [plainFull] : []);
+    let offset = 0;
+    const bodyHtml = paraList.map(para => {
+      const sentences = tkSplitSentencesForDisplay(para);
+      let cursor = 0;
+      const inner = sentences.map(sent => {
+        const found = para.indexOf(sent, cursor);
+        const s = found === -1 ? cursor : found;
+        const e = s + sent.length;
+        cursor = e;
+        const gS = offset + s, gE = offset + e;
+        const hit = secHits.find(h => h.span.start < gE && h.span.end > gS);
+        if(!hit) return esc(sent);
+        const showOrig = tkDebateShown.has(hit.idx);
+        let display = sent;
+        if(!showOrig){
+          const relS = Math.max(0, Math.min(sent.length, hit.span.start - gS));
+          const relE = Math.max(relS, Math.min(sent.length, hit.span.end - gS));
+          display = sent.slice(0, relS) + hit.debate.after + sent.slice(relE);
+        }
+        const cls = 'tkDebateSent' + (showOrig ? ' tkShowOrig' : '') + (hit.idx === currentIdx ? ' tkDebateCurrent' : '');
+        return '<span class="' + cls + '" data-debate-idx="' + hit.idx + '">' + esc(display) + '</span>';
+      }).join(' ');
+      offset += para.length + 2;
+      return '<p class="tkPara">' + inner + '</p>';
+    }).join('');
+    return '<div class="tkSentSection"><div class="tkSentSecHead"><span class="tkSectionH">' + esc(sec.h || '') + '</span></div>' +
+      '<div class="tkSentBody">' + (bodyHtml || '<p class="tkRvEmpty">(empty section)</p>') + '</div></div>';
+  }).join('');
+}
+// 'facts'/'quotes' debates aren't part of the running prose above — shown as their own small
+// cards instead, in the same order they'd appear in Quick Facts / Quoted Sources.
+function tkRenderArbitrateSideCards(openOtherDebates, currentIdx){
+  if(!openOtherDebates.length) return '';
+  return '<div class="tkRvHead">Quick Facts &amp; Quoted Sources</div>' +
+    openOtherDebates.map(x => {
+      const d = x.debate;
+      const cls = 'tkDebateCard' + (x.idx === currentIdx ? ' tkDebateCurrent' : '');
+      return '<div class="' + cls + '" data-debate-idx="' + x.idx + '">' +
+        '<div class="tkFindingHead">' + esc(d.kind === 'facts' ? 'Quick Facts' : 'Quoted Sources') + ' \u00b7 #' + esc(d.sentence) + '</div>' +
+        '<p class="tkNote"><s>' + esc(d.before) + '</s> \u2192 ' + esc(d.after) + '</p>' +
+      '</div>';
+    }).join('');
+}
+
+// Top-level assembler for the Arbitrate Review body — sticky year/name header (same treatment
+// sentence-reword's whole-article review uses, for the same reason: this can run long), the
+// article with debated sentences highlighted, then any facts/quotes debates as cards.
+function tkRenderArbitrateReview(entry, t){
+  const debates = (t.result && t.result.debates) || [];
+  const open = tkArbitrateOpenDebates(debates);
+  if(!open.length){
+    return '<div class="tkRvSticky"><div class="tkRvYearBig">' + esc(fmtYear(entry.y)) + '</div>' +
+      '<div class="tkRvNameBig">' + esc(entry.n) + '</div></div>' +
+      '<p class="tkNote">Every debate on this entity has been resolved.</p>';
+  }
+  if(tkDebateIdx >= open.length) tkDebateIdx = open.length - 1;
+  const currentIdx = open[tkDebateIdx].idx;
+  const openArticle = open.filter(x => x.debate.kind === 'article');
+  const openOther = open.filter(x => x.debate.kind !== 'article');
+  return '<div class="tkRvSticky"><div class="tkRvYearBig">' + esc(fmtYear(entry.y)) + '</div>' +
+    '<div class="tkRvNameBig">' + esc(entry.n) + '</div>' +
+    '<div class="tkRvMeta">' + open.length + ' debate' + (open.length === 1 ? '' : 's') + ' open \u00b7 tap a highlighted sentence to preview the original</div></div>' +
+    '<div class="tkSentSections">' + tkRenderArbitrateArticle(entry, openArticle, currentIdx) + '</div>' +
+    tkRenderArbitrateSideCards(openOther, currentIdx);
+}
+
 function tkRenderSentenceRewordReview(entry, patches, taskResult){
   const sections = (entry.art && entry.art.sections) || [];
-  const preview = tkPreviewSentencePatches(sections, patches);
   const beforeCounter = { n: 0 }, afterCounter = { n: 0 };
   const beforeSet = tkRenderSentenceSectionSet(sections, preview.beforeSpans, beforeCounter);
   const afterSet = tkRenderSentenceSectionSet(preview.afterSections, preview.afterSpans, afterCounter);
@@ -7220,6 +7451,7 @@ function renderTaskReview(){
   document.getElementById('tkTitleSecond').textContent =
     (t.status === 'awaiting_review' && t.type === 'audio-generate') ? ' : Audio Review' :
     (t.status === 'awaiting_review' && t.type === 'proofread') ? ' : Proofread Review' :
+    (t.status === 'awaiting_review' && t.type === 'arbitrate') ? ' : Arbitrate Review' :
     (TK_TITLES[t.status] || ' : Task');
 
   const entry = t.entityId ? getEntry(t.entityId) : null;
@@ -7243,6 +7475,16 @@ function renderTaskReview(){
   // status is what shows on the entry itself), so there's no "nothing to see here" case to
   // render below.
   const isProofreadReview = t.type === 'proofread' && t.status === 'awaiting_review';
+  // Same "only a real decision reaches awaiting_review" rule as proofread — see
+  // scripts/services/arbitrate.mjs: a debate the arbitrator sided with the original on never
+  // becomes part of t.result.debates in the first place. tkDebateIdx/tkDebateShown/tkDebateEditing
+  // are this screen's own local view state (which debate is on screen, which sentences are
+  // toggled to show original, whether Edit is open) — reset the moment a different task loads,
+  // same pattern as tkFinalShowOriginalFor above.
+  const isArbitrateReview = t.type === 'arbitrate' && t.status === 'awaiting_review';
+  if(isArbitrateReview && tkDebateTaskId !== t.id){
+    tkDebateTaskId = t.id; tkDebateIdx = 0; tkDebateShown = new Set(); tkDebateEditing = false;
+  }
   // A sentence-reword task bundles every long-sentence fix for the entity into one review — the
   // whole article, Before/After toggle — rather than the single-paragraph-marked view the generic
   // entry branch below gives other patch-based tasks (age-backfill etc).
@@ -7324,6 +7566,8 @@ function renderTaskReview(){
           (f.source && f.source !== 'Not externally verified' ? '<br><i>' + esc(f.source) + '</i>' : '') +
         '</p>'
       ).join('');
+  } else if(isArbitrateReview && entry){
+    body = tkRenderArbitrateReview(entry, t);
   } else if(isSentenceRewordReview && entry){
     const hasBundledPatches = t.result && Array.isArray(t.result.patches);
     // A task queued before this whole-article review existed carries the old single result.patch
@@ -7454,6 +7698,67 @@ function renderTaskReview(){
         '<button class="tkBtn go" id="tkAckProofread">Mark reviewed</button>' +
       '</div>';
     document.getElementById('tkAckProofread').addEventListener('click', () => tkResolveProofread());
+    return;
+  }
+
+  if(isArbitrateReview && entry){
+    const debates = (t.result && t.result.debates) || [];
+    const open = tkArbitrateOpenDebates(debates);
+    if(!open.length){ lock.innerHTML = ''; return; }
+    if(tkDebateIdx >= open.length) tkDebateIdx = open.length - 1;
+    const cur = open[tkDebateIdx];
+    const d = cur.debate;
+
+    if(tkDebateEditing){
+      const raw = d.kind === 'facts' ? ((entry.facts || [])[parseInt(d.sentence, 10) - 1] || {}).value
+        : d.kind === 'quotes' ? (((entry.art && entry.art.quotes) || [])[parseInt(d.sentence, 10) - 1] || {}).text
+        : (((entry.art && entry.art.sections) || []).find(s => (s.h || '').trim() === d.section) || {}).b;
+      lock.innerHTML =
+        '<div class="tkRvHead">Edit ' + esc(d.kind === 'article' ? d.section : (d.kind === 'facts' ? 'Quick Facts value' : 'quotation')) + '</div>' +
+        '<textarea class="tkImgNotes" id="tkArbEditBox" style="min-height:160px;">' + esc(raw || '') + '</textarea>' +
+        '<div class="tkLockBtns">' +
+          '<button class="tkBtn go" id="tkArbSaveEdit">Save</button>' +
+          '<button class="tkBtn" id="tkArbCancelEdit">Cancel</button>' +
+        '</div>';
+      document.getElementById('tkArbSaveEdit').addEventListener('click', () => tkSaveArbitrateEdit());
+      document.getElementById('tkArbCancelEdit').addEventListener('click', () => { tkDebateEditing = false; renderTaskPanel(); });
+      return;
+    }
+
+    const proposer = tkArbitrateModelLabel(d.proposedBy), arbiter = tkArbitrateModelLabel(d.arbitratedBy);
+    const hasVoiceId = !!document.getElementById('audioVoiceId').value.trim();
+    const audioOpt = hasVoiceId
+      ? '<label class="tkCheck"><input type="checkbox" id="tkArbAudioChk" checked><span>Record audio<span class="tkCheckNote">Replaces the recording this change invalidates.</span></span></label>'
+      : '<label class="tkCheck disabled"><input type="checkbox" id="tkArbAudioChk" disabled><span>Record audio<span class="tkCheckNote">Set a Voice ID under Import \u2192 Voice &amp; pacing settings first.</span></span></label>';
+    lock.innerHTML =
+      '<div class="tkDebateNav">' +
+        '<button class="tkBtn" id="tkArbPrev"' + (tkDebateIdx === 0 ? ' disabled' : '') + '>\u2190 Prev</button>' +
+        '<span class="tkDebateCount">Debate ' + (tkDebateIdx + 1) + ' of ' + open.length + '</span>' +
+        '<button class="tkBtn" id="tkArbNext"' + (tkDebateIdx === open.length - 1 ? ' disabled' : '') + '>Next \u2192</button>' +
+      '</div>' +
+      '<div class="tkDebateModels">' +
+        '<span class="tkModelBadge">Claude</span>' +
+        '<span class="tkDebateVs">vs</span>' +
+        '<span class="tkModelBadge winner">' + esc(proposer) + ' \u2713</span>' +
+        '<span class="tkDebateRuled">' + esc(arbiter) + ' ruled</span>' +
+      '</div>' +
+      '<div class="tkRvMeta">' + esc(d.severity) + ' \u00b7 ' + esc(d.category) + ' \u00b7 ' + esc(d.section) + ', #' + esc(d.sentence) + '</div>' +
+      '<p class="tkNote"><s>' + esc(d.before) + '</s></p>' +
+      '<p class="tkNote">\u2192 ' + esc(d.after) + '</p>' +
+      '<p class="tkNote">' + esc(d.concern) + '</p>' +
+      (d.comment ? '<p class="tkNote"><i>' + esc(arbiter) + ': ' + esc(d.comment) + '</i></p>' : '') +
+      (d.source && d.source !== 'Not externally verified' ? '<p class="tkNote">' + esc(d.source) + '</p>' : '') +
+      '<div class="tkLockOpts">' + audioOpt + '</div>' +
+      '<div class="tkLockBtns">' +
+        '<button class="tkBtn go" id="tkArbApprove">Approve</button>' +
+        '<button class="tkBtn no" id="tkArbOverride">Override</button>' +
+        '<button class="tkBtn" id="tkArbEdit">Edit</button>' +
+      '</div>';
+    document.getElementById('tkArbPrev').addEventListener('click', () => { if(tkDebateIdx > 0){ tkDebateIdx--; renderTaskPanel(); } });
+    document.getElementById('tkArbNext').addEventListener('click', () => { if(tkDebateIdx < open.length - 1){ tkDebateIdx++; renderTaskPanel(); } });
+    document.getElementById('tkArbApprove').addEventListener('click', () => tkResolveArbitrateDebate('approve'));
+    document.getElementById('tkArbOverride').addEventListener('click', () => tkResolveArbitrateDebate('override'));
+    document.getElementById('tkArbEdit').addEventListener('click', () => { tkDebateEditing = true; renderTaskPanel(); });
     return;
   }
 
@@ -7761,6 +8066,141 @@ async function tkResolveProofread(){
   renderTaskPanel();
 }
 
+// Approve applies debate.after in place of debate.before (tkApplyDebateText), purges stale
+// audio the same way sentence-reword's approve does, publishes, then optionally queues a fresh
+// recording via the same tkQueueQuickTask the article view's own quick-queue buttons use.
+// Override makes no content change at all — the debate is simply marked resolved with Claude's
+// original text left standing. Either way, once every debate on this task is resolved the task
+// itself flips to 'done' and review moves on to the next task, same as every other review screen.
+async function tkResolveArbitrateDebate(decision){
+  const t = tkTask(tkReviewIds[tkReviewIdx]);
+  if(!t) return;
+  const debates = (t.result && t.result.debates) || [];
+  const open = tkArbitrateOpenDebates(debates);
+  const cur = open[tkDebateIdx];
+  if(!cur) return;
+  const entry = getEntry(t.entityId);
+  if(!entry){ wlSetLog('Could not find entry ' + t.entityId + '.', true); return; }
+
+  const btns = ['tkArbApprove', 'tkArbOverride', 'tkArbEdit'].map(id => document.getElementById(id));
+  btns.forEach(b => { if(b) b.disabled = true; });
+
+  if(decision === 'approve'){
+    const applied = tkApplyDebateText(entry, cur.debate);
+    if(!applied){
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog('Couldn\u2019t find the original text to replace \u2014 the article may have changed since this ran. Use Edit instead.', true);
+      return;
+    }
+    if(entry.audio){ entry.audio = ''; entry.audioTiming = ''; } // stale narration \u2014 same rationale as sentence-reword's approve
+    dirtyEntryIds.add(t.entityId);
+    const published = await publishToGitHub();
+    if(!published){
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog('Could not publish the change \u2014 check your GitHub token and try again.', true);
+      return;
+    }
+    cur.debate.resolved = true; cur.debate.resolution = 'approved';
+    const audioChk = document.getElementById('tkArbAudioChk');
+    if(audioChk && audioChk.checked && !tkHasPendingTask(entry.id, ['audio-generate'])){
+      await tkQueueQuickTask('audio-generate', entry);
+    }
+  } else {
+    cur.debate.resolved = true; cur.debate.resolution = 'overridden';
+  }
+
+  const stillOpen = tkArbitrateOpenDebates(debates);
+  if(!stillOpen.length){ t.status = 'done'; t.updatedAt = new Date().toISOString(); }
+  const saved = await saveWorkLog(
+    (decision === 'approve' ? 'Approved' : 'Overrode') + ' arbitrated change for ' + ((t.result && t.result.name) || t.entityId),
+    [t.id]
+  );
+  if(!saved || saved.ok === false){
+    btns.forEach(b => { if(b) b.disabled = false; });
+    wlSetLog('Saved the change, but the task list didn\u2019t update \u2014 refresh and it should show correctly.', true);
+    return;
+  }
+
+  tkDebateShown.delete(cur.idx);
+  if(!stillOpen.length){
+    let next4 = tkReviewIdx + 1;
+    while(next4 < tkReviewIds.length){
+      const nt = tkTask(tkReviewIds[next4]);
+      if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review' || nt.status === 'error')) break;
+      next4++;
+    }
+    if(next4 >= tkReviewIds.length){ tkGoList(); return; }
+    tkReviewIdx = next4;
+  } else if(tkDebateIdx >= stillOpen.length){
+    tkDebateIdx = stillOpen.length - 1;
+  }
+  renderTaskPanel();
+}
+
+// Edit bypasses the debate entirely \u2014 whatever's typed becomes the new content verbatim, no
+// before/after matching involved, so it works even when the original proposal's exact text can no
+// longer be found. Resolves the debate as 'edited' either way, since the human has now handled it
+// by hand regardless of whether they kept, tweaked, or fully rewrote the proposed wording.
+async function tkSaveArbitrateEdit(){
+  const t = tkTask(tkReviewIds[tkReviewIdx]);
+  if(!t) return;
+  const debates = (t.result && t.result.debates) || [];
+  const open = tkArbitrateOpenDebates(debates);
+  const cur = open[tkDebateIdx];
+  if(!cur) return;
+  const entry = getEntry(t.entityId);
+  if(!entry) return;
+  const box = document.getElementById('tkArbEditBox');
+  const newText = box ? box.value : '';
+  const btn = document.getElementById('tkArbSaveEdit');
+  if(btn) btn.disabled = true;
+
+  const d = cur.debate;
+  if(d.kind === 'facts'){
+    const f = (entry.facts || [])[parseInt(d.sentence, 10) - 1];
+    if(f) f.value = newText;
+  } else if(d.kind === 'quotes'){
+    const q = ((entry.art && entry.art.quotes) || [])[parseInt(d.sentence, 10) - 1];
+    if(q) q.text = newText;
+  } else {
+    const sections = (entry.art && entry.art.sections) || [];
+    const sec = sections.find(s => (s.h || '').trim() === d.section);
+    if(sec) sec.b = newText;
+  }
+  if(entry.audio){ entry.audio = ''; entry.audioTiming = ''; }
+  dirtyEntryIds.add(t.entityId);
+  const published = await publishToGitHub();
+  if(!published){
+    if(btn) btn.disabled = false;
+    wlSetLog('Could not publish the edit \u2014 check your GitHub token and try again.', true);
+    return;
+  }
+  d.resolved = true; d.resolution = 'edited';
+  const stillOpen = tkArbitrateOpenDebates(debates);
+  if(!stillOpen.length){ t.status = 'done'; t.updatedAt = new Date().toISOString(); }
+  const saved = await saveWorkLog('Manually edited ' + ((t.result && t.result.name) || t.entityId) + ' resolving an arbitrated debate', [t.id]);
+  if(!saved || saved.ok === false){
+    if(btn) btn.disabled = false;
+    wlSetLog('Saved the edit, but the task list didn\u2019t update \u2014 refresh and it should show correctly.', true);
+    return;
+  }
+  tkDebateEditing = false;
+  tkDebateShown.delete(cur.idx);
+  if(!stillOpen.length){
+    let next5 = tkReviewIdx + 1;
+    while(next5 < tkReviewIds.length){
+      const nt = tkTask(tkReviewIds[next5]);
+      if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review' || nt.status === 'error')) break;
+      next5++;
+    }
+    if(next5 >= tkReviewIds.length){ tkGoList(); return; }
+    tkReviewIdx = next5;
+  } else if(tkDebateIdx >= stillOpen.length){
+    tkDebateIdx = stillOpen.length - 1;
+  }
+  renderTaskPanel();
+}
+
 // The more drastic sibling of Redo above: instead of nudging the current final image, this goes
 // all the way back to the original candidate pair and re-opens the SAME picker Picture Review
 // used the first time (tkResolveImage's Winner/Neither), reusing that screen entirely rather than
@@ -7975,6 +8415,21 @@ document.getElementById('tkReviewScroll').addEventListener('click', (e) => {
     const player = document.getElementById('tkAudioPlayer');
     const c = tkAudioCues[parseInt(cueEl.dataset.cueIdx, 10)];
     if(player && c) player.currentTime = c.start;
+  }
+  // Arbitrate Review: tapping a highlighted sentence or a facts/quotes card toggles that one
+  // debate's original/revised preview AND focuses it in the sticky footer below, so tapping
+  // something you're curious about is also the fastest way to pull up its debate detail.
+  const debateEl = e.target.closest('[data-debate-idx]');
+  if(debateEl){
+    const idx = parseInt(debateEl.dataset.debateIdx, 10);
+    if(tkDebateShown.has(idx)) tkDebateShown.delete(idx); else tkDebateShown.add(idx);
+    const t = tkTask(tkReviewIds[tkReviewIdx]);
+    const debates = (t && t.result && t.result.debates) || [];
+    const open = tkArbitrateOpenDebates(debates);
+    const pos = open.findIndex(x => x.idx === idx);
+    if(pos !== -1) tkDebateIdx = pos;
+    renderTaskPanel();
+    return;
   }
 });
 document.getElementById('tkReviewScroll').addEventListener('change', (e) => {
