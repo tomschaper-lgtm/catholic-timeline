@@ -1,9 +1,40 @@
 <!--
-VERSION: 364
-DATE: 2026-09-12T11:47:00-05:00
+VERSION: 365
+DATE: 2026-09-12T14:15:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Settings menu: removed the Task : Automation row — Tom has a separate way in (the bottom-bar
+  entry point already promoted for this in an earlier version), so it was a redundant second path.
+- Arbitrate Review, full redesign pass based on real usage:
+  - Header: year and name share one line at matching size (both use .tkRvYearBig); the small
+    "N debates open / tap to preview" note line is gone entirely.
+  - A Proposed/Original pill now sits top-right of the header — pale yellow for Proposed (the
+    default), plain grey for Original — doubling as a toggle for whichever debate is current
+    (shares the existing tap handling highlighted sentences and side cards already used).
+  - The view now auto-scrolls to the current debate's sentence on open, on Prev/Next, and on any
+    tap that changes which debate is current (tkScrollToCurrentDebate) — no more hunting through
+    a long article to find what's being discussed.
+  - Story text bumped from 14px to 17px, scoped to this screen only (.tkArbSections .tkPara)
+    so sentence-reword's own review, which shares the base .tkPara/.tkSentSections classes, is
+    unaffected.
+  - Prev/Next are gold circles with white arrows; the Claude/proposer/arbiter pills sit directly
+    between them (no "vs", no "Debate N of M" text) — Claude alone on the left, the proposer
+    (checkmark — it always won arbitration by construction) and the arbiter grouped tight on the
+    right, since the arbiter's ruling always sides with whichever proposal is shown here. All
+    three pills are the same dark-navy/white styling now — no more gold "winner" highlight, since
+    the position and checkmark already say who won.
+  - Below that: the section name alone (no sentence number — the highlighted sentence above
+    already shows which one), then the reasoning by itself (the old struck-through before/→after
+    text block is gone — illegible per Tom, and redundant with the article's own highlighting),
+    then, only if the arbiter left one, a pill with their name and their comment. All three lines
+    read at the story's own size/color/font now, not the smaller grey metadata treatment other
+    review screens use.
+  - The whole footer got a warmer, higher-contrast background (#E4E1D2) instead of the barely-
+    different-from-white default, applied/cleared via a class so it never leaks into other
+    screens' footers.
+  - Severity/category and the source citation are no longer shown in this footer — simplification
+    per this pass; easy to reintroduce if they're missed in practice.
 - Task List: swipe left on a row to reveal a red Delete button, standard iOS list pattern (tap
   elsewhere, or the row itself, to dismiss without deleting). One row open at a time; deleting
   removes the task from workLog.json entirely (a real cancel for a queued task, just clutter
@@ -1451,15 +1482,40 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkDebateSent{background:#F5DFA0; border-radius:3px; cursor:pointer;}
   .tkDebateSent.tkShowOrig{background:#EFEFEA;}
   .tkDebateSent.tkDebateCurrent{box-shadow:0 0 0 2px var(--gold-deep,#9A7B22); outline:none;}
-  .tkDebateCard{border:1px solid #E7E1CE; border-radius:10px; padding:10px 12px; margin:8px 0; cursor:pointer;}
+  .tkDebateCard{border:1px solid #E7E1CE; border-radius:10px; padding:10px 12px; margin:8px 0; cursor:pointer; font-size:17px; color:#2B2F3A;}
   .tkDebateCard.tkDebateCurrent{border-color:var(--gold-deep,#9A7B22); box-shadow:0 0 0 2px var(--gold-deep,#9A7B22);}
-  .tkDebateNav{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;}
-  .tkDebateCount{font-size:12px; color:#6B7280; font-weight:600; text-transform:uppercase; letter-spacing:.04em;}
-  .tkDebateModels{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;}
-  .tkModelBadge{background:#F5F1E4; color:var(--gold-deep,#9A7B22); border-radius:12px; padding:4px 11px; font-size:12px; font-weight:700;}
-  .tkModelBadge.winner{background:var(--gold,#C9A542); color:var(--navy-deep,#070F22);}
-  .tkDebateVs{font-size:11px; color:#9AA5BF; text-transform:uppercase;}
-  .tkDebateRuled{font-size:12px; color:#6B7280; font-style:italic;}
+  /* Story text bumped noticeably from the base .tkPara size, scoped to Arbitrate Review only
+     (via the extra .tkArbSections class on the wrapper) rather than raising .tkPara itself,
+     which sentence-reword's review also uses and wasn't part of this ask. */
+  .tkArbSections .tkPara{font-size:17px; line-height:1.65;}
+  /* Header: year + name share one line and one size (tkRvYearBig used for both, unchanged) with
+     the Proposed/Original pill pinned top-right — a real button (see the delegated tap handler
+     it shares with the article's own highlighted sentences), not just a label. */
+  .tkArbHeadRow{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .tkPill{border-radius:12px; padding:4px 11px; font-size:12.5px; font-weight:700; display:inline-block; white-space:nowrap;}
+  .tkPillModel{background:var(--navy,#0B1630); color:#fff;}
+  .tkPillToggle{border:none; cursor:pointer; font-family:inherit; flex:none;}
+  .tkPillToggle.tkPillYellow{background:#F5DFA0; color:#4A3B12;}
+  .tkPillToggle.tkPillGrey{background:#EFEFEA; color:#4B4F58;}
+  /* Footer nav row: gold circular Prev/Next with the three model pills riding between them —
+     Claude far left, the proposer (checkmark, it always won arbitration by construction — only
+     winning proposals ever reach this screen) and the arbiter grouped close together on the
+     right, since the arbiter's ruling is always "close to" whichever side it sided with. No "vs"
+     — the pills' positions already say who's opposite whom. */
+  .tkDebateNav{display:flex; align-items:center; gap:8px; margin-bottom:2px;}
+  .tkArrowBtn{
+    width:38px; height:38px; border-radius:50%; border:none; flex:none; cursor:pointer;
+    background:var(--gold,#C9A542); color:#fff; font-size:17px; font-weight:700; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .tkArrowBtn:disabled{opacity:.35; cursor:default;}
+  .tkDebateModels{display:flex; align-items:center; justify-content:space-between; flex:1 1 auto; min-width:0;}
+  .tkDebateModelsGroup{display:flex; align-items:center; gap:4px;}
+  /* The line-item content below the nav row — section name, the reasoning, the arbiter's own
+     comment — reads at the same size/color/family as the story above, not the smaller grey
+     .tkNote treatment the rest of this app's review screens use for metadata. */
+  .tkArbLine{font-size:17px; line-height:1.6; color:#2B2F3A; margin:10px 0 0; font-family:system-ui,-apple-system,'Segoe UI',sans-serif;}
+  .tkArbLine .tkPill{margin-right:7px; vertical-align:1px;}
   .tkRvEmpty{font-size:14px; color:#6B7280; line-height:1.5; padding:10px 0;}
   /* Picture Review — one candidate image at a time, plus a notes box that rides along with
      whichever decision button gets tapped. */
@@ -1513,6 +1569,10 @@ v332 CHANGES (unchanged from the version this build started from):
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
   }
   .tkLockBar:empty{display:none;}
+  /* More contrast than the default light-grey lock bar, per Tom's ask — added/removed on the
+     element itself (see renderTaskReview's className reset) rather than a permanent rule, so it
+     never bleeds into every other review screen's footer. */
+  .tkLockBar.tkArbLock{background:#E4E1D2;}
   .tkLockOpts{display:flex; flex-direction:column; gap:7px; margin-bottom:10px;}
   .tkLockOpts:empty{display:none; margin:0;}
   .tkCheck{display:flex; align-items:flex-start; gap:9px; font-size:13.5px; color:#111827; line-height:1.4;}
@@ -3156,12 +3216,6 @@ v332 CHANGES (unchanged from the version this build started from):
         <span class="pName">Manage</span>
         <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
       </button>
-      <button class="pRow" id="taskPanelBtn">
-        <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5l2 2 3.5-3.5M4 13l2 2 3.5-3.5M4 19.5l2 2 3.5-3.5M13 7h7M13 14h7M13 21h7"/></svg></span>
-        <span class="pName">Task : Automation</span>
-        <span class="pMeta" id="taskPanelMeta"></span>
-        <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
-      </button>
     </div>
   </div>
 
@@ -4112,7 +4166,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v364';
+const APP_VERSION = 'v365';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7234,6 +7288,21 @@ function tkArbitrateModelLabel(modelId){
   if(m.includes('claude')) return 'Claude';
   return modelId || 'Model';
 }
+// Scrolls the review pane so whichever sentence/card is current (.tkDebateCurrent — there's only
+// ever one) sits just below the sticky header, rather than leaving Tom to hunt for it in a long
+// article. Runs after the DOM update via requestAnimationFrame, since offsetHeight/
+// getBoundingClientRect need the just-set innerHTML actually laid out first.
+function tkScrollToCurrentDebate(){
+  requestAnimationFrame(() => {
+    const scroll = document.getElementById('tkReviewScroll');
+    const el = scroll && scroll.querySelector('.tkDebateCurrent');
+    if(!el) return;
+    const sticky = scroll.querySelector('.tkRvSticky');
+    const stickyH = sticky ? sticky.offsetHeight : 0;
+    const elTop = el.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop;
+    scroll.scrollTop = Math.max(0, elTop - stickyH - 14);
+  });
+}
 // { idx: <raw index into t.result.debates>, debate } for every debate not yet resolved, in
 // original order. idx is what approve/override/edit need to mutate the right object; the
 // position WITHIN this returned array is what tkDebateIdx actually counts.
@@ -7350,7 +7419,9 @@ function tkRenderArbitrateArticle(entry, openArticleDebates, currentIdx){
   }).join('');
 }
 // 'facts'/'quotes' debates aren't part of the running prose above — shown as their own small
-// cards instead, in the same order they'd appear in Quick Facts / Quoted Sources.
+// tappable cards instead, in the same order they'd appear in Quick Facts / Quoted Sources. Just
+// a label to navigate to — the actual before/after/reasoning for whichever one is current lives
+// in the sticky footer now, not duplicated here.
 function tkRenderArbitrateSideCards(openOtherDebates, currentIdx){
   if(!openOtherDebates.length) return '';
   return '<div class="tkRvHead">Quick Facts &amp; Quoted Sources</div>' +
@@ -7358,31 +7429,35 @@ function tkRenderArbitrateSideCards(openOtherDebates, currentIdx){
       const d = x.debate;
       const cls = 'tkDebateCard' + (x.idx === currentIdx ? ' tkDebateCurrent' : '');
       return '<div class="' + cls + '" data-debate-idx="' + x.idx + '">' +
-        '<div class="tkFindingHead">' + esc(d.kind === 'facts' ? 'Quick Facts' : 'Quoted Sources') + ' \u00b7 #' + esc(d.sentence) + '</div>' +
-        '<p class="tkNote"><s>' + esc(d.before) + '</s> \u2192 ' + esc(d.after) + '</p>' +
+        esc(d.kind === 'facts' ? 'Quick Facts' : 'Quoted Sources') + ' #' + esc(d.sentence) +
       '</div>';
     }).join('');
 }
 
-// Top-level assembler for the Arbitrate Review body — sticky year/name header (same treatment
-// sentence-reword's whole-article review uses, for the same reason: this can run long), the
-// article with debated sentences highlighted, then any facts/quotes debates as cards.
+// Top-level assembler for the Arbitrate Review body — sticky header (year + name on one line,
+// same size for both; the Proposed/Original pill top-right doubles as a toggle for whichever
+// debate is current, sharing the same data-debate-idx tap handling the highlighted sentences and
+// side cards use), the article with debated sentences highlighted, then any facts/quotes debates
+// as cards.
 function tkRenderArbitrateReview(entry, t){
   const debates = (t.result && t.result.debates) || [];
   const open = tkArbitrateOpenDebates(debates);
+  const nameLine = '<span class="tkRvYearBig">' + esc(fmtYear(entry.y)) + '</span> <span class="tkRvYearBig">' + esc(entry.n) + '</span>';
   if(!open.length){
-    return '<div class="tkRvSticky"><div class="tkRvYearBig">' + esc(fmtYear(entry.y)) + '</div>' +
-      '<div class="tkRvNameBig">' + esc(entry.n) + '</div></div>' +
+    return '<div class="tkRvSticky">' + nameLine + '</div>' +
       '<p class="tkNote">Every debate on this entity has been resolved.</p>';
   }
   if(tkDebateIdx >= open.length) tkDebateIdx = open.length - 1;
   const currentIdx = open[tkDebateIdx].idx;
+  const showOrig = tkDebateShown.has(currentIdx);
   const openArticle = open.filter(x => x.debate.kind === 'article');
   const openOther = open.filter(x => x.debate.kind !== 'article');
-  return '<div class="tkRvSticky"><div class="tkRvYearBig">' + esc(fmtYear(entry.y)) + '</div>' +
-    '<div class="tkRvNameBig">' + esc(entry.n) + '</div>' +
-    '<div class="tkRvMeta">' + open.length + ' debate' + (open.length === 1 ? '' : 's') + ' open \u00b7 tap a highlighted sentence to preview the original</div></div>' +
-    '<div class="tkSentSections">' + tkRenderArbitrateArticle(entry, openArticle, currentIdx) + '</div>' +
+  return '<div class="tkRvSticky"><div class="tkArbHeadRow"><div>' + nameLine + '</div>' +
+      '<button class="tkPill tkPillToggle ' + (showOrig ? 'tkPillGrey' : 'tkPillYellow') + '" data-debate-idx="' + currentIdx + '">' +
+        (showOrig ? 'Original' : 'Proposed') +
+      '</button>' +
+    '</div></div>' +
+    '<div class="tkSentSections tkArbSections">' + tkRenderArbitrateArticle(entry, openArticle, currentIdx) + '</div>' +
     tkRenderArbitrateSideCards(openOther, currentIdx);
 }
 
@@ -7503,6 +7578,8 @@ function renderTaskReview(){
   tkStopAudioPlayer();
   const scroll = document.getElementById('tkReviewScroll');
   const lock = document.getElementById('tkLockBar');
+  lock.className = 'tkLockBar'; // cleared every render; the arbitrate branch below re-adds its
+                                 // own contrast modifier only when it actually renders
   const t = tkTask(tkReviewIds[tkReviewIdx]);
   if(!t){ tkGoList(); return; }
 
@@ -7734,6 +7811,7 @@ function renderTaskReview(){
     if(tkDebateIdx >= open.length) tkDebateIdx = open.length - 1;
     const cur = open[tkDebateIdx];
     const d = cur.debate;
+    lock.classList.add('tkArbLock');
 
     if(tkDebateEditing){
       const raw = d.kind === 'facts' ? ((entry.facts || [])[parseInt(d.sentence, 10) - 1] || {}).value
@@ -7756,24 +7834,24 @@ function renderTaskReview(){
     const audioOpt = hasVoiceId
       ? '<label class="tkCheck"><input type="checkbox" id="tkArbAudioChk" checked><span>Record audio<span class="tkCheckNote">Replaces the recording this change invalidates.</span></span></label>'
       : '<label class="tkCheck disabled"><input type="checkbox" id="tkArbAudioChk" disabled><span>Record audio<span class="tkCheckNote">Set a Voice ID under Import \u2192 Voice &amp; pacing settings first.</span></span></label>';
+    // Only a winning proposal ever reaches this screen (see arbitrate.mjs), so the checkmark
+    // always belongs to the proposer, and the arbiter is always grouped right next to it —
+    // there's no case where the layout would need to flip to the other side.
     lock.innerHTML =
       '<div class="tkDebateNav">' +
-        '<button class="tkBtn" id="tkArbPrev"' + (tkDebateIdx === 0 ? ' disabled' : '') + '>\u2190 Prev</button>' +
-        '<span class="tkDebateCount">Debate ' + (tkDebateIdx + 1) + ' of ' + open.length + '</span>' +
-        '<button class="tkBtn" id="tkArbNext"' + (tkDebateIdx === open.length - 1 ? ' disabled' : '') + '>Next \u2192</button>' +
+        '<button class="tkArrowBtn" id="tkArbPrev"' + (tkDebateIdx === 0 ? ' disabled' : '') + '>\u2190</button>' +
+        '<div class="tkDebateModels">' +
+          '<span class="tkPill tkPillModel">Claude</span>' +
+          '<span class="tkDebateModelsGroup">' +
+            '<span class="tkPill tkPillModel">' + esc(proposer) + ' \u2713</span>' +
+            '<span class="tkPill tkPillModel">' + esc(arbiter) + '</span>' +
+          '</span>' +
+        '</div>' +
+        '<button class="tkArrowBtn" id="tkArbNext"' + (tkDebateIdx === open.length - 1 ? ' disabled' : '') + '>\u2192</button>' +
       '</div>' +
-      '<div class="tkDebateModels">' +
-        '<span class="tkModelBadge">Claude</span>' +
-        '<span class="tkDebateVs">vs</span>' +
-        '<span class="tkModelBadge winner">' + esc(proposer) + ' \u2713</span>' +
-        '<span class="tkDebateRuled">' + esc(arbiter) + ' ruled</span>' +
-      '</div>' +
-      '<div class="tkRvMeta">' + esc(d.severity) + ' \u00b7 ' + esc(d.category) + ' \u00b7 ' + esc(d.section) + ', #' + esc(d.sentence) + '</div>' +
-      '<p class="tkNote"><s>' + esc(d.before) + '</s></p>' +
-      '<p class="tkNote">\u2192 ' + esc(d.after) + '</p>' +
-      '<p class="tkNote">' + esc(d.concern) + '</p>' +
-      (d.comment ? '<p class="tkNote"><i>' + esc(arbiter) + ': ' + esc(d.comment) + '</i></p>' : '') +
-      (d.source && d.source !== 'Not externally verified' ? '<p class="tkNote">' + esc(d.source) + '</p>' : '') +
+      '<div class="tkArbLine">' + esc(d.section) + '</div>' +
+      '<div class="tkArbLine">' + esc(d.concern) + '</div>' +
+      (d.comment ? '<div class="tkArbLine"><span class="tkPill tkPillModel">' + esc(arbiter) + '</span>' + esc(d.comment) + '</div>' : '') +
       '<div class="tkLockOpts">' + audioOpt + '</div>' +
       '<div class="tkLockBtns">' +
         '<button class="tkBtn go" id="tkArbApprove">Approve</button>' +
@@ -7785,6 +7863,7 @@ function renderTaskReview(){
     document.getElementById('tkArbApprove').addEventListener('click', () => tkResolveArbitrateDebate('approve'));
     document.getElementById('tkArbOverride').addEventListener('click', () => tkResolveArbitrateDebate('override'));
     document.getElementById('tkArbEdit').addEventListener('click', () => { tkDebateEditing = true; renderTaskPanel(); });
+    tkScrollToCurrentDebate();
     return;
   }
 
@@ -8358,7 +8437,8 @@ function closeTaskPanel(){
   taskPanelEl.classList.remove('open');
   tkScrimEl.classList.remove('open');
 }
-document.getElementById('taskPanelBtn').addEventListener('click', openTaskPanel);
+// (openTaskPanel is wired to its bottom-bar button elsewhere — the Settings-menu row that used
+// to also open it here was removed; see the comment near the bottom-bar wiring below.)
 // X means "back" while reviewing and "close" everywhere else — reviewing is a drill-down, so
 // leaving it should land on the list rather than dumping you out of the panel entirely.
 document.getElementById('tkClose').addEventListener('click', (e) => {
@@ -11165,9 +11245,9 @@ function switchMgmtTab(tab){
   if(tab === 'logs') loadChangelog();
 }
 document.querySelectorAll('.mgmtTab[data-tab]').forEach(t => t.addEventListener('click', () => switchMgmtTab(t.dataset.tab)));
-// Automation isn't a Manage tab — it's the same Task Automation panel reachable from the
-// hamburger menu (openTaskPanel/#taskPanelBtn), just promoted to the bottom bar since it's used
-// far more than Settings ever was. Closing Manage first keeps this to one full-screen overlay at
+// Automation isn't a Manage tab — it's the same Task Automation panel opened via openTaskPanel(),
+// promoted to the bottom bar since it's used far more than a Settings-menu row ever was (that
+// row existed once; it's been removed now that this bottom-bar entry point exists). Closing Manage first keeps this to one full-screen overlay at
 // a time, consistent with how the rest of the app behaves — Task Automation and Manage have
 // never been shown stacked before, and there's no reason to start now.
 document.getElementById('mgmtAutomationBtn').addEventListener('click', () => {
