@@ -1,9 +1,18 @@
 <!--
-VERSION: 382
-DATE: 2026-09-13T11:00:00-05:00
+VERSION: 383
+DATE: 2026-09-13T16:58:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Not a code fix, a diagnosis: the "Record audio" batch picker jumping from year 65 straight to
+  935 wasn't a sort bug — audioGeneratePool() already excludes any entry with an over-40-word
+  sentence (entryHasLongSentence), and St. Simon the Zealot's article has five: 47, 56, 62, 63, and
+  76 words. It's never been through a sentence-reword pass. The picker is correctly skipping to the
+  next entry that's actually ready to record; the real fix is rewording Simon first.
+- Fixed the floating audio-control pill (.audioBottomBar, z-index:151 — deliberately raised above
+  the article/About panel a while back) rendering on top of the Task Automation panel, which sat
+  at z-index:145. Task Automation is a full-screen, focused admin view; nothing should float over
+  it. Bumped .taskPanel to 155 so it correctly hides the audio bar behind it instead.
 - Fixed the actual root cause behind "couldn't find this exact wording" discussed a few versions
   back: this file's general-purpose stripHtml() replaces every tag with a SPACE, while the backend
   (arbitrate.mjs) removes <a>/<b>/<i>/<u> tags outright before the proposer ever reads the article
@@ -1436,7 +1445,7 @@ v332 CHANGES (unchanged from the version this build started from):
      Square corners follow from that — a rounded edge only reads as "card" when there's
      something visible beside it. Still slides in from the left, same timing as its siblings. */
   .taskPanel{
-    position:fixed; top:calc(46px + env(safe-area-inset-top)); left:0; right:0; bottom:0; z-index:145;
+    position:fixed; top:calc(46px + env(safe-area-inset-top)); left:0; right:0; bottom:0; z-index:155;
     width:auto; max-height:none;
     overflow:hidden; display:flex; flex-direction:column;
     background:#fff; color:#111827;
@@ -4448,7 +4457,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v382';
+const APP_VERSION = 'v383';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
