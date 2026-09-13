@@ -1,9 +1,25 @@
 <!--
-VERSION: 381
-DATE: 2026-09-13T10:37:00-05:00
+VERSION: 382
+DATE: 2026-09-13T11:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed the actual root cause behind "couldn't find this exact wording" discussed a few versions
+  back: this file's general-purpose stripHtml() replaces every tag with a SPACE, while the backend
+  (arbitrate.mjs) removes <a>/<b>/<i>/<u> tags outright before the proposer ever reads the article
+  — so a debated phrase touching a cross-reference link came out with an extra space here that the
+  AI's own before/after text never had, breaking an otherwise word-for-word-correct match.
+  New tkStripInlineTagsTracked() removes those same four tags the same way the backend does, while
+  recording which raw-HTML index every kept plain-text character came from — that position map is
+  what makes the rest of this possible. tkFindDebateSpan and tkRenderArbitrateArticle both switched
+  to it (so display/highlighting and finding can never drift apart from each other), and
+  tkApplyDebateText's article branch now splices into the real raw HTML using that same map
+  instead of matching raw text directly.
+- Tom's own proposed rule for the actual apply step, now built: any <a href="entry:...">LINKTEXT
+  </a> inside the exact span being replaced gets re-wrapped around that same text in the new
+  wording IF LINKTEXT survives verbatim in the proposed after-text; if the edit changed the linked
+  words themselves, the link is simply allowed to go. Verified against the real St. Jude/James the
+  Less example from his screenshot before shipping, not just reasoned through.
 - The nav row (Prev/pills/Next) is now just as draggable as the thin grip bar for resizing the
   footer — Tom's ask, since the grip alone is a small target. Caught my own bug before shipping:
   my first pass tried to attach the drag listener directly to the nav row, but that row gets torn
@@ -4432,7 +4448,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v381';
+const APP_VERSION = 'v382';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7631,6 +7647,41 @@ function tkNthIndexOf(haystack, needle, n){
   }
   return idx;
 }
+// The actual bug behind "couldn't find this exact wording": the backend (arbitrate.mjs) strips
+// <a>/<b>/<i>/<u> tags to NOTHING before the proposer ever reads the article, but this file's own
+// general-purpose stripHtml() replaces every tag with a SPACE instead — so a debated phrase that
+// happens to sit next to a cross-reference link came out with an extra space the AI's own before/
+// after text never had, and an otherwise word-for-word-correct match failed over that alone.
+// tkStripInlineTagsTracked removes those same four inline tags outright (matching the backend
+// exactly) while recording, for every plain-text character kept, which raw-HTML index it came
+// from — map[i] is that raw index for plain-text position i. That map is what makes tag-aware
+// splicing possible afterward: a found span in plain-text coordinates translates directly back to
+// real raw-HTML coordinates, tags and all, instead of losing track of where the tags actually are.
+function tkStripInlineTagsTracked(raw){
+  const s = String(raw || '');
+  const tagRe = /<\/?(a|b|i|u)(\s[^>]*)?>/gi;
+  let plain = '', i = 0;
+  while(i < s.length){
+    tagRe.lastIndex = i;
+    const m = tagRe.exec(s);
+    if(m && m.index === i){ i += m[0].length; continue; }
+    plain += s[i];
+    i++;
+  }
+  // Second pass to build the position map in lockstep — simpler to reason about correctly than
+  // interleaving map-building with the loop above, and these sections are short (a few hundred
+  // words at most), so the extra pass costs nothing that matters.
+  const map = [];
+  i = 0;
+  while(i < s.length){
+    tagRe.lastIndex = i;
+    const m = tagRe.exec(s);
+    if(m && m.index === i){ i += m[0].length; continue; }
+    map.push(i);
+    i++;
+  }
+  return { plain, map };
+}
 // For an 'article' debate only, locates where its `before` text falls in that section's PLAIN
 // text (for deciding which sentence to highlight). 'facts'/'quotes' debates are addressed by
 // position instead (see tkApplyDebateText) and never go through this — they're not part of the
@@ -7639,12 +7690,11 @@ function tkFindDebateSpan(sections, debate){
   if(debate.kind !== 'article') return null;
   const secIdx = sections.findIndex(s => (s.h || '').trim() === debate.section);
   if(secIdx === -1) return null;
-  const plainFull = stripHtml(sections[secIdx].b || '');
+  const plainFull = tkStripInlineTagsTracked(sections[secIdx].b || '').plain;
   const { text: needle, n } = tkParseBeforeText(debate.before);
-  const plainNeedle = stripHtml(needle);
-  const at = tkNthIndexOf(plainFull, plainNeedle, n);
+  const at = tkNthIndexOf(plainFull, needle, n);
   if(at === -1) return null;
-  return { sectionIndex: secIdx, start: at, end: at + plainNeedle.length };
+  return { sectionIndex: secIdx, start: at, end: at + needle.length };
 }
 // Whether a debate's before-text can currently be located at all, regardless of kind — the
 // single check the not-found warning uses. 'article' checks via a located span (also used for
@@ -7688,9 +7738,29 @@ function tkApplyDebateText(entry, debate){
   const secIdx = sections.findIndex(s => (s.h || '').trim() === section);
   if(secIdx === -1) return false;
   const raw = sections[secIdx].b || '';
-  const at = tkNthIndexOf(raw, needle, n);
+  const { plain, map } = tkStripInlineTagsTracked(raw);
+  const at = tkNthIndexOf(plain, needle, n);
   if(at === -1) return false;
-  sections[secIdx].b = raw.slice(0, at) + after + raw.slice(at + needle.length);
+  const matchEnd = at + needle.length; // exclusive, in plain-text coordinates
+  const rawStart = map[at];
+  const rawEnd = matchEnd < map.length ? map[matchEnd] : raw.length;
+  const rawChunk = raw.slice(rawStart, rawEnd);
+  // Any complete <a href="entry:...">LINKTEXT</a> inside the exact span being replaced gets
+  // re-wrapped around that same text in the new wording, but only if LINKTEXT survives verbatim
+  // in `after` — if the edit actually changed the linked words themselves, the link is allowed to
+  // go, same rule Tom described. Anything else in the chunk (a link whose text did change, or
+  // <b>/<i>/<u> emphasis) is simply not restored — low-stakes for emphasis, and there's nothing
+  // sensible to do for a link whose target text no longer exists in the new sentence.
+  let newAfter = after;
+  const linkRe = /<a\s+href="(entry:[^"]+)">([^<]*)<\/a>/gi;
+  let lm;
+  while((lm = linkRe.exec(rawChunk))){
+    const href = lm[1], linkText = lm[2];
+    if(linkText && newAfter.includes(linkText)){
+      newAfter = newAfter.replace(linkText, '<a href="' + href + '">' + linkText + '</a>');
+    }
+  }
+  sections[secIdx].b = raw.slice(0, rawStart) + newAfter + raw.slice(rawEnd);
   return true;
 }
 // The current raw content a debate targets — section body, fact value, or quote text — read-only,
@@ -7747,7 +7817,7 @@ function tkRenderArbitrateArticle(entry, openArticleDebates, currentIdx){
     .filter(x => x.span);
   return sections.map((sec, si) => {
     const secHits = hits.filter(h => h.span.sectionIndex === si);
-    const plainFull = stripHtml(sec.b || '');
+    const plainFull = tkStripInlineTagsTracked(sec.b || '').plain;
     const paras = plainFull.split(/\n{2,}/).filter(Boolean);
     const paraList = paras.length ? paras : (plainFull ? [plainFull] : []);
     // Locates each paragraph's TRUE offset in plainFull directly (indexOf), rather than assuming
