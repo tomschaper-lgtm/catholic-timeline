@@ -1,9 +1,32 @@
 <!--
-VERSION: 372
-DATE: 2026-09-12T23:38:00-05:00
+VERSION: 374
+DATE: 2026-09-13T05:36:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed a real coordinate-drift bug in tkRenderArbitrateArticle explaining "sometimes bolds,
+  sometimes doesn't": paragraph offsets were tracked by assuming every paragraph gap in the
+  article is exactly two characters (offset += para.length + 2), while tkFindDebateSpan locates
+  a debate's text by searching the same section's plain text directly. Any paragraph separated by
+  something other than exactly "\n\n" silently pushed every offset after it out of sync with
+  where the debate's span actually was, so the wrong sentence (or none) got the substitution —
+  with the Proposed/Original pill still claiming to toggle something. Now locates each paragraph's
+  true position directly in the same plain text tkFindDebateSpan searches (indexOf, not an
+  assumed fixed width), so both stay in the same coordinate system by construction.
+- This does not rule out a separate, backend-side possibility Tom raised: a proposal whose
+  "after" text never actually differs from "before," which would show nothing to bold no matter
+  how correctly this renders. The Details panel (tap the proposer's pill) shows Original/Proposed
+  as plain text with no highlighting logic involved — worth checking there first if this recurs,
+  since it tells the two cases apart.
+- Fixed the real bug behind what looked like two separate reports (St. Clement I, then St. John
+  the Apostle): an 'article' debate whose before-text can no longer be found verbatim in the
+  section it names — the article moved since the task ran, or the model's own quoting drifted —
+  used to fail completely silently. No highlight anywhere, no bold, the Proposed/Original toggle
+  changing nothing, with zero indication anything was wrong. Now detected explicitly
+  (tkFindDebateSpan already existed to locate the span; just needed its null case actually
+  handled instead of just quietly rendering plain text) — shows a clear warning and auto-opens
+  the Section/Original/Proposed details panel the very first time a broken debate is reached
+  (still closeable, and won't re-force itself open if closed again on the same debate).
 - Removed the standalone "Next →" line under Record audio entirely (added last version, now
   gone per Tom's follow-up) — the top-right arrow is the only Next control again.
 - The proposer's own pill in the nav row (e.g. "OpenAI ✓") is now a tappable disclosure toggle:
@@ -1636,6 +1659,7 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkArbDetails{border:1px solid #C7BFA0; border-radius:8px; padding:8px 10px; margin-bottom:6px; background:#EFEBDD;}
   .tkArbDetails .tkArbLine{margin-top:6px;}
   .tkArbDetails .tkArbLine:first-child{margin-top:0;}
+  .tkArbWarn{background:#F5DFA0; border-radius:8px; padding:8px 10px; margin-bottom:6px; font-size:15px; line-height:1.5; color:#4A3B12;}
   .tkArbScrollMid{flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 20px;}
   .tkArbBottomSticky{flex:none; padding:10px 20px calc(16px + env(safe-area-inset-bottom));}
   .tkArbEditBox{
@@ -4318,7 +4342,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v372';
+const APP_VERSION = 'v374';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6690,6 +6714,7 @@ let tkDebateIdx = 0;
 let tkDebateShown = new Set();
 let tkDebateEditing = false; // true while the Edit textarea replaces the debate detail block
 let tkDebateDetailsOpen = false; // true while the section/sentence/original/proposed fallback panel is showing
+let tkDebateDetailsFor = null; // which debate idx the auto-open-when-not-found check last ran for
 // Task List's swipe-to-delete: which row (by task id) is currently swiped open, or null. Only
 // ever one at a time — starting a swipe on a different row, or any re-render, closes whichever
 // row was open before.
@@ -7610,8 +7635,17 @@ function tkRenderArbitrateArticle(entry, openArticleDebates, currentIdx){
     const plainFull = stripHtml(sec.b || '');
     const paras = plainFull.split(/\n{2,}/).filter(Boolean);
     const paraList = paras.length ? paras : (plainFull ? [plainFull] : []);
-    let offset = 0;
+    // Locates each paragraph's TRUE offset in plainFull directly (indexOf), rather than assuming
+    // a fixed-width separator between paragraphs — an assumed "+2" here used to silently drift
+    // out of sync with tkFindDebateSpan's own offsets (which search plainFull directly) whenever
+    // a real gap wasn't exactly two characters, misaligning which sentence a debate's span
+    // actually landed on. That drift was the real cause of highlighting/bolding working for some
+    // debates and silently doing nothing for others.
+    let searchCursor = 0;
     const bodyHtml = paraList.map(para => {
+      const found0 = plainFull.indexOf(para, searchCursor);
+      const offset = found0 === -1 ? searchCursor : found0;
+      searchCursor = offset + para.length;
       const sentences = tkSplitSentencesForDisplay(para);
       let cursor = 0;
       const inner = sentences.map(sent => {
@@ -7633,7 +7667,6 @@ function tkRenderArbitrateArticle(entry, openArticleDebates, currentIdx){
         const cls = 'tkDebateSent' + (showOrig ? ' tkShowOrig' : '') + (hit.idx === currentIdx ? ' tkDebateCurrent' : '');
         return '<span class="' + cls + '" data-debate-idx="' + hit.idx + '">' + html + '</span>';
       }).join(' ');
-      offset += para.length + 2;
       return '<p class="tkPara">' + inner + '</p>';
     }).join('');
     return '<div class="tkSentSection"><div class="tkSentSecHead"><span class="tkSectionH">' + esc(sec.h || '') + '</span></div>' +
@@ -7842,7 +7875,7 @@ function renderTaskReview(){
   // same pattern as tkFinalShowOriginalFor above.
   const isArbitrateReview = t.type === 'arbitrate' && t.status === 'awaiting_review';
   if(isArbitrateReview && tkDebateTaskId !== t.id){
-    tkDebateTaskId = t.id; tkDebateIdx = 0; tkDebateShown = new Set(); tkDebateEditing = false; tkDebateDetailsOpen = false;
+    tkDebateTaskId = t.id; tkDebateIdx = 0; tkDebateShown = new Set(); tkDebateEditing = false; tkDebateDetailsOpen = false; tkDebateDetailsFor = null;
   }
   // A sentence-reword task bundles every long-sentence fix for the entity into one review — the
   // whole article, Before/After toggle — rather than the single-paragraph-marked view the generic
@@ -8073,6 +8106,15 @@ function renderTaskReview(){
       ? '<label class="tkCheck"><input type="checkbox" id="tkArbAudioChk" checked><span>Record audio</span></label>'
       : '<label class="tkCheck disabled"><input type="checkbox" id="tkArbAudioChk" disabled><span>Record audio<span class="tkCheckNote">Set a Voice ID under Import \u2192 Voice &amp; pacing settings first.</span></span></label>';
     const hasNext = tkDebateIdx < open.length - 1;
+    // Catches exactly the failure Tom hit twice: an 'article' debate whose before-text can no
+    // longer be found verbatim in the section it names (the article moved since this ran, or the
+    // model's own quoting drifted slightly) — which used to fail completely silently: no
+    // highlight anywhere, no bold, Original/Proposed toggling nothing, with no indication
+    // anything was wrong. Auto-opens the details fallback (still closeable) instead of leaving
+    // that to be discovered by accident.
+    const notFound = d.kind === 'article' && !tkFindDebateSpan((entry.art && entry.art.sections) || [], d);
+    if(notFound && tkDebateDetailsFor !== cur.idx){ tkDebateDetailsOpen = true; }
+    tkDebateDetailsFor = cur.idx;
     // Fallback for exactly the case where the inline bolded diff isn't showing anything useful
     // (the article's own wording moved since this ran, so the exact phrase can't be located, or
     // this is a facts/quotes debate not shown inline at all) — tapping the proposer's own pill
@@ -8084,6 +8126,9 @@ function renderTaskReview(){
           '<div class="tkArbLine"><b>Original:</b> ' + esc(tkParseBeforeText(d.before).text) + '</div>' +
           '<div class="tkArbLine"><b>Proposed:</b> ' + esc(d.after) + '</div>' +
         '</div>'
+      : '';
+    const notFoundHtml = notFound
+      ? '<div class="tkArbWarn">Couldn\u2019t find this exact wording in the article \u2014 it may have changed since this ran. See Section/Original/Proposed below, or use Edit.</div>'
       : '';
     // Only a winning proposal ever reaches this screen (see arbitrate.mjs), so the checkmark
     // always belongs to the proposer, and the arbiter is always grouped right next to it —
@@ -8102,6 +8147,7 @@ function renderTaskReview(){
         '<button class="tkArrowBtn" id="tkArbNext"' + (hasNext ? '' : ' disabled') + '>\u2192</button>' +
       '</div></div>' +
       '<div class="tkArbScrollMid">' +
+        notFoundHtml +
         detailsHtml +
         '<div class="tkArbLine"><span class="tkPill tkPillModel">' + esc(proposer) + '</span>' + esc(d.concern) + '</div>' +
         (d.comment ? '<div class="tkArbLine"><span class="tkPill tkPillModel">' + esc(arbiter) + '</span>' + esc(d.comment) + '</div>' : '') +
@@ -8114,8 +8160,8 @@ function renderTaskReview(){
           '<button class="tkBtn" id="tkArbEdit">Edit</button>' +
         '</div>' +
       '</div>';
-    document.getElementById('tkArbPrev').addEventListener('click', () => { if(tkDebateIdx > 0){ tkDebateIdx--; tkDebateDetailsOpen = false; renderTaskPanel(); } });
-    document.getElementById('tkArbNext').addEventListener('click', () => { if(hasNext){ tkDebateIdx++; tkDebateDetailsOpen = false; renderTaskPanel(); } });
+    document.getElementById('tkArbPrev').addEventListener('click', () => { if(tkDebateIdx > 0){ tkDebateIdx--; tkDebateDetailsOpen = false; tkDebateDetailsFor = null; renderTaskPanel(); } });
+    document.getElementById('tkArbNext').addEventListener('click', () => { if(hasNext){ tkDebateIdx++; tkDebateDetailsOpen = false; tkDebateDetailsFor = null; renderTaskPanel(); } });
     document.getElementById('tkArbDetailsToggle').addEventListener('click', () => { tkDebateDetailsOpen = !tkDebateDetailsOpen; renderTaskPanel(); });
     document.getElementById('tkArbApprove').addEventListener('click', () => tkResolveArbitrateDebate('approve'));
     document.getElementById('tkArbOverride').addEventListener('click', () => tkResolveArbitrateDebate('override'));
@@ -8763,6 +8809,7 @@ document.getElementById('tkReviewScroll').addEventListener('click', (e) => {
     const pos = open.findIndex(x => x.idx === idx);
     if(pos !== -1) tkDebateIdx = pos;
     tkDebateDetailsOpen = false;
+    tkDebateDetailsFor = null;
     renderTaskPanel();
     return;
   }
