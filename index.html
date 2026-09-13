@@ -1,9 +1,15 @@
 <!--
-VERSION: 367
-DATE: 2026-09-12T17:30:00-05:00
+VERSION: 368
+DATE: 2026-09-12T18:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Arbitrate Review: tkArbitrateModelLabel now returns company names — "OpenAI" (was "Luna"),
+  "Google" (was "Gemini") — everywhere it's used (the nav row's pills, the reasoning line's pill,
+  the comment line's pill). One function, so this was the only edit needed. Left "Claude" as-is —
+  it's naming the article's original author there, not standing in for "Anthropic" the way the
+  other two now stand in for their companies, and didn't seem like the same kind of label. Say
+  the word if that should change too.
 - Arbitrate Review, third refinement pass:
   - Prev/Next arrows: bigger (46px, was 38px) and always full gold — the disabled attribute still
     blocks the tap at either end, it just no longer dims.
@@ -4272,7 +4278,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v367';
+const APP_VERSION = 'v368';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7394,8 +7400,8 @@ function tkRenderSentenceSectionSet(sections, spans, counterRef){
 
 function tkArbitrateModelLabel(modelId){
   const m = String(modelId || '').toLowerCase();
-  if(m.includes('luna')) return 'Luna';
-  if(m.includes('gemini')) return 'Gemini';
+  if(m.includes('luna')) return 'OpenAI';
+  if(m.includes('gemini')) return 'Google';
   if(m.includes('claude')) return 'Claude';
   return modelId || 'Model';
 }
