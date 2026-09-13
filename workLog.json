@@ -7406,12 +7406,38 @@
       "type": "arbitrate",
       "entityId": "st-michael-archangel-0",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Michael the Archangel",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Michael the Archangel",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "QUOTE",
+            "section": "Quoted Sources",
+            "sentence": "1",
+            "text": "\"And there was a great battle in heaven, Michael and his angels fought with the dragon, and the dragon fought and his angels.\"",
+            "concern": "The quotation is not verbatim Douay-Rheims. Revelation 12:7 reads \"And there was made a great battle in heaven,\" not \"And there was a great battle in heaven.\"",
+            "suggestedCorrection": "Use the exact Douay-Rheims wording, or remove the quotation marks and identify the text as a paraphrase.",
+            "source": "Not externally verified",
+            "kind": "quotes",
+            "before": "And there was a great battle in heaven, Michael and his angels fought with the dragon, and the dragon fought and his angels.",
+            "after": "And there was made a great battle in heaven, Michael and his angels fought with the dragon, and the dragon fought and his angels.",
+            "winner": "revised",
+            "comment": "Correcting biblical citations to match the Douay-Rheims verbatim text precisely is important for accuracy.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-13T03:48:22.227Z",
-      "updatedAt": "2026-09-13T03:49:58.103Z",
+      "updatedAt": "2026-09-13T03:50:25.626Z",
       "error": null
     },
     {
