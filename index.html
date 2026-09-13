@@ -1,9 +1,31 @@
 <!--
-VERSION: 365
-DATE: 2026-09-12T14:15:00-05:00
+VERSION: 366
+DATE: 2026-09-12T16:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Settings: removed the redundant hamburger-menu Task : Automation row (a bottom-bar entry point
+  already exists) and its now-dead click listener.
+- Arbitrate Review, second refinement pass:
+  - The pale-yellow/grey paragraph highlighting is gone entirely — replaced by a fixed, glowing
+    gold bar flush with the true left edge of the screen (tkDebateGlowBar/tkUpdateDebateGlowBar),
+    spanning the full height of whichever sentence or card is current, clamped to the visible
+    scroll area and hidden once it scrolls out of view. Recalculated on every render, on scroll,
+    and continuously while the new resize grip (below) is being dragged.
+  - Proposed/Original toggle pill: same gold color for both states now, distinguished only by
+    the word.
+  - Header: the saint's name is now black, smaller (19px, was matching the year's 28px), and
+    ellipsis-truncates rather than wrapping if it's ever too long for one line; top padding
+    tightened, scoped to Arbitrate Review only (.tkArbSticky) so sentence-reword's own sticky
+    header, which shares the base class, is unaffected.
+  - The footer pane is now resizable: a thin drag handle (#tkResizeGrip) between the article and
+    the footer lets the boundary move up/down, clamped so neither pane can be crushed to nothing,
+    with the chosen height persisted (localStorage) so it stays put across sessions. The footer
+    itself now scrolls its own content once it's taller than the height set. Scoped entirely to
+    Arbitrate Review (the grip only activates, and the lock bar only gets a fixed height/scroll,
+    when that screen is showing) — every other review screen's auto-height footer is unchanged.
+  - Removed the "Replaces the recording this change invalidates" note under the Record audio
+    checkbox.
 - Settings menu: removed the Task : Automation row — Tom has a separate way in (the bottom-bar
   entry point already promoted for this in an earlier version), so it was a redundant second path.
 - Arbitrate Review, full redesign pass based on real usage:
@@ -1407,6 +1429,15 @@ v332 CHANGES (unchanged from the version this build started from):
     margin:0 -20px 10px; padding:10px 20px 9px; border-bottom:1px solid #E9EAEE;
   }
   .tkRvYearBig{font-size:28px; font-weight:800; color:var(--gold-deep,#9A7B22); line-height:1.15;}
+  /* Arbitrate-only header tightening: less empty space above the year/name line than the shared
+     .tkRvSticky default (scoped here, not changed globally, since sentence-reword's review uses
+     the same base class and wasn't part of this ask). The name rides at a smaller, black,
+     single-line size next to the gold year rather than sharing its size/color — a true
+     shrink-to-fit would need JS measurement, which felt like overkill for a name line; this
+     fixed smaller size plus an ellipsis safety net covers the practical case. */
+  .tkArbSticky{padding-top:4px;}
+  .tkArbHeadName{min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
+  .tkArbNameLine{font-size:19px; font-weight:700; color:#111827;}
   .tkRvNameBig{
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:18px; font-weight:700;
     color:#111827; line-height:1.25; margin-top:1px;
@@ -1479,9 +1510,17 @@ v332 CHANGES (unchanged from the version this build started from):
      purpose: "a change under discussion" reads consistently with sentence-reword's own yellow),
      grey preview when tapped to show the original, and a heavier ring on whichever debate the
      sticky footer currently describes. */
-  .tkDebateSent{background:#F5DFA0; border-radius:3px; cursor:pointer;}
-  .tkDebateSent.tkShowOrig{background:#EFEFEA;}
-  .tkDebateSent.tkDebateCurrent{box-shadow:0 0 0 2px var(--gold-deep,#9A7B22); outline:none;}
+  .tkDebateSent{cursor:pointer;}
+  /* The margin glow bar replaces highlighting the sentence itself — position:fixed so "left
+     edge of the screen" is unambiguous regardless of the article's own padding, recalculated on
+     every scroll/render by tkUpdateDebateGlowBar() rather than living inside the scrollable
+     content (which would make it scroll-clip-prone and fiddly to keep flush with the true edge). */
+  .tkDebateGlowBar{
+    position:fixed; left:0; width:5px; border-radius:0 3px 3px 0; z-index:6;
+    background:var(--gold,#C9A542);
+    box-shadow:0 0 10px 2px rgba(201,165,66,.75), 0 0 3px rgba(201,165,66,.9);
+    pointer-events:none; display:none;
+  }
   .tkDebateCard{border:1px solid #E7E1CE; border-radius:10px; padding:10px 12px; margin:8px 0; cursor:pointer; font-size:17px; color:#2B2F3A;}
   .tkDebateCard.tkDebateCurrent{border-color:var(--gold-deep,#9A7B22); box-shadow:0 0 0 2px var(--gold-deep,#9A7B22);}
   /* Story text bumped noticeably from the base .tkPara size, scoped to Arbitrate Review only
@@ -1495,8 +1534,7 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkPill{border-radius:12px; padding:4px 11px; font-size:12.5px; font-weight:700; display:inline-block; white-space:nowrap;}
   .tkPillModel{background:var(--navy,#0B1630); color:#fff;}
   .tkPillToggle{border:none; cursor:pointer; font-family:inherit; flex:none;}
-  .tkPillToggle.tkPillYellow{background:#F5DFA0; color:#4A3B12;}
-  .tkPillToggle.tkPillGrey{background:#EFEFEA; color:#4B4F58;}
+  .tkPillToggle{background:var(--gold,#C9A542); color:var(--navy-deep,#070F22);}
   /* Footer nav row: gold circular Prev/Next with the three model pills riding between them —
      Claude far left, the proposer (checkmark, it always won arbitration by construction — only
      winning proposals ever reach this screen) and the arbiter grouped close together on the
@@ -1571,8 +1609,22 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkLockBar:empty{display:none;}
   /* More contrast than the default light-grey lock bar, per Tom's ask — added/removed on the
      element itself (see renderTaskReview's className reset) rather than a permanent rule, so it
-     never bleeds into every other review screen's footer. */
-  .tkLockBar.tkArbLock{background:#E4E1D2;}
+     never bleeds into every other review screen's footer. Height/scroll are scoped to this same
+     class for the same reason: only Arbitrate Review's footer runs long enough to need resizing,
+     so every other screen keeps its original auto-height-to-content behavior untouched. */
+  .tkLockBar.tkArbLock{background:#E4E1D2; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+  /* Thin drag handle between the two panes — hidden by default (only Arbitrate Review activates
+     it) and hidden again as a safety net whenever the lock bar right after it is actually empty,
+     via :has(), since there'd be nothing to resize. touch-action:none plus preventDefault in the
+     touchmove handler keep the drag from also scrolling the page underneath it. */
+  .tkResizeGrip{
+    display:none; flex:none; height:18px; cursor:ns-resize; touch-action:none;
+    align-items:center; justify-content:center;
+    background:#F7F7F4; border-top:1px solid #E3E1D8;
+  }
+  .tkResizeGrip.active{display:flex;}
+  .tkResizeGrip:has(+ #tkLockBar:empty){display:none;}
+  .tkResizeGripBar{width:40px; height:4px; border-radius:2px; background:#C7CAD3;}
   .tkLockOpts{display:flex; flex-direction:column; gap:7px; margin-bottom:10px;}
   .tkLockOpts:empty{display:none; margin:0;}
   .tkCheck{display:flex; align-items:flex-start; gap:9px; font-size:13.5px; color:#111827; line-height:1.4;}
@@ -3440,7 +3492,17 @@ v332 CHANGES (unchanged from the version this build started from):
     <!-- ===== VIEW: Review (one item at a time) ===== -->
     <div class="tkView" id="tkViewReview">
       <div class="tkReviewScroll" id="tkReviewScroll"></div>
-      <!-- Locked bottom section — never scrolls, always holds the review options. -->
+      <!-- Arbitrate Review only: fixed-position marker for whichever debate is current — see
+           tkUpdateDebateGlowBar(). Lives outside the scrollable pane on purpose, since "left
+           edge of the screen" needs viewport-relative positioning, not the article's own padding. -->
+      <div class="tkDebateGlowBar" id="tkDebateGlowBar"></div>
+      <!-- Thin drag handle: resizes the lock bar's height (see tkResizeGrip's touch handlers),
+           persisted so it stays wherever Tom leaves it rather than resetting every time this
+           view opens. Hidden automatically whenever the lock bar has nothing in it (:has() below)
+           — nothing to resize on a read-only task. -->
+      <div class="tkResizeGrip" id="tkResizeGrip"><div class="tkResizeGripBar"></div></div>
+      <!-- Locked bottom section — never scrolls the REST of the page away, but scrolls its own
+           content internally once that content is taller than the height Tom has set. -->
       <div class="tkLockBar" id="tkLockBar"></div>
     </div>
   </div>
@@ -4166,7 +4228,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v365';
+const APP_VERSION = 'v366';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6541,6 +6603,11 @@ let tkDebateEditing = false; // true while the Edit textarea replaces the debate
 // ever one at a time — starting a swipe on a different row, or any re-render, closes whichever
 // row was open before.
 let tkSwipedRowId = null;
+// Arbitrate Review's resizable footer — persisted across sessions so it "stays divided where
+// Tom decides" rather than resetting to a default every time the screen opens. Only ever applied
+// while isArbitrateReview is rendering (see renderTaskReview) — every other review screen keeps
+// its original auto-height-to-content sizing untouched.
+let tkLockBarH = parseInt(localStorage.getItem('tk-lockbar-h') || '340', 10);
 function tkCueIndexForTime(sec){
   for(let i = 0; i < tkAudioCues.length; i++){
     const c = tkAudioCues[i];
@@ -7301,8 +7368,30 @@ function tkScrollToCurrentDebate(){
     const stickyH = sticky ? sticky.offsetHeight : 0;
     const elTop = el.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop;
     scroll.scrollTop = Math.max(0, elTop - stickyH - 14);
+    tkUpdateDebateGlowBar();
   });
 }
+// Positions the fixed glow bar (see .tkDebateGlowBar) flush with the true left edge of the
+// screen, spanning the full height of whichever sentence/card is current — clamped to the
+// scrollable pane's own visible bounds so it never pokes up behind the sticky header or down
+// into the lock bar, and hidden outright once the target has scrolled fully out of view. Called
+// after every render/scroll, and continuously while the resize grip is being dragged, since
+// either can change what's actually visible on screen.
+function tkUpdateDebateGlowBar(){
+  const bar = document.getElementById('tkDebateGlowBar');
+  const scroll = document.getElementById('tkReviewScroll');
+  const el = scroll && scroll.querySelector('.tkDebateCurrent');
+  if(!bar || !el){ if(bar) bar.style.display = 'none'; return; }
+  const scrollRect = scroll.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const top = Math.max(elRect.top, scrollRect.top);
+  const bottom = Math.min(elRect.bottom, scrollRect.bottom);
+  if(bottom <= top){ bar.style.display = 'none'; return; }
+  bar.style.display = 'block';
+  bar.style.top = top + 'px';
+  bar.style.height = (bottom - top) + 'px';
+}
+document.getElementById('tkReviewScroll').addEventListener('scroll', tkUpdateDebateGlowBar, {passive:true});
 // { idx: <raw index into t.result.debates>, debate } for every debate not yet resolved, in
 // original order. idx is what approve/override/edit need to mutate the right object; the
 // position WITHIN this returned array is what tkDebateIdx actually counts.
@@ -7442,9 +7531,9 @@ function tkRenderArbitrateSideCards(openOtherDebates, currentIdx){
 function tkRenderArbitrateReview(entry, t){
   const debates = (t.result && t.result.debates) || [];
   const open = tkArbitrateOpenDebates(debates);
-  const nameLine = '<span class="tkRvYearBig">' + esc(fmtYear(entry.y)) + '</span> <span class="tkRvYearBig">' + esc(entry.n) + '</span>';
+  const nameLine = '<span class="tkRvYearBig">' + esc(fmtYear(entry.y)) + '</span> <span class="tkArbNameLine">' + esc(entry.n) + '</span>';
   if(!open.length){
-    return '<div class="tkRvSticky">' + nameLine + '</div>' +
+    return '<div class="tkRvSticky tkArbSticky">' + nameLine + '</div>' +
       '<p class="tkNote">Every debate on this entity has been resolved.</p>';
   }
   if(tkDebateIdx >= open.length) tkDebateIdx = open.length - 1;
@@ -7452,8 +7541,8 @@ function tkRenderArbitrateReview(entry, t){
   const showOrig = tkDebateShown.has(currentIdx);
   const openArticle = open.filter(x => x.debate.kind === 'article');
   const openOther = open.filter(x => x.debate.kind !== 'article');
-  return '<div class="tkRvSticky"><div class="tkArbHeadRow"><div>' + nameLine + '</div>' +
-      '<button class="tkPill tkPillToggle ' + (showOrig ? 'tkPillGrey' : 'tkPillYellow') + '" data-debate-idx="' + currentIdx + '">' +
+  return '<div class="tkRvSticky tkArbSticky"><div class="tkArbHeadRow"><div class="tkArbHeadName">' + nameLine + '</div>' +
+      '<button class="tkPill tkPillToggle" data-debate-idx="' + currentIdx + '">' +
         (showOrig ? 'Original' : 'Proposed') +
       '</button>' +
     '</div></div>' +
@@ -7580,6 +7669,8 @@ function renderTaskReview(){
   const lock = document.getElementById('tkLockBar');
   lock.className = 'tkLockBar'; // cleared every render; the arbitrate branch below re-adds its
                                  // own contrast modifier only when it actually renders
+  lock.style.height = ''; // ditto for the resized height — only re-applied inside that branch
+  document.getElementById('tkResizeGrip').classList.remove('active');
   const t = tkTask(tkReviewIds[tkReviewIdx]);
   if(!t){ tkGoList(); return; }
 
@@ -7812,6 +7903,8 @@ function renderTaskReview(){
     const cur = open[tkDebateIdx];
     const d = cur.debate;
     lock.classList.add('tkArbLock');
+    lock.style.height = tkLockBarH + 'px';
+    document.getElementById('tkResizeGrip').classList.add('active');
 
     if(tkDebateEditing){
       const raw = d.kind === 'facts' ? ((entry.facts || [])[parseInt(d.sentence, 10) - 1] || {}).value
@@ -7832,7 +7925,7 @@ function renderTaskReview(){
     const proposer = tkArbitrateModelLabel(d.proposedBy), arbiter = tkArbitrateModelLabel(d.arbitratedBy);
     const hasVoiceId = !!document.getElementById('audioVoiceId').value.trim();
     const audioOpt = hasVoiceId
-      ? '<label class="tkCheck"><input type="checkbox" id="tkArbAudioChk" checked><span>Record audio<span class="tkCheckNote">Replaces the recording this change invalidates.</span></span></label>'
+      ? '<label class="tkCheck"><input type="checkbox" id="tkArbAudioChk" checked><span>Record audio</span></label>'
       : '<label class="tkCheck disabled"><input type="checkbox" id="tkArbAudioChk" disabled><span>Record audio<span class="tkCheckNote">Set a Voice ID under Import \u2192 Voice &amp; pacing settings first.</span></span></label>';
     // Only a winning proposal ever reaches this screen (see arbitrate.mjs), so the checkmark
     // always belongs to the proposer, and the arbiter is always grouped right next to it —
@@ -8625,6 +8718,31 @@ tkReviewViewEl.addEventListener('touchend', () => {
     tkGoList();
   }
 }, { passive: true });
+
+// Resize grip drag — vertical only, independent of the horizontal/vertical swipe gestures above
+// (this is its own small element, not the review view at large, so there's no axis-lock needed).
+// Dragging up shrinks the visible top pane and grows the lock bar by the same amount; dragging
+// down does the reverse. Clamped so neither pane can be squeezed down to nothing.
+const TK_LOCK_H_MIN = 140, TK_LOCK_H_MAX_MARGIN = 180;
+let tkGripTouch = null;
+document.getElementById('tkResizeGrip').addEventListener('touchstart', (e) => {
+  tkGripTouch = { startY: e.touches[0].clientY, startH: document.getElementById('tkLockBar').getBoundingClientRect().height };
+}, { passive: true });
+document.getElementById('tkResizeGrip').addEventListener('touchmove', (e) => {
+  if(!tkGripTouch) return;
+  e.preventDefault();
+  const dy = tkGripTouch.startY - e.touches[0].clientY; // finger moving up = positive = grow
+  const maxH = window.innerHeight - TK_LOCK_H_MAX_MARGIN;
+  const h = Math.max(TK_LOCK_H_MIN, Math.min(maxH, tkGripTouch.startH + dy));
+  document.getElementById('tkLockBar').style.height = h + 'px';
+  tkUpdateDebateGlowBar(); // the top pane's visible height just changed mid-drag
+}, { passive: false });
+document.getElementById('tkResizeGrip').addEventListener('touchend', () => {
+  if(!tkGripTouch) return;
+  tkGripTouch = null;
+  tkLockBarH = Math.round(document.getElementById('tkLockBar').getBoundingClientRect().height);
+  localStorage.setItem('tk-lockbar-h', String(tkLockBarH));
+});
 
 document.getElementById('tkLockBar').addEventListener('click', async (e) => {
   if(e.target.closest('#tkApprove')){ await tkResolveCurrent(true); return; }
