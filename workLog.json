@@ -9476,12 +9476,53 @@
       "type": "arbitrate",
       "entityId": "st-tarcisius-258",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Tarcisius",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Tarcisius",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Body and Relics",
+            "sentence": "1",
+            "kind": "article",
+            "before": "alongside his deacons Sixtus II and Companions",
+            "after": "alongside his deacons, who are commemorated with him as Sixtus II and Companions",
+            "concern": "The wording incorrectly lists Sixtus II as one of his own deacons, even though Sixtus II is the pope being described. The phrase appears to conflate the pope with the collective designation for him and his companions.",
+            "suggestedCorrection": "Clarify that Sixtus II and his deacons are commemorated together, rather than identifying Sixtus II as one of the deacons.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The original phrasing erroneously conflates the Pope with his deacons.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "INTERNAL CONSISTENCY",
+            "section": "Body and Relics",
+            "sentence": "1",
+            "kind": "article",
+            "before": "Pope Sixtus II — who according to the same tradition governed Rome during these same years of persecution and would himself be martyred not long after, alongside his deacons Sixtus II and Companions",
+            "after": "Pope Sixtus II — who according to the same tradition governed Rome during these same years of persecution and would himself be martyred not long after, alongside his deacons and companions",
+            "concern": "The sentence awkwardly repeats 'Sixtus II' inside the same clause ('alongside his deacons Sixtus II and Companions'), which is internally contradictory and confusing since Sixtus II is the pope just named.",
+            "suggestedCorrection": "Correct the repetitive and contradictory wording regarding Sixtus II and his companions.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "",
+            "proposedBy": "gemini-3.5-flash-lite",
+            "arbitratedBy": "gpt-5.6-luna"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-13T22:05:26.498Z",
-      "updatedAt": "2026-09-13T22:11:22.501Z",
+      "updatedAt": "2026-09-13T22:11:34.115Z",
       "error": null
     },
     {
