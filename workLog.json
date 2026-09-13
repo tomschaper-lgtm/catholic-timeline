@@ -8322,12 +8322,37 @@
       "type": "arbitrate",
       "entityId": "st-matthew-70",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Matthew",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Matthew",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "TRADITION/LEGEND",
+            "section": "A Mission Beyond Judea",
+            "sentence": "2",
+            "kind": "article",
+            "before": "Even so, the unanimous conviction that he died faithfully proclaiming the Gospel remains beyond serious dispute.",
+            "after": "Even so, Christian tradition consistently remembers Matthew as a faithful missionary, although the circumstances and place of his death remain uncertain and the evidence for his martyrdom is not uniform.",
+            "concern": "The preceding sentence itself acknowledges conflicting traditions about Matthew's later ministry and death. It is therefore inaccurate to call the conviction that he was martyred unanimous or beyond serious dispute.",
+            "suggestedCorrection": "Acknowledge that Matthew's missionary activity and possible martyrdom are matters of tradition whose details are uncertain.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Correcting an internal contradiction regarding martyrdom traditions is a genuine factual and editorial improvement.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-13T03:48:22.227Z",
-      "updatedAt": "2026-09-13T03:56:28.287Z",
+      "updatedAt": "2026-09-13T03:56:55.307Z",
       "error": null
     },
     {
@@ -8432,30 +8457,6 @@
       "result": null,
       "createdAt": "2026-09-13T03:48:22.227Z",
       "updatedAt": "2026-09-13T03:48:22.227Z",
-      "error": null
-    },
-    {
-      "id": "task-audio-generate-st-james-the-less-62-1789271803495-476",
-      "type": "audio-generate",
-      "entityId": "st-james-the-less-62",
-      "batchId": null,
-      "status": "queued",
-      "description": "Record audio narration — St. James the Less",
-      "payload": {
-        "voiceId": "DrIa8xWRu2s3gTbGhVO4",
-        "modelId": "eleven_multilingual_v2",
-        "stability": "0.5",
-        "similarityBoost": "0.75",
-        "style": "0",
-        "speed": "1.0",
-        "useSpeakerBoost": true,
-        "readHeadings": true,
-        "headingPauseMs": "500",
-        "sectionPauseMs": "700"
-      },
-      "result": null,
-      "createdAt": "2026-09-13T03:56:43.495Z",
-      "updatedAt": "2026-09-13T03:56:43.495Z",
       "error": null
     }
   ]
