@@ -8699,12 +8699,37 @@
       "type": "arbitrate",
       "entityId": "st-clement-i-99",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Clement I",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Clement I",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "A Name Without a Story",
+            "sentence": "3",
+            "kind": "article",
+            "before": "Tertullian, writing around the year 199, records the tradition that Clement was ordained a bishop by St. Peter himself, and St. Jerome tells us that in his own day ‘most of the Latins’ believed the same.",
+            "after": "Tertullian, writing around the year 199, records the tradition that Clement was ordained a bishop by St. Peter himself. St. Jerome, writing later, says that ‘most of the Latins’ regarded Clement as the second bishop of Rome after Peter, rather than the third or fourth.",
+            "concern": "Jerome's statement concerns Clement's position in the succession, not the tradition that Peter personally ordained him. The sentence incorrectly presents the two authors as reporting the same belief.",
+            "suggestedCorrection": "Separate the two claims and accurately state that Jerome was referring to Clement's position in the Roman succession.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The original conflates Tertullian's claim of Peter's ordination with Jerome's statement on succession order.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-13T03:48:22.227Z",
-      "updatedAt": "2026-09-13T03:58:49.966Z",
+      "updatedAt": "2026-09-13T03:59:02.890Z",
       "error": null
     },
     {
