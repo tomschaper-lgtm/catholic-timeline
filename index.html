@@ -1,9 +1,28 @@
 <!--
-VERSION: 374
-DATE: 2026-09-13T05:36:00-05:00
+VERSION: 377
+DATE: 2026-09-13T06:10:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed the Details panel closing itself whenever the Proposed/Original pill was tapped. That
+  pill fires through the same shared handler as tapping a highlighted sentence/card to jump focus
+  to a different debate, which is meant to close a stale details panel — but the handler didn't
+  distinguish "moved to a different debate" from "toggled the one already showing," so it closed
+  the panel unconditionally either way. Now only resets it on an actual focus change.
+- Removed swipe-down-to-close on the review view entirely. It only ever required being scrolled
+  to the top when the drag started, which sounds narrow but wasn't in practice — starting a
+  perfectly ordinary scroll from scrollTop 0, or just overshooting slightly while scrolling back
+  up, kept closing the whole review out from under Tom. Horizontal swipe-between-tasks is
+  unaffected. The X button in the header is the only way to close a review now.
+- Likely root cause for "couldn't find this exact wording" firing intermittently: curly/smart
+  quotes in the article's own typography vs. straight quotes in a model-generated `before` string
+  (or vice versa) — an otherwise word-for-word-correct match failing over a single typographic
+  character. tkNthIndexOf (the one function behind every before/after match — display AND the
+  actual Approve/apply step) now normalizes curly quotes/apostrophes to straight ones on both
+  sides before searching. Same-length substitution, so the index it returns still correctly
+  locates the phrase in the real, unnormalized text. Doesn't touch the case where the article's
+  own wording has genuinely changed since a task ran — that's a real "not found," still reported
+  the same way.
 - Fixed a real coordinate-drift bug in tkRenderArbitrateArticle explaining "sometimes bolds,
   sometimes doesn't": paragraph offsets were tracked by assuming every paragraph gap in the
   article is exactly two characters (offset += para.length + 2), while tkFindDebateSpan locates
@@ -4342,7 +4361,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v374';
+const APP_VERSION = 'v377';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7520,11 +7539,23 @@ function tkParseBeforeText(raw){
   const m = /^(.*)@(\d+)$/.exec(raw || '');
   return m ? { text: m[1], n: parseInt(m[2], 10) } : { text: raw || '', n: 1 };
 }
+// Curly quotes/apostrophes vs. straight ones are the most likely reason an otherwise-correct
+// before/after match fails: the article's own typography uses curly ('smart') marks, but a
+// model-generated `before` string commonly defaults to straight ones (or vice versa). This is a
+// same-length, character-for-character swap, so normalizing both sides before searching never
+// shifts where a match actually falls in the ORIGINAL (unnormalized) text — the returned index
+// stays valid for slicing the real string.
+function tkNormalizeQuotes(s){
+  return String(s || '')
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"');
+}
 function tkNthIndexOf(haystack, needle, n){
   if(!needle) return -1;
+  const h = tkNormalizeQuotes(haystack), ndl = tkNormalizeQuotes(needle);
   let idx = -1;
   for(let i = 0; i < n; i++){
-    idx = haystack.indexOf(needle, idx + 1);
+    idx = h.indexOf(ndl, idx + 1);
     if(idx === -1) return -1;
   }
   return idx;
@@ -8806,10 +8837,13 @@ document.getElementById('tkReviewScroll').addEventListener('click', (e) => {
     const t = tkTask(tkReviewIds[tkReviewIdx]);
     const debates = (t && t.result && t.result.debates) || [];
     const open = tkArbitrateOpenDebates(debates);
+    const wasIdx = (open[tkDebateIdx] || {}).idx;
     const pos = open.findIndex(x => x.idx === idx);
     if(pos !== -1) tkDebateIdx = pos;
-    tkDebateDetailsOpen = false;
-    tkDebateDetailsFor = null;
+    // The Proposed/Original pill fires through this exact same handler (it carries a
+    // data-debate-idx too) — only close the details panel when the tap actually moves focus to
+    // a different debate, not when it's just toggling the one already showing.
+    if(idx !== wasIdx){ tkDebateDetailsOpen = false; tkDebateDetailsFor = null; }
     renderTaskPanel();
     return;
   }
@@ -8893,25 +8927,24 @@ document.getElementById('tkList').addEventListener('click', (e) => {
   tkOpenReview(row.dataset.task);
 });
 
-// Swipe gestures on the review view. Horizontal moves through the list, vertical-down closes.
-// The axis is locked on the first meaningful movement so a diagonal drag can't do both, and
-// a downward swipe only closes when the content is already scrolled to the top — otherwise
-// pulling down through a long article would eject you out of it.
+// Swipe gestures on the review view. Horizontal moves through the list — axis-locked on the
+// first meaningful movement so a diagonal drag can't also be misread as the wrong direction.
+// Swipe-down-to-close used to live here too; removed (see the touchend handler below) since it
+// kept firing during ordinary scrolling instead of only when actually meant.
 let tkTouch = null;
-const TK_SWIPE_X = 60, TK_SWIPE_Y = 80;
+const TK_SWIPE_X = 60;
 const tkReviewViewEl = document.getElementById('tkViewReview');
 tkReviewViewEl.addEventListener('touchstart', (e) => {
   if(e.touches.length !== 1){ tkTouch = null; return; }
   // The footer (buttons, the audio checkbox, and especially the Edit textarea) isn't part of
   // the swipeable content area — a drag while selecting text or moving the cursor there should
-  // never be read as swipe-to-close or swipe-between-tasks. Plain taps on its buttons were never
-  // affected either way (no movement means no axis, so touchend's checks below never fire for
-  // those) — this only stops drags starting in the footer from being tracked as gestures at all.
+  // never be read as swipe-between-tasks. Plain taps on its buttons were never affected either
+  // way (no movement means no axis, so touchend's check below never fires for those) — this only
+  // stops drags starting in the footer from being tracked as gestures at all.
   if(e.target.closest('#tkLockBar')){ tkTouch = null; return; }
   tkTouch = {
     x0: e.touches[0].clientX, y0: e.touches[0].clientY,
-    dx: 0, dy: 0, axis: null,
-    atTop: document.getElementById('tkReviewScroll').scrollTop <= 0
+    dx: 0, dy: 0, axis: null
   };
 }, { passive: true });
 tkReviewViewEl.addEventListener('touchmove', (e) => {
@@ -8927,14 +8960,16 @@ tkReviewViewEl.addEventListener('touchmove', (e) => {
 }, { passive: false });
 tkReviewViewEl.addEventListener('touchend', () => {
   if(!tkTouch) return;
-  const { dx, dy, axis, atTop } = tkTouch;
+  const { dx, axis } = tkTouch;
   tkTouch = null;
   if(tkView !== 'review') return;
   if(axis === 'x' && Math.abs(dx) > TK_SWIPE_X){
     tkStepReview(dx < 0 ? 1 : -1);   // left = further down the list, right = back up
-  }else if(axis === 'y' && dy > TK_SWIPE_Y && atTop){
-    tkGoList();
   }
+  // Swipe-down-to-close used to live here — removed. It fired far too easily during ordinary
+  // scrolling (continuing to drag down after reaching the top, or even just scrolling normally
+  // starting from scrollTop 0) and closed the whole review out from under Tom repeatedly. The X
+  // button in the header is the reliable way to close one now — no gesture competing with scroll.
 }, { passive: true });
 
 // Resize grip drag — vertical only, independent of the horizontal/vertical swipe gestures above
