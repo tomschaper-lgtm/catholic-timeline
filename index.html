@@ -1,9 +1,26 @@
 <!--
-VERSION: 368
-DATE: 2026-09-12T18:00:00-05:00
+VERSION: 370
+DATE: 2026-09-12T19:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Arbitrate Review nav row: added a "1 of 3"-style debate counter in the gap between the Claude
+  pill and the proposer/arbiter group (space-between naturally centers it with three children).
+- Record audio and Next now share one row instead of stacking on two lines — the standalone
+  "Next →" line is gone, folded into the end of the same line as the checkbox.
+- Fixed two tangled issues Tom flagged from a screenshot: the generic "N of M · swipe left/right"
+  hint every review screen gets is now suppressed specifically for Arbitrate Review — it was
+  counting position across ALL queued review tasks (unrelated to this debate) and, sitting right
+  after a Quick Facts card, looked like it was explaining that card's change when it wasn't. And
+  it wasn't, because that was the real bug: Quick Facts/Quoted Sources debate cards never actually
+  showed their before/after diff at all, just a bare label — they now get the same word-bolded
+  diff treatment the article's sentences already have, toggleable the same way.
+- Fixed swipe-to-close/swipe-between-tasks firing while interacting with the footer, most
+  noticeably while trying to select text or move the cursor in the Arbitrate Review Edit box. The
+  gesture listener was bound across the whole review view including the footer; it now ignores
+  any touch that starts inside #tkLockBar entirely. Plain taps on the footer's own buttons/
+  checkbox were never affected by this bug either way (no drag, no false-triggered swipe) and
+  aren't affected by the fix.
 - Arbitrate Review: tkArbitrateModelLabel now returns company names — "OpenAI" (was "Luna"),
   "Google" (was "Gemini") — everywhere it's used (the nav row's pills, the reasoning line's pill,
   the comment line's pill). One function, so this was the only edit needed. Left "Claude" as-is —
@@ -1553,6 +1570,7 @@ v332 CHANGES (unchanged from the version this build started from):
     pointer-events:none; display:none;
   }
   .tkDebateCard{border:1px solid #E7E1CE; border-radius:10px; padding:10px 12px; margin:8px 0; cursor:pointer; font-size:17px; color:#2B2F3A;}
+  .tkDebateCardLabel{font-size:11.5px; font-weight:700; color:#8A90A0; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px;}
   .tkDebateCard.tkDebateCurrent{border-color:var(--gold-deep,#9A7B22); box-shadow:0 0 0 2px var(--gold-deep,#9A7B22);}
   /* Story text bumped noticeably from the base .tkPara size, scoped to Arbitrate Review only
      (via the extra .tkArbSections class on the wrapper) rather than raising .tkPara itself,
@@ -1581,6 +1599,10 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkArrowBtn:disabled{opacity:1; cursor:default;}
   .tkDebateModels{display:flex; align-items:center; justify-content:space-between; flex:1 1 auto; min-width:0;}
   .tkDebateModelsGroup{display:flex; align-items:center; gap:4px;}
+  /* Sits in the middle gap space-between already leaves — with exactly three flex children the
+     two gaps come out equal, so this lands visually centered between the Claude pill and the
+     proposer/arbiter group without any extra positioning. */
+  .tkDebateCount{font-size:13px; font-weight:700; color:var(--gold-deep,#9A7B22); white-space:nowrap;}
   /* The line-item content — the proposer's reasoning, the arbiter's comment — reads at the same
      size/color/family as the story above, not the smaller grey .tkNote treatment the rest of
      this app's review screens use for metadata. */
@@ -1594,8 +1616,11 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkArbNavSticky{flex:none; padding:14px 20px 6px;}
   .tkArbScrollMid{flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 20px;}
   .tkArbBottomSticky{flex:none; padding:10px 20px calc(16px + env(safe-area-inset-bottom));}
+  /* Record audio + Next share one row now instead of stacking on two lines — same info, less
+     vertical space, which is the whole point of this footer. */
+  .tkArbAudioRow{display:flex; align-items:center; justify-content:space-between; gap:10px;}
   .tkArbNextLink{
-    align-self:flex-start; background:none; border:none; padding:4px 0; margin-top:2px;
+    background:none; border:none; padding:4px 0; flex:none;
     color:var(--gold-deep,#9A7B22); font-weight:700; font-size:14px; font-family:inherit; cursor:pointer;
   }
   .tkArbEditBox{
@@ -4278,7 +4303,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v368';
+const APP_VERSION = 'v370';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7600,17 +7625,23 @@ function tkRenderArbitrateArticle(entry, openArticleDebates, currentIdx){
   }).join('');
 }
 // 'facts'/'quotes' debates aren't part of the running prose above — shown as their own small
-// tappable cards instead, in the same order they'd appear in Quick Facts / Quoted Sources. Just
-// a label to navigate to — the actual before/after/reasoning for whichever one is current lives
-// in the sticky footer now, not duplicated here.
+// tappable cards instead, in the same order they'd appear in Quick Facts / Quoted Sources. Now
+// shows the actual diff (word-bolded, same as the article's sentences) rather than just a bare
+// label — tapping the card toggles original/proposed the same way tapping a highlighted sentence
+// does, via the existing delegated [data-debate-idx] handler.
 function tkRenderArbitrateSideCards(openOtherDebates, currentIdx){
   if(!openOtherDebates.length) return '';
   return '<div class="tkRvHead">Quick Facts &amp; Quoted Sources</div>' +
     openOtherDebates.map(x => {
       const d = x.debate;
+      const showOrig = tkDebateShown.has(x.idx);
+      const rawBefore = tkParseBeforeText(d.before).text;
+      const shown = showOrig ? rawBefore : d.after;
+      const other = showOrig ? d.after : rawBefore;
       const cls = 'tkDebateCard' + (x.idx === currentIdx ? ' tkDebateCurrent' : '');
       return '<div class="' + cls + '" data-debate-idx="' + x.idx + '">' +
-        esc(d.kind === 'facts' ? 'Quick Facts' : 'Quoted Sources') + ' #' + esc(d.sentence) +
+        '<div class="tkDebateCardLabel">' + esc(d.kind === 'facts' ? 'Quick Facts' : 'Quoted Sources') + ' #' + esc(d.sentence) + '</div>' +
+        tkWordDiffBold(other, shown) +
       '</div>';
     }).join('');
 }
@@ -7906,8 +7937,10 @@ function renderTaskReview(){
       tkRenderSummary(t);
   }
   const pos = (tkReviewIdx + 1) + ' of ' + tkReviewIds.length;
-  body += '<div class="tkHint">' + pos + ' \u00b7 swipe left or right to move through the list' +
-    '<br>swipe down to go back</div>';
+  if(!isArbitrateReview){
+    body += '<div class="tkHint">' + pos + ' \u00b7 swipe left or right to move through the list' +
+      '<br>swipe down to go back</div>';
+  }
   scroll.innerHTML = body;
   scroll.scrollTop = 0;
 
@@ -8032,6 +8065,7 @@ function renderTaskReview(){
         '<button class="tkArrowBtn" id="tkArbPrev"' + (tkDebateIdx === 0 ? ' disabled' : '') + '>\u2190</button>' +
         '<div class="tkDebateModels">' +
           '<span class="tkPill tkPillModel">Claude</span>' +
+          '<span class="tkDebateCount">' + (tkDebateIdx + 1) + ' of ' + open.length + '</span>' +
           '<span class="tkDebateModelsGroup">' +
             '<span class="tkPill tkPillModel">' + esc(proposer) + ' \u2713</span>' +
             '<span class="tkPill tkPillModel">' + esc(arbiter) + '</span>' +
@@ -8044,9 +8078,9 @@ function renderTaskReview(){
         (d.comment ? '<div class="tkArbLine"><span class="tkPill tkPillModel">' + esc(arbiter) + '</span>' + esc(d.comment) + '</div>' : '') +
       '</div>' +
       '<div class="tkArbBottomSticky">' +
-        '<div class="tkLockOpts">' + audioOpt +
+        '<div class="tkLockOpts"><div class="tkArbAudioRow">' + audioOpt +
           '<button class="tkArbNextLink" id="tkArbNextInline">Next \u2192</button>' +
-        '</div>' +
+        '</div></div>' +
         '<div class="tkLockBtns">' +
           '<button class="tkBtn go" id="tkArbApprove">Approve</button>' +
           '<button class="tkBtn no" id="tkArbOverride">Override</button>' +
@@ -8793,6 +8827,12 @@ const TK_SWIPE_X = 60, TK_SWIPE_Y = 80;
 const tkReviewViewEl = document.getElementById('tkViewReview');
 tkReviewViewEl.addEventListener('touchstart', (e) => {
   if(e.touches.length !== 1){ tkTouch = null; return; }
+  // The footer (buttons, the audio checkbox, and especially the Edit textarea) isn't part of
+  // the swipeable content area — a drag while selecting text or moving the cursor there should
+  // never be read as swipe-to-close or swipe-between-tasks. Plain taps on its buttons were never
+  // affected either way (no movement means no axis, so touchend's checks below never fire for
+  // those) — this only stops drags starting in the footer from being tracked as gestures at all.
+  if(e.target.closest('#tkLockBar')){ tkTouch = null; return; }
   tkTouch = {
     x0: e.touches[0].clientX, y0: e.touches[0].clientY,
     dx: 0, dy: 0, axis: null,
