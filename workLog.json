@@ -7694,12 +7694,53 @@
       "type": "arbitrate",
       "entityId": "st-james-the-greater-44",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. James the Greater",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. James the Greater",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "VERIFY",
+            "category": "FACT",
+            "section": "First of the Apostles to Die",
+            "sentence": "1",
+            "kind": "article",
+            "before": "making him, around the year 44, the first of the Twelve to be martyred and the only apostolic death recorded directly in the New Testament itself",
+            "after": "making him, around the year 44, the first of the Twelve to be martyred and the only death of one of the Twelve recorded directly in the New Testament itself",
+            "concern": "The phrase \"apostolic death\" can be read as including Stephen, who is described in Acts as a martyr but was not one of the Twelve. The intended claim is specifically about the Twelve and should be stated more precisely.",
+            "suggestedCorrection": "Specify \"one of the Twelve\" to avoid conflating the Twelve Apostles with the broader group of Christian apostles or martyrs.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "A useful clarification to distinguish James from proto-martyrs like Stephen.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Quick Facts",
+            "sentence": "2",
+            "kind": "facts",
+            "before": "c. 44, Jerusalem (beheaded by Herod Agrippa)",
+            "after": "c. 44, Jerusalem (killed with the sword by Herod Agrippa I)",
+            "concern": "Acts 12:2 records that Herod Agrippa I killed James \"with the sword,\" but it does not specify beheading. Beheading appears in the later tradition attributed to Clement of Alexandria, which the article itself presents as an additional traditional detail rather than as the direct New Testament account.",
+            "suggestedCorrection": "Use the wording of Acts in the Quick Facts entry, or explicitly qualify beheading as a later tradition.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "More faithful to the biblical text in Acts 12:2, avoiding an unverified specific method of execution in the quick facts.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-13T03:48:22.227Z",
-      "updatedAt": "2026-09-13T03:52:23.452Z",
+      "updatedAt": "2026-09-13T03:52:43.618Z",
       "error": null
     },
     {
