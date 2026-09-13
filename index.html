@@ -1,9 +1,32 @@
 <!--
-VERSION: 378
-DATE: 2026-09-13T07:15:00-05:00
+VERSION: 381
+DATE: 2026-09-13T10:37:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- The nav row (Prev/pills/Next) is now just as draggable as the thin grip bar for resizing the
+  footer — Tom's ask, since the grip alone is a small target. Caught my own bug before shipping:
+  my first pass tried to attach the drag listener directly to the nav row, but that row gets torn
+  down and rebuilt on every render (it's part of #tkLockBar's own innerHTML), so the listener
+  would've silently stopped working the moment a debate changed. Delegated through #tkLockBar
+  itself instead, which stays stable across renders even though its contents don't — same fix
+  shape as the swipe-navigation exclusion a few versions back. A touch starting on an actual
+  button (the arrows, the proposer pill's details toggle) still isn't captured as a drag, same
+  guard the grip itself already used.
+- Two new public-facing features, neither gated behind Owner Tools — both for every visitor:
+  - One-time disclaimer gate on first visit (localStorage-persisted, never shown again once
+    dismissed): explains the site is under active review and points to "Report an issue."
+  - "Report an issue" button at the end of every article (both the saint/event renderer and the
+    Info/explainer-page renderer) opens an in-app form — message + optional reply email — that
+    sends straight to Tom via Web3Forms, a form-to-email relay for static sites with no backend.
+    No mailto:, no leaving the app. Requires a real Web3Forms access key in WEB3FORMS_KEY (still
+    a placeholder — sign up free at web3forms.com, no password needed, and send the key over to
+    have it baked in) before submissions will actually deliver; the button and form work and fail
+    gracefully with a clear message either way.
+- The version number in the header (visible next to "Timeline" in the title) was showing to every
+  visitor, not just Tom — a plain developer detail with no reason to be public. Now hidden behind
+  the same Owner Tools unlock as everything else in that group (updateManageVisibility), so it
+  only ever shows on his own device once he's actually unlocked it.
 - The "couldn't find this exact wording" warning only ever covered 'article'-kind debates — a
   Quick Facts or Quoted Sources debate whose text couldn't be located had no proactive warning at
   all, so pressing Approve just failed with an easy-to-miss message and nothing visibly happened.
@@ -1676,7 +1699,7 @@ v332 CHANGES (unchanged from the version this build started from):
      own left/right padding since the outer .tkArbLock now carries none), the reasoning/comment
      text in between gets whatever space is left and scrolls on its own if it doesn't fit —
      .tkLockBar.tkArbLock itself is the flex column that makes this possible (see its own rule). */
-  .tkArbNavSticky{flex:none; padding:8px 20px 6px;}
+  .tkArbNavSticky{flex:none; padding:8px 20px 6px; cursor:ns-resize; touch-action:none;}
   /* Fallback disclosure — tapping the proposer's own pill reveals this, spelling out section/
      sentence/original/proposed in plain text for exactly the case where the inline bolded diff
      isn't showing anything useful. Lives at the top of the scrollable middle, not the fixed nav
@@ -2215,6 +2238,48 @@ v332 CHANGES (unchanged from the version this build started from):
     padding:9px 12px; cursor:pointer; font-weight:600;
   }
   .artopen:hover{background:var(--gold-bright);}
+  /* Deliberately quieter than .artopen above — this shouldn't visually compete with "Open Full
+     Article" or read as a primary action, just be reliably findable at the end of every entry. */
+  .reportIssueBtn{
+    display:block; width:100%; margin:22px 0 6px; padding:8px 0;
+    background:none; border:none; border-top:1px solid rgba(201,165,66,.25);
+    color:var(--gold-deep,#9A7B22); font-size:12px; font-family:system-ui,-apple-system,sans-serif;
+    text-align:center; cursor:pointer; opacity:.8;
+  }
+  .reportIssueBtn:hover{opacity:1; text-decoration:underline;}
+  .reportModal, .disclaimerGate{
+    display:none; position:fixed; inset:0; z-index:400;
+    background:rgba(7,15,34,.72); align-items:center; justify-content:center; padding:20px;
+  }
+  .reportModalBox, .disclaimerBox{
+    position:relative; width:100%; max-width:420px; max-height:85vh; overflow-y:auto;
+    background:var(--navy,#0B1630); border:1px solid rgba(201,165,66,.4); border-radius:12px;
+    padding:22px 20px; color:#EFE6CE; font-family:system-ui,-apple-system,sans-serif;
+  }
+  .reportModalBox h3, .disclaimerBox h2{
+    font-family:'Cinzel',serif; color:var(--gold-bright,#E8CD7E); margin:0 0 10px; font-size:18px;
+  }
+  .disclaimerBox p{font-size:14px; line-height:1.55; margin:0 0 12px; color:#D9D2BC;}
+  .reportModalEntity{font-size:13px; color:#B9AE86; margin:0 0 12px;}
+  .reportModalBox textarea, .reportModalBox input[type=email]{
+    width:100%; box-sizing:border-box; font-family:inherit; font-size:14px;
+    background:#132043; border:1px solid rgba(201,165,66,.3); border-radius:8px;
+    color:#EFE6CE; padding:9px 10px; margin-bottom:10px;
+  }
+  .reportModalBox textarea{min-height:100px; resize:vertical;}
+  .reportModalSubmit, .disclaimerOkBtn{
+    width:100%; font-family:'Cinzel',serif; font-size:12.5px; letter-spacing:.1em; text-transform:uppercase;
+    background:var(--gold); color:var(--navy-deep); border:none; border-radius:6px;
+    padding:10px 12px; cursor:pointer; font-weight:600;
+  }
+  .reportModalSubmit:hover, .disclaimerOkBtn:hover{background:var(--gold-bright);}
+  .reportModalSubmit:disabled{opacity:.6; cursor:default;}
+  .reportModalStatus{font-size:12.5px; color:#B9AE86; margin-top:9px; min-height:1em;}
+  .reportModalClose{
+    position:absolute; top:10px; right:12px; background:none; border:none;
+    color:#B9AE86; font-size:22px; line-height:1; cursor:pointer; padding:4px;
+  }
+  .reportModalClose:hover{color:#fff;}
   .artShareBtn{
     position:absolute; top:10px; right:58px; z-index:10;
     width:30px; height:30px; display:flex; align-items:center; justify-content:center;
@@ -4367,7 +4432,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v378';
+const APP_VERSION = 'v381';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -8991,16 +9056,25 @@ tkReviewViewEl.addEventListener('touchend', () => {
   // button in the header is the reliable way to close one now — no gesture competing with scroll.
 }, { passive: true });
 
-// Resize grip drag — vertical only, independent of the horizontal/vertical swipe gestures above
-// (this is its own small element, not the review view at large, so there's no axis-lock needed).
-// Dragging up shrinks the visible top pane and grows the lock bar by the same amount; dragging
-// down does the reverse. Clamped so neither pane can be squeezed down to nothing.
+// Resize drag — vertical only, independent of the horizontal/vertical swipe gestures above (this
+// is its own small area, not the review view at large, so there's no axis-lock needed). Dragging
+// up shrinks the visible top pane and grows the lock bar by the same amount; dragging down does
+// the reverse. Clamped so neither pane can be squeezed down to nothing.
+//
+// Two drag surfaces share this same logic: the thin grip bar itself, and the nav row above it
+// (Prev/pills/Next) — Tom asked for the nav row's empty space to be just as draggable as the
+// grip, since it's a much bigger target. The touchstart guard below is what keeps that from
+// swallowing taps on the row's actual buttons: a touch starting on any <button> (the two arrows,
+// the proposer pill's details toggle) is left alone to behave as a normal tap, never a drag. The
+// plain, non-button pills (Claude, the arbiter's name) have no tap behavior of their own, so
+// dragging from on top of them is fine.
 const TK_LOCK_H_MIN = 140, TK_LOCK_H_MAX_MARGIN = 180;
 let tkGripTouch = null;
-document.getElementById('tkResizeGrip').addEventListener('touchstart', (e) => {
+function tkGripTouchStart(e){
+  if(e.target.closest('button')) return;
   tkGripTouch = { startY: e.touches[0].clientY, startH: document.getElementById('tkLockBar').getBoundingClientRect().height };
-}, { passive: true });
-document.getElementById('tkResizeGrip').addEventListener('touchmove', (e) => {
+}
+function tkGripTouchMove(e){
   if(!tkGripTouch) return;
   e.preventDefault();
   const dy = tkGripTouch.startY - e.touches[0].clientY; // finger moving up = positive = grow
@@ -9008,13 +9082,27 @@ document.getElementById('tkResizeGrip').addEventListener('touchmove', (e) => {
   const h = Math.max(TK_LOCK_H_MIN, Math.min(maxH, tkGripTouch.startH + dy));
   document.getElementById('tkLockBar').style.height = h + 'px';
   tkUpdateDebateGlowBar(); // the top pane's visible height just changed mid-drag
-}, { passive: false });
-document.getElementById('tkResizeGrip').addEventListener('touchend', () => {
+}
+function tkGripTouchEnd(){
   if(!tkGripTouch) return;
   tkGripTouch = null;
   tkLockBarH = Math.round(document.getElementById('tkLockBar').getBoundingClientRect().height);
   localStorage.setItem('tk-lockbar-h', String(tkLockBarH));
-});
+}
+document.getElementById('tkResizeGrip').addEventListener('touchstart', tkGripTouchStart, { passive: true });
+document.getElementById('tkResizeGrip').addEventListener('touchmove', tkGripTouchMove, { passive: false });
+document.getElementById('tkResizeGrip').addEventListener('touchend', tkGripTouchEnd);
+// The nav row itself (.tkArbNavSticky) is rebuilt from scratch on every render — it's part of
+// #tkLockBar's own innerHTML — so a listener attached directly to it would stop working the very
+// next time a debate changes. #tkLockBar the element is stable across renders even though its
+// contents aren't, so delegate through that instead, only actually starting a drag when the
+// touch lands inside .tkArbNavSticky specifically (the touchstart guard inside tkGripTouchStart
+// still excludes the row's own buttons either way).
+document.getElementById('tkLockBar').addEventListener('touchstart', (e) => {
+  if(e.target.closest('.tkArbNavSticky')) tkGripTouchStart(e);
+}, { passive: true });
+document.getElementById('tkLockBar').addEventListener('touchmove', tkGripTouchMove, { passive: false });
+document.getElementById('tkLockBar').addEventListener('touchend', tkGripTouchEnd);
 
 document.getElementById('tkLockBar').addEventListener('click', async (e) => {
   if(e.target.closest('#tkApprove')){ await tkResolveCurrent(true); return; }
@@ -9656,6 +9744,10 @@ function fillArticleBody(d, peek){
     });
     html += '</ul>';
   }
+  // Visible on every article, to every visitor — not gated behind review mode or Owner Tools.
+  // The whole point is a low-friction way for anyone, not just Tom, to flag something that
+  // looks wrong. See reportIssueBtn's click handler near the bottom of the file.
+  html += '<button class="reportIssueBtn" id="reportIssueBtn" data-entity-id="' + esc(d.id) + '" data-entity-name="' + esc(d.n) + '">Report an issue with this article</button>';
   // Owner-only review actions: only ever shown to an unlocked owner looking at a held entry,
   // never to a visitor (a review-flagged entry excludes itself from the public timeline and
   // search, but a direct link could still open it, so this is gated independently here too).
@@ -13671,6 +13763,10 @@ function updateManageVisibility(){
   document.getElementById('manageBtn').style.display = unlocked ? '' : 'none';
   const reviewModeRow = document.getElementById('reviewModeRow');
   if(reviewModeRow) reviewModeRow.style.display = unlocked ? '' : 'none';
+  // The version number in the header is a developer/debugging aid, not something a visitor
+  // should ever see — same visibility rule as the rest of Owner Tools.
+  const verStamp = document.getElementById('versionStamp');
+  if(verStamp) verStamp.style.display = unlocked ? '' : 'none';
   // The switch itself follows access, not the preference — otherwise turning the CMS off would
   // hide the only control that turns it back on.
   const cmsBox = document.getElementById('cmsEnabled');
@@ -14380,6 +14476,7 @@ function renderAboutPanel(category){
     });
     html += '</ul>';
   }
+  html += '<button class="reportIssueBtn" id="reportIssueBtn" data-entity-id="' + esc(e.id) + '" data-entity-name="' + esc(e.n) + '">Report an issue with this article</button>';
   if(Array.isArray(e.qa) && e.qa.length){
     html += '<div class="arth">Questions &amp; Answers</div>';
     e.qa.forEach(item => {
@@ -15296,6 +15393,109 @@ const APP_ICON = { touch: 'Images/icons/apple-touch-icon.jpg',
     canvas.innerHTML = '<div style="padding:40px 20px; font-style:italic; color:var(--muted);">Could not load the timeline. Try reloading the page.</div>';
   }
 })();
+
+// One-time disclaimer gate — shown once per device, never again once dismissed. Not gated behind
+// Owner Tools at all; this is for every visitor, the opposite of everything else that pattern
+// governs in this file.
+(function(){
+  let seen = false;
+  try{ seen = localStorage.getItem('disclaimer-seen') === '1'; }catch(e){}
+  if(!seen){
+    const gate = document.getElementById('disclaimerGate');
+    if(gate) gate.style.display = 'flex';
+  }
+})();
+document.getElementById('disclaimerOkBtn').addEventListener('click', () => {
+  try{ localStorage.setItem('disclaimer-seen', '1'); }catch(e){}
+  document.getElementById('disclaimerGate').style.display = 'none';
+});
+
+// Report an issue — sends straight to Tom via Web3Forms (a form-to-email relay built for exactly
+// this: a static site with no backend of its own). WEB3FORMS_KEY is a public access key, not a
+// secret — it only controls which inbox a submission is delivered to, the same way it's meant to
+// be embedded in client-side code across every site that uses this service.
+const WEB3FORMS_KEY = 'PASTE_YOUR_WEB3FORMS_ACCESS_KEY_HERE';
+let reportEntityId = null, reportEntityName = null;
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('#reportIssueBtn');
+  if(!btn) return;
+  reportEntityId = btn.dataset.entityId || '';
+  reportEntityName = btn.dataset.entityName || '';
+  document.getElementById('reportModalEntity').textContent = reportEntityName ? ('Regarding: ' + reportEntityName) : '';
+  document.getElementById('reportModalMsg').value = '';
+  document.getElementById('reportModalEmail').value = '';
+  document.getElementById('reportModalStatus').textContent = '';
+  document.getElementById('reportModal').style.display = 'flex';
+});
+document.getElementById('reportModalClose').addEventListener('click', () => {
+  document.getElementById('reportModal').style.display = 'none';
+});
+document.getElementById('reportModal').addEventListener('click', (e) => {
+  if(e.target.id === 'reportModal') document.getElementById('reportModal').style.display = 'none';
+});
+document.getElementById('reportModalSubmit').addEventListener('click', async () => {
+  const msgBox = document.getElementById('reportModalMsg');
+  const msg = msgBox.value.trim();
+  const email = document.getElementById('reportModalEmail').value.trim();
+  const statusEl = document.getElementById('reportModalStatus');
+  if(!msg){ statusEl.textContent = 'Please describe what looks off first.'; return; }
+  const btn = document.getElementById('reportModalSubmit');
+  btn.disabled = true;
+  statusEl.textContent = 'Sending\u2026';
+  try{
+    const res = await fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        access_key: WEB3FORMS_KEY,
+        subject: 'Catholic Timeline issue report: ' + (reportEntityName || reportEntityId || 'unknown entry'),
+        from_name: 'Catholic Timeline',
+        entry_id: reportEntityId,
+        entry_name: reportEntityName,
+        message: msg,
+        replyto: email || 'no-reply@catholictimeline.org'
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if(res.ok && data && data.success){
+      statusEl.textContent = 'Thank you \u2014 this has been sent.';
+      msgBox.value = '';
+      setTimeout(() => { document.getElementById('reportModal').style.display = 'none'; }, 1600);
+    }else{
+      statusEl.textContent = 'Something went wrong \u2014 please try again in a moment.';
+    }
+  }catch(err){
+    statusEl.textContent = 'Could not send \u2014 check your connection and try again.';
+  }
+  btn.disabled = false;
+});
 </script>
+<!-- Report an issue — opened from the button at the end of every article (fillArticleBody). -->
+<div class="reportModal" id="reportModal">
+  <div class="reportModalBox">
+    <button class="reportModalClose" id="reportModalClose" aria-label="Close">&times;</button>
+    <h3>Report an Issue</h3>
+    <p class="reportModalEntity" id="reportModalEntity"></p>
+    <textarea id="reportModalMsg" placeholder="What looks off? Be as specific as you can — which sentence or fact, and why."></textarea>
+    <input type="email" id="reportModalEmail" placeholder="Your email (optional, if you'd like a reply)">
+    <button class="reportModalSubmit" id="reportModalSubmit">Send</button>
+    <p class="reportModalStatus" id="reportModalStatus"></p>
+  </div>
+</div>
+
+<!-- One-time disclaimer gate — shown once per device (localStorage), never again after "I
+     Understand" is tapped. See the IIFE near the bottom of the script that checks/shows it. -->
+<div class="disclaimerGate" id="disclaimerGate">
+  <div class="disclaimerBox">
+    <h2>Before You Explore</h2>
+    <p>Catholic Timeline is a growing resource. Every article is checked by multiple independent
+       AI reviewers against primary Catholic sources, but with hundreds of entries, not every one
+       has been personally read by a human yet.</p>
+    <p>If anything looks wrong, please use "Report an issue" at the end of any article —
+       corrections are always welcome.</p>
+    <button class="disclaimerOkBtn" id="disclaimerOkBtn">I Understand — Continue</button>
+  </div>
+</div>
+
 </body>
 </html>
