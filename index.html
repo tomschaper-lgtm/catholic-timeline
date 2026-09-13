@@ -1,9 +1,15 @@
 <!--
-VERSION: 377
-DATE: 2026-09-13T06:10:00-05:00
+VERSION: 378
+DATE: 2026-09-13T07:15:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- The "couldn't find this exact wording" warning only ever covered 'article'-kind debates — a
+  Quick Facts or Quoted Sources debate whose text couldn't be located had no proactive warning at
+  all, so pressing Approve just failed with an easy-to-miss message and nothing visibly happened.
+  New tkDebateTextFound() unifies the check across all three kinds (facts/quotes checked the same
+  way tkApplyDebateText itself will, before Approve is ever pressed) — the same warning box and
+  auto-opened details panel article debates already get now cover facts/quotes debates too.
 - Fixed the Details panel closing itself whenever the Proposed/Original pill was tapped. That
   pill fires through the same shared handler as tapping a highlighted sentence/card to jump focus
   to a different debate, which is meant to close a stale details panel — but the handler didn't
@@ -4361,7 +4367,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v377';
+const APP_VERSION = 'v378';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7575,6 +7581,19 @@ function tkFindDebateSpan(sections, debate){
   if(at === -1) return null;
   return { sectionIndex: secIdx, start: at, end: at + plainNeedle.length };
 }
+// Whether a debate's before-text can currently be located at all, regardless of kind — the
+// single check the not-found warning uses. 'article' checks via a located span (also used for
+// inline highlighting); 'facts'/'quotes' check the same way tkApplyDebateText itself will, so a
+// debate that can't actually be approved is flagged before Approve is ever pressed, not only
+// after it silently fails.
+function tkDebateTextFound(entry, debate){
+  if(debate.kind === 'article'){
+    return !!tkFindDebateSpan((entry.art && entry.art.sections) || [], debate);
+  }
+  const raw = tkDebateRawText(entry, debate);
+  const { text: needle, n } = tkParseBeforeText(debate.before);
+  return tkNthIndexOf(raw, needle, n) !== -1;
+}
 // Actually applies a debate's fix — 'facts'/'quotes' are addressed by position (debate.sentence,
 // 1-based, exactly matching how proofreader-skill.md numbered them going out); 'article' matches
 // debate.before verbatim in that section's raw HTML, same discipline (and same "can't span a tag
@@ -8143,7 +8162,7 @@ function renderTaskReview(){
     // highlight anywhere, no bold, Original/Proposed toggling nothing, with no indication
     // anything was wrong. Auto-opens the details fallback (still closeable) instead of leaving
     // that to be discovered by accident.
-    const notFound = d.kind === 'article' && !tkFindDebateSpan((entry.art && entry.art.sections) || [], d);
+    const notFound = !tkDebateTextFound(entry, d);
     if(notFound && tkDebateDetailsFor !== cur.idx){ tkDebateDetailsOpen = true; }
     tkDebateDetailsFor = cur.idx;
     // Fallback for exactly the case where the inline bolded diff isn't showing anything useful
