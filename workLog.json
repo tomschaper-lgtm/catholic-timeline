@@ -7602,12 +7602,53 @@
       "type": "arbitrate",
       "entityId": "st-veronica-33",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Veronica",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Veronica",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "The Veil in Rome",
+            "sentence": "2",
+            "kind": "article",
+            "before": "In 1297, Pope Boniface VIII had it moved into the new St. Peter's Basilica.",
+            "after": "By 1297, Pope Boniface VIII had it placed in a chapel of the old St. Peter's Basilica.",
+            "concern": "The present St. Peter's Basilica was not under construction until the sixteenth century and was not the basilica standing in 1297. The sentence projects the current building backward in time. The historical details of the relic's location and Boniface VIII's role should also be checked against authoritative sources.",
+            "suggestedCorrection": "Replace the reference to the 'new St. Peter's Basilica' with the correct historical location, or qualify the entire claim if the exact action attributed to Boniface VIII is uncertain.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The original conflates the old and new St. Peter's Basilicas, making this a clear factual error.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "VERIFY",
+            "category": "TERMINOLOGY",
+            "section": "The True Image",
+            "sentence": "1",
+            "kind": "article",
+            "before": "Her name is not really a name at all. It comes from two Latin words: vera icon, \"true image.\"",
+            "after": "Her name has traditionally been explained through the Latin phrase vera icon, \"true image,\" although scholars also connect it with the personal name Berenice.",
+            "concern": "The vera icon explanation is a medieval popular etymology, not an established derivation. Presenting it as the certain origin of the name is misleading, especially because Veronica is also related to the Greek personal name Berenice.",
+            "suggestedCorrection": "Present vera icon as a traditional or popular explanation and acknowledge the alternative connection with Berenice.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Adding the alternative scholarly derivation prevents presenting a medieval folk etymology as absolute fact.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-13T03:48:22.227Z",
-      "updatedAt": "2026-09-13T03:51:48.276Z",
+      "updatedAt": "2026-09-13T03:52:05.761Z",
       "error": null
     },
     {
