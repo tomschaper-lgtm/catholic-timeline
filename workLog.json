@@ -9422,12 +9422,53 @@
       "type": "arbitrate",
       "entityId": "st-denis-companions-250",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Denis & Companions",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Denis & Companions",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Martyrdom on Montmartre",
+            "sentence": "2",
+            "kind": "article",
+            "before": "though the name in fact derives from an earlier Roman temple site",
+            "after": "though its exact etymology is debated, with a traditional derivation from the Latin Mons Martyrum ('mountain of martyrs') and an alternative connection to an earlier Roman temple site",
+            "concern": "The sentence presents the Roman-temple derivation as established fact, but the name Montmartre is traditionally derived from Mons Martyrum ('mountain of martyrs') and its etymology is debated.",
+            "suggestedCorrection": "Present the Roman-temple derivation as an alternative theory rather than the established meaning of the name.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The revision correctly captures the nuance and scholarly debate regarding the etymology of Montmartre.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "MEANING/CLARITY",
+            "section": "A Devotion Confused with Another Dionysius",
+            "sentence": "2",
+            "kind": "article",
+            "before": "He was identified with the Athenian convert of St. Paul mentioned in the Acts of the Apostles.",
+            "after": "Denis was identified with the Athenian convert of St. Paul mentioned in the Acts of the Apostles.",
+            "concern": "The pronoun 'He' is ambiguous because the preceding sentence introduces the first-century Dionysius the Areopagite, making it unclear whether the sentence refers to Denis or to the Areopagite. The sentence also repeats the identification already stated immediately before it.",
+            "suggestedCorrection": "Name Denis explicitly and remove the duplication, for example: 'Denis was consequently identified with the Athenian convert of St. Paul mentioned in the Acts of the Apostles.'",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Replacing the pronoun with the proper name resolves a genuine ambiguity in the text.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-13T22:05:26.498Z",
-      "updatedAt": "2026-09-13T22:11:05.023Z",
+      "updatedAt": "2026-09-13T22:11:21.037Z",
       "error": null
     },
     {
