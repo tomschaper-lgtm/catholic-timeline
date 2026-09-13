@@ -1,9 +1,13 @@
 <!--
-VERSION: 370
-DATE: 2026-09-12T19:00:00-05:00
+VERSION: 371
+DATE: 2026-09-12T23:20:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Found the actual source of the thin line under the resize grip: .tkArbLock never overrode the
+  base .tkLockBar's own border-top, so that 1px grey line was rendering right at the seam between
+  the grip and the footer beneath it the whole time. Explicitly turned it off for .tkArbLock.
+- Grab bar itself: wider (60px, was 40px), thicker (6px, was 4px), and gold instead of grey.
 - Arbitrate Review nav row: added a "1 of 3"-style debate counter in the gap between the Claude
   pill and the proposer/arbiter group (space-between naturally centers it with three children).
 - Record audio and Next now share one row instead of stacking on two lines — the standalone
@@ -1686,12 +1690,12 @@ v332 CHANGES (unchanged from the version this build started from):
      here (instead of the block layout + padding every other screen's lock bar uses) is what lets
      the nav row and the checkbox/buttons stay in place while just the middle content scrolls —
      see .tkArbNavSticky/.tkArbScrollMid/.tkArbBottomSticky, which carry the padding instead. */
-  .tkLockBar.tkArbLock{background:#E4E1D2; display:flex; flex-direction:column; padding:0;}
+  .tkLockBar.tkArbLock{background:#E4E1D2; display:flex; flex-direction:column; padding:0; border-top:none;}
   /* Thin drag handle between the two panes — hidden by default (only Arbitrate Review activates
      it) and hidden again as a safety net whenever the lock bar right after it is actually empty,
      via :has(), since there'd be nothing to resize. touch-action:none plus preventDefault in the
      touchmove handler keep the drag from also scrolling the page underneath it. Same background
-     as the footer it sits above — no separate strip color or border — so the short grey bar is
+     as the footer it sits above — no separate strip color or border — so the grab bar itself is
      the only visual cue, not the handle's own shape. */
   .tkResizeGrip{
     display:none; flex:none; height:18px; cursor:ns-resize; touch-action:none;
@@ -1699,7 +1703,7 @@ v332 CHANGES (unchanged from the version this build started from):
   }
   .tkResizeGrip.active{display:flex;}
   .tkResizeGrip:has(+ #tkLockBar:empty){display:none;}
-  .tkResizeGripBar{width:40px; height:4px; border-radius:2px; background:#C7CAD3;}
+  .tkResizeGripBar{width:60px; height:6px; border-radius:3px; background:var(--gold,#C9A542);}
   .tkLockOpts{display:flex; flex-direction:column; gap:7px; margin-bottom:10px;}
   .tkLockOpts:empty{display:none; margin:0;}
   .tkCheck{display:flex; align-items:flex-start; gap:9px; font-size:13.5px; color:#111827; line-height:1.4;}
@@ -4303,7 +4307,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v370';
+const APP_VERSION = 'v371';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
