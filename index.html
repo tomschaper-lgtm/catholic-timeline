@@ -1,9 +1,19 @@
 <!--
-VERSION: 371
-DATE: 2026-09-12T23:20:00-05:00
+VERSION: 372
+DATE: 2026-09-12T23:38:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Removed the standalone "Next →" line under Record audio entirely (added last version, now
+  gone per Tom's follow-up) — the top-right arrow is the only Next control again.
+- The proposer's own pill in the nav row (e.g. "OpenAI ✓") is now a tappable disclosure toggle:
+  reveals a panel spelling out Section, sentence number, Original, and Proposed in plain text —
+  the fallback for exactly the case Tom hit where the inline bolded diff shows nothing useful
+  (the exact phrase couldn't be located in the current article, or a facts/quotes debate with a
+  reasoning line that doesn't make the actual change obvious on its own). Resets closed whenever
+  a different debate becomes current, however that happens (Prev/Next, or tapping a sentence/card
+  elsewhere) — always describing whichever debate is actually on screen, never a stale one.
+- Tightened the space between the grab bar and the nav row below it (8px top padding, was 14px).
 - Found the actual source of the thin line under the resize grip: .tkArbLock never overrode the
   base .tkLockBar's own border-top, so that 1px grey line was rendering right at the seam between
   the grip and the footer beneath it the whole time. Explicitly turned it off for .tkArbLock.
@@ -1586,6 +1596,7 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkArbHeadRow{display:flex; align-items:center; justify-content:space-between; gap:10px;}
   .tkPill{border-radius:12px; padding:4px 11px; font-size:12.5px; font-weight:700; display:inline-block; white-space:nowrap;}
   .tkPillModel{background:var(--navy,#0B1630); color:#fff;}
+  .tkPillBtn{border:none; cursor:pointer; font-family:inherit;}
   .tkPillToggle{border:none; cursor:pointer; font-family:inherit; flex:none; background:var(--gold,#C9A542); color:#fff;}
   /* Footer nav row: gold circular Prev/Next, always full gold regardless of disabled state (the
      disabled attribute still blocks the tap — this only stops it from visually dimming) — with
@@ -1617,16 +1628,16 @@ v332 CHANGES (unchanged from the version this build started from):
      own left/right padding since the outer .tkArbLock now carries none), the reasoning/comment
      text in between gets whatever space is left and scrolls on its own if it doesn't fit —
      .tkLockBar.tkArbLock itself is the flex column that makes this possible (see its own rule). */
-  .tkArbNavSticky{flex:none; padding:14px 20px 6px;}
+  .tkArbNavSticky{flex:none; padding:8px 20px 6px;}
+  /* Fallback disclosure — tapping the proposer's own pill reveals this, spelling out section/
+     sentence/original/proposed in plain text for exactly the case where the inline bolded diff
+     isn't showing anything useful. Lives at the top of the scrollable middle, not the fixed nav
+     row, since original/proposed text can run long and shouldn't eat into fixed footer height. */
+  .tkArbDetails{border:1px solid #C7BFA0; border-radius:8px; padding:8px 10px; margin-bottom:6px; background:#EFEBDD;}
+  .tkArbDetails .tkArbLine{margin-top:6px;}
+  .tkArbDetails .tkArbLine:first-child{margin-top:0;}
   .tkArbScrollMid{flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 20px;}
   .tkArbBottomSticky{flex:none; padding:10px 20px calc(16px + env(safe-area-inset-bottom));}
-  /* Record audio + Next share one row now instead of stacking on two lines — same info, less
-     vertical space, which is the whole point of this footer. */
-  .tkArbAudioRow{display:flex; align-items:center; justify-content:space-between; gap:10px;}
-  .tkArbNextLink{
-    background:none; border:none; padding:4px 0; flex:none;
-    color:var(--gold-deep,#9A7B22); font-weight:700; font-size:14px; font-family:inherit; cursor:pointer;
-  }
   .tkArbEditBox{
     flex:1 1 auto; margin:4px 20px 0; padding:10px 12px; resize:none; border-radius:8px;
     border:1px solid #C7CAD3; background:#fff;
@@ -4307,7 +4318,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v371';
+const APP_VERSION = 'v372';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6678,6 +6689,7 @@ let tkDebateTaskId = null;
 let tkDebateIdx = 0;
 let tkDebateShown = new Set();
 let tkDebateEditing = false; // true while the Edit textarea replaces the debate detail block
+let tkDebateDetailsOpen = false; // true while the section/sentence/original/proposed fallback panel is showing
 // Task List's swipe-to-delete: which row (by task id) is currently swiped open, or null. Only
 // ever one at a time — starting a swipe on a different row, or any re-render, closes whichever
 // row was open before.
@@ -7830,7 +7842,7 @@ function renderTaskReview(){
   // same pattern as tkFinalShowOriginalFor above.
   const isArbitrateReview = t.type === 'arbitrate' && t.status === 'awaiting_review';
   if(isArbitrateReview && tkDebateTaskId !== t.id){
-    tkDebateTaskId = t.id; tkDebateIdx = 0; tkDebateShown = new Set(); tkDebateEditing = false;
+    tkDebateTaskId = t.id; tkDebateIdx = 0; tkDebateShown = new Set(); tkDebateEditing = false; tkDebateDetailsOpen = false;
   }
   // A sentence-reword task bundles every long-sentence fix for the entity into one review — the
   // whole article, Before/After toggle — rather than the single-paragraph-marked view the generic
@@ -8061,6 +8073,18 @@ function renderTaskReview(){
       ? '<label class="tkCheck"><input type="checkbox" id="tkArbAudioChk" checked><span>Record audio</span></label>'
       : '<label class="tkCheck disabled"><input type="checkbox" id="tkArbAudioChk" disabled><span>Record audio<span class="tkCheckNote">Set a Voice ID under Import \u2192 Voice &amp; pacing settings first.</span></span></label>';
     const hasNext = tkDebateIdx < open.length - 1;
+    // Fallback for exactly the case where the inline bolded diff isn't showing anything useful
+    // (the article's own wording moved since this ran, so the exact phrase can't be located, or
+    // this is a facts/quotes debate not shown inline at all) — tapping the proposer's own pill
+    // reveals the raw section/sentence/original/proposed text spelled out, no highlighting
+    // required to make sense of it.
+    const detailsHtml = tkDebateDetailsOpen
+      ? '<div class="tkArbDetails">' +
+          '<div class="tkArbLine"><b>Section:</b> ' + esc(d.section) + ' \u00b7 sentence #' + esc(d.sentence) + '</div>' +
+          '<div class="tkArbLine"><b>Original:</b> ' + esc(tkParseBeforeText(d.before).text) + '</div>' +
+          '<div class="tkArbLine"><b>Proposed:</b> ' + esc(d.after) + '</div>' +
+        '</div>'
+      : '';
     // Only a winning proposal ever reaches this screen (see arbitrate.mjs), so the checkmark
     // always belongs to the proposer, and the arbiter is always grouped right next to it —
     // there's no case where the layout would need to flip to the other side.
@@ -8071,29 +8095,28 @@ function renderTaskReview(){
           '<span class="tkPill tkPillModel">Claude</span>' +
           '<span class="tkDebateCount">' + (tkDebateIdx + 1) + ' of ' + open.length + '</span>' +
           '<span class="tkDebateModelsGroup">' +
-            '<span class="tkPill tkPillModel">' + esc(proposer) + ' \u2713</span>' +
+            '<button class="tkPill tkPillModel tkPillBtn" id="tkArbDetailsToggle">' + esc(proposer) + ' \u2713</button>' +
             '<span class="tkPill tkPillModel">' + esc(arbiter) + '</span>' +
           '</span>' +
         '</div>' +
         '<button class="tkArrowBtn" id="tkArbNext"' + (hasNext ? '' : ' disabled') + '>\u2192</button>' +
       '</div></div>' +
       '<div class="tkArbScrollMid">' +
+        detailsHtml +
         '<div class="tkArbLine"><span class="tkPill tkPillModel">' + esc(proposer) + '</span>' + esc(d.concern) + '</div>' +
         (d.comment ? '<div class="tkArbLine"><span class="tkPill tkPillModel">' + esc(arbiter) + '</span>' + esc(d.comment) + '</div>' : '') +
       '</div>' +
       '<div class="tkArbBottomSticky">' +
-        '<div class="tkLockOpts"><div class="tkArbAudioRow">' + audioOpt +
-          '<button class="tkArbNextLink" id="tkArbNextInline">Next \u2192</button>' +
-        '</div></div>' +
+        '<div class="tkLockOpts">' + audioOpt + '</div>' +
         '<div class="tkLockBtns">' +
           '<button class="tkBtn go" id="tkArbApprove">Approve</button>' +
           '<button class="tkBtn no" id="tkArbOverride">Override</button>' +
           '<button class="tkBtn" id="tkArbEdit">Edit</button>' +
         '</div>' +
       '</div>';
-    document.getElementById('tkArbPrev').addEventListener('click', () => { if(tkDebateIdx > 0){ tkDebateIdx--; renderTaskPanel(); } });
-    document.getElementById('tkArbNext').addEventListener('click', () => { if(hasNext){ tkDebateIdx++; renderTaskPanel(); } });
-    document.getElementById('tkArbNextInline').addEventListener('click', () => { if(hasNext){ tkDebateIdx++; renderTaskPanel(); } });
+    document.getElementById('tkArbPrev').addEventListener('click', () => { if(tkDebateIdx > 0){ tkDebateIdx--; tkDebateDetailsOpen = false; renderTaskPanel(); } });
+    document.getElementById('tkArbNext').addEventListener('click', () => { if(hasNext){ tkDebateIdx++; tkDebateDetailsOpen = false; renderTaskPanel(); } });
+    document.getElementById('tkArbDetailsToggle').addEventListener('click', () => { tkDebateDetailsOpen = !tkDebateDetailsOpen; renderTaskPanel(); });
     document.getElementById('tkArbApprove').addEventListener('click', () => tkResolveArbitrateDebate('approve'));
     document.getElementById('tkArbOverride').addEventListener('click', () => tkResolveArbitrateDebate('override'));
     document.getElementById('tkArbEdit').addEventListener('click', () => { tkDebateEditing = true; renderTaskPanel(); });
@@ -8739,6 +8762,7 @@ document.getElementById('tkReviewScroll').addEventListener('click', (e) => {
     const open = tkArbitrateOpenDebates(debates);
     const pos = open.findIndex(x => x.idx === idx);
     if(pos !== -1) tkDebateIdx = pos;
+    tkDebateDetailsOpen = false;
     renderTaskPanel();
     return;
   }
