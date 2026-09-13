@@ -9730,12 +9730,71 @@
       "type": "arbitrate",
       "entityId": "st-vincent-of-saragossa-304",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Vincent of Saragossa",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Vincent of Saragossa",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "Torments Endured",
+            "sentence": "1",
+            "text": "composed in poetic form by the Spanish Christian poet Prudentius within a generation of his death",
+            "concern": "Prudentius's poetic account dates from roughly a century after Vincent's death, not within a generation. Moreover, Prudentius's work is a poetic martyr hymn rather than straightforwardly an Acts narrative.",
+            "suggestedCorrection": "Replace this with wording such as: \"According to traditional accounts of his martyrdom, poetically commemorated by the Spanish Christian poet Prudentius about a century after his death,\"",
+            "source": "Not externally verified",
+            "kind": "article",
+            "before": "composed in poetic form by the Spanish Christian poet Prudentius within a generation of his death",
+            "after": "preserved in traditional accounts and poetically commemorated by the Spanish Christian poet Prudentius about a century after his death",
+            "winner": "revised",
+            "comment": "Prudentius wrote about a century after the martyrdom, making the correction factually important.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "VERIFY",
+            "category": "FACT",
+            "section": "Arrest Under Dacian",
+            "sentence": "1",
+            "text": "Dacian, evidently regarding the eloquent young deacon as the more dangerous of the two",
+            "concern": "This attributes a specific motive and comparative assessment to Dacian without clear historical evidence. The traditional accounts may describe Vincent receiving harsher treatment, but they do not establish what Dacian privately regarded as the reason.",
+            "suggestedCorrection": "Remove the inferred motive and state simply that, according to the traditional account, Dacian subjected Vincent to escalating and prolonged torture while Valerius was sentenced to exile.",
+            "source": "Not externally verified",
+            "kind": "article",
+            "before": "Dacian, evidently regarding the eloquent young deacon as the more dangerous of the two, subjected Vincent alone to escalating and prolonged torture",
+            "after": "Dacian then subjected Vincent alone to escalating and prolonged torture",
+            "winner": "revised",
+            "comment": "Removing unwarranted speculation about Dacian's private motives improves historical precision.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "QUOTE",
+            "section": "Quoted Sources",
+            "sentence": "1",
+            "kind": "quotes",
+            "before": "You may rest assured that you will tire of inflicting torments sooner than we of suffering them.",
+            "after": "You will tire of inflicting torments sooner than I of suffering them.",
+            "concern": "The quotation in the Quoted Sources block (and its matching prose paraphrase in 'Torments Endured') uses first-person plural ('we... suffering them'), but the traditional Acts of St. Vincent attribute this statement to him in the singular ('I' or 'he'). Furthermore, in the prose section 'Torments Endured', the text says 'they would tire of inflicting torment long before he tired of enduring it', creating an inconsistency between the prose and the quote block.",
+            "suggestedCorrection": "Update the quoted source text to match standard historical accounts of Prudentius's hymn/Acts where Vincent speaks in the singular.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The singular wording better matches the traditional attribution to St. Vincent and resolves the inconsistency with the accompanying prose.",
+            "proposedBy": "gemini-3.5-flash-lite",
+            "arbitratedBy": "gpt-5.6-luna"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-13T22:05:27.998Z",
-      "updatedAt": "2026-09-13T22:12:39.099Z",
+      "updatedAt": "2026-09-13T22:12:56.880Z",
       "error": null
     },
     {
