@@ -1,9 +1,24 @@
 <!--
-VERSION: 386
-DATE: 2026-09-14T18:11:35-05:00
+VERSION: 387
+DATE: 2026-09-14T18:18:31-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Task Automation: new "Auto-approve split sentences" checkbox on Task List, directly under
+  Refresh/Run (Tom's ask — the choice belongs right where a run is started, not in a settings
+  screen). Remembered on this device (localStorage tk-auto-approve-sentence-reword). When checked,
+  any task that reaches status 'proposed' with type 'sentence-reword' gets resolved the moment the
+  app learns about it — reusing wlResolveTasks() exactly as tapping Approve on that one item
+  already did, same patch application via wlApplyTaskToDb/applyOnePatch, same actual outcome
+  (task flips to 'approved', workLog.json saves to GitHub right away, the content change itself
+  still waits for an explicit Publish same as manual approval always has — this skips the Review
+  tap-through, not the publish step). New tkAutoApproveSentenceRewords(), called from the end of
+  loadWorkLog() itself rather than only from the Run button's own click handler, so it also
+  catches proposals already sitting there from an earlier or someone-else's run, not just ones
+  from a run started in this exact session. Deliberately scoped to 'sentence-reword' only, by
+  type, regardless of what Run's own service dropdown has selected — image-generate/finalize
+  (picking a candidate) and arbitrate (an actual editorial debate) still always need a real look
+  and are never auto-resolved by this checkbox.
 - Task Automation: Task List now has a type filter alongside the existing All/Queued/Running/
   Review status chips. A pill at the right edge of the count row ("All types" at rest, the
   service name if exactly one is picked, or "N types") opens a popup listing every service
@@ -1907,6 +1922,17 @@ v332 CHANGES (unchanged from the version this build started from):
     border:1px solid #C7CAD3; border-radius:9px; padding:9px 8px;
   }
   .tkRunCount:focus, .tkRunType:focus{outline:none; border-color:#8A6D1C;}
+  /* Auto-approve toggle: its own row directly under Refresh/Run so the choice sits right where
+     Run is pressed, not buried in a settings screen. Deliberately named/worded around "split
+     sentences" specifically — this only ever resolves sentence-reword proposals (see
+     tkAutoApproveSentenceRewords in JS), never image-generate/finalize or arbitrate proposals,
+     which still need an actual look. */
+  .tkAutoApproveChk{
+    display:flex; align-items:flex-start; gap:8px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12.5px; font-weight:600;
+    color:#4B5266; line-height:1.4; cursor:pointer; -webkit-tap-highlight-color:transparent;
+  }
+  .tkAutoApproveChk input{width:17px; height:17px; margin:1px 0 0; flex:none; accent-color:#2F6B31;}
   /* Deferral banner — work the backend put down rather than failed. Amber, not red: nothing
      is broken, the items are simply still waiting. */
   .tkNotice{
@@ -3817,6 +3843,12 @@ v332 CHANGES (unchanged from the version this build started from):
         <input type="number" class="tkRunCount" id="tkRunCount" value="5" min="1" max="50" inputmode="numeric" aria-label="How many tasks to process">
         <select class="tkRunType" id="tkRunType" aria-label="Which service to run"></select>
       </div>
+      <div class="tkBar" style="padding-top:0; padding-bottom:6px;">
+        <label class="tkAutoApproveChk" for="tkAutoApprove">
+          <input type="checkbox" id="tkAutoApprove">
+          <span>Auto-approve split sentences &mdash; skips Review, still needs Publish to go live</span>
+        </label>
+      </div>
       <div class="tkNotice" id="tkNotice"></div>
       <p class="tkNote" id="tkUpNext"></p>
       <div class="tkBar" style="padding-bottom:8px;">
@@ -4569,7 +4601,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v386';
+const APP_VERSION = 'v387';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6815,6 +6847,7 @@ async function loadWorkLog(){
     // renderWorkLog() rewrites the count line itself, so it runs last — otherwise the freshly
     // rendered summary would be immediately overwritten by a stale "Loading…".
     renderWorkLog();
+    await tkAutoApproveSentenceRewords();
   }catch(err){
     wlSetLog('Could not load workLog.json: ' + err.message, true);
   }
@@ -9593,6 +9626,34 @@ function wlApplyTaskToDb(task){
     }
   }
   return { ok: anyOk, note: notes.join('; ') };
+}
+
+// Auto-approve: the checkbox next to Run/Refresh (#tkAutoApprove), remembered on this device.
+// Deliberately narrow — only ever resolves 'sentence-reword' proposals, since that's the one
+// review Tom asked to be able to skip; image-generate/finalize (picking a candidate) and
+// arbitrate (a real editorial debate) still always need an actual look, checkbox or not. Reuses
+// wlResolveTasks() exactly as tapping Approve on each one individually would — same patch
+// application, same "approved, not yet live" outcome (workLog.json is saved to GitHub right
+// away, but the content change still waits for an explicit Publish, same as manual approval
+// always has). Called from loadWorkLog() itself (not just the Run button's own handler) so it
+// also catches proposals from a run someone else triggered, or a run whose workflow finished
+// before this session's poll did — anywhere the app freshly learns about a 'proposed'
+// sentence-reword task with the box checked.
+const TK_AUTO_APPROVE_KEY = 'tk-auto-approve-sentence-reword';
+(function(){
+  const chk = document.getElementById('tkAutoApprove');
+  if(!chk) return;
+  chk.checked = localStorage.getItem(TK_AUTO_APPROVE_KEY) === '1';
+  chk.addEventListener('change', () => {
+    localStorage.setItem(TK_AUTO_APPROVE_KEY, chk.checked ? '1' : '0');
+  });
+})();
+async function tkAutoApproveSentenceRewords(){
+  const chk = document.getElementById('tkAutoApprove');
+  if(!chk || !chk.checked || !wlData) return;
+  const ids = wlData.tasks.filter(t => t.status === 'proposed' && t.type === 'sentence-reword').map(t => t.id);
+  if(!ids.length) return;
+  await wlResolveTasks(ids, true);
 }
 
 async function wlResolveTasks(taskIds, approve){
