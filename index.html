@@ -1,9 +1,22 @@
 <!--
-VERSION: 387
-DATE: 2026-09-14T18:18:31-05:00
+VERSION: 388
+DATE: 2026-09-14T18:32:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed: the whole app was stuck on "Loading timeline…" forever — my own bug, introduced when the
+  type-filter popup (#tkTypeModal) was added. Its markup was placed at the very end of the body,
+  after the script's own closing tag, following #reportModal's lead. But #tkTypeModal's JS wiring
+  (document.getElementById('tkTypeModalClose').addEventListener(...) etc.) runs early in the
+  script, near tkRows() — long before the browser had parsed that far-down markup into the DOM.
+  getElementById returned null, .addEventListener on null threw, and that uncaught error aborted
+  the rest of the script's top-level execution, including everything below it that fetches
+  data.json and replaces the loading placeholder — so NOTHING after that point ever ran, not just
+  Task Automation. Fixed by moving #tkTypeModal's markup up next to #mgmtExitModal, before the
+  script tag, so it already exists in the DOM by the time its listeners attach. (#reportModal and
+  #disclaimerGate sit in the same after-the-script spot and their own wiring has the identical
+  problem, but that wiring runs at the very end of the script, after everything else — not
+  touched here, since it isn't what broke the timeline and wasn't part of this ask.)
 - Task Automation: new "Auto-approve split sentences" checkbox on Task List, directly under
   Refresh/Run (Tom's ask — the choice belongs right where a run is started, not in a settings
   screen). Remembered on this device (localStorage tk-auto-approve-sentence-reword). When checked,
@@ -4367,6 +4380,30 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
   </div>
 </div>
 
+<!-- Task Automation's type filter popup — lets Tom pick any combination of task types (services)
+     for Task List to show, each row labeled with how many tasks of that type sit under the
+     current All/Queued/Running/Review chip. Opened by #tkTypeFilterBtn. Placed here (before the
+     main script block below, same as #mgmtExitModal just above) rather than down by #reportModal
+     — this popup's own JS wiring runs early in the script (right near tkRows()), so the elements
+     it calls getElementById on on-load have to already exist in the DOM at that point. Putting it
+     after the script's own closing tag instead (where #reportModal/#disclaimerGate live) was the
+     actual bug behind "it no longer loads": that wiring ran before the browser had parsed this
+     markup at all, document.getElementById returned null, and the resulting TypeError on
+     .addEventListener aborted the rest of the script's top-level execution — including
+     everything below it that fetches data.json and replaces "Loading timeline…". -->
+<div class="tkTypeModal" id="tkTypeModal">
+  <div class="tkTypeModalBox">
+    <button class="tkTypeModalClose" id="tkTypeModalClose" aria-label="Close">&times;</button>
+    <h3>Filter by Task Type</h3>
+    <p class="tkNote" style="margin-top:2px;">Counts reflect the current All/Queued/Running/Review tab.</p>
+    <div class="tkTypeModalList" id="tkTypeModalList"></div>
+    <div class="tkTypeModalActions">
+      <button class="tkBtn" id="tkTypeModalClear" type="button">Clear</button>
+      <button class="tkBtn go" id="tkTypeModalApply" type="button">Apply</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ================= SEED DATA =================
@@ -4601,7 +4638,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v387';
+const APP_VERSION = 'v388';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -15846,24 +15883,6 @@ document.getElementById('reportModalSubmit').addEventListener('click', async () 
     <input type="email" id="reportModalEmail" placeholder="Your email (optional, if you'd like a reply)">
     <button class="reportModalSubmit" id="reportModalSubmit">Send</button>
     <p class="reportModalStatus" id="reportModalStatus"></p>
-  </div>
-</div>
-
-<!-- Task Automation's type filter popup — lets Tom pick any combination of task types (services)
-     for Task List to show, each row labeled with how many tasks of that type sit under the
-     current All/Queued/Running/Review chip. Opened by #tkTypeFilterBtn. Placed at body level,
-     same reasoning as #reportModal just above: .taskPanel clips overflow, so a centered modal
-     has to live outside it. -->
-<div class="tkTypeModal" id="tkTypeModal">
-  <div class="tkTypeModalBox">
-    <button class="tkTypeModalClose" id="tkTypeModalClose" aria-label="Close">&times;</button>
-    <h3>Filter by Task Type</h3>
-    <p class="tkNote" style="margin-top:2px;">Counts reflect the current All/Queued/Running/Review tab.</p>
-    <div class="tkTypeModalList" id="tkTypeModalList"></div>
-    <div class="tkTypeModalActions">
-      <button class="tkBtn" id="tkTypeModalClear" type="button">Clear</button>
-      <button class="tkBtn go" id="tkTypeModalApply" type="button">Apply</button>
-    </div>
   </div>
 </div>
 
