@@ -1895,6 +1895,59 @@ v332 CHANGES (unchanged from the version this build started from):
     flex:0 0 auto;
   }
   .tkNotice:empty{display:none;}
+  /* Type filter pill (Task List) — sits at the right edge of the count row via margin-left:auto
+     inside .tkBar's flex row, same row tkCount lives in. Plain grey pill at rest; recolors gold
+     the same way .spChip.active does the moment ANY type is selected, so "a filter is on" reads
+     at a glance without needing to read the label text itself. */
+  .tkTypeFilterBtn{
+    margin-left:auto; font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:12.5px; font-weight:600; color:#4B5266; background:#F7F7F4;
+    border:1px solid #C7CAD3; border-radius:14px; padding:6px 11px; max-width:180px;
+    display:inline-flex; align-items:center; gap:6px; cursor:pointer;
+    -webkit-tap-highlight-color:transparent; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .tkTypeFilterBtn::after{
+    content:''; flex:none; width:6px; height:6px; margin-top:-2px;
+    border-right:1.6px solid currentColor; border-bottom:1.6px solid currentColor; transform:rotate(45deg);
+  }
+  .tkTypeFilterBtn.active{background:#F5F1E4; color:var(--gold-deep,#9A7B22); border-color:#E7D9A8;}
+  /* Popup itself: same centered-overlay shape as #reportModal/#disclaimerGate, but light (white
+     box, dark text) to match the Task Automation panel it belongs to rather than the app's own
+     navy theme those two use. Lives at body level (see HTML near #reportModal), not nested in
+     .taskPanel, which clips overflow and would cut a centered modal off. */
+  .tkTypeModal{
+    display:none; position:fixed; inset:0; z-index:400;
+    background:rgba(7,15,34,.55); align-items:center; justify-content:center; padding:20px;
+  }
+  .tkTypeModal.open{display:flex;}
+  .tkTypeModalBox{
+    position:relative; width:100%; max-width:420px; max-height:80vh; overflow-y:auto;
+    background:#fff; border-radius:14px; padding:22px 20px;
+    color:#111827; font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    box-shadow:0 10px 40px rgba(7,15,34,.32);
+  }
+  .tkTypeModalBox h3{font-family:'Cinzel',serif; color:#111827; margin:0 0 2px; font-size:18px;}
+  .tkTypeModalClose{
+    position:absolute; top:10px; right:12px; background:none; border:none;
+    color:#8A90A0; font-size:22px; line-height:1; cursor:pointer; padding:4px;
+  }
+  .tkTypeModalClose:hover{color:#111827;}
+  .tkTypeModalList{max-height:54vh; overflow-y:auto; margin:12px -4px 2px; -webkit-overflow-scrolling:touch;}
+  /* Reuses .tkCheck (checkbox size/color/spacing already established by Add Task's own
+     checkboxes) rather than a new checkbox style — this is the same kind of control, just one
+     per row instead of one per form. */
+  .tkTypeModalRow{padding:9px 4px; border-bottom:1px solid #EEEDE6; cursor:pointer;}
+  .tkTypeModalRow:last-child{border-bottom:none;}
+  .tkTypeModalRowText{display:flex; justify-content:space-between; align-items:baseline; flex:1 1 auto; gap:10px; min-width:0;}
+  .tkTypeModalRowText > span:first-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .tkTypeModalCount{flex:none; font-size:12.5px; color:#8A90A0; font-variant-numeric:tabular-nums;}
+  /* A type with nothing in the current status chip (e.g. no queued age-backfill right now) is
+     still offered — toggling it now will just be ready the moment one shows up — but dims so the
+     eye isn't drawn to options that would currently do nothing. */
+  .tkTypeModalRow.tkTypeModalEmpty .tkTypeModalRowText > span:first-child{color:#B4B8C4;}
+  .tkTypeModalRow.tkTypeModalEmpty .tkTypeModalCount{color:#C7CAD3;}
+  .tkTypeModalActions{display:flex; gap:9px; margin-top:14px;}
+  .tkTypeModalActions .tkBtn{flex:1 1 0;}
 
   .pRow{
     display:flex; align-items:center; gap:16px;
@@ -3745,7 +3798,10 @@ v332 CHANGES (unchanged from the version this build started from):
       </div>
       <div class="tkNotice" id="tkNotice"></div>
       <p class="tkNote" id="tkUpNext"></p>
-      <div class="tkBar" style="padding-bottom:8px;"><span class="tkNote" id="tkCount" style="margin:0;"></span></div>
+      <div class="tkBar" style="padding-bottom:8px;">
+        <span class="tkNote" id="tkCount" style="margin:0;"></span>
+        <button class="tkTypeFilterBtn" id="tkTypeFilterBtn" type="button" aria-haspopup="true">All types</button>
+      </div>
       <div class="spHead" id="tkHead"></div>
       <div class="spListWrap" id="tkListWrap">
         <div class="spList" id="tkList"></div>
@@ -6824,6 +6880,7 @@ async function saveWorkLog(message, touchedIds, deletedIds){
 
 let tkSort = 'date';       // 'name' | 'date'  (status is filtered by chip, not sorted)
 let tkFilter = 'all';      // 'all' | 'queued' | 'review'
+let tkTypeFilter = new Set(); // task 'type' ids to show; empty Set = no restriction (all types)
 let tkView = 'list';       // 'add' | 'list' | 'review'
 let tkReviewIds = [];      // the queue being worked through, captured when review opens
 let tkReviewIdx = 0;
@@ -7317,15 +7374,84 @@ function tkEntryName(t){
 }
 function tkTask(id){ return ((wlData && wlData.tasks) || []).find(t => t.id === id) || null; }
 
-function tkRows(){
+// The status-chip half of tkRows()'s old filter, split out on its own so the type-filter popup
+// (tkTypeCounts()) can ask "how many of each type are in what's currently showing" without
+// duplicating what each chip means, and without also applying tkTypeFilter — the popup counts
+// need to stay independent of which types are currently checked, or picking a type would make
+// every OTHER type's count vanish along with it.
+function tkStatusFiltered(){
   const tasks = (wlData && wlData.tasks) ? wlData.tasks.slice() : [];
-  const filtered = tasks.filter(t => {
+  return tasks.filter(t => {
     if(tkFilter === 'all') return true;
     if(tkFilter === 'review') return t.status === 'proposed' || t.status === 'awaiting_review';
     if(tkFilter === 'queued') return t.status === 'queued';
     if(tkFilter === 'running') return t.status === 'in_progress';
     return true;
   });
+}
+// Every task type to offer in the filter popup: TK_SERVICES' own order first (skipping the
+// '' "Any service" entry, which isn't a real type to filter by), then any type actually present
+// in workLog.json that TK_SERVICES doesn't know about — shouldn't normally happen, but a task
+// left over from a removed/renamed service shouldn't just be unfilterable.
+function tkTypeFilterIds(){
+  const known = TK_SERVICES.filter(s => s.id).map(s => s.id);
+  const extra = [];
+  ((wlData && wlData.tasks) || []).forEach(t => {
+    if(t.type && !known.includes(t.type) && !extra.includes(t.type)) extra.push(t.type);
+  });
+  return known.concat(extra.sort());
+}
+// Per-type counts WITHIN the current status chip — deliberately tkStatusFiltered(), not tkRows()
+// — so the popup always answers "how many of each type are in what I'm looking at right now,"
+// and reopening it after switching, say, All to Queued shows fresh numbers for that tab.
+function tkTypeCounts(){
+  const counts = {};
+  tkStatusFiltered().forEach(t => { counts[t.type] = (counts[t.type] || 0) + 1; });
+  return counts;
+}
+function tkTypeFilterLabel(){
+  if(!tkTypeFilter.size) return 'All types';
+  if(tkTypeFilter.size === 1) return tkServiceLabel({ type: tkTypeFilter.values().next().value });
+  return tkTypeFilter.size + ' types';
+}
+function renderTkTypeFilterBtn(){
+  const btn = document.getElementById('tkTypeFilterBtn');
+  if(!btn) return;
+  btn.textContent = tkTypeFilterLabel();
+  btn.classList.toggle('active', tkTypeFilter.size > 0);
+}
+function tkOpenTypeModal(){
+  const counts = tkTypeCounts();
+  document.getElementById('tkTypeModalList').innerHTML = tkTypeFilterIds().map(id => {
+    const n = counts[id] || 0;
+    return '<label class="tkCheck tkTypeModalRow' + (n ? '' : ' tkTypeModalEmpty') + '">' +
+      '<input type="checkbox" value="' + esc(id) + '"' + (tkTypeFilter.has(id) ? ' checked' : '') + '>' +
+      '<span class="tkTypeModalRowText"><span>' + esc(tkServiceLabel({ type: id })) + '</span>' +
+      '<span class="tkTypeModalCount">' + n + '</span></span>' +
+    '</label>';
+  }).join('') || '<p class="tkNote">No task types yet.</p>';
+  document.getElementById('tkTypeModal').classList.add('open');
+}
+function tkCloseTypeModal(){ document.getElementById('tkTypeModal').classList.remove('open'); }
+document.getElementById('tkTypeFilterBtn').addEventListener('click', tkOpenTypeModal);
+document.getElementById('tkTypeModalClose').addEventListener('click', tkCloseTypeModal);
+document.getElementById('tkTypeModal').addEventListener('click', (e) => {
+  if(e.target.id === 'tkTypeModal') tkCloseTypeModal(); // tap on the scrim outside the box
+});
+document.getElementById('tkTypeModalClear').addEventListener('click', () => {
+  document.querySelectorAll('#tkTypeModalList input[type=checkbox]').forEach(cb => { cb.checked = false; });
+});
+document.getElementById('tkTypeModalApply').addEventListener('click', () => {
+  tkTypeFilter = new Set(
+    Array.from(document.querySelectorAll('#tkTypeModalList input[type=checkbox]:checked')).map(cb => cb.value)
+  );
+  tkCloseTypeModal();
+  renderTaskList();
+});
+
+function tkRows(){
+  let filtered = tkStatusFiltered();
+  if(tkTypeFilter.size) filtered = filtered.filter(t => tkTypeFilter.has(t.type));
   if(tkFilter === 'queued' && tkSort !== 'name'){
     // Deliberately NOT sorted by date here, even though every other view defaults to it. The
     // orchestrator processes queued tasks strictly in array position — whatever order they
@@ -7367,6 +7493,7 @@ document.getElementById('tkRunCount').addEventListener('input', tkUpdateUpNext);
 
 function renderTaskList(){
   tkUpdateUpNext();
+  renderTkTypeFilterBtn();
   // Status has no header cell of its own — just a spacer the width of the icon column, so
   // "Task" starts over the task text rather than over the glyph.
   document.getElementById('tkHead').innerHTML =
@@ -15637,6 +15764,24 @@ document.getElementById('reportModalSubmit').addEventListener('click', async () 
     <input type="email" id="reportModalEmail" placeholder="Your email (optional, if you'd like a reply)">
     <button class="reportModalSubmit" id="reportModalSubmit">Send</button>
     <p class="reportModalStatus" id="reportModalStatus"></p>
+  </div>
+</div>
+
+<!-- Task Automation's type filter popup — lets Tom pick any combination of task types (services)
+     for Task List to show, each row labeled with how many tasks of that type sit under the
+     current All/Queued/Running/Review chip. Opened by #tkTypeFilterBtn. Placed at body level,
+     same reasoning as #reportModal just above: .taskPanel clips overflow, so a centered modal
+     has to live outside it. -->
+<div class="tkTypeModal" id="tkTypeModal">
+  <div class="tkTypeModalBox">
+    <button class="tkTypeModalClose" id="tkTypeModalClose" aria-label="Close">&times;</button>
+    <h3>Filter by Task Type</h3>
+    <p class="tkNote" style="margin-top:2px;">Counts reflect the current All/Queued/Running/Review tab.</p>
+    <div class="tkTypeModalList" id="tkTypeModalList"></div>
+    <div class="tkTypeModalActions">
+      <button class="tkBtn" id="tkTypeModalClear" type="button">Clear</button>
+      <button class="tkBtn go" id="tkTypeModalApply" type="button">Apply</button>
+    </div>
   </div>
 </div>
 
