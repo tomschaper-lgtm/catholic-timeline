@@ -13264,13 +13264,13 @@
       "type": "arbitrate",
       "entityId": "st-tarcisius-258",
       "batchId": null,
-      "status": "in_progress",
+      "status": "error",
       "description": "Proofread articles — St. Tarcisius",
       "payload": {},
       "result": null,
       "createdAt": "2026-09-14T18:03:42.712Z",
-      "updatedAt": "2026-09-14T18:15:15.119Z",
-      "error": null
+      "updatedAt": "2026-09-14T18:15:26.171Z",
+      "error": "Error: openai response failed validation: Finding 0: bad kind undefined\n\nRaw response:\n{\n  \"verdict\": \"findings\",\n  \"findings\": [\n    {\n      \"severity\": \"ERROR\",\n      \"category\": \"FACT\",\n      \"section\": \"A Story Filled In By Later Centuries\",\n      \"sentence\": \"1\",\n      \"text\": \"A sixth-century account of the martyrdom of Pope St. Stephen I adds the detail that Tarcisius served as the pope's own acolyte\",\n      \"concern\": \"The later tradition ordinarily identifies Tarcisius as an acolyte of Pope Sixtus II, not Pope Stephen I. The sentence appears to conflate the account or pope associated with Tarcisius's story.\",\n      \"suggestedCorrection\": \"Replace \\\"Pope St. Stephen I\\\" with the correct pope if the cited sixth-century account is being described; otherwise revise the sentence to state only that a later account identifies Tarcisius as an acolyte of Pope Sixtus II.\",\n      \"source\": \"Not externally verified\"\n    },\n    {\n      \"severity\": \"VERIFY\",\n      \"category\": \"FACT\",\n      \"section\": \"Body and Relics\",\n      \"sentence\": \"1\",\n      \"text\": \"Pope Sixtus II ... received it and offered Mass to mark what the Church calls a martyr's true birthday\",\n      \"concern\": \"The sentence combines several later traditions and presents the role of Sixtus II in receiving Tarcisius's body as though it were a clearly established detail. Since the earliest evidence does not establish these circumstances, the specific claim about Sixtus receiving the body and offering Mass should be verified or more explicitly attributed to later tradition.\",\n      \"suggestedCorrection\":\n    at runDebatePass (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/arbitrate.mjs:347:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async Promise.all (index 0)\n    at async runArbitrate (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/arbitrate.mjs:396:26)\n    at async main (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/orchestrator.mjs:203:20)"
     },
     {
       "id": "task-arbitrate-pope-st-sixtus-ii-companions-258-1789409032264-676",
