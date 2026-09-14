@@ -10758,14 +10758,25 @@
       "type": "sentence-reword",
       "entityId": "st-mark-the-evangelist-68",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Mark the Evangelist",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-mark-the-evangelist-68",
+        "name": "St. Mark the Evangelist",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-14T23:42:16.051Z",
-      "updatedAt": "2026-09-14T23:44:27.751Z",
+      "updatedAt": "2026-09-14T23:44:33.327Z",
       "error": null
     },
     {
@@ -12324,6 +12335,41 @@
       "error": null,
       "createdAt": "2026-09-14T23:44:26.402Z",
       "updatedAt": "2026-09-14T23:44:26.402Z"
+    },
+    {
+      "id": "task-sentence-reword-st-mark-the-evangelist-68-1789429473327-4112",
+      "type": "sentence-reword",
+      "entityId": "st-mark-the-evangelist-68",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Mark the Evangelist",
+      "payload": {},
+      "result": {
+        "name": "St. Mark the Evangelist",
+        "patches": [
+          [
+            "article",
+            "Mark was also a cousin of <b><a href=\"entry:st-barnabas-61\">Barnabas</a></b>, and it was this family connection that first drew the young man into the company of <a href=\"entry:st-paul-67\">Paul</a> and Barnabas, who took him with them to Antioch and then, when the two set out on the Church's first great missionary journey, brought him along as their assistant.",
+            "U",
+            "Mark was also a cousin of <b><a href=\"entry:st-barnabas-61\">Barnabas</a></b>, and this family connection first drew the young man into the company of <a href=\"entry:st-paul-67\">Paul</a> and Barnabas. They took him with them to Antioch and, when the two set out on the Church's first great missionary journey, brought him along as their assistant."
+          ],
+          [
+            "article",
+            "In his final letters, written from a Roman prison shortly before his martyrdom, Paul instructs Timothy to bring Mark with him, adding that Mark is \"very useful to me for ministry.\" The young man once judged unfit for the mission had, through patient formation and a second chance freely given, become indispensable to the very Apostle who had once refused to travel with him.",
+            "U",
+            "In his final letters, written from a Roman prison shortly before his martyrdom, Paul instructs Timothy to bring Mark with him. He adds that Mark is \"very useful to me for ministry.\" Through patient formation and a second chance freely given, the young man once judged unfit for the mission had become indispensable to the very Apostle who had once refused to travel with him."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-14T23:44:33.327Z",
+      "updatedAt": "2026-09-14T23:44:33.327Z"
     }
   ]
 }
