@@ -11655,14 +11655,25 @@
       "type": "sentence-reword",
       "entityId": "sts-marcellinus-peter-304",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Sts. Marcellinus & Peter",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "sts-marcellinus-peter-304",
+        "name": "Sts. Marcellinus & Peter",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-14T14:53:05.620Z",
-      "updatedAt": "2026-09-14T18:54:30.582Z",
+      "updatedAt": "2026-09-14T18:54:42.873Z",
       "error": null
     },
     {
@@ -14090,6 +14101,53 @@
       "createdAt": "2026-09-14T18:27:23.459Z",
       "updatedAt": "2026-09-14T18:27:23.459Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-sts-marcellinus-peter-304-1789412082873-12",
+      "type": "sentence-reword",
+      "entityId": "sts-marcellinus-peter-304",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Sts. Marcellinus & Peter",
+      "payload": {},
+      "result": {
+        "name": "Sts. Marcellinus & Peter",
+        "patches": [
+          [
+            "article",
+            "<b>Marcellinus</b>, a Roman priest, and <b>Peter</b>, who served the Church as an exorcist — an official minor order responsible for praying over and assisting those afflicted by evil spirits — were both members of the Roman clergy arrested during the harsh escalation of Diocletian's persecution in 304, which specifically targeted the Church's ordained ministers.",
+            "U",
+            "<b>Marcellinus</b>, a Roman priest, and <b>Peter</b>, who served the Church as an exorcist, were both members of the Roman clergy. Exorcist was an official minor order responsible for praying over and assisting those afflicted by evil spirits. They were arrested during the harsh escalation of Diocletian's persecution in 304, which specifically targeted the Church's ordained ministers."
+          ],
+          [
+            "article",
+            "Rather than fall silent in captivity, tradition holds that the two continued their pastoral work even in prison, strengthening the faith of fellow Christian captives and reportedly converting their own jailer along with his wife and daughter — a detail that, whatever its precise historical accuracy, reflects the Church's memory of these martyrs as men who kept preaching to the very end.",
+            "U",
+            "Rather than fall silent in captivity, tradition holds that the two continued their pastoral work even in prison. They strengthened fellow Christian captives' faith and reportedly converted their jailer, his wife, and daughter—a detail that, whatever its precise historical accuracy, reflects the Church's memory of these martyrs as men who kept preaching to the very end."
+          ],
+          [
+            "article",
+            "According to <b><a href=\"entry:pope-st-damasus-i-384\">Pope St. Damasus I</a></b>, who as a boy heard the story firsthand from the very executioner who had carried out the killing and later became a Christian himself, the judge deliberately ordered Marcellinus and Peter executed secretly, in a remote thicket some three miles outside Rome, so that other Christians would have no place to venerate their remains.",
+            "U",
+            "According to <b><a href=\"entry:pope-st-damasus-i-384\">Pope St. Damasus I</a></b>, who as a boy heard the story firsthand from the very executioner who had carried out the killing and later became a Christian himself, the judge deliberately ordered Marcellinus and Peter executed secretly. The execution took place in a remote thicket some three miles outside Rome, so that other Christians would have no place to venerate their remains."
+          ],
+          [
+            "article",
+            "Marcellinus and Peter are named together in the ancient Roman Canon of the Mass, still used in celebrations that employ the Roman Canon, Eucharistic Prayer I, placing them permanently among the small number of early martyrs whose memory the Church built directly into its central act of worship.",
+            "U",
+            "Marcellinus and Peter are named together in the ancient Roman Canon of the Mass, still used in celebrations that employ the Roman Canon, Eucharistic Prayer I. This places them permanently among the small number of early martyrs whose memory the Church built directly into its central act of worship."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-14T18:54:42.873Z",
+      "updatedAt": "2026-09-14T18:54:42.873Z"
     }
   ]
 }
