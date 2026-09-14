@@ -1,9 +1,30 @@
 <!--
-VERSION: 385
-DATE: 2026-09-14T12:15:00-05:00
+VERSION: 386
+DATE: 2026-09-14T18:11:35-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Task Automation: Task List now has a type filter alongside the existing All/Queued/Running/
+  Review status chips. A pill at the right edge of the count row ("All types" at rest, the
+  service name if exactly one is picked, or "N types") opens a popup listing every service
+  registered in TK_SERVICES with a live count next to each — scoped to whichever status chip is
+  currently active, so switching to Queued and reopening the popup shows queued-only counts, not
+  the grand total. Any combination can be checked and Applied; it narrows the list ON TOP OF the
+  status chip, not instead of it. New tkTypeFilter (a Set of type ids; empty = no restriction),
+  tkStatusFiltered() split out of the old inline filter in tkRows() so the popup's own counts
+  (tkTypeCounts()) stay independent of which types are currently checked — otherwise checking one
+  type would zero out every other type's count in the same popup — tkTypeFilterIds() (TK_SERVICES'
+  order first, then any stray task type not in TK_SERVICES), and the #tkTypeModal popup itself
+  (new markup at body level, same reasoning #reportModal/#disclaimerGate already use: .taskPanel
+  clips overflow, so a centered modal can't live inside it).
+- scripts/orchestrator.mjs: workLog.json no longer grows without bound. Every run — including a
+  no-op run that finds nothing queued — now prunes finished tasks (done/rejected/error only; NOT
+  approved, NOT awaiting_review, both of which still need a human look) down to the 75 most-
+  recently-updated, permanently deleting the rest with no archive (MAX_COMPLETED_KEPT,
+  pruneCompletedTasks()). Also hand-applied this once to the live workLog.json itself (422 tasks
+  \u2192 244) since the file had grown to ~1MB and was intermittently failing to load in-app with
+  a JSON parse / "Unexpected EOF" error — almost certainly a fetch getting cut off mid-download on
+  a mobile connection, which gets less likely to keep happening now that the file stays smaller.
 - Fixed: opening ANY sentence-reword item in Review showed a blank, stuck panel — reported right
   after v384 shipped, but the bug itself predates that build and is unrelated to it (confirmed by
   diffing v384 against v383 — this line was already broken in v383). tkRenderSentenceRewordReview()
@@ -4548,7 +4569,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v385';
+const APP_VERSION = 'v386';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
