@@ -9426,7 +9426,7 @@
       "type": "arbitrate",
       "entityId": "pope-st-sixtus-ii-companions-258",
       "batchId": null,
-      "status": "done",
+      "status": "awaiting_review",
       "description": "Proofread articles — Pope St. Sixtus II & Companions",
       "payload": {},
       "result": {
@@ -9447,9 +9447,7 @@
             "winner": "revised",
             "comment": "Provides important traditional historical completeness regarding the full group of deacons martyred with Sixtus.",
             "proposedBy": "gpt-5.6-luna",
-            "arbitratedBy": "gemini-3.5-flash-lite",
-            "resolved": true,
-            "resolution": "edited"
+            "arbitratedBy": "gemini-3.5-flash-lite"
           }
         ],
         "models": [
@@ -9458,7 +9456,7 @@
         ]
       },
       "createdAt": "2026-09-13T22:05:26.498Z",
-      "updatedAt": "2026-09-14T18:14:05.282Z",
+      "updatedAt": "2026-09-13T22:11:03.809Z",
       "error": null
     },
     {
@@ -10537,12 +10535,85 @@
       "type": "arbitrate",
       "entityId": "pope-st-damasus-i-384",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — Pope St. Damasus I",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "Pope St. Damasus I",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Defender of Nicene Orthodoxy",
+            "sentence": "1",
+            "kind": "article",
+            "before": "formally excommunicating the Arian bishop Auxentius of Milan at a Roman synod around 369–370",
+            "after": "condemning the Arian position associated with Auxentius of Milan at a Roman synod around 369–370",
+            "concern": "Auxentius died in 374, and the precise claim that Damasus personally excommunicated him at a Roman synod around 369–370 is not securely supported. The wording presents a specific ecclesiastical action as established fact.",
+            "suggestedCorrection": "Verify the synod's proceedings and Auxentius's canonical status, or use more cautious wording describing the condemnation of his theological position.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The revision avoids an unsupported specific claim about formal excommunication.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Commissioning the Vulgate",
+            "sentence": "2",
+            "kind": "article",
+            "before": "Damasus also introduced Latin as the liturgical language of the Roman Mass in place of Greek during his pontificate.",
+            "after": "Damasus supported the increasing use of Latin in Roman liturgy during his pontificate, although Greek had not simply been replaced throughout the Roman Mass.",
+            "concern": "Latin was already used in Roman worship before Damasus, and the transition from Greek was gradual rather than a single introduction of Latin in place of Greek during his pontificate. The current wording creates a materially misleading historical impression.",
+            "suggestedCorrection": "Describe Damasus as promoting or participating in the gradual expansion of Latin in Roman liturgy, rather than attributing the replacement of Greek to him alone.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The original creates a materially misleading impression about the liturgical transition from Greek to Latin.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "VERIFY",
+            "category": "TRADITION/LEGEND",
+            "section": "Poet of the Martyrs",
+            "sentence": "2",
+            "kind": "article",
+            "before": "He personally restored and drained sections of the catacombs to protect the martyrs' remains from water damage",
+            "after": "He sponsored the restoration and improvement of access to sections of the catacombs, whose condition and preservation concerned him",
+            "concern": "Damasus is well attested as a patron of the restoration and marking of martyrs' tombs, but the specific claim that he personally drained sections to prevent water damage appears more precise than the evidence established by the article. It may conflate his sponsorship with direct physical work.",
+            "suggestedCorrection": "Verify the drainage claim and avoid saying that Damasus personally performed the work unless a reliable source specifically supports it.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Distinguishing between direct physical labor and sponsorship is a historically sound and worthwhile correction.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Commissioning the Vulgate",
+            "sentence": "2",
+            "kind": "article",
+            "before": "Damasus also introduced Latin as the liturgical language of the Roman Mass in place of Greek during his pontificate.",
+            "after": "Damasus supported the Roman liturgy during his pontificate, though the complete transition of the Roman liturgy from Greek to Latin occurred gradually over the subsequent centuries.",
+            "concern": "Attributing the introduction of Latin as the liturgical language of the Roman Mass to Pope St. Damasus I is historically inaccurate; while Latin usage increased during the 4th century, the shift from Greek to Latin in the Roman liturgy was a gradual process completed later (c. 4th to 5th/6th centuries).",
+            "suggestedCorrection": "Correct or remove the claim about introducing Latin to the liturgy.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The transition from Greek to Latin was gradual, so attributing it entirely to Damasus is misleading.",
+            "proposedBy": "gemini-3.5-flash-lite",
+            "arbitratedBy": "gpt-5.6-luna"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-13T22:05:27.998Z",
-      "updatedAt": "2026-09-14T18:13:59.518Z",
+      "updatedAt": "2026-09-14T18:14:19.570Z",
       "error": null
     },
     {
