@@ -11013,14 +11013,25 @@
       "type": "sentence-reword",
       "entityId": "st-sebastian-288",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Sebastian",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-sebastian-288",
+        "name": "St. Sebastian",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-14T14:53:05.620Z",
-      "updatedAt": "2026-09-14T15:01:22.847Z",
+      "updatedAt": "2026-09-14T15:01:31.511Z",
       "error": null
     },
     {
@@ -12678,6 +12689,47 @@
       "error": null,
       "createdAt": "2026-09-14T15:01:18.226Z",
       "updatedAt": "2026-09-14T15:01:18.226Z"
+    },
+    {
+      "id": "task-sentence-reword-st-sebastian-288-1789398091511-4123",
+      "type": "sentence-reword",
+      "entityId": "st-sebastian-288",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — St. Sebastian",
+      "payload": {},
+      "result": {
+        "name": "St. Sebastian",
+        "patches": [
+          [
+            "article",
+            "When Sebastian's Christianity was finally discovered — around 286, according to the Catholic Encyclopedia — the emperor, feeling personally betrayed by a trusted officer, ordered him bound to a stake in a field and shot by Mauritanian archers, his body left, in the vivid phrase later hagiographers used, 'as full of arrows as a hedgehog is full of spines.'",
+            "U",
+            "When Sebastian's Christianity was finally discovered — around 286, according to the Catholic Encyclopedia — the emperor felt personally betrayed by a trusted officer. He ordered Sebastian bound to a stake in a field and shot by Mauritanian archers, his body left, in the vivid phrase later hagiographers used, 'as full of arrows as a hedgehog is full of spines.'"
+          ],
+          [
+            "article",
+            "Rather than flee Rome once recovered, Sebastian deliberately sought out Diocletian and confronted him publicly over his cruelty toward Christians — a boldness that so startled the emperor that, once he regained his composure, he ordered Sebastian beaten to death on the spot, a sentence this time carried out to completion.",
+            "U",
+            "Rather than flee Rome once recovered, Sebastian deliberately sought out Diocletian and confronted him publicly over his cruelty toward Christians. This boldness so startled the emperor that, once he regained his composure, he ordered Sebastian beaten to death on the spot, a sentence this time carried out to completion."
+          ],
+          [
+            "article",
+            "His body was thrown into Rome's sewer system but recovered by another Christian woman and buried along the Via Appia; the fourth-century Depositio Martyrum already records his veneration there, providing early evidence for Sebastian's veneration in Rome even though most of the narrative details rest on later, legendary Acts rather than firsthand record.",
+            "U",
+            "His body was thrown into Rome's sewer system but recovered by another Christian woman and buried along the Via Appia. The fourth-century Depositio Martyrum already records his veneration there, providing early evidence for Sebastian's veneration in Rome. Most narrative details, however, rest on later, legendary Acts rather than firsthand record."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-14T15:01:31.511Z",
+      "updatedAt": "2026-09-14T15:01:31.511Z"
     }
   ]
 }
