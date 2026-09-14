@@ -10909,14 +10909,25 @@
       "type": "sentence-reword",
       "entityId": "st-agatha-251",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Agatha",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-agatha-251",
+        "name": "St. Agatha",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-14T14:53:05.620Z",
-      "updatedAt": "2026-09-14T14:59:57.124Z",
+      "updatedAt": "2026-09-14T15:00:01.844Z",
       "error": null
     },
     {
@@ -12392,6 +12403,41 @@
       "error": null,
       "createdAt": "2026-09-14T14:59:55.325Z",
       "updatedAt": "2026-09-14T14:59:55.325Z"
+    },
+    {
+      "id": "task-sentence-reword-st-agatha-251-1789398001844-8459",
+      "type": "sentence-reword",
+      "entityId": "st-agatha-251",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Agatha",
+      "payload": {},
+      "result": {
+        "name": "St. Agatha",
+        "patches": [
+          [
+            "article",
+            "Devotion to Agatha spread with remarkable speed and reach for a local Sicilian martyr: her name appears in the fifth-century Martyrologium Hieronymianum and the Carthaginian martyrology of the same era, she is praised in a sixth-century poem by Venantius Fortunatus alongside other celebrated virgin-martyrs, and by the early sixth century Pope Symmachus had already dedicated a basilica to her in Rome itself.",
+            "U",
+            "Devotion to Agatha spread with remarkable speed and reach for a local Sicilian martyr. Her name appears in the fifth-century Martyrologium Hieronymianum and the Carthaginian martyrology of the same era.\n\nShe is praised in a sixth-century poem by Venantius Fortunatus alongside other celebrated virgin-martyrs. By the early sixth century Pope Symmachus had already dedicated a basilica to her in Rome itself."
+          ],
+          [
+            "article",
+            "Agatha remains one of the most venerated virgin martyrs of the early Church, her feast still celebrated with enormous public devotion in Catania each February, and her example held up, alongside that of Sts. Agnes and Lucy, as an enduring witness to the value the early Church placed on consecrated purity even at the cost of unspeakable suffering.",
+            "U",
+            "Agatha remains one of the most venerated virgin martyrs of the early Church, and her feast is still celebrated with enormous public devotion in Catania each February. Her example is held up, alongside that of Sts. Agnes and Lucy, as an enduring witness to the value the early Church placed on consecrated purity, even at the cost of unspeakable suffering."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-14T15:00:01.844Z",
+      "updatedAt": "2026-09-14T15:00:01.844Z"
     }
   ]
 }
