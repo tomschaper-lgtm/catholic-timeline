@@ -29,6 +29,18 @@
 // here — add it later if that turns out to be annoying in practice, rather than build fuzzy
 // text-matching across passes speculatively now.
 //
+// Quote validation: a proposer's "before" text is supposed to be a verbatim substring of the
+// article it just read, but an LLM occasionally paraphrases or trims a quote instead of copying
+// it exactly, even when told to. Right after a proposer responds — before its findings ever reach
+// the arbitrator — every finding's "before" is checked against the actual article text. Anything
+// that doesn't match verbatim gets sent back to the SAME proposer once, with the mismatch pointed
+// out directly, asking it to re-quote precisely. If the retry fixes it, the corrected finding is
+// used from then on, arbitrated exactly like any other. If the retry still doesn't match (or
+// fails outright), the original finding is kept as-is and flows through unchanged — the review
+// screen's existing "couldn't find this exact wording" warning and Edit fallback are still there
+// to catch it, same as before this existed. This never blocks or fails a task; it only ever
+// lowers how often that warning shows up. See validateAndFixQuotes below.
+//
 // SWAPPING MODELS AS PRICES CHANGE: everything runs off the two-provider PAIR array below — one
 // swap point, not two roles that could drift out of sync. Change which two entries are in PAIR
 // (or edit a provider's own .model string to bump versions within a company) and both directions
@@ -267,6 +279,61 @@ function parseVerdictsJson(raw, expectedCount){
   return parsed;
 }
 
+// Checked before findings ever reach the arbitrator (see the file header comment for the full
+// rationale). articleText is exactly what the proposer read — the same combined sections/quotes/
+// facts document buildArticleText produces — so a genuinely verbatim "before" quote, regardless of
+// its kind, has to appear somewhere in it. A plain substring check is enough: no need to know
+// which kind of finding this is or where within the document its quote should live, since the
+// proposer was only ever shown the one document either way.
+function findBadQuoteIndices(articleText, findings){
+  return findings
+    .map((f, i) => i)
+    .filter(i => !articleText.includes(findings[i].before));
+}
+
+// One retry, one focused message, same proposer. Asks for the WHOLE findings array back rather
+// than just the broken entries — simpler and more robust than trying to splice a partial fix back
+// into the original array, and the model already has full context to redo it cleanly. Returns null
+// on any failure (bad JSON, wrong count, still-unfixed quotes after the retry) so the caller can
+// fall back to the original findings untouched — this must never be the reason a task errors out;
+// the review screen's existing warning-and-Edit path is always the last resort either way.
+async function validateAndFixQuotes(proposer, articleText, findings){
+  const badIndices = findBadQuoteIndices(articleText, findings);
+  if(!badIndices.length) return { findings, tokensUsed: 0, fixedCount: 0 };
+
+  const badList = badIndices
+    .map(i => 'Finding #' + i + ' (' + findings[i].section + '): "' + findings[i].before + '"')
+    .join('\n');
+  const retryInput =
+    '<ARTICLE>\n' + articleText + '\n</ARTICLE>\n\n' +
+    'You previously returned this findings JSON:\n' + JSON.stringify(findings) + '\n\n' +
+    'One or more "before" quotes above do not appear verbatim anywhere in the article text above:\n' +
+    badList + '\n\n' +
+    'Re-read the article text closely and return the SAME findings array again, correcting only the ' +
+    '"before" (and, if needed, "sentence") text of the finding(s) listed above so that "before" is an ' +
+    'exact substring of the article exactly as written above \u2014 copy it verbatim, do not paraphrase ' +
+    'or summarize it. Leave every other finding exactly as it was, unchanged. Return the complete ' +
+    'corrected array as a bare JSON array of findings, the same shape as what you returned before \u2014 ' +
+    'no wrapping object, no commentary.';
+
+  try{
+    const { text, tokensUsed } = await callWithRetry(proposer, PROPOSE_SYSTEM_PROMPT, retryInput);
+    const revised = JSON.parse(stripFence(text));
+    if(!Array.isArray(revised) || revised.length !== findings.length){
+      return { findings, tokensUsed, fixedCount: 0 };
+    }
+    const stillBad = findBadQuoteIndices(articleText, revised);
+    if(stillBad.length){
+      return { findings, tokensUsed, fixedCount: 0 };
+    }
+    return { findings: revised, tokensUsed, fixedCount: badIndices.length };
+  }catch(err){
+    // A failed or malformed retry just means the original findings pass through untouched, same
+    // as if this validation step didn't run at all.
+    return { findings, tokensUsed: 0, fixedCount: 0 };
+  }
+}
+
 // One full propose-then-judge cycle in one direction. Returns only the debates the judge sided
 // with the revision on, each carrying its own proposedBy/arbitratedBy — never a task-wide pair,
 // since a task can bundle debates from both directions.
@@ -285,6 +352,10 @@ async function runDebatePass(proposer, arbitrator, articleText){
     // on an empty list.
     return { debates: [], tokensUsed: proposeTokens, proposedCount: 0 };
   }
+
+  const { findings: checkedFindings, tokensUsed: validateTokens } =
+    await validateAndFixQuotes(proposer, articleText, proposed.findings);
+  proposed = Object.assign({}, proposed, { findings: checkedFindings });
 
   const judgeInput = JSON.stringify(proposed.findings.map((f, i) => ({
     index: i, section: f.section, sentence: f.sentence, category: f.category, severity: f.severity,
@@ -307,7 +378,7 @@ async function runDebatePass(proposer, arbitrator, articleText){
     }))
     .filter(d => d.winner === 'revised');
 
-  return { debates, tokensUsed: proposeTokens + judgeTokens, proposedCount: proposed.findings.length };
+  return { debates, tokensUsed: proposeTokens + validateTokens + judgeTokens, proposedCount: proposed.findings.length };
 }
 
 /**
