@@ -10706,14 +10706,25 @@
       "type": "sentence-reword",
       "entityId": "st-joseph-20",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Joseph",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-joseph-20",
+        "name": "St. Joseph",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-14T23:42:16.051Z",
-      "updatedAt": "2026-09-14T23:44:05.106Z",
+      "updatedAt": "2026-09-14T23:44:14.261Z",
       "error": null
     },
     {
@@ -12220,6 +12231,47 @@
       "error": null,
       "createdAt": "2026-09-14T23:44:03.847Z",
       "updatedAt": "2026-09-14T23:44:03.847Z"
+    },
+    {
+      "id": "task-sentence-reword-st-joseph-20-1789429454260-5329",
+      "type": "sentence-reword",
+      "entityId": "st-joseph-20",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — St. Joseph",
+      "payload": {},
+      "result": {
+        "name": "St. Joseph",
+        "patches": [
+          [
+            "article",
+            "Scripture introduces <b>Joseph</b> as a <i>just man</i>, betrothed to <a href=\"entry:the-blessed-virgin-mary-48\">Mary</a> of Nazareth, who discovered that his espoused bride was pregnant before their marriage had been consummated — a discovery that placed him, under the Law of Moses, in a genuinely agonizing position, since public exposure could have brought Mary before a court that might, in principle, condemn her to death for adultery.",
+            "U",
+            "Scripture introduces <b>Joseph</b> as a <i>just man</i>, betrothed to <a href=\"entry:the-blessed-virgin-mary-48\">Mary</a> of Nazareth. He discovered that his espoused bride was pregnant before their marriage had been consummated, placing him under the Law of Moses in a genuinely agonizing position. Public exposure could have brought Mary before a court that might, in principle, condemn her to death for adultery."
+          ],
+          [
+            "article",
+            "They found him among the teachers, and Scripture records Mary's words of mingled relief and reproach — <i>your father and I have been searching for you in great distress</i> — a phrase that quietly confirms how completely Joseph had come to be regarded, in every practical and legal sense, as the boy's legal and adoptive father.",
+            "U",
+            "They found him among the teachers, and Scripture records Mary's words of mingled relief and reproach — <i>your father and I have been searching for you in great distress</i>. The phrase quietly confirms how completely Joseph had come to be regarded, in every practical and legal sense, as the boy's legal and adoptive father."
+          ],
+          [
+            "article",
+            "The Gospels tell us Joseph was a <i>tekton</i>, a craftsman or carpenter, and that Jesus himself would be known in his hometown as “the carpenter’s son.” This ordinary, workaday trade provided for Joseph’s family, and later Christian tradition has often imagined Joseph initiating the boy Jesus into this work.",
+            "U",
+            "The Gospels tell us Joseph was a <i>tekton</i>, a craftsman or carpenter. Jesus himself would be known in his hometown as “the carpenter’s son.” This ordinary, workaday trade provided for Joseph’s family, and later Christian tradition has often imagined Joseph initiating the boy Jesus into this work."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-14T23:44:14.260Z",
+      "updatedAt": "2026-09-14T23:44:14.260Z"
     }
   ]
 }
