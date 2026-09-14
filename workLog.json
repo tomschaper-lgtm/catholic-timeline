@@ -11536,14 +11536,25 @@
       "type": "sentence-reword",
       "entityId": "st-george-303",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. George",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-george-303",
+        "name": "St. George",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-14T14:53:05.620Z",
-      "updatedAt": "2026-09-14T18:25:43.095Z",
+      "updatedAt": "2026-09-14T18:25:57.689Z",
       "error": null
     },
     {
@@ -13762,6 +13773,59 @@
       "createdAt": "2026-09-14T18:07:59.392Z",
       "updatedAt": "2026-09-14T18:07:59.392Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-st-george-303-1789410357688-7397",
+      "type": "sentence-reword",
+      "entityId": "st-george-303",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — St. George",
+      "payload": {},
+      "result": {
+        "name": "St. George",
+        "patches": [
+          [
+            "article",
+            "As the Catholic Encyclopedia frankly acknowledges after careful modern investigation, remarkably little can be said with certainty about <b>George</b> beyond the essential fact of his martyrdom: he suffered at or near <b>Lydda</b> (also called Diospolis) in Palestine, probably before the reign of Constantine, and was venerated from a very early date as one of the greatest martyrs of the Eastern Church, where he is known simply as 'the Great Martyr.'",
+            "U",
+            "As the Catholic Encyclopedia frankly acknowledges after careful modern investigation, remarkably little can be said with certainty about <b>George</b> beyond the essential fact of his martyrdom. He suffered at or near <b>Lydda</b> (also called Diospolis) in Palestine, probably before the reign of Constantine. He was venerated from a very early date as one of the greatest martyrs of the Eastern Church, where he is known simply as 'the Great Martyr.'"
+          ],
+          [
+            "article",
+            "The famous story of George slaying a dragon to save a princess and an entire city — the tale for which he is best remembered in popular imagination — is, as the Catholic Encyclopedia notes, 'a very late development' that cannot be traced earlier than the twelfth or thirteenth century, appearing in its familiar form in Jacobus de Voragine's <i>Golden Legend</i>.",
+            "U",
+            "The famous story of George slaying a dragon to save a princess and an entire city is the tale for which he is best remembered in popular imagination. As the Catholic Encyclopedia notes, it is 'a very late development' that cannot be traced earlier than the twelfth or thirteenth century, appearing in its familiar form in Jacobus de Voragine's <i>Golden Legend</i>."
+          ],
+          [
+            "article",
+            "Despite the scarcity of reliable biographical detail, Devotion to George spread with extraordinary speed and reach from a very early date: Pope Gelasius I, writing in 494, already listed him among martyrs whose 'names are justly reverenced among men, but whose actions are known only to God' — evidence that even by the late fifth century, legendary elaborations had already begun to obscure a genuinely ancient historical martyrdom.",
+            "U",
+            "Despite the scarcity of reliable biographical detail, Devotion to George spread with extraordinary speed and reach from a very early date. Pope Gelasius I, writing in 494, already listed him among martyrs whose 'names are justly reverenced among men, but whose actions are known only to God'. This was evidence that even by the late fifth century, legendary elaborations had already begun to obscure a genuinely ancient historical martyrdom."
+          ],
+          [
+            "article",
+            "England's devotion, cemented when King Edward III named him the kingdom's patron in the fourteenth century and founded the Order of the Garter under his protection, has made George one of the most widely claimed patron saints in the Christian world, also honored by Georgia, Ethiopia, Catalonia, Aragon, Ukraine, and the city of Moscow.",
+            "U",
+            "England's devotion was cemented when King Edward III named him the kingdom's patron in the fourteenth century and founded the Order of the Garter under his protection. This has made George one of the most widely claimed patron saints in the Christian world, also honored by Georgia, Ethiopia, Catalonia, Aragon, Ukraine, and the city of Moscow."
+          ],
+          [
+            "article",
+            "George remains one of the Fourteen Holy Helpers and among the most universally recognized of all Christian martyr-saints, his image as the dragon-slaying knight in shining armor — however late a medieval invention — having become a permanent and beloved symbol across cultures for courage in the face of evil and the ultimate victory of good.",
+            "U",
+            "George remains one of the Fourteen Holy Helpers and among the most universally recognized of all Christian martyr-saints. His image as the dragon-slaying knight in shining armor — however late a medieval invention — has become a permanent and beloved symbol across cultures for courage in the face of evil and the ultimate victory of good."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-14T18:25:57.688Z",
+      "updatedAt": "2026-09-14T18:25:57.688Z"
     }
   ]
 }
