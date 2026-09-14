@@ -10519,14 +10519,25 @@
       "type": "sentence-reword",
       "entityId": "st-raphael-archangel-0",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Raphael the Archangel",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-raphael-archangel-0",
+        "name": "St. Raphael the Archangel",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-14T14:53:05.620Z",
-      "updatedAt": "2026-09-14T14:54:54.786Z",
+      "updatedAt": "2026-09-14T14:55:00.352Z",
       "error": null
     },
     {
@@ -11263,6 +11274,35 @@
       "createdAt": "2026-09-14T14:53:05.620Z",
       "updatedAt": "2026-09-14T14:53:05.620Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-st-raphael-archangel-0-1789397700352-7849",
+      "type": "sentence-reword",
+      "entityId": "st-raphael-archangel-0",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Raphael the Archangel",
+      "payload": {},
+      "result": {
+        "name": "St. Raphael the Archangel",
+        "patches": [
+          [
+            "article",
+            "Throughout the journey Raphael instructs Tobias in small, practical particulars — how to catch and prepare a certain fish, what its organs are good for — offering no hint of anything miraculous, simply the quiet, patient counsel of an experienced companion.",
+            "U",
+            "Throughout the journey, Raphael instructs Tobias in small, practical particulars—how to catch and prepare a certain fish, and what its organs are good for. He offers no hint of anything miraculous, only the quiet, patient counsel of an experienced companion."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-14T14:55:00.352Z",
+      "updatedAt": "2026-09-14T14:55:00.352Z"
     }
   ]
 }
