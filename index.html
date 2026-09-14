@@ -1,9 +1,22 @@
 <!--
-VERSION: 383
-DATE: 2026-09-13T16:58:00-05:00
+VERSION: 384
+DATE: 2026-09-14T10:30:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Approve lock bar's single "Record audio" checkbox is now a "Next step" dropdown (None / Record
+  audio narration / Proofread article / Generate images, excluding whichever type is being
+  approved), offered in the same two cases as before (a sentence-reword fix, or a task that just
+  created a new entry with no audio yet). The choice is remembered per SOURCE task type
+  (localStorage tk-next-step-choices, keyed by t.type) so the next time that same type comes up
+  for Approve, the dropdown defaults to whatever was picked last time — e.g. picking "Proofread
+  article" after a sentence-reword makes that the default for future sentence-reword approvals,
+  not just "Record audio narration" forever. New TK_NEXT_STEP_CANDIDATES /
+  tkLoadNextStepChoices() / tkSaveNextStepChoice() / tkQueueNextStepForEntity() (renamed and
+  generalized from the old single-purpose tkQueueAudioForEntity()); tkResolveCurrent() now reads
+  #tkOptNextStep's value instead of #tkOptAudio's checked state. Untouched: the per-sentence
+  Arbitrate debate screen's own separate "Record audio" checkbox (tkArbAudioChk) — a different
+  review flow this ask didn't touch.
 - Not a code fix, a diagnosis: the "Record audio" batch picker jumping from year 65 straight to
   935 wasn't a sort bug — audioGeneratePool() already excludes any entry with an over-40-word
   sentence (entryHasLongSentence), and St. Simon the Zealot's article has five: 47, 56, 62, 63, and
@@ -1818,6 +1831,16 @@ v332 CHANGES (unchanged from the version this build started from):
   .tkCheck input{width:19px; height:19px; margin:1px 0 0; flex:none; accent-color:#2F6B31;}
   .tkCheck.disabled{color:#9AA0AE;}
   .tkCheckNote{display:block; font-size:12px; color:#8A90A0; margin-top:2px;}
+  /* Approve lock bar's "Next step" dropdown — same row shape as .tkCheck (it reuses that class
+     for spacing/font/color) but a <select> in place of a checkbox, so it needs its own width/
+     appearance rule rather than the 19x19 checkbox sizing above. */
+  .tkNextStepRow{align-items:center; flex-wrap:wrap; gap:9px 10px;}
+  .tkNextStepRow > span:first-child{flex:none; font-weight:600;}
+  .tkNextStepSelect{
+    flex:1 1 auto; min-width:160px; font-size:13.5px; color:#111827; background:#fff;
+    border:1px solid #C7CAD3; border-radius:8px; padding:8px 10px; font-family:inherit;
+  }
+  .tkNextStepRow .tkCheckNote{flex:0 0 100%; margin-top:0;}
   .tkLockBtns{display:flex; gap:9px;}
   /* Approve/Reject specifically get more room than tkBtn's base padding — scoped to the lock
      bar rather than raising .tkBtn globally, so Add Task's own buttons elsewhere aren't affected. */
@@ -4457,7 +4480,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v383';
+const APP_VERSION = 'v384';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6964,6 +6987,23 @@ function saveTkAddFormSettings(){
   });
   localStorage.setItem('tk-add-form-settings', JSON.stringify(c));
 }
+// Approve lock bar's "Next step" dropdown — every per-entity service that can be queued as a
+// follow-up (same set as TK_BATCH_TYPES, minus whichever type is currently being approved, since
+// queuing the same operation again right after approving it isn't a real next step). Remembered
+// per SOURCE task type (localStorage, same "remembered on this device" pattern as
+// tk-add-form-settings/audio-gen-settings) so the next time that same type comes up for Approve,
+// the dropdown defaults to whatever was picked last time instead of always resetting — e.g.
+// picking "Proofread article" after a sentence-reword approval makes that the default next time,
+// not just "Record audio narration" forever.
+const TK_NEXT_STEP_CANDIDATES = ['audio-generate', 'arbitrate', 'image-generate'];
+function tkLoadNextStepChoices(){
+  try{ return JSON.parse(localStorage.getItem('tk-next-step-choices') || '{}'); }catch(e){ return {}; }
+}
+function tkSaveNextStepChoice(sourceType, nextType){
+  const c = tkLoadNextStepChoices();
+  c[sourceType] = nextType; // '' (None) is a real, rememberable choice too — not just a default
+  try{ localStorage.setItem('tk-next-step-choices', JSON.stringify(c)); }catch(e){}
+}
 // An entity already sitting in the queue/in-flight/awaiting-review for this exact service
 // shouldn't be offered again — otherwise re-opening Add Task before a run finishes would let you
 // queue the same entity twice.
@@ -8368,26 +8408,40 @@ function renderTaskReview(){
   // itself (see .tkLockBar:empty), giving its height back to the content.
   if(t.status !== 'proposed'){ lock.innerHTML = ''; return; }
 
-  // Follow-up options. Two cases offer "Record audio": a task that created a whole new entry
-  // with no audio yet (the original case this checkbox was built for), and approving a
+  // Follow-up "Next step" dropdown. Two cases offer it: a task that created a whole new entry
+  // with no audio yet (the original case this control was built for), and approving a
   // sentence-reword fix — which always clears the entity's existing audio (see
-  // wlApplyTaskToDb), so offering to queue a fresh recording right here is the whole point of
-  // "approve straight into the recording queue." Defaults checked for the reword case since
-  // that's meant to be the routine path, not an occasional opt-in; unchecked for the rarer new-
-  // entry case. Needs a Voice ID configured (Import \u2192 Voice & pacing settings) to actually
-  // queue anything — shown disabled with the reason if none is set, same pattern as before.
+  // wlApplyTaskToDb), so offering to queue a fresh follow-up right here is the whole point of
+  // "approve straight into the next stage." A dropdown rather than a single "Record audio"
+  // checkbox, since audio is only one of several sensible next steps (proofreading via Arbitrate
+  // is just as often the real next step after a reword pass). Defaults to whatever was last
+  // picked for THIS task's type (tk-next-step-choices, keyed by t.type — see
+  // tkLoadNextStepChoices), so choosing "Proofread article" after a sentence-reword once makes
+  // that the default every time a sentence-reword comes up for Approve after, not just the first
+  // time. Before any choice has ever been remembered for a type, falls back to the old default:
+  // audio for the reword case (the routine path), none for the rarer new-entry case.
   const createdEntry = !!(t.result && t.result.entryCreated);
   const needsAudioNewEntry = createdEntry && entry && !entry.audio;
   const isRewordWithEntry = t.type === 'sentence-reword' && !!entry;
-  const offerRecord = needsAudioNewEntry || isRewordWithEntry;
+  const offerNextStep = needsAudioNewEntry || isRewordWithEntry;
   const hasVoiceId = !!document.getElementById('audioVoiceId').value.trim();
   let opts = '';
-  if(offerRecord && !hasVoiceId){
-    opts = '<label class="tkCheck disabled"><input type="checkbox" id="tkOptAudio" disabled>' +
-      '<span>Record audio<span class="tkCheckNote">Set a Voice ID under Import \u2192 Voice &amp; pacing settings first.</span></span></label>';
-  }else if(offerRecord){
-    opts = '<label class="tkCheck"><input type="checkbox" id="tkOptAudio"' + (isRewordWithEntry ? ' checked' : '') + '>' +
-      '<span>Record audio' + (isRewordWithEntry ? '<span class="tkCheckNote">Replaces the recording just cleared by this fix.</span>' : '') + '</span></label>';
+  if(offerNextStep){
+    const candidates = TK_NEXT_STEP_CANDIDATES.filter(id => id !== t.type);
+    const remembered = tkLoadNextStepChoices();
+    const fallbackDefault = isRewordWithEntry ? 'audio-generate' : '';
+    const chosen = remembered.hasOwnProperty(t.type) ? remembered[t.type] : fallbackDefault;
+    const selected = candidates.includes(chosen) ? chosen : '';
+    const optionHtml = ['<option value="">None</option>'].concat(candidates.map(id => {
+      const svc = TK_SERVICES.find(s => s.id === id) || {};
+      const audioBlocked = id === 'audio-generate' && !hasVoiceId;
+      return '<option value="' + esc(id) + '"' + (id === selected ? ' selected' : '') + (audioBlocked ? ' disabled' : '') + '>' +
+        esc(svc.label || id) + (audioBlocked ? ' \u2014 set Voice ID first' : '') + '</option>';
+    })).join('');
+    opts = '<label class="tkCheck tkNextStepRow"><span>Next step</span>' +
+      '<select id="tkOptNextStep" class="tkNextStepSelect">' + optionHtml + '</select>' +
+      (isRewordWithEntry ? '<span class="tkCheckNote">This fix just cleared the entry\u2019s existing narration.</span>' : '') +
+    '</label>';
   }
   lock.innerHTML =
     '<div class="tkLockOpts">' + opts + '</div>' +
@@ -8864,39 +8918,44 @@ function tkStepReview(delta){
 // Approve or reject the item on screen, then move to the next item still awaiting a decision —
 // no confirmation step, since the whole point is to keep moving through a batch. Skips over
 // anything already settled so a mixed list doesn't drop you on a finished row mid-run.
-// Queues one audio-generate task for a single entity, same shape the batch Add Task path builds
-// (tkAudioPayload() captures the current Voice & pacing settings fields) — used by the Record
-// Audio checkbox in the Approve flow, not the batch selector, so this queues exactly one task and
-// reports through wlSetLog rather than tkSetAddStatus (the Add Task screen isn't necessarily open
-// when this runs).
-async function tkQueueAudioForEntity(entityId){
+// Queues one follow-up task of the given type for a single entity, same shape the batch Add Task
+// path builds (tkAudioPayload() captures the current Voice & pacing settings fields when type is
+// audio-generate) — used by the Approve lock bar's Next step dropdown, not the batch selector, so
+// this queues exactly one task and reports through wlSetLog rather than tkSetAddStatus (the Add
+// Task screen isn't necessarily open when this runs).
+async function tkQueueNextStepForEntity(type, entityId){
   const e = getEntry(entityId);
   if(!e) return;
   if(!wlData) wlData = { v: 1, tasks: [] };
   if(!Array.isArray(wlData.tasks)) wlData.tasks = [];
   const nowIso = new Date().toISOString();
-  const id = 'task-audio-generate-' + e.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+  const id = 'task-' + type + '-' + e.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+  const payload = type === 'audio-generate' ? tkAudioPayload() : {};
+  if(type === 'audio-generate') saveAudioGenSettings(); // remembered for next time, same as every other change to these fields
+  const label = (TK_SERVICES.find(s => s.id === type) || {}).label || type;
   wlData.tasks.push({
-    id: id, type: 'audio-generate', entityId: e.id, batchId: null, status: 'queued',
-    description: 'Record audio narration \u2014 ' + e.n,
-    payload: tkAudioPayload(), result: null, createdAt: nowIso, updatedAt: nowIso, error: null
+    id: id, type: type, entityId: e.id, batchId: null, status: 'queued',
+    description: label + ' \u2014 ' + e.n,
+    payload: payload, result: null, createdAt: nowIso, updatedAt: nowIso, error: null
   });
-  const saved = await saveWorkLog('Queue audio-generate for ' + e.id + ' (from Approve)', [id]);
+  const saved = await saveWorkLog('Queue ' + type + ' for ' + e.id + ' (from Approve)', [id]);
   wlSetLog(saved.ok
-    ? 'Approved \u2713 \u2014 audio narration queued for ' + e.n + '. Run it from Task List when ready.'
-    : 'Approved \u2713 \u2014 but could not queue audio narration: ' + saved.error, !saved.ok);
+    ? 'Approved \u2713 \u2014 ' + label.toLowerCase() + ' queued for ' + e.n + '. Run it from Task List when ready.'
+    : 'Approved \u2713 \u2014 but could not queue ' + label.toLowerCase() + ': ' + saved.error, !saved.ok);
 }
 async function tkResolveCurrent(approve){
   const id = tkReviewIds[tkReviewIdx];
   if(!id) return;
   const t = tkTask(id);
-  const alsoRecord = approve && !!document.getElementById('tkOptAudio') && document.getElementById('tkOptAudio').checked;
+  const nextStepSel = document.getElementById('tkOptNextStep');
+  const nextStepType = approve && nextStepSel ? nextStepSel.value : '';
+  if(approve && nextStepSel && t) tkSaveNextStepChoice(t.type, nextStepType); // remember per source task type, including "None"
   const btnA = document.getElementById('tkApprove'), btnR = document.getElementById('tkReject');
   if(btnA) btnA.disabled = true;
   if(btnR) btnR.disabled = true;
   await wlResolveTasks([id], approve);
-  if(alsoRecord && t && t.entityId){
-    await tkQueueAudioForEntity(t.entityId);
+  if(nextStepType && t && t.entityId){
+    await tkQueueNextStepForEntity(nextStepType, t.entityId);
   }
   let next = tkReviewIdx + 1;
   while(next < tkReviewIds.length){
