@@ -1,9 +1,21 @@
 <!--
-VERSION: 384
-DATE: 2026-09-14T10:30:00-05:00
+VERSION: 385
+DATE: 2026-09-14T12:15:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed: opening ANY sentence-reword item in Review showed a blank, stuck panel — reported right
+  after v384 shipped, but the bug itself predates that build and is unrelated to it (confirmed by
+  diffing v384 against v383 — this line was already broken in v383). tkRenderSentenceRewordReview()
+  referenced a variable named `preview` that was never declared anywhere in the function — it
+  should have called tkPreviewSentencePatches(sections, patches) first and used that result, the
+  way tkPreviewSentencePatches's own doc comment describes, but that call was missing entirely.
+  The very first line of the function threw a ReferenceError, before the article ever got built,
+  which is why the screen stayed blank rather than showing a broken article — nothing ever reached
+  scroll.innerHTML. Likely shipped silently whenever tkRenderSentenceRewordReview and
+  tkPreviewSentencePatches were first split into two functions and never actually exercised until
+  today's batch of sentence-reword tasks got reviewed for the first time since. One-line fix: add
+  the missing `const preview = tkPreviewSentencePatches(sections, patches);`.
 - Approve lock bar's single "Record audio" checkbox is now a "Next step" dropdown (None / Record
   audio narration / Proofread article / Generate images, excluding whichever type is being
   approved), offered in the same two cases as before (a sentence-reword fix, or a task that just
@@ -4480,7 +4492,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v384';
+const APP_VERSION = 'v385';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7958,6 +7970,13 @@ function tkRenderArbitrateReview(entry, t){
 
 function tkRenderSentenceRewordReview(entry, patches, taskResult){
   const sections = (entry.art && entry.art.sections) || [];
+  // Computes where each patch's original text sits in the untouched sections, and a working
+  // copy with every patch spliced in plus where each replacement landed — see
+  // tkPreviewSentencePatches's own comment. Was missing entirely (this function referenced a
+  // bare, never-declared `preview` below instead of computing it), which threw a ReferenceError
+  // the instant any sentence-reword review tried to render, before the article ever reached the
+  // screen — that's the blank/stuck Review panel.
+  const preview = tkPreviewSentencePatches(sections, patches);
   const beforeCounter = { n: 0 }, afterCounter = { n: 0 };
   const beforeSet = tkRenderSentenceSectionSet(sections, preview.beforeSpans, beforeCounter);
   const afterSet = tkRenderSentenceSectionSet(preview.afterSections, preview.afterSpans, afterCounter);
