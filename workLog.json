@@ -10805,14 +10805,25 @@
       "type": "sentence-reword",
       "entityId": "st-ignatius-of-antioch-107",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Ignatius of Antioch",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-ignatius-of-antioch-107",
+        "name": "St. Ignatius of Antioch",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-14T14:53:05.620Z",
-      "updatedAt": "2026-09-14T14:58:56.987Z",
+      "updatedAt": "2026-09-14T14:59:01.342Z",
       "error": null
     },
     {
@@ -12130,6 +12141,35 @@
       "error": null,
       "createdAt": "2026-09-14T14:58:55.495Z",
       "updatedAt": "2026-09-14T14:58:55.495Z"
+    },
+    {
+      "id": "task-sentence-reword-st-ignatius-of-antioch-107-1789397941342-7212",
+      "type": "sentence-reword",
+      "entityId": "st-ignatius-of-antioch-107",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Ignatius of Antioch",
+      "payload": {},
+      "result": {
+        "name": "St. Ignatius of Antioch",
+        "patches": [
+          [
+            "article",
+            "For this reason his seven epistles have been cited in every age as evidence of what Christians believed while the memory of the Apostles was still fresh, and they remain a favourite witness in the Church's understanding of her own origins.",
+            "U",
+            "For this reason, his seven epistles have been cited in every age as evidence of what Christians believed while the memory of the Apostles was still fresh. They remain a favourite witness in the Church's understanding of her own origins."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-14T14:59:01.342Z",
+      "updatedAt": "2026-09-14T14:59:01.342Z"
     }
   ]
 }
