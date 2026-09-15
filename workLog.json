@@ -11107,14 +11107,25 @@
       "type": "sentence-reword",
       "entityId": "st-eusebius-of-vercelli-371",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Eusebius of Vercelli",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-eusebius-of-vercelli-371",
+        "name": "St. Eusebius of Vercelli",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-14T23:42:16.051Z",
-      "updatedAt": "2026-09-15T00:28:47.998Z",
+      "updatedAt": "2026-09-15T00:28:56.301Z",
       "error": null
     },
     {
@@ -12817,6 +12828,47 @@
       "error": null,
       "createdAt": "2026-09-15T00:28:46.674Z",
       "updatedAt": "2026-09-15T00:28:46.674Z"
+    },
+    {
+      "id": "task-sentence-reword-st-eusebius-of-vercelli-371-1789432136301-3231",
+      "type": "sentence-reword",
+      "entityId": "st-eusebius-of-vercelli-371",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — St. Eusebius of Vercelli",
+      "payload": {},
+      "result": {
+        "name": "St. Eusebius of Vercelli",
+        "patches": [
+          [
+            "article",
+            "According to <a href=\"entry:st-ambrose-397\">St. Ambrose</a>'s own testimony, Eusebius was 'the first bishop of the West who united monastic with clerical life,' organizing his cathedral clergy into a common life modeled on the practices of the Eastern monks — a pioneering fusion of monasticism and diocesan ministry that later Canons Regular of St. Augustine would honor him as a founding inspiration for.",
+            "U",
+            "According to <a href=\"entry:st-ambrose-397\">St. Ambrose</a>'s own testimony, Eusebius was 'the first bishop of the West who united monastic with clerical life.' He organized his cathedral clergy into a common life modeled on the practices of the Eastern monks. Later Canons Regular of St. Augustine would honor this pioneering fusion of monasticism and diocesan ministry as a founding inspiration."
+          ],
+          [
+            "article",
+            "Eusebius's banishment carried him first to Scythopolis in Syria, where he was placed under the watch of a hostile Arian bishop who Eusebius himself described as his jailer, then further still to Cappadocia and finally to the Thebaid in Upper Egypt, enduring years of hardship and even physical mistreatment for his refusal to abandon Nicene orthodoxy.",
+            "U",
+            "Eusebius's banishment carried him first to Scythopolis in Syria, where a hostile Arian bishop watched him. Eusebius himself described this bishop as his jailer.\n\nHe was then sent further still to Cappadocia and finally to the Thebaid in Upper Egypt. There, he endured years of hardship and even physical mistreatment for refusing to abandon Nicene orthodoxy."
+          ],
+          [
+            "article",
+            "Eusebius is honored by the Church as a confessor of the faith for his years of exile and hardship endured rather than betray Nicene doctrine, and his pioneering combination of monastic discipline with active diocesan ministry left a lasting institutional legacy in the later tradition of Canons Regular that continues to claim him, alongside St. Augustine, as a founding father.",
+            "U",
+            "Eusebius is honored by the Church as a confessor of the faith for his years of exile and hardship endured rather than betray Nicene doctrine.  \nHis pioneering combination of monastic discipline with active diocesan ministry left a lasting institutional legacy in the later tradition of Canons Regular.  \nThat tradition continues to claim him, alongside St. Augustine, as a founding father."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-15T00:28:56.301Z",
+      "updatedAt": "2026-09-15T00:28:56.301Z"
     }
   ]
 }
