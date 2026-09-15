@@ -136,14 +136,25 @@
       "type": "sentence-reword",
       "entityId": "st-thomas-the-apostle-72",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Thomas the Apostle",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-thomas-the-apostle-72",
+        "name": "St. Thomas the Apostle",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-15T18:53:31.898Z",
-      "updatedAt": "2026-09-15T18:55:09.537Z",
+      "updatedAt": "2026-09-15T18:55:44.389Z",
       "error": null
     },
     {
@@ -657,6 +668,47 @@
       "error": null,
       "createdAt": "2026-09-15T18:55:36.381Z",
       "updatedAt": "2026-09-15T18:55:36.381Z"
+    },
+    {
+      "id": "task-sentence-reword-st-thomas-the-apostle-72-1789498544389-5012",
+      "type": "sentence-reword",
+      "entityId": "st-thomas-the-apostle-72",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — St. Thomas the Apostle",
+      "payload": {},
+      "result": {
+        "name": "St. Thomas the Apostle",
+        "patches": [
+          [
+            "article",
+            "When Jesus announced his intention to return to Judea, into danger, to visit the dying <a href=\"entry:sts-martha-mary-lazarus-80\">Lazarus</a>, it was Thomas who rallied the other hesitant disciples with words of blunt, loyal courage: \"let us also go, that we may die with him\" — hardly the words of a coward or a man of shallow commitment, whatever his later reputation for doubt might suggest.",
+            "U",
+            "When Jesus announced his intention to return to Judea, into danger, to visit the dying <a href=\"entry:sts-martha-mary-lazarus-80\">Lazarus</a>, Thomas rallied the other hesitant disciples. He spoke with blunt, loyal courage: \"let us also go, that we may die with him\" — hardly the words of a coward or a man of shallow commitment, whatever his later reputation for doubt might suggest."
+          ],
+          [
+            "article",
+            "The others may well have shared it but did not dare express it: \"Lord, we do not know where you are going; how can we know the way?\"  \nThat question drew from Jesus one of the most treasured declarations in the entire Gospel: <i>I am the way, and the truth, and the life</i>.",
+            "U",
+            "The others may well have shared it but did not dare express it: \"Lord, we do not know where you are going; how can we know the way?\" That question drew from Jesus one of the most treasured declarations in the entire Gospel: <i>I am the way, and the truth, and the life</i>."
+          ],
+          [
+            "article",
+            "He is patron of those who have ever needed to move, in their own time and their own way, from unguarded uncertainty to the same complete confession he once made before the wounds of the Risen Christ: <i>my Lord and my God</i>.",
+            "U",
+            "He is patron of those who have ever needed to move, in their own time and their own way, from unguarded uncertainty. He is patron of those who have reached the same complete confession he once made before the wounds of the Risen Christ: <i>my Lord and my God</i>."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-15T18:55:44.389Z",
+      "updatedAt": "2026-09-15T18:55:44.389Z"
     }
   ]
 }
