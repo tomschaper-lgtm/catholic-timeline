@@ -10828,14 +10828,25 @@
       "type": "sentence-reword",
       "entityId": "st-columbanus-615",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Columbanus",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-columbanus-615",
+        "name": "St. Columbanus",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-14T23:42:16.051Z",
-      "updatedAt": "2026-09-15T15:59:50.624Z",
+      "updatedAt": "2026-09-15T16:02:26.708Z",
       "error": null
     },
     {
@@ -13794,6 +13805,35 @@
       "error": null,
       "createdAt": "2026-09-15T16:02:23.731Z",
       "updatedAt": "2026-09-15T16:02:23.731Z"
+    },
+    {
+      "id": "task-sentence-reword-st-columbanus-615-1789488146708-2677",
+      "type": "sentence-reword",
+      "entityId": "st-columbanus-615",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Columbanus",
+      "payload": {},
+      "result": {
+        "name": "St. Columbanus",
+        "patches": [
+          [
+            "article",
+            "An Irish nobleman who traded a life of comfort for the wandering life of a monk, Columbanus set out from Bangor Abbey with twelve companions determined to bring Irish monastic rigor to a continental Church he judged badly in need of reform.",
+            "U",
+            "An Irish nobleman, Columbanus traded a life of comfort for the wandering life of a monk. He set out from Bangor Abbey with twelve companions, determined to bring Irish monastic rigor to a continental Church he judged badly in need of reform."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-15T16:02:26.708Z",
+      "updatedAt": "2026-09-15T16:02:26.708Z"
     }
   ]
 }
