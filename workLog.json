@@ -162,14 +162,25 @@
       "type": "sentence-reword",
       "entityId": "st-philip-the-apostle-80",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Philip the Apostle",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-philip-the-apostle-80",
+        "name": "St. Philip the Apostle",
+        "sentencesFound": 2,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-15T18:53:31.898Z",
-      "updatedAt": "2026-09-15T18:55:09.537Z",
+      "updatedAt": "2026-09-15T18:55:50.348Z",
       "error": null
     },
     {
@@ -709,6 +720,35 @@
       "error": null,
       "createdAt": "2026-09-15T18:55:44.389Z",
       "updatedAt": "2026-09-15T18:55:44.389Z"
+    },
+    {
+      "id": "task-sentence-reword-st-philip-the-apostle-80-1789498550348-4532",
+      "type": "sentence-reword",
+      "entityId": "st-philip-the-apostle-80",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Philip the Apostle",
+      "payload": {},
+      "result": {
+        "name": "St. Philip the Apostle",
+        "patches": [
+          [
+            "article",
+            "A native of <b>Bethsaida</b> on the Sea of Galilee, the same town that gave the Church Peter and <a href=\"entry:st-andrew-60\">Andrew</a>, <b>Philip</b> was among the earliest disciples called by Jesus, summoned with the same brief, direct invitation extended to <a href=\"entry:st-matthew-70\">Matthew</a>: \"follow me.\" Philip's response, like theirs, was immediate — and it was immediately generous as well, for the very next thing Scripture records him doing is finding his friend <b><a href=\"entry:st-bartholomew-68\">Nathanael</a></b> to share the news he could not keep to himself.",
+            "U",
+            "A native of <b>Bethsaida</b> on the Sea of Galilee, the same town that gave the Church Peter and <a href=\"entry:st-andrew-60\">Andrew</a>, <b>Philip</b> was among Jesus' earliest disciples. He was summoned with the same brief, direct invitation extended to <a href=\"entry:st-matthew-70\">Matthew</a>: \"follow me.\" Like theirs, Philip's response was immediate — and immediately generous, for Scripture next records him finding his friend <b><a href=\"entry:st-bartholomew-68\">Nathanael</a></b> to share the news he could not keep to himself."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-15T18:55:50.348Z",
+      "updatedAt": "2026-09-15T18:55:50.348Z"
     }
   ]
 }
