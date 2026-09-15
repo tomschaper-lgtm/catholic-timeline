@@ -57,6 +57,18 @@
 // `queued` (see the deferredCount>0 branch below) — they were only ever tentatively claimed, and
 // never got their turn.
 //
+// ORPHAN RECLAIM: batch-claiming a whole group up front means a run that dies mid-batch — job
+// crash, manual cancel, runner timeout, anything that stops main() before it reaches the bottom —
+// can strand the REST of that batch at in_progress forever, not just the one task that was
+// actually executing when it died. Nothing else ever looks for that on its own; a task sitting at
+// in_progress is invisible to the normal `queued` filter, so simply retrying does nothing for it.
+// Every run's very first move, before it claims a batch of its own, is to sweep up any task
+// already sitting at in_progress and put it back to `queued` — safe to do unconditionally because
+// orchestrator.yml's `concurrency: group: orchestrator` guarantees only one orchestrator job ever
+// runs at a time, so anything found in_progress at the start of THIS job can only be a leftover
+// from a run that didn't finish cleanly, never a real one still active right now. See the
+// `orphaned` block near the top of main().
+//
 // PRUNING: workLog.json only ever grows unless something trims it — every task, forever, is a
 // permanent record by default. Once a task is finished (done, rejected, or error — anything that
 // isn't still queued/in_progress/awaiting_review) it doesn't need to live in the live file
@@ -197,6 +209,28 @@ async function main(){
   // leaving it up after a fresh run would misreport the current state.
   delete workLog.notice;
 
+  // SELF-HEALING: any task still sitting at `in_progress` when a run STARTS must be an orphan
+  // from an earlier run that didn't finish cleanly (crashed, got cancelled, or the job errored
+  // out partway through its batch) — never a task actually being worked on right now. That's
+  // guaranteed by orchestrator.yml's own `concurrency: group: orchestrator` setting, which
+  // serializes runs so two orchestrator jobs can never execute at once; if THIS job is running,
+  // nothing else could have claimed these moments ago. Reclaiming them back to `queued` here,
+  // before this run claims its own new batch, is what stops a task from being stuck at
+  // in_progress forever just because a past run died mid-batch — the very next run (any type,
+  // any size) sweeps every orphan up automatically, no manual fix needed. Scoped to ALL orphans
+  // regardless of TASK_TYPE, not just this run's requested type — cheap to fix them all every
+  // time rather than leaving some stranded. Committed on its own, immediately, so the reclaim is
+  // visible even if this run then finds nothing new to do and exits early below.
+  const orphaned = workLog.tasks.filter(t => t.status === 'in_progress');
+  let reclaimNote = '';
+  if(orphaned.length){
+    const reclaimedAt = nowIso();
+    orphaned.forEach(t => { t.status = 'queued'; t.updatedAt = reclaimedAt; });
+    reclaimNote = 'Reclaimed ' + orphaned.length + ' orphaned in_progress task' +
+      (orphaned.length === 1 ? '' : 's') + ' from a previous run back to queued.';
+    commitWorkLog(workLog, 'Reclaim ' + orphaned.length + ' orphaned task' + (orphaned.length === 1 ? '' : 's'));
+  }
+
   const queued = workLog.tasks.filter(t =>
     t.status === 'queued' && (!TASK_TYPE || t.type === TASK_TYPE)
   );
@@ -207,6 +241,7 @@ async function main(){
     console.log('No queued tasks' + scope + '. Nothing to do.');
     const prunedCount = pruneCompletedTasks(workLog);
     const summaryText = 'Orchestrator run: no queued tasks' + scope + ' found.' +
+      (reclaimNote ? ' ' + reclaimNote : '') +
       (prunedCount > 0 ? ' Pruned ' + prunedCount + ' completed task(s) beyond the last ' + MAX_COMPLETED_KEPT + '.' : '');
     writeSummary(summaryText);
     writeFileSync(WORKLOG_PATH, JSON.stringify(workLog, null, 2) + '\n');
@@ -218,6 +253,7 @@ async function main(){
     'Requested: up to ' + MAX_TASKS + (TASK_TYPE ? ' of type "' + TASK_TYPE + '"' : ' of any type'),
     ''
   ];
+  if(reclaimNote) summaryLines.push(reclaimNote, '');
   let deferredCount = 0;
   let deferredReason = '';
 
