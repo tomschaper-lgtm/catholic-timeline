@@ -37,14 +37,34 @@
 // orchestrator — the underlying work already happened, only the publish step needs redoing.
 //
 // workLog.json itself is committed the same way now, not once at the end of the run — twice per
-// task (once the moment it flips to in_progress, before the handler even runs, and once after its
-// outcome is known), via commitWorkLog(). This used to be a single write at the very end, on the
-// theory that it's bookkeeping, not content. That theory was right about safety (it does merge
-// safely on the CMS side, see saveWorkLog in index.html) but wrong about visibility: a single
-// end-of-run write meant nobody watching mid-run could tell which task was actually running, or
-// see anything change until the whole batch finished. Best-effort, not fatal — a failed workLog
-// push here just costs one visibility update; orchestrator.yml's own trailing commit step is
-// still the final safety net for whatever a per-task push missed.
+// batch at minimum (once the moment the whole batch is claimed, before any handler runs, and once
+// per task as its own outcome becomes known), via commitWorkLog(). This used to be a single write
+// at the very end, on the theory that it's bookkeeping, not content. That theory was right about
+// safety (it does merge safely on the CMS side, see saveWorkLog in index.html) but wrong about
+// visibility: a single end-of-run write meant nobody watching mid-run could tell which tasks were
+// actually running, or see anything change until the whole batch finished. Best-effort, not fatal
+// — a failed workLog push here just costs one visibility update; orchestrator.yml's own trailing
+// commit step is still the final safety net for whatever a per-task push missed.
+//
+// BATCH CLAIMING: the whole batch is flipped to `in_progress` and committed in ONE shot, BEFORE
+// the loop below processes any of them — not one task at a time as each one's turn starts. This
+// is what lets the app's Running tab show the whole batch (10 → 9 → 8… as each one actually
+// finishes) rather than only ever showing whichever single task happens to be executing at that
+// instant. The loop itself still runs strictly serially, exactly as before — this only changes
+// WHEN each task's in_progress status becomes visible (all at once, up front) rather than
+// changing how the work itself is scheduled. If a task defers partway through (budget/rate-limit
+// exhausted), every task after it in the batch that hasn't been reached yet is un-claimed back to
+// `queued` (see the deferredCount>0 branch below) — they were only ever tentatively claimed, and
+// never got their turn.
+//
+// PRUNING: workLog.json only ever grows unless something trims it — every task, forever, is a
+// permanent record by default. Once a task is finished (done, rejected, or error — anything that
+// isn't still queued/in_progress/awaiting_review) it doesn't need to live in the live file
+// indefinitely; it's history, not something the app or a person is waiting on. Every run, after
+// all task processing is done, pruneCompletedTasks() keeps only the MAX_COMPLETED_KEPT
+// most-recently-updated finished tasks and drops the rest — permanently, no archive file. This
+// runs on every invocation (including a no-op run that found nothing queued) so the file can't
+// quietly grow past the point where a phone on a flaky connection can fetch it in one piece.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
@@ -62,6 +82,11 @@ const SUMMARY_PATH = process.env.SUMMARY_PATH || 'scripts/work-summary.txt';
 const MAX_TASKS = parseInt(process.env.MAX_TASKS_PER_RUN || '5', 10);
 const TASK_TYPE = (process.env.TASK_TYPE || '').trim(); // '' = any service
 
+// How many finished tasks to keep, and which statuses count as "finished" for that purpose.
+// awaiting_review is deliberately excluded — it's still waiting on a human decision, not history.
+const MAX_COMPLETED_KEPT = parseInt(process.env.MAX_COMPLETED_KEPT || '75', 10);
+const FINISHED_STATUSES = new Set(['done', 'rejected', 'error']);
+
 // Register each service's task type -> handler function here. A handler may be async.
 const SERVICE_HANDLERS = {
   'age-backfill-scan': runAgeBackfillScan,
@@ -77,6 +102,27 @@ function nowIso(){ return new Date().toISOString(); }
 function writeSummary(text){
   mkdirSync(dirname(SUMMARY_PATH), { recursive: true });
   writeFileSync(SUMMARY_PATH, text.endsWith('\n') ? text : text + '\n');
+}
+
+// Keeps only the MAX_COMPLETED_KEPT most-recently-updated finished tasks (see FINISHED_STATUSES)
+// and drops the rest from workLog.tasks outright — no archive. Tasks that aren't finished
+// (queued, in_progress, awaiting_review) are never touched by this, regardless of age. Order of
+// the surviving tasks is left exactly as it was; this only decides which finished tasks survive,
+// not how they're arranged. Returns the number of tasks removed, purely for the run summary.
+function pruneCompletedTasks(workLog){
+  const finished = workLog.tasks.filter(t => FINISHED_STATUSES.has(t.status));
+  if(finished.length <= MAX_COMPLETED_KEPT) return 0;
+
+  const keepIds = new Set(
+    [...finished]
+      .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
+      .slice(0, MAX_COMPLETED_KEPT)
+      .map(t => t.id)
+  );
+
+  const before = workLog.tasks.length;
+  workLog.tasks = workLog.tasks.filter(t => !FINISHED_STATUSES.has(t.status) || keepIds.has(t.id));
+  return before - workLog.tasks.length;
 }
 
 // Writes the in-memory dataJson to disk (if it changed) and commits exactly the given file
@@ -159,7 +205,10 @@ async function main(){
   if(batch.length === 0){
     const scope = TASK_TYPE ? ' of type "' + TASK_TYPE + '"' : '';
     console.log('No queued tasks' + scope + '. Nothing to do.');
-    writeSummary('Orchestrator run: no queued tasks' + scope + ' found.');
+    const prunedCount = pruneCompletedTasks(workLog);
+    const summaryText = 'Orchestrator run: no queued tasks' + scope + ' found.' +
+      (prunedCount > 0 ? ' Pruned ' + prunedCount + ' completed task(s) beyond the last ' + MAX_COMPLETED_KEPT + '.' : '');
+    writeSummary(summaryText);
     writeFileSync(WORKLOG_PATH, JSON.stringify(workLog, null, 2) + '\n');
     return;
   }
@@ -172,33 +221,44 @@ async function main(){
   let deferredCount = 0;
   let deferredReason = '';
 
+  // Claim the whole batch as in_progress in one commit, before any handler runs — see BATCH
+  // CLAIMING in the file-header comment. Tasks whose type has no registered handler are claimed
+  // too; the loop below flips them to `error` on its first touch, same as always, just a moment
+  // later than before.
+  const claimedAt = nowIso();
+  batch.forEach(task => { task.status = 'in_progress'; task.updatedAt = claimedAt; });
+  summaryLines.push('Claimed ' + batch.length + ' task' + (batch.length === 1 ? '' : 's') + ' as in_progress.', '');
+  commitWorkLog(workLog, 'Claim batch: ' + batch.length + ' task' + (batch.length === 1 ? '' : 's') +
+    (TASK_TYPE ? ' (' + TASK_TYPE + ')' : ''));
+
   for(const task of batch){
     const handler = SERVICE_HANDLERS[task.type];
-    task.updatedAt = nowIso();
 
     if(!handler){
       task.status = 'error';
       task.error = 'No service registered for type "' + task.type + '"';
+      task.updatedAt = nowIso();
       summaryLines.push('\u2717 ' + task.id + ' (' + task.type + '): no handler registered');
       commitWorkLog(workLog, 'No handler for ' + task.id);
       continue;
     }
 
-    // Once one task defers, the budget is gone for this run — the rest of the batch is left
-    // untouched at `queued` rather than each being tried and failing the same way.
+    // Once one task in this batch has deferred, the run's budget is gone — every task from here
+    // on is un-claimed back to `queued` (it was only ever tentatively claimed by the batch-claim
+    // commit above) rather than attempted and failed the same way. No commit here per task; the
+    // reverted statuses ride along in the same final writeFileSync/commit every run already does
+    // at the bottom of main().
     if(deferredCount > 0){
+      task.status = 'queued';
+      task.updatedAt = nowIso();
       deferredCount++;
       continue;
     }
 
-    task.status = 'in_progress';
-    // Committed BEFORE the (potentially slow) handler call, not after — this is the whole point:
-    // someone watching the app mid-run sees THIS task, by name, as in_progress, rather than
-    // whatever workLog.json still said from before the run started. Best-effort (see
-    // commitWorkLog) — a failed push here doesn't stop the run, it just costs one visibility
-    // update that the next commit supersedes anyway.
-    commitWorkLog(workLog, 'Start ' + task.id);
-
+    // Already `in_progress` from the batch-claim commit above — no separate per-task "Start"
+    // commit anymore. Each task's own commit below (Finish/Defer/error) is what flips IT OUT of
+    // Running individually, one at a time, as it actually finishes; that's what makes the
+    // Running count visibly step down as the batch works through.
     try{
       const out = (await handler(task, dataJson, workLog)) || {};
 
@@ -266,6 +326,11 @@ async function main(){
     workLog.notice = deferredCount + ' task' + (deferredCount === 1 ? '' : 's') +
       ' left queued: ' + deferredReason + '. Nothing failed \u2014 run again later to pick up where this stopped.';
     summaryLines.push('', workLog.notice);
+  }
+
+  const prunedCount = pruneCompletedTasks(workLog);
+  if(prunedCount > 0){
+    summaryLines.push('', 'Pruned ' + prunedCount + ' completed task(s) (done/rejected/error) beyond the last ' + MAX_COMPLETED_KEPT + ' \u2014 not archived.');
   }
 
   writeFileSync(WORKLOG_PATH, JSON.stringify(workLog, null, 2) + '\n');
