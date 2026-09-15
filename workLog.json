@@ -188,14 +188,25 @@
       "type": "sentence-reword",
       "entityId": "st-luke-the-evangelist-84",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Luke the Evangelist",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-luke-the-evangelist-84",
+        "name": "St. Luke the Evangelist",
+        "sentencesFound": 5,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-15T18:53:31.898Z",
-      "updatedAt": "2026-09-15T18:55:09.537Z",
+      "updatedAt": "2026-09-15T18:56:05.000Z",
       "error": null
     },
     {
@@ -749,6 +760,53 @@
       "error": null,
       "createdAt": "2026-09-15T18:55:50.348Z",
       "updatedAt": "2026-09-15T18:55:50.348Z"
+    },
+    {
+      "id": "task-sentence-reword-st-luke-the-evangelist-84-1789498565000-3774",
+      "type": "sentence-reword",
+      "entityId": "st-luke-the-evangelist-84",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — St. Luke the Evangelist",
+      "payload": {},
+      "result": {
+        "name": "St. Luke the Evangelist",
+        "patches": [
+          [
+            "article",
+            "<b>Luke</b>, by strong and ancient tradition a native of <b>Antioch</b> in Syria, appears to have been a Gentile convert to the faith — traditionally regarded as the only New Testament writer who was not Jewish — and a physician by profession, a detail <a href=\"entry:st-paul-67\">St. Paul</a> himself confirms, addressing him in one epistle as \"Luke the beloved physician.\"",
+            "U",
+            "<b>Luke</b>, by strong and ancient tradition a native of <b>Antioch</b> in Syria, appears to have been a Gentile convert to the faith. Traditionally regarded as the only New Testament writer who was not Jewish, he was a physician by profession, a detail <a href=\"entry:st-paul-67\">St. Paul</a> himself confirms, addressing him in one epistle as \"Luke the beloved physician.\""
+          ],
+          [
+            "article",
+            "He remained with Paul through the long, dangerous sea voyage and shipwreck that carried the Apostle finally to Rome—a companion who did not merely record Paul's missionary journeys from a distance, but walked, sailed, and suffered through a considerable portion of them himself.",
+            "U",
+            "He remained with Paul through the long, dangerous sea voyage and shipwreck that carried the Apostle finally to Rome. He was a companion who did not merely record Paul's missionary journeys from a distance, but walked, sailed, and suffered through a considerable portion of them himself."
+          ],
+          [
+            "article",
+            "It traces the Gospel's spread from Jerusalem to Rome itself and preserves, in the process, our only sustained historical account of the Apostolic age — a debt the whole Church owes to one careful physician's determination that this unfolding story, too, deserved to be set down accurately for those who would come after.",
+            "U",
+            "It traces the Gospel's spread from Jerusalem to Rome itself and preserves our only sustained historical account of the Apostolic age. The whole Church owes this debt to one careful physician's determination that this unfolding story, too, deserved to be set down accurately for those who would come after."
+          ],
+          [
+            "article",
+            "He adds, with evident and simple gratitude: \"only Luke is with me.\" Of all the friends and fellow workers who had accompanied Paul across decades of missionary labor, Luke was the companion named as remaining with Paul during his final imprisonment.",
+            "U",
+            "He adds, with evident and simple gratitude: \"only Luke is with me.\" Of all the friends and fellow workers accompanying Paul across decades of missionary labor, Luke was named as remaining with him during his final imprisonment."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-15T18:56:05.000Z",
+      "updatedAt": "2026-09-15T18:56:05.000Z"
     }
   ]
 }
