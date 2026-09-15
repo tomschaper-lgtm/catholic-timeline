@@ -266,14 +266,25 @@
       "type": "sentence-reword",
       "entityId": "st-pancras-304",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Pancras",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-pancras-304",
+        "name": "St. Pancras",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-15T18:53:31.898Z",
-      "updatedAt": "2026-09-15T18:55:09.537Z",
+      "updatedAt": "2026-09-15T18:56:38.518Z",
       "error": null
     },
     {
@@ -929,6 +940,59 @@
       "error": null,
       "createdAt": "2026-09-15T18:56:27.318Z",
       "updatedAt": "2026-09-15T18:56:27.318Z"
+    },
+    {
+      "id": "task-sentence-reword-st-pancras-304-1789498598518-4419",
+      "type": "sentence-reword",
+      "entityId": "st-pancras-304",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — St. Pancras",
+      "payload": {},
+      "result": {
+        "name": "St. Pancras",
+        "patches": [
+          [
+            "article",
+            "<b>Pancras</b> (Pancratius) is remembered by ancient tradition as a mere teenager — some accounts say only fourteen years old — martyred for the Christian faith, most probably, according to the Catholic Encyclopedia, either during the persecution of Valerian in the 250s or that of Diocletian around 304.",
+            "U",
+            "<b>Pancras</b> (Pancratius) is remembered by ancient tradition as a mere teenager, with some accounts saying he was only fourteen years old. He was martyred for the Christian faith, most probably, according to the Catholic Encyclopedia, either during the persecution of Valerian in the 250s or that of Diocletian around 304."
+          ],
+          [
+            "article",
+            "Pancras was buried in a catacomb along the <b>Via Aurelia</b>, distinct from the resting place of <a href=\"entry:sts-nereus-achilleus-304\">Nereus and Achilleus</a> on the Via Ardeatina, though the Church came to commemorate all of these Roman martyrs together on the same day, 12 May.",
+            "U",
+            "Pancras was buried in a catacomb along the <b>Via Aurelia</b>, distinct from the resting place of <a href=\"entry:sts-nereus-achilleus-304\">Nereus and Achilleus</a> on the Via Ardeatina. The Church came to commemorate all of these Roman martyrs together on the same day, 12 May."
+          ],
+          [
+            "article",
+            "Devotion to Pancras spread with unusual speed beyond Rome itself: <a href=\"entry:st-gregory-the-great-604\">Pope Gregory the Great</a> sent relics of the young martyr to England as part of the mission that converted the Anglo-Saxons, and one of the very first churches built in England, at Canterbury, was dedicated in his honor — a dedication that gave his name, centuries later, to the London district and railway station of St Pancras.",
+            "U",
+            "Devotion to Pancras spread with unusual speed beyond Rome itself. <a href=\"entry:st-gregory-the-great-604\">Pope Gregory the Great</a> sent relics of the young martyr to England as part of the mission that converted the Anglo-Saxons.\n\nOne of the very first churches built in England, at Canterbury, was dedicated in his honor — a dedication that gave his name, centuries later, to the London district and railway station of St Pancras."
+          ],
+          [
+            "article",
+            "Popular devotion in the Middle Ages came to invoke Pancras particularly as a swift avenger of perjury, a tradition reflecting the ancient practice of swearing solemn oaths upon relics of the saints — those who lied while invoking his name, folk belief held, would meet with sudden and unpleasant consequences.",
+            "U",
+            "Popular devotion in the Middle Ages came to invoke Pancras particularly as a swift avenger of perjury. This tradition reflected the ancient practice of swearing solemn oaths upon relics of the saints. Folk belief held that those who lied while invoking his name would meet with sudden and unpleasant consequences."
+          ],
+          [
+            "article",
+            "Though, as with many of the earliest Roman martyrs, few reliable historical details survive beyond his burial place and the fact of his martyrdom, Pancras remains venerated to this day as one of the youngest named martyrs of the early Church, his memory carried by his ancient Roman church, his English dedication at Canterbury, and the wider devotion that grew from Pope Gregory's missionary relics.",
+            "U",
+            "Though, as with many of the earliest Roman martyrs, few reliable historical details survive beyond his burial place and the fact of his martyrdom. Pancras remains venerated to this day as one of the youngest named martyrs of the early Church, his memory carried by his ancient Roman church, his English dedication at Canterbury, and the wider devotion that grew from Pope Gregory's missionary relics."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-15T18:56:38.518Z",
+      "updatedAt": "2026-09-15T18:56:38.518Z"
     }
   ]
 }
