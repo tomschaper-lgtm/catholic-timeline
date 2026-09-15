@@ -1,9 +1,40 @@
 <!--
-VERSION: 390
-DATE: 2026-09-15T09:40:00-05:00
+VERSION: 392
+DATE: 2026-09-15T18:55:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- CORRECTION to v391: that fix's diagnosis was wrong. Tom clarified he never left the app — watched
+  it stall in the foreground the whole time, then started recording — which rules out iOS tab
+  suspension entirely; tkRefreshOnReturn() (still harmless, left in) was solving a problem that
+  wasn't the one in the recording. The REAL bug: bare fetch() has no timeout in browsers, and
+  nothing in this codebase's networking ever set one. That was a minor exposure when these calls
+  only ever ran once per manual tap; v390 turned loadWorkLog()/saveWorkLog() into something called
+  repeatedly, every few seconds, for the length of an entire Run (triggerWorkflow's onPoll,
+  tkAutoApproveSentenceRewords riding along on every poll) — so a single stalled connection
+  anywhere in that chain (flaky wifi, one slow GitHub response, nothing dramatic) now hangs the
+  whole watch loop PERMANENTLY, since `await` on a promise that never settles blocks forever. Fixed
+  properly this time: new fetchTimeout() (fetch + AbortController, 15s default) replaces the raw
+  fetch() calls inside loadWorkLog(), saveWorkLog() (both its read and its write), and
+  triggerWorkflow()'s three (dispatch, run-status poll, tkFetchStepsSummary) — every network call
+  on this specific hot path now fails cleanly within a bounded time instead of hanging indefinitely.
+  Also added a second, outer time bound around the onPoll call itself (safePoll, 20s) as defense in
+  depth, so this loop can't freeze even from some future await added to that chain without its own
+  timeout. Verified fetchTimeout itself against a real hung local connection (Node test harness,
+  not just reasoning about it) before shipping: a fast response passes through untouched, a
+  deliberately non-responding server gets cleanly aborted at exactly the configured timeout.
+- Fixed: v390's live Run feedback would get permanently stuck on "Loading…" with a frozen
+  elapsed-time readout if the phone was backgrounded (locked, or switched apps) for a while and
+  then returned to — reported with a screen recording showing exactly that: an "117s so far"
+  status that never moved for the whole clip. Root cause: iOS suspends a backgrounded tab's JS
+  wholesale, so triggerWorkflow's watch loop and the loadWorkLog() fetch it was mid-flight on both
+  just got abandoned — not slow, not erroring, simply never resumed. The actual GitHub Actions run
+  is server-side and unaffected by any of this; only the client-side display was stuck. Rather than
+  trying to make a background loop survive something iOS gives a web page no control over, added
+  tkRefreshOnReturn(): fires one fresh loadWorkLog() the moment the tab becomes visible again while
+  Task Automation is open (visibilitychange), plus a pageshow listener for the back-forward-cache
+  restore case visibilitychange can miss on iOS Safari. Coming back to the app is now itself what
+  un-sticks the display, rather than depending on whatever was running before you left.
 - Task Automation: Run now gives live feedback while a batch is actually processing, instead of
   going quiet until you tap Refresh yourself. Two separate problems, both fixed: (1) triggerWorkflow()
   only ever showed the GitHub Actions job's own step name (Checkout, Install ffmpeg, "Run
@@ -4669,7 +4700,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v390';
+const APP_VERSION = 'v392';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6862,6 +6893,27 @@ function wlGh(){
     hdr: { 'Authorization': 'Bearer ' + v('ghToken'), 'Accept': 'application/vnd.github+json' }
   };
 }
+// Bare fetch() has no timeout in browsers — a connection that stalls (flaky wifi, a GitHub API
+// response that just never comes back, anything short of an outright network error) leaves the
+// returned promise pending FOREVER, not slow, not eventually failing, just permanently unresolved.
+// That's always been true here, but it was a minor exposure when the only fetches on this path
+// were a single manual Refresh tap or a one-shot save. It became a real bug once loadWorkLog() and
+// saveWorkLog() started getting called repeatedly, every few seconds, for the length of an entire
+// Run (see triggerWorkflow's onPoll and tkAutoApproveSentenceRewords) — now ANY one stalled
+// request among the hundreds a long batch makes freezes the whole watch loop permanently, since
+// `await` on a promise that never settles just blocks there forever. That's the actual explanation
+// for "I watched it the whole time and it still got stuck on Loading…, elapsed time frozen" —
+// nothing to do with the app being backgrounded, a plain stalled connection with nothing to time
+// it out. fetchTimeout wraps fetch with an AbortController so a stalled request fails cleanly
+// within `ms` instead of hanging — it rejects (an AbortError) exactly like any other fetch
+// failure, so every existing try/catch around a fetch() call already handles it correctly with no
+// changes needed beyond swapping which function gets called.
+function fetchTimeout(url, options, ms){
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms || 15000);
+  return fetch(url, Object.assign({}, options || {}, { signal: controller.signal }))
+    .finally(() => clearTimeout(id));
+}
 // Direct raw.githubusercontent.com URL for a repo-relative path — used to preview content (like
 // image-review candidates) the instant the orchestrator commits it, rather than waiting on
 // Cloudflare's ~1-minute deploy lag the live site URL would carry. The cache-busting query param
@@ -6899,7 +6951,7 @@ async function loadWorkLog(){
   wlSetLog('Loading\u2026');
   const api = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' + WL_PATH + '?ref=' + encodeURIComponent(g.branch);
   try{
-    const res = await fetch(api, { headers: g.hdr, cache: 'no-store' });
+    const res = await fetchTimeout(api, { headers: g.hdr, cache: 'no-store' });
     if(res.status === 404){
       wlData = null; wlSha = null;
       renderWorkLog();
@@ -6917,7 +6969,9 @@ async function loadWorkLog(){
     renderWorkLog();
     await tkAutoApproveSentenceRewords();
   }catch(err){
-    wlSetLog('Could not load workLog.json: ' + err.message, true);
+    // AbortError means fetchTimeout's own timer fired, not a real network failure — worded
+    // separately so a stall reads as "try again," not as a token/permissions problem.
+    wlSetLog('Could not load workLog.json: ' + (err.name === 'AbortError' ? 'timed out, will retry' : err.message), true);
   }
 }
 
@@ -6949,7 +7003,7 @@ async function saveWorkLog(message, touchedIds, deletedIds){
   const api = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' + WL_PATH;
   try{
     let sha = wlSha;
-    const g0 = await fetch(api + '?ref=' + encodeURIComponent(g.branch), { headers: g.hdr, cache: 'no-store' });
+    const g0 = await fetchTimeout(api + '?ref=' + encodeURIComponent(g.branch), { headers: g.hdr, cache: 'no-store' });
     if(g0.status === 200){
       const meta = await g0.json();
       sha = meta.sha;
@@ -6976,7 +7030,7 @@ async function saveWorkLog(message, touchedIds, deletedIds){
     const json = JSON.stringify(wlData, null, 2) + '\n';
     const body = { message: message || 'Update workLog.json via Content Manager', content: btoa(unescape(encodeURIComponent(json))), branch: g.branch };
     if(sha) body.sha = sha;
-    const put = await fetch(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, g.hdr), body: JSON.stringify(body) });
+    const put = await fetchTimeout(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, g.hdr), body: JSON.stringify(body) });
     if(put.status === 200 || put.status === 201){
       const out = await put.json();
       wlSha = out.content && out.content.sha ? out.content.sha : null;
@@ -6985,7 +7039,7 @@ async function saveWorkLog(message, touchedIds, deletedIds){
     let m = ''; try{ m = (await put.json()).message; }catch(e){}
     throw new Error(m || ('commit failed ' + put.status));
   }catch(err){
-    return { ok: false, error: err.message };
+    return { ok: false, error: err.name === 'AbortError' ? 'timed out' : err.message };
   }
 }
 
@@ -9262,6 +9316,27 @@ function closeTaskPanel(){
   taskPanelEl.classList.remove('open');
   tkScrimEl.classList.remove('open');
 }
+// iOS suspends a backgrounded tab's JS wholesale — timers, in-flight fetches, all of it — so
+// triggerWorkflow's own watch loop (and the loadWorkLog() it calls on every poll, see the Run
+// button's onPoll) makes no promises once the phone is locked or you switch apps. The actual
+// GitHub Actions run is server-side and doesn't care; it keeps going regardless. But whatever
+// fetch was in flight on THIS end when the tab got suspended is simply abandoned — it doesn't
+// error, doesn't retry, just never resolves — which is exactly a permanently stuck "Loading…"
+// with a frozen elapsed-time readout, not a slow run. Rather than trying to make a background
+// loop survive something iOS gives web pages no control over, treat coming back to the app as
+// the trigger instead: any time the tab becomes visible again while Task Automation is open, fire
+// one FRESH loadWorkLog() right then. That's what actually fixes "I checked back and nothing had
+// updated" — the checking-back itself is what refreshes it, not a background process that was
+// never guaranteed to keep running. pageshow is a second listener for the same thing, not a
+// duplicate: iOS Safari can restore a page from its back-forward cache on return (persisted:
+// true) without a visibilitychange ever firing, and that path needs the same catch-up.
+function tkRefreshOnReturn(){
+  if(taskPanelEl.classList.contains('open')) loadWorkLog();
+}
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible') tkRefreshOnReturn();
+});
+window.addEventListener('pageshow', (e) => { if(e.persisted) tkRefreshOnReturn(); });
 // (openTaskPanel is wired to its bottom-bar button elsewhere — the Settings-menu row that used
 // to also open it here was removed; see the comment near the bottom-bar wiring below.)
 // X means "back" while reviewing and "close" everywhere else — reviewing is a drill-down, so
@@ -9795,7 +9870,7 @@ function tkStepIcon(step){
 }
 async function tkFetchStepsSummary(owner, repo, runId, hdr){
   try{
-    const res = await fetch('https://api.github.com/repos/' + owner + '/' + repo + '/actions/runs/' + runId + '/jobs', { headers: hdr, cache: 'no-store' });
+    const res = await fetchTimeout('https://api.github.com/repos/' + owner + '/' + repo + '/actions/runs/' + runId + '/jobs', { headers: hdr, cache: 'no-store' });
     if(!res.ok) return '';
     const data = await res.json();
     const job = (data.jobs || [])[0]; // every workflow this app triggers has exactly one job
@@ -9814,11 +9889,26 @@ async function triggerWorkflow(filename, inputs, logElId, maxAttempts, onPoll){
   const hdr = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' };
   const dispatchedAt = Date.now();
   log.textContent = 'Starting ' + filename + '\u2026';
+  // onPoll can end up running a fair amount of code (loadWorkLog's fetch, parse, full re-render,
+  // the auto-approve chain, its own save) — fetchTimeout already bounds each individual network
+  // call inside that chain, but this is a second, outer bound on the WHOLE thing, so this loop can
+  // never freeze permanently even if some future change adds another await in there without its
+  // own timeout. A genuine timeout here is swallowed exactly like any other onPoll failure — the
+  // loop just moves on to its next iteration a few seconds later either way.
+  const safePoll = async (run) => {
+    if(!onPoll) return;
+    try{
+      await Promise.race([
+        onPoll(run),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('onPoll timed out')), 20000))
+      ]);
+    }catch(e){}
+  };
   try{
     const dispatchUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/actions/workflows/' + encodeURIComponent(filename) + '/dispatches';
     const body = { ref: branch };
     if(inputs && Object.keys(inputs).length) body.inputs = inputs;
-    const res = await fetch(dispatchUrl, {
+    const res = await fetchTimeout(dispatchUrl, {
       method: 'POST',
       headers: Object.assign({'Content-Type':'application/json'}, hdr),
       body: JSON.stringify(body)
@@ -9833,7 +9923,7 @@ async function triggerWorkflow(filename, inputs, logElId, maxAttempts, onPoll){
     const runsUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/actions/workflows/' + encodeURIComponent(filename) + '/runs?branch=' + encodeURIComponent(branch) + '&per_page=5';
     for(let i = 0; i < maxAttempts; i++){
       await new Promise(r => setTimeout(r, 3000));
-      const runsRes = await fetch(runsUrl, { headers: hdr, cache: 'no-store' });
+      const runsRes = await fetchTimeout(runsUrl, { headers: hdr, cache: 'no-store' });
       if(!runsRes.ok) continue;
       const data = await runsRes.json();
       const run = (data.workflow_runs || []).find(r => new Date(r.created_at).getTime() >= dispatchedAt - 5000);
@@ -9844,7 +9934,7 @@ async function triggerWorkflow(filename, inputs, logElId, maxAttempts, onPoll){
         // One last refresh so the caller's own data (e.g. the task list) reflects the finished
         // run immediately, rather than however stale the LAST mid-run poll below left it — a run
         // can finish its final task between one poll and the next.
-        if(onPoll){ try{ await onPoll(run); }catch(e){} }
+        await safePoll(run);
         return;
       }
       // onPoll is the caller's hook to refresh whatever IT shows mid-run — the job-level text
@@ -9855,9 +9945,9 @@ async function triggerWorkflow(filename, inputs, logElId, maxAttempts, onPoll){
       // genuine live feedback — refetching workLog.json itself on the same cadence this function
       // already polls at, so the task list's own counts/rows update in near-real-time as the
       // orchestrator commits each task's outcome, not just once after this whole function gives
-      // up watching. Best-effort: a failure here (e.g. a transient fetch error) shouldn't break
-      // the run-status polling it rides alongside.
-      if(onPoll){ try{ await onPoll(run); }catch(e){} }
+      // up watching. safePoll (defined above) is both best-effort AND time-bounded — see its own
+      // comment for why the bound matters here specifically.
+      await safePoll(run);
       const stepsText = await tkFetchStepsSummary(owner, repo, run.id, hdr);
       log.textContent = filename + ' is running\u2026 (' + run.status + ', ' + Math.round((i + 1) * 3) + 's so far)' +
         (stepsText ? ' \u2014 ' + stepsText : '');
