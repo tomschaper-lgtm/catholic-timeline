@@ -214,14 +214,25 @@
       "type": "sentence-reword",
       "entityId": "st-cecilia-230",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Cecilia",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-cecilia-230",
+        "name": "St. Cecilia",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-15T18:53:31.898Z",
-      "updatedAt": "2026-09-15T18:55:09.537Z",
+      "updatedAt": "2026-09-15T18:56:09.949Z",
       "error": null
     },
     {
@@ -807,6 +818,41 @@
       "error": null,
       "createdAt": "2026-09-15T18:56:05.000Z",
       "updatedAt": "2026-09-15T18:56:05.000Z"
+    },
+    {
+      "id": "task-sentence-reword-st-cecilia-230-1789498569949-9307",
+      "type": "sentence-reword",
+      "entityId": "st-cecilia-230",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Cecilia",
+      "payload": {},
+      "result": {
+        "name": "St. Cecilia",
+        "patches": [
+          [
+            "article",
+            "It has done so with evident joy, and rightly so: what could more fittingly crown the memory of a woman who gave her whole heart, unseen, to God alone, than becoming patroness of the art by which the human heart most freely lifts its unseen depths toward heaven?",
+            "U",
+            "It has done so with evident joy, and rightly so. What could more fittingly crown the memory of a woman who gave her whole heart, unseen, to God alone? She became patroness of the art by which the human heart most freely lifts its unseen depths toward heaven."
+          ],
+          [
+            "article",
+            "Her witness continues to teach us that the deepest music of a Christian life is not first heard by human ears at all, but is the silent, hidden offering of a heart wholly given to God—a song that, once begun, this world can never entirely silence.",
+            "U",
+            "Her witness continues to teach us that the deepest music of a Christian life is not first heard by human ears at all. It is the silent, hidden offering of a heart wholly given to God—a song that, once begun, this world can never entirely silence."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-15T18:56:09.949Z",
+      "updatedAt": "2026-09-15T18:56:09.949Z"
     }
   ]
 }
