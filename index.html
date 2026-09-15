@@ -1,9 +1,27 @@
 <!--
-VERSION: 389
-DATE: 2026-09-15T08:15:00-05:00
+VERSION: 390
+DATE: 2026-09-15T09:40:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Task Automation: Run now gives live feedback while a batch is actually processing, instead of
+  going quiet until you tap Refresh yourself. Two separate problems, both fixed: (1) triggerWorkflow()
+  only ever showed the GitHub Actions job's own step name (Checkout, Install ffmpeg, "Run
+  orchestrator"...) — and every task in a batch runs inside that SAME one step, from GitHub's point
+  of view, so it never changed no matter how many tasks actually finished; (2) triggerWorkflow()'s
+  watch loop only polled for ~60s by default (fine for the quick, fixed-length Resize/Convert
+  workflows it was built for), then went silent even though a real orchestrator batch can easily
+  run for several minutes — after that, the single loadWorkLog() call right after it returned was
+  the only refresh you'd ever get, and anything that finished later needed a manual Refresh tap to
+  see. Fixed both: triggerWorkflow() now takes an optional onPoll callback, called on the same ~3s
+  cadence it already polls the run's own status at; the Run button passes loadWorkLog itself, so
+  the task list's real counts and rows (Running ticking down, items landing in Review/Done) update
+  live while the run is in flight, not just once at the very end. And the watch window is no
+  longer a flat 60s for this button specifically — budgeted per requested task count (roughly 40s/
+  task + 30s startup, capped at 30 minutes) so it keeps watching for as long as the batch could
+  plausibly still be running, rather than giving up long before typical batches finish. Resize/
+  Convert's own two triggerWorkflow() calls are untouched — still the ~60s default, no onPoll,
+  since those really do finish in seconds and don't need either change.
 - scripts/orchestrator.mjs: Running tab now shows the whole batch you asked for and counts down
   as each task finishes, instead of only ever showing whichever single task happens to be
   executing at that instant. Previously a task flipped to in_progress one at a time, right before
@@ -4651,7 +4669,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v389';
+const APP_VERSION = 'v390';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -9504,7 +9522,18 @@ document.getElementById('tkRun').addEventListener('click', async () => {
   const n = Math.max(1, Math.min(50, parseInt(document.getElementById('tkRunCount').value, 10) || 5));
   const type = document.getElementById('tkRunType').value;
   document.getElementById('tkCount').textContent = 'Starting the Orchestrator\u2026';
-  await triggerWorkflow(WL_ORCHESTRATOR_WORKFLOW, { max_tasks: String(n), task_type: type }, 'tkCount');
+  // triggerWorkflow's default watch window (~60s) is sized for quick, fixed-length workflows
+  // like Resize/Convert — an orchestrator batch of real tasks (LLM/image/TTS calls apiece) can
+  // easily run for several minutes, so it needs a much longer allowance or the watch loop gives
+  // up and goes quiet long before the batch is actually done. Budgeted per task rather than
+  // flat, so "Run 5" doesn't wait as long as "Run 50" needs to; capped so a genuinely stuck run
+  // doesn't poll forever — past that, the loop's own fallback message points at the Actions tab.
+  // onPoll: loadWorkLog() itself, called on the same ~3s cadence this function already polls
+  // the run's job status at — this is the actual fix for "had to press Refresh myself": the
+  // task list (Running count, rows moving into Review/Done) now updates live, on its own, while
+  // a run is in flight, instead of only once after the whole watch loop gives up or finishes.
+  const maxAttempts = Math.min(600, Math.ceil((n * 40 + 30) / 3));
+  await triggerWorkflow(WL_ORCHESTRATOR_WORKFLOW, { max_tasks: String(n), task_type: type }, 'tkCount', maxAttempts, loadWorkLog);
   await loadWorkLog();
   // audio-generate commits directly (no client-side apply step the way sentence-reword/image
   // review have) — this session's db.entries has no other way to learn a run just recorded new
@@ -9776,7 +9805,7 @@ async function tkFetchStepsSummary(owner, repo, runId, hdr){
     return ''; // best-effort — a failed step-status fetch shouldn't break the run-status polling it rides alongside
   }
 }
-async function triggerWorkflow(filename, inputs, logElId, maxAttempts){
+async function triggerWorkflow(filename, inputs, logElId, maxAttempts, onPoll){
   maxAttempts = maxAttempts || 20; // ~60s default — plenty for Resize/Convert, which finish in seconds
   const v = id => document.getElementById(id).value.trim();
   const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', token = v('ghToken');
@@ -9812,8 +9841,23 @@ async function triggerWorkflow(filename, inputs, logElId, maxAttempts){
       if(run.status === 'completed'){
         const secs = Math.round((new Date(run.updated_at) - new Date(run.created_at)) / 1000);
         log.textContent = filename + ': ' + run.conclusion + ' (finished in ' + secs + 's). Details: ' + run.html_url;
+        // One last refresh so the caller's own data (e.g. the task list) reflects the finished
+        // run immediately, rather than however stale the LAST mid-run poll below left it — a run
+        // can finish its final task between one poll and the next.
+        if(onPoll){ try{ await onPoll(run); }catch(e){} }
         return;
       }
+      // onPoll is the caller's hook to refresh whatever IT shows mid-run — the job-level text
+      // this function writes above (which step is running, elapsed time) is the only feedback
+      // that existed before; it never reflected the actual work happening inside the "Run
+      // orchestrator" step, since that's all one script invocation from GitHub's point of view
+      // and never changes step. onPoll is how a caller like the Task Automation Run button gets
+      // genuine live feedback — refetching workLog.json itself on the same cadence this function
+      // already polls at, so the task list's own counts/rows update in near-real-time as the
+      // orchestrator commits each task's outcome, not just once after this whole function gives
+      // up watching. Best-effort: a failure here (e.g. a transient fetch error) shouldn't break
+      // the run-status polling it rides alongside.
+      if(onPoll){ try{ await onPoll(run); }catch(e){} }
       const stepsText = await tkFetchStepsSummary(owner, repo, run.id, hdr);
       log.textContent = filename + ' is running\u2026 (' + run.status + ', ' + Math.round((i + 1) * 3) + 's so far)' +
         (stepsText ? ' \u2014 ' + stepsText : '');
