@@ -1,9 +1,22 @@
 <!--
-VERSION: 388
-DATE: 2026-09-14T18:32:00-05:00
+VERSION: 389
+DATE: 2026-09-15T08:15:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- scripts/orchestrator.mjs: Running tab now shows the whole batch you asked for and counts down
+  as each task finishes, instead of only ever showing whichever single task happens to be
+  executing at that instant. Previously a task flipped to in_progress one at a time, right before
+  its own turn — so "Run 10" only ever showed 1 in Running, never 10. Now the whole batch is
+  claimed (flipped to in_progress) and committed in ONE shot before the loop starts processing
+  any of them; the loop itself still runs strictly serially, exactly as before — this only changes
+  WHEN each task's in_progress status becomes visible, not how the work is scheduled. If a task
+  defers partway through (rate limit/budget), every task after it that hasn't been reached yet is
+  un-claimed back to queued rather than sitting stuck at in_progress. A task whose type has no
+  registered handler still always errors immediately, deferred or not, same as before. index.html
+  itself needed no changes for this — Queued/Running already just filter on live task status (see
+  tkStatusFiltered()); fixed a stale comment nearby claiming Queued includes in_progress, which
+  hasn't been true since Queued and Running became separate chips.
 - Fixed: the whole app was stuck on "Loading timeline…" forever — my own bug, introduced when the
   type-filter popup (#tkTypeModal) was added. Its markup was placed at the very end of the body,
   after the script's own closing tag, following #reportModal's lead. But #tkTypeModal's JS wiring
@@ -4638,7 +4651,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v388';
+const APP_VERSION = 'v389';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7064,8 +7077,9 @@ function tkRenderAudioReviewArticle(entry, cues){
 }
 
 const TK_FINISHED = { done: 1, approved: 1, rejected: 1 };
-// Queued deliberately includes in_progress — a task that's running is still work you're
-// waiting on, not a separate state you'd want to hunt for. Finished items have no chip of
+// Queued and Running are separate chips (queued: status==='queued' only; running:
+// status==='in_progress' only — see tkStatusFiltered()) precisely so a task that's actually
+// executing doesn't get lost inside a general "waiting" bucket. Finished items have no chip of
 // their own; they live under All, greyed.
 const TK_CHIPS = [
   { id: 'all', label: 'All',
