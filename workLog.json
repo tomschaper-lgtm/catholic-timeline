@@ -13155,14 +13155,25 @@
       "type": "sentence-reword",
       "entityId": "em-benningen-1216",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Benningen",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-benningen-1216",
+        "name": "Benningen",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:43:21.689Z",
       "error": null
     },
     {
@@ -14447,6 +14458,41 @@
       "error": null,
       "createdAt": "2026-09-16T12:43:17.062Z",
       "updatedAt": "2026-09-16T12:43:17.062Z"
+    },
+    {
+      "id": "task-sentence-reword-em-benningen-1216-1789562601689-9475",
+      "type": "sentence-reword",
+      "entityId": "em-benningen-1216",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Benningen",
+      "payload": {},
+      "result": {
+        "name": "Benningen",
+        "patches": [
+          [
+            "article",
+            "The hidden host is said to have begun to bleed, drawing attention to the very place where it lay hidden and exposing the guilt of the man who had planted it rather than the innocent miller he had hoped to frame.",
+            "U",
+            "The hidden host is said to have begun to bleed, drawing attention to the very place where it lay hidden. This exposed the guilt of the man who had planted it rather than the innocent miller he had hoped to frame."
+          ],
+          [
+            "article",
+            "Each year on the Feast of Corpus Christi, the parish of Benningen still processes to the Riedkapelle to commemorate a sign that, however long ago its physical trace was lost, drew a whole community's memory around a single truth: that malice aimed at a neighbor found itself, in the account tradition preserves, turned back upon the one who intended it.",
+            "U",
+            "Each year on the Feast of Corpus Christi, the parish of Benningen still processes to the Riedkapelle. There, it commemorates a sign that, however long ago its physical trace was lost, drew a whole community's memory around a single truth: malice aimed at a neighbor found itself, in the account tradition preserves, turned back upon the one who intended it."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:43:21.689Z",
+      "updatedAt": "2026-09-16T12:43:21.689Z"
     }
   ]
 }
