@@ -2492,14 +2492,25 @@
       "type": "sentence-reword",
       "entityId": "first-martyrs-of-the-church-of-rome-64",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — First Martyrs of the Church of Rome",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "first-martyrs-of-the-church-of-rome-64",
+        "name": "First Martyrs of the Church of Rome",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:21:08.888Z",
-      "updatedAt": "2026-09-16T02:22:39.084Z",
+      "updatedAt": "2026-09-16T02:22:44.755Z",
       "error": null
     },
     {
@@ -2576,6 +2587,41 @@
       "createdAt": "2026-09-16T02:21:08.888Z",
       "updatedAt": "2026-09-16T02:22:39.084Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-first-martyrs-of-the-church-of-rome-64-1789525364755-6929",
+      "type": "sentence-reword",
+      "entityId": "first-martyrs-of-the-church-of-rome-64",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — First Martyrs of the Church of Rome",
+      "payload": {},
+      "result": {
+        "name": "First Martyrs of the Church of Rome",
+        "patches": [
+          [
+            "article",
+            "The Roman historian <b>Tacitus</b>, no friend to Christianity himself, records that Nero “punished with the utmost refinements of cruelty a class hated for their abominations, called Christians.” His account provides direct outside confirmation, from a hostile pagan source, of the persecution’s basic facts.",
+            "U",
+            "The Roman historian <b>Tacitus</b>, no friend to Christianity himself, records Nero’s persecution of Christians as a class hated for their abominations. His account provides direct outside confirmation, from a hostile pagan source, of the persecution’s basic facts."
+          ],
+          [
+            "article",
+            "This deliberate reminder, placed immediately after the solemnity of Peter and Paul, affirms that the early Roman Church's foundation in blood was not the work of its most famous martyrs alone, but of countless ordinary Christians whose names are known only to God.",
+            "U",
+            "Placed immediately after the solemnity of Peter and Paul, this deliberate reminder affirms the early Roman Church's foundation in blood. It was not the work of its most famous martyrs alone, but of countless ordinary Christians whose names are known only to God."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:22:44.755Z",
+      "updatedAt": "2026-09-16T02:22:44.755Z"
     }
   ]
 }
