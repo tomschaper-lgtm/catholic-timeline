@@ -15102,14 +15102,25 @@
       "type": "sentence-reword",
       "entityId": "em-pressac-1643",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Pressac",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-pressac-1643",
+        "name": "Pressac",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:39:47.918Z",
       "error": null
     },
     {
@@ -18638,6 +18649,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:39:41.330Z",
       "updatedAt": "2026-09-16T18:39:41.330Z"
+    },
+    {
+      "id": "task-sentence-reword-em-pressac-1643-1789583987918-5075",
+      "type": "sentence-reword",
+      "entityId": "em-pressac-1643",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Pressac",
+      "payload": {},
+      "result": {
+        "name": "Pressac",
+        "patches": [
+          [
+            "article",
+            "Parishioners rushed back to the church in alarm once the flames were discovered, but by the time the fire was brought under control, the chalice itself had been completely consumed — reduced, along with much of the altar area, to ash and melted metal.",
+            "U",
+            "Parishioners rushed back to the church in alarm once the flames were discovered. By the time the fire was brought under control, the chalice itself had been completely consumed—reduced, along with much of the altar area, to ash and melted metal."
+          ],
+          [
+            "article",
+            "Searching through the wreckage afterward, those clearing the site found that only the foot of the chalice had survived the heat at all, and that a small bubble of tin had formed beneath it during the fire — sealing within it the consecrated Host, which was found completely intact and undamaged when the bubble was opened.",
+            "U",
+            "Searching through the wreckage afterward, those clearing the site found that only the foot of the chalice had survived the heat at all. A small bubble of tin had formed beneath it during the fire, sealing within it the consecrated Host. When the bubble was opened, the Host was found completely intact and undamaged."
+          ],
+          [
+            "article",
+            "What the windows of Pressac preserve, centuries after the Host itself was consumed, is not a relic but a record: an image, in colored glass, of a fire that took everything around the altar except the one thing the parish most needed to remain.",
+            "U",
+            "Centuries after the Host itself was consumed, the windows of Pressac preserve not a relic but a record. They show, in colored glass, a fire that took everything around the altar except the one thing the parish most needed to remain."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:39:47.918Z",
+      "updatedAt": "2026-09-16T18:39:47.918Z"
     }
   ]
 }
