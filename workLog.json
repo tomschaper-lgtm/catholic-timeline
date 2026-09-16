@@ -266,14 +266,25 @@
       "type": "sentence-reword",
       "entityId": "st-brigid-of-kildare-525",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Brigid of Kildare",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-brigid-of-kildare-525",
+        "name": "St. Brigid of Kildare",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:30:39.114Z",
-      "updatedAt": "2026-09-16T04:31:39.369Z",
+      "updatedAt": "2026-09-16T04:32:15.041Z",
       "error": null
     },
     {
@@ -984,6 +995,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:32:12.225Z",
       "updatedAt": "2026-09-16T04:32:12.225Z"
+    },
+    {
+      "id": "task-sentence-reword-st-brigid-of-kildare-525-1789533135041-5083",
+      "type": "sentence-reword",
+      "entityId": "st-brigid-of-kildare-525",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Brigid of Kildare",
+      "payload": {},
+      "result": {
+        "name": "St. Brigid of Kildare",
+        "patches": [
+          [
+            "article",
+            "Kildare was home to a renowned scriptorium whose illuminated Gospel book — since lost, but praised centuries later by the visiting chronicler Giraldus Cambrensis as a work of nearly miraculous beauty — testified to the extraordinary flourishing of Christian art and scholarship that grew up under her foundation's protection.",
+            "U",
+            "Kildare was home to a renowned scriptorium whose illuminated Gospel book has since been lost. Centuries later, the visiting chronicler Giraldus Cambrensis praised it as a work of nearly miraculous beauty. It testified to the extraordinary flourishing of Christian art and scholarship that grew up under her foundation's protection."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:32:15.041Z",
+      "updatedAt": "2026-09-16T04:32:15.041Z"
     }
   ]
 }
