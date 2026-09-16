@@ -10624,14 +10624,25 @@
       "type": "sentence-reword",
       "entityId": "persecution-in-japan-1614",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Persecution in Japan",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "persecution-in-japan-1614",
+        "name": "Persecution in Japan",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:45:19.294Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:26:06.981Z",
       "error": null
     },
     {
@@ -11255,6 +11266,35 @@
       "error": null,
       "createdAt": "2026-09-16T07:26:04.307Z",
       "updatedAt": "2026-09-16T07:26:04.307Z"
+    },
+    {
+      "id": "task-sentence-reword-persecution-in-japan-1614-1789543566981-4554",
+      "type": "sentence-reword",
+      "entityId": "persecution-in-japan-1614",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Persecution in Japan",
+      "payload": {},
+      "result": {
+        "name": "Persecution in Japan",
+        "patches": [
+          [
+            "article",
+            "Remarkably, when Western missionaries were finally permitted to return to Japan in the 1860s, following the end of the country's long isolation, they discovered thriving communities of <b>Kakure Kirishitan</b> — \"hidden Christians.\" These communities had secretly preserved baptism, prayer, and fragments of the Catholic liturgy across some seven unbroken generations without a single ordained priest among them.",
+            "U",
+            "Remarkably, Western missionaries were finally permitted to return to Japan in the 1860s, following the end of the country's long isolation. They discovered thriving communities of <b>Kakure Kirishitan</b> — \"hidden Christians.\" These communities had secretly preserved baptism, prayer, and fragments of the Catholic liturgy across some seven unbroken generations without a single ordained priest among them."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:26:06.981Z",
+      "updatedAt": "2026-09-16T07:26:06.981Z"
     }
   ]
 }
