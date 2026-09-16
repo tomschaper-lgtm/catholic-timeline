@@ -14757,14 +14757,25 @@
       "type": "sentence-reword",
       "entityId": "em-liege-1374",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Liège",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-liege-1374",
+        "name": "Liège",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:11:24.971Z",
       "error": null
     },
     {
@@ -18158,6 +18169,53 @@
       "error": null,
       "createdAt": "2026-09-16T18:11:15.744Z",
       "updatedAt": "2026-09-16T18:11:15.744Z"
+    },
+    {
+      "id": "task-sentence-reword-em-liege-1374-1789582284971-8280",
+      "type": "sentence-reword",
+      "entityId": "em-liege-1374",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Liège",
+      "payload": {},
+      "result": {
+        "name": "Liège",
+        "patches": [
+          [
+            "article",
+            "<b>Juliana of Cornillon</b>, born near Liège around 1192 and raised from childhood in the care of Augustinian canonesses, developed from an early age an intense devotion to the Eucharist, and reported a recurring vision of the full moon, brilliant but marked by a single dark gap — a sign she came to understand, after years of prayer, as representing the Church's liturgical year, missing a feast dedicated entirely to Christ's presence in the Blessed Sacrament.",
+            "U",
+            "<b>Juliana of Cornillon</b>, born near Liège around 1192 and raised from childhood in the care of Augustinian canonesses, developed an intense devotion to the Eucharist. She reported a recurring vision of the full moon, brilliant but marked by a single dark gap—a sign she came to understand, after years of prayer, as representing the Church's liturgical year. That year was missing a feast dedicated entirely to Christ's presence in the Blessed Sacrament."
+          ],
+          [
+            "article",
+            "Juliana confided the vision first to her spiritual director and, in time, to <b>Jacques Pantaléon</b>, then archdeacon of Liège, who took her conviction seriously; with his support, the Bishop of Liège, Robert de Thourotte, formally instituted a diocesan feast of Corpus Christi in 1246, observed for the first time at the collegiate church of Saint-Martin in Liège five years later.",
+            "U",
+            "Juliana confided the vision first to her spiritual director and, in time, to <b>Jacques Pantaléon</b>, then archdeacon of Liège. He took her conviction seriously. With his support, the Bishop of Liège, Robert de Thourotte, formally instituted a diocesan feast of Corpus Christi in 1246, observed for the first time at the collegiate church of Saint-Martin in Liège five years later."
+          ],
+          [
+            "article",
+            "Jacques Pantaléon was elected pope in 1261, taking the name <b>Urban IV</b>, and in 1264 — prompted, tradition holds, by both his memory of Juliana's vision and the Eucharistic sign reported that same decade at <a href=\"entry:miracle-of-bolsena-1263\">Bolsena</a> — extended the feast of Corpus Christi to the entire Catholic Church through the bull <i>Transiturus de hoc mundo</i>, commissioning <a href=\"entry:st-thomas-aquinas-1274\">St. Thomas Aquinas</a> to compose its liturgical texts.",
+            "U",
+            "Jacques Pantaléon was elected pope in 1261, taking the name <b>Urban IV</b>. In 1264 — prompted, tradition holds, by both his memory of Juliana's vision and the Eucharistic sign reported that same decade at <a href=\"entry:miracle-of-bolsena-1263\">Bolsena</a> — he extended the feast of Corpus Christi to the entire Catholic Church. He did so through the bull <i>Transiturus de hoc mundo</i>, commissioning <a href=\"entry:st-thomas-aquinas-1274\">St. Thomas Aquinas</a> to compose its liturgical texts."
+          ],
+          [
+            "article",
+            "The Church's own exhibition of Eucharistic miracles labels this account \"Liège, 1374\" — a date that does not correspond to any specific event in the documented history of Juliana's visions, the 1246 diocesan feast, or Urban IV's 1264 bull, all of which took place a century earlier.",
+            "U",
+            "The Church's own exhibition of Eucharistic miracles labels this account \"Liège, 1374\" — a date that does not correspond to any specific event. It does not match the documented history of Juliana's visions, the 1246 diocesan feast, or Urban IV's 1264 bull, all of which took place a century earlier."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:11:24.971Z",
+      "updatedAt": "2026-09-16T18:11:24.971Z"
     }
   ]
 }
