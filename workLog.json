@@ -918,14 +918,25 @@
       "type": "sentence-reword",
       "entityId": "st-louis-de-montfort-1716",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Louis de Montfort",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-louis-de-montfort-1716",
+        "name": "St. Louis de Montfort",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:30:39.114Z",
-      "updatedAt": "2026-09-16T04:31:39.369Z",
+      "updatedAt": "2026-09-16T04:33:36.397Z",
       "error": null
     },
     {
@@ -1946,6 +1957,41 @@
       "error": null,
       "createdAt": "2026-09-16T04:33:31.717Z",
       "updatedAt": "2026-09-16T04:33:31.717Z"
+    },
+    {
+      "id": "task-sentence-reword-st-louis-de-montfort-1716-1789533216397-5449",
+      "type": "sentence-reword",
+      "entityId": "st-louis-de-montfort-1716",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Louis de Montfort",
+      "payload": {},
+      "result": {
+        "name": "St. Louis de Montfort",
+        "patches": [
+          [
+            "article",
+            "Louis's missionary labors led him to found two religious communities intended to sustain and extend his work: the <b>Company of Mary</b> (Montfort Missionaries), a congregation of priests dedicated to continuing his preaching mission, and the <b>Daughters of Wisdom</b>, a community of women religious devoted to education and care of the sick and poor.",
+            "U",
+            "Louis's missionary labors led him to found two religious communities intended to sustain and extend his work. The <b>Company of Mary</b> (Montfort Missionaries) was a congregation of priests dedicated to continuing his preaching mission, while the <b>Daughters of Wisdom</b> was a community of women religious devoted to education and care of the sick and poor."
+          ],
+          [
+            "article",
+            "He had preached this devotion tirelessly throughout his missionary career, summarized in the phrase <i>totus tuus</i>, \"totally yours.\" The manuscript, however, was set aside and essentially forgotten for over a century after his death, rediscovered only by chance in 1842 at the motherhouse of his own religious community, and finally published the following year as <i>True Devotion to the Blessed Virgin Mary</i>.",
+            "U",
+            "He had preached this devotion tirelessly throughout his missionary career, summarized in the phrase <i>totus tuus</i>, \"totally yours.\"\n\nThe manuscript, however, was set aside and essentially forgotten for over a century after his death. It was rediscovered only by chance in 1842 at the motherhouse of his own religious community, and finally published the following year as <i>True Devotion to the Blessed Virgin Mary</i>."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:33:36.397Z",
+      "updatedAt": "2026-09-16T04:33:36.397Z"
     }
   ]
 }
