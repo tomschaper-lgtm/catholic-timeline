@@ -10886,14 +10886,25 @@
       "type": "sentence-reword",
       "entityId": "battle-of-tours-732",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Battle of Tours",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "battle-of-tours-732",
+        "name": "Battle of Tours",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:27:34.195Z",
       "error": null
     },
     {
@@ -11803,6 +11814,53 @@
       "error": null,
       "createdAt": "2026-09-16T07:27:25.568Z",
       "updatedAt": "2026-09-16T07:27:25.568Z"
+    },
+    {
+      "id": "task-sentence-reword-battle-of-tours-732-1789543654195-7743",
+      "type": "sentence-reword",
+      "entityId": "battle-of-tours-732",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Battle of Tours",
+      "payload": {},
+      "result": {
+        "name": "Battle of Tours",
+        "patches": [
+          [
+            "article",
+            "That year <b>Abd al-Rahman</b>, governor of al-Andalus, led a large army across the mountains, overwhelmed Duke Eudes of Aquitaine, and advanced deep into Frankish territory, burning and plundering as far as the Loire valley, including the wealthy monastery of Saint-Hilaire near Poitiers.",
+            "U",
+            "That year <b>Abd al-Rahman</b>, governor of al-Andalus, led a large army across the mountains and overwhelmed Duke Eudes of Aquitaine. He advanced deep into Frankish territory, burning and plundering as far as the Loire valley, including the wealthy monastery of Saint-Hilaire near Poitiers."
+          ],
+          [
+            "article",
+            "Real power in the Frankish kingdom lay not with its Merovingian kings but with <b>Charles Martel</b>, illegitimate son of Pepin of Herstal and Mayor of the Palace since 714, who had spent the previous decade consolidating Frankish unity through relentless campaigning against Frisians, Saxons, and rival Frankish nobles.",
+            "U",
+            "Real power in the Frankish kingdom lay not with its Merovingian kings but with <b>Charles Martel</b>, illegitimate son of Pepin of Herstal. Mayor of the Palace since 714, he had spent the previous decade consolidating Frankish unity through relentless campaigning against Frisians, Saxons, and rival Frankish nobles."
+          ],
+          [
+            "article",
+            "According to the Catholic Encyclopedia, the two armies faced each other for several days before the decisive engagement, in which the Frankish line held firm against repeated Umayyad cavalry charges. <b>Abd al-Rahman</b> was killed in the fighting, and his army, in disarray, withdrew southward overnight.",
+            "U",
+            "According to the Catholic Encyclopedia, the two armies faced each other for several days before the decisive engagement. In that battle, the Frankish line held firm against repeated Umayyad cavalry charges. <b>Abd al-Rahman</b> was killed in the fighting, and his army, in disarray, withdrew southward overnight."
+          ],
+          [
+            "article",
+            "For generations of Western historians, from Gibbon onward, Tours (often called Poitiers) marked the high-water mark of the Islamic advance into Western Europe, a battle upon whose outcome, in the words of the Catholic Encyclopedia, depended <blockquote>\"whether Christian Civilization should continue or Islam prevail throughout Europe.\"</blockquote> Whatever its precise strategic weight, the battle secured Francia as the emerging center of Latin Christendom for the centuries that followed.",
+            "U",
+            "For generations of Western historians, from Gibbon onward, Tours (often called Poitiers) marked the high-water mark of the Islamic advance into Western Europe.  \nIn the words of the Catholic Encyclopedia, it was a battle upon whose outcome depended <blockquote>\"whether Christian Civilization should continue or Islam prevail throughout Europe.\"</blockquote>  \nWhatever its precise strategic weight, the battle secured Francia as the emerging center of Latin Christendom for the centuries that followed."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:27:34.195Z",
+      "updatedAt": "2026-09-16T07:27:34.195Z"
     }
   ]
 }
