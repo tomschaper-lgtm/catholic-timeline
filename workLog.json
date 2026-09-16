@@ -14241,14 +14241,25 @@
       "type": "sentence-reword",
       "entityId": "st-augustine-of-canterbury-604",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Augustine of Canterbury",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-augustine-of-canterbury-604",
+        "name": "St. Augustine of Canterbury",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:24:59.383Z",
       "error": null
     },
     {
@@ -14973,6 +14984,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:24:56.300Z",
       "updatedAt": "2026-09-16T04:24:56.300Z"
+    },
+    {
+      "id": "task-sentence-reword-st-augustine-of-canterbury-604-1789532699383-4452",
+      "type": "sentence-reword",
+      "entityId": "st-augustine-of-canterbury-604",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Augustine of Canterbury",
+      "payload": {},
+      "result": {
+        "name": "St. Augustine of Canterbury",
+        "patches": [
+          [
+            "article",
+            "King <b>Æthelberht</b>, though himself still pagan, had married a Frankish Christian princess, <b>Bertha</b>, who had been permitted to bring her own chaplain and practice her faith openly at court—a quiet Christian presence already established, without any missionary effort at all, through one queen's steady, patient fidelity.",
+            "U",
+            "King <b>Æthelberht</b>, though himself still pagan, had married a Frankish Christian princess, <b>Bertha</b>. He permitted her to bring her own chaplain and practice her faith openly at court. Through one queen's steady, patient fidelity, a quiet Christian presence was already established, without any missionary effort at all."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:24:59.383Z",
+      "updatedAt": "2026-09-16T04:24:59.383Z"
     }
   ]
 }
