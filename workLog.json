@@ -14657,14 +14657,25 @@
       "type": "sentence-reword",
       "entityId": "st-thomas-more-1535",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Thomas More",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-thomas-more-1535",
+        "name": "St. Thomas More",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:25:46.046Z",
       "error": null
     },
     {
@@ -15596,6 +15607,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:25:43.467Z",
       "updatedAt": "2026-09-16T04:25:43.467Z"
+    },
+    {
+      "id": "task-sentence-reword-st-thomas-more-1535-1789532746046-5558",
+      "type": "sentence-reword",
+      "entityId": "st-thomas-more-1535",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Thomas More",
+      "payload": {},
+      "result": {
+        "name": "St. Thomas More",
+        "patches": [
+          [
+            "article",
+            "He declared that he died <i>the king's good servant, but God's first</i>—a single sentence that has echoed across five centuries as one of the clearest statements ever made of the proper, ordered relationship between civil obedience and the higher claims of conscience.",
+            "U",
+            "He declared that he died <i>the king's good servant, but God's first</i>. This single sentence has echoed across five centuries. It remains one of the clearest statements ever made of the proper, ordered relationship between civil obedience and the higher claims of conscience."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:25:46.046Z",
+      "updatedAt": "2026-09-16T04:25:46.046Z"
     }
   ]
 }
