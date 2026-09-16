@@ -13103,14 +13103,25 @@
       "type": "sentence-reword",
       "entityId": "em-augsburg-1194",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Augsburg",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-augsburg-1194",
+        "name": "Augsburg",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:43:05.172Z",
       "error": null
     },
     {
@@ -14319,6 +14330,59 @@
       "error": null,
       "createdAt": "2026-09-16T12:42:53.863Z",
       "updatedAt": "2026-09-16T12:42:53.863Z"
+    },
+    {
+      "id": "task-sentence-reword-em-augsburg-1194-1789562585172-1378",
+      "type": "sentence-reword",
+      "entityId": "em-augsburg-1194",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — Augsburg",
+      "payload": {},
+      "result": {
+        "name": "Augsburg",
+        "patches": [
+          [
+            "article",
+            "In 1194, tradition holds, a woman in Augsburg known for her deep devotion to the Blessed Sacrament received Holy Communion and, without being noticed, kept the host rather than consuming it, wishing to have it in her own home for private adoration.",
+            "U",
+            "In 1194, tradition holds, a woman in Augsburg was known for her deep devotion to the Blessed Sacrament. She received Holy Communion and, without being noticed, kept the host rather than consuming it, wishing to have it in her own home for private adoration."
+          ],
+          [
+            "article",
+            "It was hidden away during the early years of the Reformation after 1517, brought back into public procession in 1537, sent into a second hiding from 1538 to 1548, and its veneration was again disrupted under Swedish occupation in 1632 and French occupation around 1800.",
+            "U",
+            "It was hidden away during the early years of the Reformation after 1517, then brought back into public procession in 1537. It was sent into a second hiding from 1538 to 1548, and its veneration was again disrupted under Swedish occupation in 1632 and French occupation around 1800."
+          ],
+          [
+            "article",
+            "Devotional sources describe repeated examinations of the relic across the centuries as having found it consistent with human tissue, though no single peer-reviewed scientific study of the kind conducted at Lanciano is known to have been published, and this claim should be received with that qualification.",
+            "U",
+            "Devotional sources describe repeated examinations of the relic across the centuries as having found it consistent with human tissue. However, no single peer-reviewed scientific study of the kind conducted at Lanciano is known to have been published. This claim should be received with that qualification."
+          ],
+          [
+            "article",
+            "Few Eucharistic traditions carry within their own history such a clear record of survival against the currents of European history — reformation, war, occupation, and finally aerial bombardment — each of which the community met by hiding, protecting, or restoring the same small relic rather than abandoning it.",
+            "U",
+            "Few Eucharistic traditions carry within their own history such a clear record of survival against the currents of European history. These included reformation, war, occupation, and finally aerial bombardment, each of which the community met by hiding, protecting, or restoring the same small relic rather than abandoning it."
+          ],
+          [
+            "article",
+            "We find in this long history less a single dramatic moment than a community's patient, repeated choice to keep faith with what it believed God had shown it, a fidelity that outlasted empires, armies, and the ordinary erosions of eight hundred years.",
+            "U",
+            "We find in this long history less a single dramatic moment than a community's patient, repeated choice to keep faith with what it believed God had shown it. This fidelity outlasted empires, armies, and the ordinary erosions of eight hundred years."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:43:05.172Z",
+      "updatedAt": "2026-09-16T12:43:05.172Z"
     }
   ]
 }
