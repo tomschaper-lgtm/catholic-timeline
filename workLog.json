@@ -11228,14 +11228,25 @@
       "type": "sentence-reword",
       "entityId": "st-lawrence-of-brindisi-1619",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Lawrence of Brindisi",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-lawrence-of-brindisi-1619",
+        "name": "St. Lawrence of Brindisi",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:44:38.103Z",
-      "updatedAt": "2026-09-16T03:47:24.920Z",
+      "updatedAt": "2026-09-16T03:47:35.709Z",
       "error": null
     },
     {
@@ -11880,6 +11891,35 @@
       "error": null,
       "createdAt": "2026-09-16T03:47:32.551Z",
       "updatedAt": "2026-09-16T03:47:32.551Z"
+    },
+    {
+      "id": "task-sentence-reword-st-lawrence-of-brindisi-1619-1789530455709-4597",
+      "type": "sentence-reword",
+      "entityId": "st-lawrence-of-brindisi-1619",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Lawrence of Brindisi",
+      "payload": {},
+      "result": {
+        "name": "St. Lawrence of Brindisi",
+        "patches": [
+          [
+            "article",
+            "At the decisive battle of Stuhlweissenburg in 1601 — where roughly 18,000 Christian troops faced some 80,000 Ottoman soldiers — he is credited by many officers present with rallying the army to victory, riding into the fray carrying only a crucifix rather than a weapon.",
+            "U",
+            "At the decisive battle of Stuhlweissenburg in 1601, roughly 18,000 Christian troops faced some 80,000 Ottoman soldiers. He is credited by many officers present with rallying the army to victory, riding into the fray carrying only a crucifix rather than a weapon."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:47:35.709Z",
+      "updatedAt": "2026-09-16T03:47:35.709Z"
     }
   ]
 }
