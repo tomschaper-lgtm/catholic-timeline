@@ -16232,14 +16232,25 @@
       "type": "sentence-reword",
       "entityId": "em-rimini-1227",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Rimini",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-rimini-1227",
+        "name": "Rimini",
+        "sentencesFound": 6,
+        "sentencesReworded": 6,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:12:30.811Z",
       "error": null
     },
     {
@@ -18568,6 +18579,65 @@
       "error": null,
       "createdAt": "2026-09-16T18:12:18.612Z",
       "updatedAt": "2026-09-16T18:12:18.612Z"
+    },
+    {
+      "id": "task-sentence-reword-em-rimini-1227-1789582350811-5485",
+      "type": "sentence-reword",
+      "entityId": "em-rimini-1227",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 6 long sentences — Rimini",
+      "payload": {},
+      "result": {
+        "name": "Rimini",
+        "patches": [
+          [
+            "article",
+            "By 1227, St. Anthony of Padua, though still only in his early thirties, had already become one of the most sought-after preachers in Italy, renowned for a knowledge of Scripture so thorough that he would later be named a Doctor of the Church.",
+            "U",
+            "By 1227, St. Anthony of Padua, though still only in his early thirties, had already become one of Italy’s most sought-after preachers. He was renowned for a knowledge of Scripture so thorough that he would later be named a Doctor of the Church."
+          ],
+          [
+            "article",
+            "According to the earliest surviving biography of the saint, known as <i>L'Assidua</i>, Bonovillo confronted Anthony directly, declaring that he would renounce his heresy only if a mule he had deliberately starved for three days would, when set before both fodder and a consecrated host, choose to adore the host rather than eat.",
+            "U",
+            "According to the earliest surviving biography of the saint, known as <i>L'Assidua</i>, Bonovillo confronted Anthony directly. He declared that he would renounce his heresy only if a mule, deliberately starved for three days, would choose to adore the consecrated host rather than eat when set before both fodder and host."
+          ],
+          [
+            "article",
+            "On the appointed day, before a crowd gathered in the public square, tradition holds that Anthony emerged with the Blessed Sacrament and addressed the starving animal directly: <i>\"In the name of your Creator, whom I, unworthy as I am, hold in my hands, I command you to come forward and pay reverence.\"</i> Bonovillo then set fodder before the mule.",
+            "U",
+            "On the appointed day, before a crowd gathered in the public square, tradition holds that Anthony emerged with the Blessed Sacrament. He addressed the starving animal directly: <i>\"In the name of your Creator, whom I, unworthy as I am, hold in my hands, I command you to come forward and pay reverence.\"</i> Bonovillo then set fodder before the mule."
+          ],
+          [
+            "article",
+            "The episode is recorded not only in <i>L'Assidua</i> but in the <i>Benignitas</i>, another of the earliest surviving lives of the saint, placing it, by the standards of medieval hagiography, among the better-attested Eucharistic traditions associated with a named and thoroughly documented saint.",
+            "U",
+            "The episode is recorded not only in <i>L'Assidua</i> but also in the <i>Benignitas</i>, another of the earliest surviving lives of the saint. By the standards of medieval hagiography, this places it among the better-attested Eucharistic traditions associated with a named and thoroughly documented saint."
+          ],
+          [
+            "article",
+            "We find in the Miracle of Rimini a distinctive shape among Eucharistic accounts: not a private doubt resolved quietly, nor a desecration exposed, but a very public contest willingly accepted by a saint confident enough in the Real Presence to stake a heretic's conversion on its outcome.",
+            "U",
+            "We find in the Miracle of Rimini a distinctive shape among Eucharistic accounts: not a private doubt resolved quietly, nor a desecration exposed. Instead, it was a very public contest willingly accepted by a saint confident enough in the Real Presence to stake a heretic's conversion on its outcome."
+          ],
+          [
+            "article",
+            "Anthony's willingness to be tested so openly, and the swiftness with which his challenger honored his own word once the sign was given, together offer a model of debate settled not by argument alone but by a shared willingness to let the truth show itself.",
+            "U",
+            "Anthony's willingness to be tested so openly, together with his challenger's swiftness in honoring his own word once the sign was given, offers a model of debate. It was settled not by argument alone, but by a shared willingness to let the truth show itself."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:12:30.811Z",
+      "updatedAt": "2026-09-16T18:12:30.811Z"
     }
   ]
 }
