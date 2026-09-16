@@ -14189,14 +14189,25 @@
       "type": "sentence-reword",
       "entityId": "st-patrick-461",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Patrick",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-patrick-461",
+        "name": "St. Patrick",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:24:53.623Z",
       "error": null
     },
     {
@@ -14887,6 +14898,41 @@
       "error": null,
       "createdAt": "2026-09-16T04:24:49.006Z",
       "updatedAt": "2026-09-16T04:24:49.006Z"
+    },
+    {
+      "id": "task-sentence-reword-st-patrick-461-1789532693623-2561",
+      "type": "sentence-reword",
+      "entityId": "st-patrick-461",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Patrick",
+      "payload": {},
+      "result": {
+        "name": "St. Patrick",
+        "patches": [
+          [
+            "article",
+            "Exposed to hunger, cold, and isolation, it was here, in this very captivity he had every reason to resent, that he tells us his faith, so lukewarm before, kindled at last into a fire of constant, almost involuntary prayer—sometimes a hundred prayers offered in a single day and as many again through the night.",
+            "U",
+            "Exposed to hunger, cold, and isolation, it was here, in this very captivity he had every reason to resent, that he tells us his faith kindled at last. So lukewarm before, it became a fire of constant, almost involuntary prayer—sometimes a hundred prayers offered in a single day and as many again through the night."
+          ],
+          [
+            "article",
+            "It remains one of the most moving personal testimonies to survive from the whole of Christian antiquity—a proof that God can take even the worst injustice a human being ever suffers and transform it, over time, into the very calling by which that same person comes to save an entire nation.",
+            "U",
+            "It remains one of the most moving personal testimonies to survive from the whole of Christian antiquity. It proves that God can take even the worst injustice a human being ever suffers and transform it, over time, into the very calling by which that same person comes to save an entire nation."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:24:53.623Z",
+      "updatedAt": "2026-09-16T04:24:53.623Z"
     }
   ]
 }
