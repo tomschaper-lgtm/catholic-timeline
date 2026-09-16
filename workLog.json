@@ -16492,14 +16492,25 @@
       "type": "sentence-reword",
       "entityId": "em-bagno-romagna-1412",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Bagno di Romagna",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-bagno-romagna-1412",
+        "name": "Bagno di Romagna",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:14:06.392Z",
       "error": null
     },
     {
@@ -19136,6 +19147,53 @@
       "error": null,
       "createdAt": "2026-09-16T18:13:57.562Z",
       "updatedAt": "2026-09-16T18:13:57.562Z"
+    },
+    {
+      "id": "task-sentence-reword-em-bagno-romagna-1412-1789582446392-9657",
+      "type": "sentence-reword",
+      "entityId": "em-bagno-romagna-1412",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Bagno di Romagna",
+      "payload": {},
+      "result": {
+        "name": "Bagno di Romagna",
+        "patches": [
+          [
+            "article",
+            "In 1412, Father Lazzaro da Verona, prior of the Camaldolese abbey of Santa Maria in Bagno di Romagna, in Italy, was celebrating Mass when he found himself assailed by sudden doubt about the Real Presence of Christ in the Eucharist he was about to consecrate.",
+            "U",
+            "In 1412, Father Lazzaro da Verona was prior of the Camaldolese abbey of Santa Maria in Bagno di Romagna, in Italy. He was celebrating Mass when sudden doubt assailed him about Christ’s Real Presence in the Eucharist he was about to consecrate."
+          ],
+          [
+            "article",
+            "Immediately after he pronounced the words of consecration over the wine, it transformed before him into what the earliest chronicler of the event, the historian Fortunio, described as living Blood — beginning to seethe and rise until it overflowed the chalice and fell onto the corporal spread beneath it.",
+            "U",
+            "Immediately after he pronounced the words of consecration over the wine, it transformed before him into what the event’s earliest chronicler described as living Blood. The chronicler was the historian Fortunio, who wrote that it began to seethe and rise until it overflowed the chalice and fell onto the corporal spread beneath it."
+          ],
+          [
+            "article",
+            "The stained corporal — venerated ever since as the relic of the 'Holy Cloth Soaked by Blood' — remained in the care of the Camaldolese monks until the community's suppression in 1808, and passed eventually to the Diocese of Cesena in 1975.",
+            "U",
+            "The stained corporal — venerated ever since as the relic of the 'Holy Cloth Soaked by Blood' — remained in the Camaldolese monks' care until the community's suppression in 1808. It eventually passed to the Diocese of Cesena in 1975."
+          ],
+          [
+            "article",
+            "Five centuries and more after a single monk's private crisis of faith, the cloth he left stained still draws the same question that first confronted him: what a believer does with doubt when it arrives not as an abstraction but at the altar itself.",
+            "U",
+            "Five centuries and more after a single monk's private crisis of faith, the cloth he left stained still draws the same question. It asks what a believer does with doubt when it arrives not as an abstraction but at the altar itself."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:14:06.392Z",
+      "updatedAt": "2026-09-16T18:14:06.392Z"
     }
   ]
 }
