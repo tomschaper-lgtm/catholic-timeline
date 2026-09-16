@@ -448,14 +448,25 @@
       "type": "sentence-reword",
       "entityId": "st-pachomius-346",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Pachomius",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-pachomius-346",
+        "name": "St. Pachomius",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-15T18:53:31.898Z",
-      "updatedAt": "2026-09-16T01:59:15.627Z",
+      "updatedAt": "2026-09-16T01:59:28.380Z",
       "error": null
     },
     {
@@ -1377,6 +1388,59 @@
       "error": null,
       "createdAt": "2026-09-16T01:56:32.053Z",
       "updatedAt": "2026-09-16T01:56:34.751Z"
+    },
+    {
+      "id": "task-sentence-reword-st-pachomius-346-1789523968380-8192",
+      "type": "sentence-reword",
+      "entityId": "st-pachomius-346",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — St. Pachomius",
+      "payload": {},
+      "result": {
+        "name": "St. Pachomius",
+        "patches": [
+          [
+            "article",
+            "Pachomius, staying for a time at the deserted village of Tabennisi on the Nile's east bank, believed he received a vision there commanding him to remain and build not another hermitage but a monastery — a house where many could live the ascetic life together.",
+            "U",
+            "Pachomius stayed for a time at the deserted village of Tabennisi on the Nile's east bank. He believed he received a vision there commanding him to remain and build not another hermitage but a monastery — a house where many could live the ascetic life together."
+          ],
+          [
+            "article",
+            "Out of this experience he drew up what is generally recognized as the first written rule for cenobitic, or communal, monastic life — a structured pattern of prayer, work, and common meals that could be taught to hundreds rather than handed down one hermit to one disciple.",
+            "U",
+            "Out of this experience, he drew up what is generally recognized as the first written rule for cenobitic, or communal, monastic life. It established a structured pattern of prayer, work, and common meals, teachable to hundreds rather than handed down from one hermit to one disciple."
+          ],
+          [
+            "article",
+            "Word of Pachomian monasticism traveled far beyond Egypt in Pachomius's own lifetime, carried by pilgrims and by his Rule, translated into Greek and Latin within a generation. <a href=\"entry:st-anthony-of-egypt-356\">St. Anthony of Egypt</a>, whose solitary combat in the desert had already made him famous, represented one great model of Christian asceticism — the hermit alone with God; Pachomius, his younger contemporary, offered another, no less demanding but built for the many rather than the few.",
+            "U",
+            "Word of Pachomian monasticism traveled far beyond Egypt in Pachomius's own lifetime, carried by pilgrims and by his Rule. It was translated into Greek and Latin within a generation. <a href=\"entry:st-anthony-of-egypt-356\">St. Anthony of Egypt</a>, whose solitary combat in the desert had already made him famous, represented one great model of Christian asceticism — the hermit alone with God. Pachomius, his younger contemporary, offered another, no less demanding but built for the many rather than the few."
+          ],
+          [
+            "article",
+            "Both models flowed, decades later, into the monastic legislation of <a href=\"entry:st-basil-the-great-379\">St. Basil the Great</a> in the East and, still later, into the Rule <a href=\"entry:st-benedict-of-nursia-547\">St. Benedict of Nursia</a> composed for the West, which owed a real, if indirect, debt to the discipline Pachomius worked out at Tabennisi two centuries before.",
+            "U",
+            "Both models flowed, decades later, into the monastic legislation of <a href=\"entry:st-basil-the-great-379\">St. Basil the Great</a> in the East. Still later, they flowed into the Rule <a href=\"entry:st-benedict-of-nursia-547\">St. Benedict of Nursia</a> composed for the West, which owed a real, if indirect, debt to the discipline Pachomius worked out at Tabennisi two centuries before."
+          ],
+          [
+            "article",
+            "The monk who once thought only of surviving the army now stands, however unlikely it once seemed, as the father of an entire way of Christian life still practiced, in spirit if not in every particular, wherever men and women vow to seek God not alone but together.",
+            "U",
+            "The monk once thought only of surviving the army. However unlikely it seemed, he now stands as the father of an entire way of Christian life. It remains practiced, in spirit if not in every particular, wherever men and women vow to seek God not alone but together."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T01:59:28.380Z",
+      "updatedAt": "2026-09-16T01:59:28.380Z"
     }
   ]
 }
