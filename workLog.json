@@ -2864,14 +2864,25 @@
       "type": "sentence-reword",
       "entityId": "pope-st-sylvester-i-335",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Pope St. Sylvester I",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "pope-st-sylvester-i-335",
+        "name": "Pope St. Sylvester I",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:36:31.034Z",
-      "updatedAt": "2026-09-16T02:37:52.851Z",
+      "updatedAt": "2026-09-16T02:38:29.126Z",
       "error": null
     },
     {
@@ -3698,6 +3709,41 @@
       "error": null,
       "createdAt": "2026-09-16T02:38:23.734Z",
       "updatedAt": "2026-09-16T02:38:23.734Z"
+    },
+    {
+      "id": "task-sentence-reword-pope-st-sylvester-i-335-1789526309126-1286",
+      "type": "sentence-reword",
+      "entityId": "pope-st-sylvester-i-335",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Pope St. Sylvester I",
+      "payload": {},
+      "result": {
+        "name": "Pope St. Sylvester I",
+        "patches": [
+          [
+            "article",
+            "These included the basilica and baptistery of the <b>Lateran</b>, adjoining the former imperial palace that became the pope's own residence; the church of the Sessorian palace, known as Santa Croce; and the original basilica of <b>St. Peter's</b> over the Apostle's tomb on the Vatican Hill.",
+            "U",
+            "These included the basilica and baptistery of the <b>Lateran</b>, adjoining the former imperial palace that became the pope's own residence. They also included the church of the Sessorian palace, known as Santa Croce, and the original basilica of <b>St. Peter's</b> over the Apostle's tomb on the Vatican Hill."
+          ],
+          [
+            "article",
+            "He was represented there by two legates, and historians believe the crucial Greek term <i>homoousios</i> — 'of one substance,' the very word that secured the Creed's affirmation of Christ's full divinity — was likely agreed upon with Sylvester's input before the council convened.",
+            "U",
+            "He was represented there by two legates. Historians believe the crucial Greek term <i>homoousios</i> — 'of one substance,' the very word securing the Creed's affirmation of Christ's full divinity — was likely agreed upon with Sylvester's input before the council convened."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:38:29.126Z",
+      "updatedAt": "2026-09-16T02:38:29.126Z"
     }
   ]
 }
