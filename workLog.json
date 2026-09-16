@@ -11618,14 +11618,25 @@
       "type": "sentence-reword",
       "entityId": "st-augustine-zhao-rong-companions-1815",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Augustine Zhao Rong & Companions",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-augustine-zhao-rong-companions-1815",
+        "name": "St. Augustine Zhao Rong & Companions",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:44:38.103Z",
-      "updatedAt": "2026-09-16T03:47:24.920Z",
+      "updatedAt": "2026-09-16T03:50:46.250Z",
       "error": null
     },
     {
@@ -12882,6 +12893,47 @@
       "error": null,
       "createdAt": "2026-09-16T03:50:39.848Z",
       "updatedAt": "2026-09-16T03:50:39.848Z"
+    },
+    {
+      "id": "task-sentence-reword-st-augustine-zhao-rong-companions-1815-1789530646250-4709",
+      "type": "sentence-reword",
+      "entityId": "st-augustine-zhao-rong-companions-1815",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — St. Augustine Zhao Rong & Companions",
+      "payload": {},
+      "result": {
+        "name": "St. Augustine Zhao Rong & Companions",
+        "patches": [
+          [
+            "article",
+            "Assigned to escort the French missionary bishop <b>Gabriel-Taurin Dufresse</b> from Chengdu to Beijing for trial, Augustine was deeply moved by the bishop's calm dignity in the face of persecution — an encounter that led him, over time, to seek baptism himself.",
+            "U",
+            "Assigned to escort the French missionary bishop <b>Gabriel-Taurin Dufresse</b> from Chengdu to Beijing for trial, Augustine was deeply moved by the bishop's calm dignity in persecution. Over time, the encounter led him to seek baptism himself."
+          ],
+          [
+            "article",
+            "Both Chinese-born and foreign-born martyrs in this group were frequently targeted less for their private religious belief than for the perception, however unfair, that Christianity represented an extension of Western political and colonial influence into China — a persistent and painful tension between authentic Chinese Catholic identity and outside suspicion that shaped the Church's difficult history in the country for centuries.",
+            "U",
+            "Both Chinese-born and foreign-born martyrs in this group were frequently targeted less for their private religious belief than for the perception, however unfair. Christianity represented an extension of Western political and colonial influence into China—a persistent and painful tension between authentic Chinese Catholic identity and outside suspicion. This tension shaped the Church's difficult history in the country for centuries."
+          ],
+          [
+            "article",
+            "Augustine Zhao Rong, the sole individually named saint in the group's title, stands as a particular symbol of the Chinese Church's own native clergy — a former soldier whose conversion, sparked by a foreign missionary's courage, in turn cost him his own life for the same faith.",
+            "U",
+            "Augustine Zhao Rong, the sole individually named saint in the group's title, stands as a particular symbol of the Chinese Church's own native clergy. He was a former soldier whose conversion, sparked by a foreign missionary's courage, in turn cost him his own life for the same faith."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:50:46.250Z",
+      "updatedAt": "2026-09-16T03:50:46.250Z"
     }
   ]
 }
