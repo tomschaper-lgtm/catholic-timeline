@@ -3207,12 +3207,54 @@
       "type": "arbitrate",
       "entityId": "st-bonaventure-1274",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Bonaventure",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Bonaventure",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "Studying Alongside Aquinas",
+            "sentence": "3",
+            "kind": "article",
+            "before": "The two men earned their teaching licenses together in 1257",
+            "after": "The two men overlapped at Paris and became leading theologians there, though they did not earn their teaching licenses together in 1257",
+            "concern": "Bonaventure and Thomas Aquinas did not receive their teaching licenses together in 1257. Their Parisian careers overlapped, but the chronology of their respective academic promotions was different.",
+            "suggestedCorrection": "Replace the claim with wording that describes their overlap at Paris without asserting that they earned their licenses together in 1257.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The joint licensing date of 1257 is historically inaccurate; correcting the precise timing of their academic milestones is a real factual improvement.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "A Sickly Child, a Franciscan Vow",
+            "sentence": "1",
+            "text": "Born Giovanni di Fidanza around 1221 near Bagnoregio in central Italy",
+            "concern": "Internal contradiction: The narrative prose states he was born \"around 1221\", but the Quick Facts section states \"Born: c. 1217\".",
+            "suggestedCorrection": "Align the birth year between the narrative prose and Quick Facts (c. 1217 is the more standard scholarly consensus for St. Bonaventure).",
+            "source": "Not externally verified",
+            "kind": "article",
+            "before": "around 1221",
+            "after": "around 1217",
+            "winner": "revised",
+            "comment": "The revision resolves a clear internal inconsistency by matching the article’s stated Quick Facts date.",
+            "proposedBy": "gemini-3.5-flash-lite",
+            "arbitratedBy": "gpt-5.6-luna"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-16T04:36:54.472Z",
-      "updatedAt": "2026-09-16T04:42:51.391Z",
+      "updatedAt": "2026-09-16T04:47:53.808Z",
       "error": null
     },
     {
