@@ -14426,14 +14426,25 @@
       "type": "sentence-reword",
       "entityId": "em-guadalupe-1420",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Guadalupe (Spain)",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-guadalupe-1420",
+        "name": "Guadalupe (Spain)",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:35:55.233Z",
       "error": null
     },
     {
@@ -17160,6 +17171,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:35:44.982Z",
       "updatedAt": "2026-09-16T18:35:44.982Z"
+    },
+    {
+      "id": "task-sentence-reword-em-guadalupe-1420-1789583755233-5823",
+      "type": "sentence-reword",
+      "entityId": "em-guadalupe-1420",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Guadalupe (Spain)",
+      "payload": {},
+      "result": {
+        "name": "Guadalupe (Spain)",
+        "patches": [
+          [
+            "article",
+            "In 1420, at the Royal Monastery of Santa Maria de Guadalupe in Extremadura, Spain, a priest — later tradition names him Fray Pedro de Cabanuelas — found himself tempted, during the celebration of Mass, to doubt the reality of transubstantiation, the Church's teaching that the bread and wine truly become the Body and Blood of Christ at the words of consecration.",
+            "U",
+            "In 1420, at the Royal Monastery of Santa Maria de Guadalupe in Extremadura, Spain, a priest found himself tempted during the celebration of Mass. Later tradition names him Fray Pedro de Cabanuelas. He doubted the reality of transubstantiation, the Church's teaching that the bread and wine truly become the Body and Blood of Christ at the words of consecration."
+          ],
+          [
+            "article",
+            "News of the event spread well beyond the walls of the monastery, and among those whose faith it is said to have strengthened was the King of Castile himself — a detail that speaks to how quickly and how widely an event of this kind could travel through fifteenth-century Spain.",
+            "U",
+            "News of the event spread well beyond the walls of the monastery. Among those whose faith it is said to have strengthened was the King of Castile himself—a detail that speaks to how quickly and widely such an event could travel through fifteenth-century Spain."
+          ],
+          [
+            "article",
+            "The account, whatever one makes of its precise historical texture, belongs to a broader pattern common across this period and region: a private, unspoken doubt met not with condemnation but with a sign the doubting believer alone was given to see.",
+            "U",
+            "The account, whatever one makes of its precise historical texture, belongs to a broader pattern common across this period and region. It describes a private, unspoken doubt met not with condemnation but with a sign the doubting believer alone was given to see."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:35:55.233Z",
+      "updatedAt": "2026-09-16T18:35:55.233Z"
     }
   ]
 }
