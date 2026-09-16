@@ -14816,14 +14816,25 @@
       "type": "sentence-reword",
       "entityId": "em-morrovalle-1560",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Morrovalle",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-morrovalle-1560",
+        "name": "Morrovalle",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:38:09.467Z",
       "error": null
     },
     {
@@ -18018,6 +18029,41 @@
       "error": null,
       "createdAt": "2026-09-16T18:38:04.573Z",
       "updatedAt": "2026-09-16T18:38:04.573Z"
+    },
+    {
+      "id": "task-sentence-reword-em-morrovalle-1560-1789583889467-8426",
+      "type": "sentence-reword",
+      "entityId": "em-morrovalle-1560",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Morrovalle",
+      "payload": {},
+      "result": {
+        "name": "Morrovalle",
+        "patches": [
+          [
+            "article",
+            "At around two in the morning on 17 April 1560, during the octave of Easter, a Franciscan friar named Brother Angelo Blasi woke at Morrovalle, Italy, to the sound of violent crackling and looked out to see the church engulfed in flames.",
+            "U",
+            "At around two in the morning on 17 April 1560, during the octave of Easter, a Franciscan friar named Brother Angelo Blasi woke at Morrovalle, Italy. He heard violent crackling and looked out to see the church engulfed in flames."
+          ],
+          [
+            "article",
+            "On 27 April, ten days after the fire, Father Battista da Ascoli was removing a piece of marble from the ruined altar when he uncovered a pyx wedged in a cavity in the wall — its outer case scorched black by the fire except for the lid, and its linen corporal singed at the edges.",
+            "U",
+            "On 27 April, ten days after the fire, Father Battista da Ascoli was removing a piece of marble from the ruined altar. He uncovered a pyx wedged in a cavity in the wall, its outer case scorched black by the fire except for the lid, and its linen corporal singed at the edges."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:38:09.467Z",
+      "updatedAt": "2026-09-16T18:38:09.467Z"
     }
   ]
 }
