@@ -8695,14 +8695,27 @@
       "type": "sentence-reword",
       "entityId": "st-john-of-the-cross-1591",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. John of the Cross",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-john-of-the-cross-1591",
+        "name": "St. John of the Cross",
+        "sentencesFound": 7,
+        "sentencesReworded": 6,
+        "skippedTagMismatch": 0,
+        "apiErrors": 1,
+        "apiErrorSamples": [
+          "GPT-5.6 Luna response looks cut off (doesn’t end in sentence-ending punctuation): \" he remains best known, the <b>\"dark night of the soul.\"</b>\""
+        ],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:10:34.083Z",
-      "updatedAt": "2026-09-16T03:12:04.374Z",
+      "updatedAt": "2026-09-16T03:22:12.778Z",
       "error": null
     },
     {
@@ -11295,6 +11308,67 @@
       "error": null,
       "createdAt": "2026-09-16T03:21:52.817Z",
       "updatedAt": "2026-09-16T03:21:52.817Z"
+    },
+    {
+      "id": "task-sentence-reword-st-john-of-the-cross-1591-1789528932778-3987",
+      "type": "sentence-reword",
+      "entityId": "st-john-of-the-cross-1591",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 6 long sentences — St. John of the Cross",
+      "payload": {},
+      "result": {
+        "name": "St. John of the Cross",
+        "patches": [
+          [
+            "article",
+            "Born <b>Juan de Yepes</b> in 1542 at Fontiveros in Old Castile, John was the youngest son of a silk weaver who had been disinherited by his own noble family for marrying beneath his rank; his father died when John was still a small child, leaving the family in genuine poverty.",
+            "U",
+            "Born <b>Juan de Yepes</b> in 1542 at Fontiveros in Old Castile, John was the youngest son of a silk weaver. His father had been disinherited by his noble family for marrying beneath his rank, then died when John was still a small child, leaving the family in genuine poverty."
+          ],
+          [
+            "article",
+            "On <b>28 November 1568</b>, John and two companions inaugurated the first monastery of what became the <b>Discalced Carmelite friars</b> at a tiny, dilapidated house in Duruelo, living in conditions of poverty so severe that even Teresa privately doubted anyone could bear them for long.",
+            "U",
+            "On <b>28 November 1568</b>, John and two companions inaugurated the first monastery of what became the <b>Discalced Carmelite friars</b>.  \nThey established it at a tiny, dilapidated house in Duruelo, living in conditions of poverty so severe that even Teresa privately doubted anyone could bear them for long."
+          ],
+          [
+            "article",
+            "John's poetry and the prose commentaries he wrote to accompany it — <i>Ascent of Mount Carmel</i>, <i>Dark Night of the Soul</i>, and <i>The Living Flame of Love</i>, alongside the <i>Spiritual Canticle</i> — together form one of the most sophisticated treatments of the soul's purification and union with God in the entire Christian mystical tradition.",
+            "U",
+            "John's poetry and the prose commentaries he wrote to accompany it include <i>Ascent of Mount Carmel</i>, <i>Dark Night of the Soul</i>, and <i>The Living Flame of Love</i>. Alongside the <i>Spiritual Canticle</i>, they form one of the most sophisticated treatments of the soul's purification and union with God in the entire Christian mystical tradition."
+          ],
+          [
+            "article",
+            "Where Teresa wrote from vivid personal experience in accessible, conversational prose, John wrote as a trained theologian and poet, mapping with exacting precision the successive stages by which the soul is stripped of attachment to the senses and the intellect alike in order to be united with God in pure faith and love.",
+            "U",
+            "Teresa wrote from vivid personal experience in accessible, conversational prose. John wrote as a trained theologian and poet, mapping with exacting precision the successive stages by which the soul is stripped of attachment to the senses and the intellect alike. This process unites the soul with God in pure faith and love."
+          ],
+          [
+            "article",
+            "In his final years John faced renewed hostility, this time from within the now-separate Discalced reform itself, and was effectively exiled to a remote, unhealthy priory in southern Spain, where he died on <b>14 December 1591</b>, still only forty-nine, worn down by illness and years of conflict.",
+            "U",
+            "In his final years John faced renewed hostility from within the now-separate Discalced reform itself. He was effectively exiled to a remote, unhealthy priory in southern Spain, where he died on <b>14 December 1591</b>, still only forty-nine, worn down by illness and years of conflict."
+          ],
+          [
+            "article",
+            "His poetry, still studied as much for its literary genius as its theology, ranks among the summits of the Spanish language, and his account of spiritual darkness as a stage of growth rather than mere absence of God continues to console believers navigating their own periods of spiritual dryness.",
+            "U",
+            "His poetry, still studied as much for its literary genius as its theology, ranks among the summits of the Spanish language. His account of spiritual darkness as a stage of growth rather than mere absence of God continues to console believers navigating their own periods of spiritual dryness."
+          ]
+        ],
+        "apiErrors": 1,
+        "apiErrorSamples": [
+          "GPT-5.6 Luna response looks cut off (doesn’t end in sentence-ending punctuation): \" he remains best known, the <b>\"dark night of the soul.\"</b>\""
+        ],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:22:12.778Z",
+      "updatedAt": "2026-09-16T03:22:12.778Z"
     }
   ]
 }
