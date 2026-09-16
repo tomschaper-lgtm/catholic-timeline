@@ -16518,14 +16518,25 @@
       "type": "sentence-reword",
       "entityId": "em-herentals-1412",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Herentals",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-herentals-1412",
+        "name": "Herentals",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:14:13.375Z",
       "error": null
     },
     {
@@ -19194,6 +19205,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:14:06.392Z",
       "updatedAt": "2026-09-16T18:14:06.392Z"
+    },
+    {
+      "id": "task-sentence-reword-em-herentals-1412-1789582453375-4804",
+      "type": "sentence-reword",
+      "entityId": "em-herentals-1412",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Herentals",
+      "payload": {},
+      "result": {
+        "name": "Herentals",
+        "patches": [
+          [
+            "article",
+            "In 1412, a man named Jan van Langerstede, who made his living stealing sacred objects from churches to resell across Europe, broke into the church at Poederle, near Herentals in what is now Belgium, and made off with a chalice and ciborium containing five consecrated Hosts.",
+            "U",
+            "In 1412, a man named Jan van Langerstede made his living stealing sacred objects from churches to resell across Europe. He broke into the church at Poederle, near Herentals in what is now Belgium, and made off with a chalice and ciborium containing five consecrated Hosts."
+          ],
+          [
+            "article",
+            "A large crowd followed the condemned man back to the field, where the Hosts were found arranged in the form of a cross and surrounded by a bright light — intact and undamaged despite eight days of exposure to open weather, including rain.",
+            "U",
+            "A large crowd followed the condemned man back to the field. There, the Hosts were found arranged in the form of a cross and surrounded by a bright light—intact and undamaged despite eight days of exposure to open weather, including rain."
+          ],
+          [
+            "article",
+            "Two commemorative paintings of the miracle, still processed to the field each year for a commemorative Mass, are kept today in the collegiate church of Sint-Waldetrudiskerk in Herentals — a devotion that has run, largely unbroken, for more than six centuries since a professional thief's theft was undone by his own conscience on the scaffold.",
+            "U",
+            "Two commemorative paintings of the miracle are kept today in the collegiate church of Sint-Waldetrudiskerk in Herentals. They are still processed to the field each year for a commemorative Mass, a devotion that has run, largely unbroken, for more than six centuries. This devotion dates from when a professional thief's theft was undone by his own conscience on the scaffold."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:14:13.375Z",
+      "updatedAt": "2026-09-16T18:14:13.375Z"
     }
   ]
 }
