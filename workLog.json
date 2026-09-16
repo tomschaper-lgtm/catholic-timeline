@@ -8532,14 +8532,25 @@
       "type": "sentence-reword",
       "entityId": "french-revolution-1793",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — French Revolution",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "french-revolution-1793",
+        "name": "French Revolution",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:24:31.696Z",
-      "updatedAt": "2026-09-16T06:26:03.127Z",
+      "updatedAt": "2026-09-16T06:29:27.800Z",
       "error": null
     },
     {
@@ -9470,6 +9481,47 @@
       "error": null,
       "createdAt": "2026-09-16T06:29:20.556Z",
       "updatedAt": "2026-09-16T06:29:20.556Z"
+    },
+    {
+      "id": "task-sentence-reword-french-revolution-1793-1789540167800-4940",
+      "type": "sentence-reword",
+      "entityId": "french-revolution-1793",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — French Revolution",
+      "payload": {},
+      "result": {
+        "name": "French Revolution",
+        "patches": [
+          [
+            "article",
+            "As foreign armies threatened Paris in the late summer of <b>1792</b>, revolutionary mobs broke into the city's overcrowded prisons and slaughtered more than a thousand inmates over several days, among them some two hundred priests and three bishops held simply for refusing the civil oath.",
+            "U",
+            "As foreign armies threatened Paris in the late summer of <b>1792</b>, revolutionary mobs broke into the city's overcrowded prisons. Over several days, they slaughtered more than a thousand inmates, among them some two hundred priests and three bishops held simply for refusing the civil oath."
+          ],
+          [
+            "article",
+            "Tried before the Revolutionary Tribunal on trumped-up charges of \"fanaticism,\" the sixteen women, eleven choir nuns, three lay sisters, and two externs, renewed their religious vows at the foot of the scaffold and mounted it one by one on <b>July 17, 1794</b>, singing the <i>Veni Creator Spiritus</i> and the Psalms until the last voice fell silent.",
+            "U",
+            "Tried before the Revolutionary Tribunal on trumped-up charges of \"fanaticism,\" the sixteen women comprised eleven choir nuns, three lay sisters, and two externs. They renewed their religious vows at the foot of the scaffold and mounted it one by one on <b>July 17, 1794</b>, singing the <i>Veni Creator Spiritus</i> and the Psalms until the last voice fell silent."
+          ],
+          [
+            "article",
+            "The French Revolution's assault on the Church still speaks to every generation tempted to believe that a state can simply legislate faith out of existence: it could confiscate buildings, silence bells, and fill the Seine with the blood of the faithful, but it could not, in the end, stop sixteen women from singing on their way to God.",
+            "U",
+            "The French Revolution's assault on the Church still speaks to every generation tempted to believe that a state can simply legislate faith out of existence. It could confiscate buildings, silence bells, and fill the Seine with the blood of the faithful, but it could not, in the end, stop sixteen women from singing on their way to God."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:29:27.800Z",
+      "updatedAt": "2026-09-16T06:29:27.800Z"
     }
   ]
 }
