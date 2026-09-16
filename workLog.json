@@ -8714,14 +8714,25 @@
       "type": "sentence-reword",
       "entityId": "our-lady-of-the-pillar-40",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Our Lady of the Pillar",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "our-lady-of-the-pillar-40",
+        "name": "Our Lady of the Pillar",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:24:48.721Z",
-      "updatedAt": "2026-09-16T06:26:03.127Z",
+      "updatedAt": "2026-09-16T06:31:10.916Z",
       "error": null
     },
     {
@@ -9972,6 +9983,53 @@
       "error": null,
       "createdAt": "2026-09-16T06:31:02.740Z",
       "updatedAt": "2026-09-16T06:31:02.740Z"
+    },
+    {
+      "id": "task-sentence-reword-our-lady-of-the-pillar-40-1789540270916-9131",
+      "type": "sentence-reword",
+      "entityId": "our-lady-of-the-pillar-40",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Our Lady of the Pillar",
+      "payload": {},
+      "result": {
+        "name": "Our Lady of the Pillar",
+        "patches": [
+          [
+            "article",
+            "James and his companions are said to have built a small chapel beside the Ebro, traditionally honored as the first church in the world raised in honor of the Virgin Mary — and, uniquely among Marian shrines, established during her own lifetime.",
+            "U",
+            "James and his companions are said to have built a small chapel beside the Ebro. Traditionally, it is honored as the first church in the world raised in honor of the Virgin Mary—and, uniquely among Marian shrines, established during her own lifetime."
+          ],
+          [
+            "article",
+            "Over the centuries a succession of larger churches replaced the original chapel; the present <b>Basilica of Our Lady of the Pillar</b>, largely built between the seventeenth and eighteenth centuries and decorated in part by Francisco de Goya, still houses the venerated pillar and a statue of Mary above it.",
+            "U",
+            "Over the centuries, a succession of larger churches replaced the original chapel. The present <b>Basilica of Our Lady of the Pillar</b> was largely built between the seventeenth and eighteenth centuries and decorated in part by Francisco de Goya. It still houses the venerated pillar and a statue of Mary above it."
+          ],
+          [
+            "article",
+            "As one of the oldest Marian traditions in Christendom, devotion to Our Lady of the Pillar received favor from a succession of popes across the centuries, who extended indulgences and liturgical honors to the shrine and its observance, though the precise record of which pontiffs acted, and when, is a matter for further documentary verification rather than settled here.",
+            "U",
+            "As one of the oldest Marian traditions in Christendom, devotion to Our Lady of the Pillar received favor from a succession of popes across the centuries. They extended indulgences and liturgical honors to the shrine and its observance, though the precise record of which pontiffs acted, and when, is a matter for further documentary verification rather than settled here."
+          ],
+          [
+            "article",
+            "Because the tradition rests on ancient local memory rather than a documented modern investigation, the Church treats it, like other apparitions of the apostolic era, as a matter of pious and long-received tradition rather than a formally \"approved\" apparition in the modern canonical sense.",
+            "U",
+            "Because the tradition rests on ancient local memory rather than a documented modern investigation, the Church treats it as pious, long-received tradition. Like other apparitions of the apostolic era, it is not a formally \"approved\" apparition in the modern canonical sense."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:31:10.916Z",
+      "updatedAt": "2026-09-16T06:31:10.916Z"
     }
   ]
 }
