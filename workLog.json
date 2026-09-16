@@ -14093,14 +14093,25 @@
       "type": "sentence-reword",
       "entityId": "em-boxtel-1380",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Boxtel-Hoogstraten",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-boxtel-1380",
+        "name": "Boxtel-Hoogstraten",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:50:05.274Z",
       "error": null
     },
     {
@@ -16587,6 +16598,41 @@
       "error": null,
       "createdAt": "2026-09-16T12:50:00.035Z",
       "updatedAt": "2026-09-16T12:50:00.035Z"
+    },
+    {
+      "id": "task-sentence-reword-em-boxtel-1380-1789563005274-3517",
+      "type": "sentence-reword",
+      "entityId": "em-boxtel-1380",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Boxtel-Hoogstraten",
+      "payload": {},
+      "result": {
+        "name": "Boxtel-Hoogstraten",
+        "patches": [
+          [
+            "article",
+            "Around 1380, a priest named <b>Fr. Eligius van der Aker</b> was celebrating Mass at the altar of the Three Kings in <b>Boxtel</b>, in the southern Netherlands, when, immediately after the consecration, he accidentally knocked over the chalice containing the consecrated wine.",
+            "U",
+            "Around 1380, a priest named <b>Fr. Eligius van der Aker</b> was celebrating Mass at the altar of the Three Kings in <b>Boxtel</b>, in the southern Netherlands. Immediately after the consecration, he accidentally knocked over the chalice containing the consecrated wine."
+          ],
+          [
+            "article",
+            "The blood-stained corporal has remained in Boxtel ever since, while the larger altar cloth was given to the neighboring town of <b>Hoogstraten</b>, just across what is now the Belgian border — the two towns sharing, from that year forward, a single devotion divided between two relics.",
+            "U",
+            "The blood-stained corporal has remained in Boxtel ever since. The larger altar cloth was given to neighboring <b>Hoogstraten</b>, just across what is now the Belgian border. From that year forward, the two towns shared a single devotion divided between two relics."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:50:05.274Z",
+      "updatedAt": "2026-09-16T12:50:05.274Z"
     }
   ]
 }
