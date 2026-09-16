@@ -10546,14 +10546,25 @@
       "type": "sentence-reword",
       "entityId": "decian-persecution-250",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Decian Persecution",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "decian-persecution-250",
+        "name": "Decian Persecution",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:45:19.294Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:25:57.547Z",
       "error": null
     },
     {
@@ -11129,6 +11140,41 @@
       "error": null,
       "createdAt": "2026-09-16T07:25:53.029Z",
       "updatedAt": "2026-09-16T07:25:53.029Z"
+    },
+    {
+      "id": "task-sentence-reword-decian-persecution-250-1789543557547-6127",
+      "type": "sentence-reword",
+      "entityId": "decian-persecution-250",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Decian Persecution",
+      "payload": {},
+      "result": {
+        "name": "Decian Persecution",
+        "patches": [
+          [
+            "article",
+            "Those who had complied in one form or another became known to the Church as the <i>lapsi</i>, the \"fallen.\" Later bishops divided this category into the <i>sacrificati</i>, who had genuinely offered sacrifice; the <i>thurificati</i>, who had burned incense before an idol; and the <i>libellatici</i>, who had obtained a certificate through bribery without performing the act itself.",
+            "U",
+            "Those who had complied in one form or another became known to the Church as the <i>lapsi</i>, the \"fallen.\" Later bishops divided this category into three groups: the <i>sacrificati</i>, who had genuinely offered sacrifice; the <i>thurificati</i>, who had burned incense before an idol; and the <i>libellatici</i>, who had obtained a certificate through bribery without performing the act itself."
+          ],
+          [
+            "article",
+            "The deepest wounds of a trial are not always inflicted by the persecutors themselves, but by the community's own struggle afterward to receive back, with honesty and mercy, those who had faltered under pressure no one should ever have had to face.",
+            "U",
+            "The deepest wounds of a trial are not always inflicted by the persecutors themselves. They may instead arise from the community's struggle afterward to receive back, with honesty and mercy, those who faltered under pressure no one should ever have faced."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:25:57.547Z",
+      "updatedAt": "2026-09-16T07:25:57.547Z"
     }
   ]
 }
