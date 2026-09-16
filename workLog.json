@@ -11146,14 +11146,25 @@
       "type": "sentence-reword",
       "entityId": "gutenberg-bible-1455",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Gutenberg Bible",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "gutenberg-bible-1455",
+        "name": "Gutenberg Bible",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:28:45.748Z",
       "error": null
     },
     {
@@ -12341,6 +12352,47 @@
       "error": null,
       "createdAt": "2026-09-16T07:28:39.643Z",
       "updatedAt": "2026-09-16T07:28:39.643Z"
+    },
+    {
+      "id": "task-sentence-reword-gutenberg-bible-1455-1789543725748-5419",
+      "type": "sentence-reword",
+      "entityId": "gutenberg-bible-1455",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Gutenberg Bible",
+      "payload": {},
+      "result": {
+        "name": "Gutenberg Bible",
+        "patches": [
+          [
+            "article",
+            "<b>Johann Gutenberg</b>, a goldsmith and craftsman from Mainz, spent years developing a system of movable metal type, an oil-based printing ink, and a specially adapted press — a combination of technologies that together made mechanical mass reproduction of text possible for the first time in the West.",
+            "U",
+            "<b>Johann Gutenberg</b>, a goldsmith and craftsman from Mainz, spent years developing movable metal type, oil-based printing ink, and a specially adapted press. Together, these technologies made mechanical mass reproduction of text possible for the first time in the West."
+          ],
+          [
+            "article",
+            "The Bible's enormous cost led to a legal dispute between Gutenberg and his financial backer Fust, who sued for repayment; a court ruling in 1455 stripped Gutenberg of much of his press and materials, even as the work he had begun was completed.",
+            "U",
+            "The Bible's enormous cost led to a legal dispute between Gutenberg and his financial backer Fust, who sued for repayment. A court ruling in 1455 stripped Gutenberg of much of his press and materials, even as the work he had begun was completed."
+          ],
+          [
+            "article",
+            "Within a generation, printing presses modeled on Gutenberg's techniques spread rapidly through German cities and then across the whole of Europe, driving down the cost of books, standardizing texts (including subsequent editions of the Vulgate itself), and enabling a far wider circulation of Scripture, sermons, papal documents, and eventually the polemical pamphlets of the Reformation.",
+            "U",
+            "Within a generation, printing presses modeled on Gutenberg's techniques spread rapidly through German cities and then across the whole of Europe. They drove down the cost of books, standardized texts (including subsequent editions of the Vulgate itself), and enabled a far wider circulation of Scripture, sermons, papal documents, and eventually the polemical pamphlets of the Reformation."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:28:45.748Z",
+      "updatedAt": "2026-09-16T07:28:45.748Z"
     }
   ]
 }
