@@ -214,14 +214,25 @@
       "type": "sentence-reword",
       "entityId": "st-cyril-of-alexandria-444",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Cyril of Alexandria",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-cyril-of-alexandria-444",
+        "name": "St. Cyril of Alexandria",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:30:39.114Z",
-      "updatedAt": "2026-09-16T04:31:39.369Z",
+      "updatedAt": "2026-09-16T04:32:07.742Z",
       "error": null
     },
     {
@@ -898,6 +909,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:32:04.633Z",
       "updatedAt": "2026-09-16T04:32:04.633Z"
+    },
+    {
+      "id": "task-sentence-reword-st-cyril-of-alexandria-444-1789533127742-1417",
+      "type": "sentence-reword",
+      "entityId": "st-cyril-of-alexandria-444",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Cyril of Alexandria",
+      "payload": {},
+      "result": {
+        "name": "St. Cyril of Alexandria",
+        "patches": [
+          [
+            "article",
+            "If Mary bore only a human person somehow joined to, but distinct from, the divine Word, then Christ himself was not truly one Person but two loosely associated beings—a teaching that, in Cyril's judgment, undermined the entire logic of the Incarnation and the salvation it accomplished.",
+            "U",
+            "If Mary bore only a human person somehow joined to, but distinct from, the divine Word, then Christ himself was not truly one Person but two loosely associated beings. In Cyril's judgment, this teaching undermined the entire logic of the Incarnation and the salvation it accomplished."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:32:07.742Z",
+      "updatedAt": "2026-09-16T04:32:07.742Z"
     }
   ]
 }
