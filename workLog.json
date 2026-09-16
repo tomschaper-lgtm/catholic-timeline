@@ -2890,14 +2890,25 @@
       "type": "sentence-reword",
       "entityId": "st-nicholas-of-myra-343",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Nicholas of Myra",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-nicholas-of-myra-343",
+        "name": "St. Nicholas of Myra",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:36:31.034Z",
-      "updatedAt": "2026-09-16T02:37:52.851Z",
+      "updatedAt": "2026-09-16T02:38:32.132Z",
       "error": null
     },
     {
@@ -3744,6 +3755,35 @@
       "error": null,
       "createdAt": "2026-09-16T02:38:29.126Z",
       "updatedAt": "2026-09-16T02:38:29.126Z"
+    },
+    {
+      "id": "task-sentence-reword-st-nicholas-of-myra-343-1789526312132-2321",
+      "type": "sentence-reword",
+      "entityId": "st-nicholas-of-myra-343",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Nicholas of Myra",
+      "payload": {},
+      "result": {
+        "name": "St. Nicholas of Myra",
+        "patches": [
+          [
+            "article",
+            "They carried them to <b>Bari</b>, Italy, where a basilica was built to house them and devotion to him in the West grew substantially, giving him the alternate title 'Nicholas of Bari.' His feast day, 6 December, has been kept ever since as one of the most widely celebrated saints' days in both the Eastern and Western Church calendars.",
+            "U",
+            "They carried them to <b>Bari</b>, Italy, where a basilica was built to house them. Devotion to him in the West grew substantially, giving him the alternate title 'Nicholas of Bari.' His feast day, 6 December, has been kept ever since as one of the most widely celebrated saints' days in both the Eastern and Western Church calendars."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:38:32.132Z",
+      "updatedAt": "2026-09-16T02:38:32.132Z"
     }
   ]
 }
