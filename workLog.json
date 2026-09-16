@@ -10650,14 +10650,25 @@
       "type": "sentence-reword",
       "entityId": "cristero-persecution-1926",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Cristero Persecution",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "cristero-persecution-1926",
+        "name": "Cristero Persecution",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:45:19.294Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:26:10.406Z",
       "error": null
     },
     {
@@ -11295,6 +11306,35 @@
       "error": null,
       "createdAt": "2026-09-16T07:26:06.981Z",
       "updatedAt": "2026-09-16T07:26:06.981Z"
+    },
+    {
+      "id": "task-sentence-reword-cristero-persecution-1926-1789543570406-1358",
+      "type": "sentence-reword",
+      "entityId": "cristero-persecution-1926",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Cristero Persecution",
+      "payload": {},
+      "result": {
+        "name": "Cristero Persecution",
+        "patches": [
+          [
+            "article",
+            "Frustrated by the government's refusal to relent, tens of thousands of ordinary Catholics across rural Mexico took up arms as <b>Cristeros</b> — \"warriors for Christ.\" They fought a bitter three-year civil conflict against government forces before a negotiated truce brought the open fighting to a close in 1929.",
+            "U",
+            "Frustrated by the government's refusal to relent, tens of thousands of ordinary Catholics across rural Mexico took up arms as <b>Cristeros</b> — \"warriors for Christ.\" They fought a bitter three-year civil conflict against government forces. A negotiated truce brought the open fighting to a close in 1929."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:26:10.406Z",
+      "updatedAt": "2026-09-16T07:26:10.406Z"
     }
   ]
 }
