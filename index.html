@@ -1,9 +1,114 @@
 <!--
-VERSION: 392
-DATE: 2026-09-15T18:55:00-05:00
+VERSION: 397
+DATE: 2026-09-16T06:20:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- CORRECTION to v395/v396: I blamed sentence-reword.mjs for proposing patches on link-bearing
+  sentences, and said its spec required skipping them. Reading the actual handler, that's wrong —
+  it deliberately ATTEMPTS linked sentences (an improvement over an older blanket skip, per its own
+  header comment), tells the model exactly which links to copy verbatim, and verifies afterward via
+  extractEntryLinks/linksPreserved that every one survived byte-for-byte before proposing anything.
+  The bug was on THIS side: patchTextInSections refused any match overlapping an <a> span at all,
+  so the CMS discarded every carefully link-preserved rewrite the handler produced, and reported it
+  as "text not found". 13 of the 46 proposed patches in the 2026-09-16 workLog were stuck on this.
+- Fix: the anchor guard is now precise instead of blanket. A match that CUTS THROUGH a link
+  (starts or ends mid-anchor) is still always refused — that could leave a broken half-link. A
+  match that WHOLLY CONTAINS one or more links is allowed for a U patch provided every contained
+  link appears byte-for-byte in the replacement — the same property the handler already verifies,
+  re-checked here at apply time so the CMS never relies on the proposer being honest.
+  locateTextInSections got the matching change (cuts-through still refused; containment allowed),
+  since if the two disagree the review highlights sentences Approve then refuses.
+  Verified against the real workLog: all 13 link-bearing patches now apply, every link intact in
+  the result, and a deliberately link-cutting span is still refused.
+- Tom asked whether this workflow was supposed to publish automatically. It was — and every review
+  flow in the app DOES, except the one he was using. tkResolveImageFinal (image), tkResolveAudio
+  (audio), and the arbitrate/sentence-edit screens all call publishToGitHub() the instant you
+  approve. wlResolveTasks() — the sentence-reword approve path, including auto-approve — was the
+  sole exception: it called saveDb() and told you to Publish manually. On a web host saveDb() is a
+  NO-OP (read its body: artifact storage doesn't exist there, so it returns true having stored
+  nothing), so an approved reword existed only in browser memory until a manual Publish. That is
+  the actual origin of the v395 loop, one level deeper than v395 found it: unpublished rewords left
+  data.json still long-sentenced, so the next scan re-queued the same entities, drafted patches
+  against the original text, and those patches then failed against a session db already holding the
+  new text. v395 made that failure harmless; this makes it not happen.
+  Fix: wlResolveTasks() now calls publishToGitHub() after a successful approve, same position in
+  the sequence as every other flow (db mutation → publish → workLog save). Approve only; rejecting
+  changes no content so there's nothing to publish. Status messages updated accordingly — an
+  approve now reports "published to GitHub — live in about a minute" or, if publishing fails, says
+  plainly that it was NOT published and the next scan will re-queue those entries.
+- The three earlier symptom-level items below (v393-v395) were all downstream of this one gap.
+- DIAGNOSED from the actual workLog.json (not guessed from a video this time): the 13 stuck
+  'proposed' sentence-reword tasks are not corrupt and their text is not missing. Each entity has
+  exactly one 'done' generator task plus one 'proposed' review task, and the two that DID apply
+  (St. Lucy, St. Catherine) look identical in every structural respect to the 13 that didn't — so
+  it isn't a character-encoding or punctuation-normalization problem. The real mechanism is a
+  publish loop: the sentence-reword service drafts patches against the REPO's data.json, but
+  approving one only edits the in-session db — nothing reaches data.json until Publish. An entity
+  approved-but-not-published therefore still looks un-reworded to the next scan, gets re-queued,
+  and comes back with patches keyed to the ORIGINAL sentence that this session's db no longer
+  contains, because it was already replaced. Every failing entity is one of the earliest processed
+  (Anne & Joachim, Joseph, First Martyrs, Mark, Thomas, Philip, Luke...), i.e. the ones with the
+  most chances to have gone round that loop.
+  Fix: before calling a U patch failed, applyOnePatch now checks whether the patch's REPLACEMENT
+  text is already present in the article. If it is, the work is already done — report success,
+  change nothing, and let the task settle as approved instead of jamming at 'proposed' forever.
+  Verified against the real workLog.json: the already-reworded case is now recognized, and a fresh
+  article carrying the original sentence still applies normally.
+- Separately: 13 of the 46 proposed patches have match text containing an <a href="entry:..."> 
+  cross-reference link. patchTextInSections refuses those by design (rewriting across an anchor
+  span could leave a broken half-link), so they could never have applied — but they were reported
+  as "text not found," which sends you hunting for a mismatch that doesn't exist. They now report
+  the actual reason. NOTE this is a handler-side bug worth fixing at source: per
+  content-generation-workflow-state.md §4 the service is supposed to skip link-bearing paragraphs
+  entirely, and it clearly isn't — scripts/services/sentence-reword.mjs needs that filter.
+- New "Reset stuck (N)" button in the Task List bar, shown only when tasks are actually sitting at
+  in_progress. Puts them all back to queued and saves workLog.json through the same path the review
+  screens use. This exists because the automatic orphan reclaim added to scripts/orchestrator.mjs
+  only helps if that updated script is deployed to the repo AND a run actually starts — neither is
+  any use when you're looking at a screen full of Running rows that won't move and Run has nothing
+  queued to pick up. This needs neither. Nothing is lost by resetting: a task stuck at in_progress
+  never produced a result, which is what being stuck means.
+- Likely root cause of the stuck-in-Running pile itself (not just its cleanup): before v393, the
+  app re-ran auto-approve on EVERY poll of a live run, and that re-saved workLog.json to GitHub
+  every ~3 seconds even when nothing applied. The orchestrator commits that same file per task.
+  Two writers pushing to one file seconds apart is exactly the git race commitWorkLog's single
+  pull--rebase retry is meant to absorb, and past that it gives up. A run that loses that race
+  partway through leaves every task it had already claimed sitting at in_progress forever — which
+  is precisely the 9/15 9:59p pile. v393 stopped the app's half of that collision; this build adds
+  the manual cleanup for what the collision already stranded.
+- Found the REAL cause of "does a few then gets stuck" this time, from the screen recording itself
+  rather than reasoning about it: the status line was visibly alternating between "orchestrator
+  running Xs" and a giant repeating "Approved 0 \u00b7 11 could not apply: text not found..." dump
+  that named the SAME ~11 entries every time (Sts. Anne & Joachim, St. Joseph, First Martyrs, St.
+  Mark, St. Thomas, St. Philip, St. Luke...), and the elapsed-seconds readout was barely moving —
+  not frozen, just burning nearly all its time on a retry that could never succeed. Root cause: in
+  wlResolveTasks(), a task whose patch fails to apply (wlApplyTaskToDb returns ok:false — its "old
+  text" no longer exists in the article, almost always because it was already changed by an
+  earlier patch or edit since this task was drafted) was NEVER marked as anything — it just stayed
+  'proposed' forever. tkAutoApproveSentenceRewords() runs on every poll of a live Run (v390), so
+  the SAME permanently-unfixable tasks got retried every ~3 seconds for the rest of the run,
+  every single time re-fetching AND re-saving workLog.json even though NOTHING had changed (the
+  save was unconditional, regardless of whether anything actually applied) — racing the
+  orchestrator's own frequent commits to that same file for no reason, and burying the one status
+  line Tom actually needed under a wall of the same 11 notes over and over.
+  Fixed: new tkAutoApproveFailedIds (session-scoped Set) — a task that fails once is excluded from
+  every later auto-approve attempt this session, so the retry storm can't recur. wlResolveTasks()
+  now also skips saveWorkLog() entirely when nothing actually applied (true for BOTH the auto-
+  approve path and a manual single-task Approve that fails) — previously it saved anyway and even
+  told Tom the failed task was "merged into this session," which was simply wrong. Verified the
+  Set-based skip logic against a standalone simulation (a task that always fails triggers exactly
+  one save-skip cycle then never again; one that succeeds saves once and drops out of the
+  'proposed' pool on its own) before shipping, not just by reading the code.
+- On "all the logs were gone": most likely explanation is pruneCompletedTasks() in orchestrator.mjs
+  (added a few versions back) doing exactly what it's built to do — it keeps only the 75 most
+  recently-updated FINISHED tasks (done/approved/rejected/error) and permanently drops older ones,
+  every single run, with no archive. With this many reword tasks processed across sessions lately,
+  it's very plausible that's genuinely over 75 by now. Nothing in this video suggests a full wipe —
+  the queued/proposed tasks it shows (St. Martin of Tours, St. Liborius, the 11 stuck ones) are all
+  still present and accounted for, which argues against real data loss. If what you saw was
+  older/finished history missing under All, that's this pruning; if queued or in-progress items
+  themselves vanished, that's a different, more serious problem worth its own look — which was it?
 - CORRECTION to v391: that fix's diagnosis was wrong. Tom clarified he never left the app — watched
   it stall in the foreground the whole time, then started recording — which rules out iOS tab
   suspension entirely; tkRefreshOnReturn() (still harmless, left in) was solving a problem that
@@ -3917,6 +4022,7 @@ v332 CHANGES (unchanged from the version this build started from):
         <button class="tkBtn" id="tkRun">Run</button>
         <input type="number" class="tkRunCount" id="tkRunCount" value="5" min="1" max="50" inputmode="numeric" aria-label="How many tasks to process">
         <select class="tkRunType" id="tkRunType" aria-label="Which service to run"></select>
+        <button class="tkBtn" id="tkUnstick" style="display:none;">Reset stuck</button>
       </div>
       <div class="tkBar" style="padding-top:0; padding-bottom:6px;">
         <label class="tkAutoApproveChk" for="tkAutoApprove">
@@ -4700,7 +4806,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v392';
+const APP_VERSION = 'v397';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -7670,6 +7776,7 @@ document.getElementById('tkRunCount').addEventListener('input', tkUpdateUpNext);
 
 function renderTaskList(){
   tkUpdateUpNext();
+  tkSyncUnstickBtn();
   renderTkTypeFilterBtn();
   // Status has no header cell of its own — just a spacer the width of the icon column, so
   // "Task" starts over the task text rather than over the glyph.
@@ -9591,6 +9698,38 @@ document.getElementById('tkLockBar').addEventListener('click', async (e) => {
   if(e.target.closest('#tkReject')){ await tkResolveCurrent(false); }
 });
 document.getElementById('tkRefresh').addEventListener('click', loadWorkLog);
+// "Reset stuck" — a manual, client-side lever to put every in_progress task back to queued,
+// shown only when there actually ARE stuck ones (see tkSyncUnstickBtn, called from
+// renderTaskList). The orchestrator reclaims orphans by itself at the start of every run, which
+// is the real safety net — but that only helps if the current scripts/orchestrator.mjs is
+// deployed AND a run actually starts, and neither is true when you're staring at a pile of
+// Running rows that won't move. This needs neither: it edits workLog.json directly through the
+// same save path the review screens use, so it works even if the repo's orchestrator is an older
+// copy. Nothing is lost by resetting — a stuck in_progress task never produced a result (that's
+// what being stuck means), so re-queuing it just lets it be picked up and actually done.
+async function tkUnstickTasks(){
+  if(!wlData || !Array.isArray(wlData.tasks)) return;
+  const stuck = wlData.tasks.filter(t => t.status === 'in_progress');
+  if(!stuck.length){ wlSetLog('No stuck tasks to reset.'); return; }
+  if(!confirm('Put ' + stuck.length + ' stuck task' + (stuck.length === 1 ? '' : 's') + ' back in the queue?\n\nUse this when tasks sit under Running and never finish \u2014 usually a run that died partway. They\u2019ll be picked up by the next Run.')) return;
+  const nowIso = new Date().toISOString();
+  stuck.forEach(t => { t.status = 'queued'; t.updatedAt = nowIso; });
+  const ids = stuck.map(t => t.id);
+  wlSetLog('Resetting ' + stuck.length + ' stuck task(s)\u2026');
+  const saved = await saveWorkLog('Reset ' + stuck.length + ' stuck task(s) to queued', ids);
+  wlSetLog(saved.ok
+    ? stuck.length + ' task' + (stuck.length === 1 ? '' : 's') + ' put back in the queue \u2014 tap Run to process them.'
+    : 'Could not save the reset: ' + saved.error + ' \u2014 tap Refresh and try again.', !saved.ok);
+  renderWorkLog();
+}
+document.getElementById('tkUnstick').addEventListener('click', tkUnstickTasks);
+function tkSyncUnstickBtn(){
+  const btn = document.getElementById('tkUnstick');
+  if(!btn) return;
+  const n = ((wlData && wlData.tasks) || []).filter(t => t.status === 'in_progress').length;
+  btn.style.display = n ? '' : 'none';
+  btn.textContent = 'Reset stuck (' + n + ')';
+}
 document.getElementById('tkRun').addEventListener('click', async () => {
   // The count and service beside the button are the run's arguments: "do 5 of these". They
   // become workflow_dispatch inputs, and the orchestrator filters its queue accordingly.
@@ -9806,21 +9945,39 @@ const TK_AUTO_APPROVE_KEY = 'tk-auto-approve-sentence-reword';
 async function tkAutoApproveSentenceRewords(){
   const chk = document.getElementById('tkAutoApprove');
   if(!chk || !chk.checked || !wlData) return;
-  const ids = wlData.tasks.filter(t => t.status === 'proposed' && t.type === 'sentence-reword').map(t => t.id);
+  const ids = wlData.tasks
+    .filter(t => t.status === 'proposed' && t.type === 'sentence-reword' && !tkAutoApproveFailedIds.has(t.id))
+    .map(t => t.id);
   if(!ids.length) return;
-  await wlResolveTasks(ids, true);
+  const res = await wlResolveTasks(ids, true);
+  if(res && res.failedIds) res.failedIds.forEach(id => tkAutoApproveFailedIds.add(id));
 }
+// Ids that have already failed an auto-approve attempt THIS SESSION. tkAutoApproveSentenceRewords
+// runs on every poll of a live Run (triggerWorkflow's onPoll — see there), and a task that fails
+// to apply will never succeed on a bare retry: wlApplyTaskToDb failing means the patch's "old
+// text" doesn't exist in the article anymore, almost always because the article was already
+// edited since the task was drafted (by an earlier patch, a manual edit, or a duplicate task for
+// the same entity). That's a real, permanent mismatch, not a flaky timing issue — retrying it
+// doesn't help. Without this, the exact same permanently-failing tasks got re-attempted every few
+// seconds for the rest of the run: burying the actual "orchestrator running Xs" status under a
+// repeating wall of "text not found" notes, AND needlessly re-saving workLog.json on every single
+// attempt even though nothing ever changed — see the applied.length guard in wlResolveTasks below,
+// which is the other half of this fix. One failed attempt is enough to know a task needs a human,
+// not another identical retry three seconds later. Session-scoped (a plain in-memory Set, not
+// written back to workLog.json) — reopening the app tries once more, which is fine; the point is
+// stopping the SAME session's live-watch loop from hammering the same dead end forever.
+const tkAutoApproveFailedIds = new Set();
 
 async function wlResolveTasks(taskIds, approve){
-  if(!wlData || !taskIds.length) return;
+  if(!wlData || !taskIds.length) return { applied: [], failed: [], failedIds: [] };
   const nowIso = new Date().toISOString();
-  const applied = [], failed = [];
+  const applied = [], failed = [], failedIds = [];
   taskIds.forEach(id => {
     const task = wlData.tasks.find(t => t.id === id);
     if(!task || task.status !== 'proposed') return;
     if(approve){
       const res = wlApplyTaskToDb(task);
-      if(!res.ok){ failed.push(res.note); return; }
+      if(!res.ok){ failed.push(res.note); failedIds.push(id); return; }
       task.status = 'approved';
       applied.push(id);
     }else{
@@ -9829,25 +9986,49 @@ async function wlResolveTasks(taskIds, approve){
     }
     task.updatedAt = nowIso;
   });
-  if(approve && applied.length){
-    await saveDb();
-    renderMList();
-    render();
-    // Same guard the importer uses: if the entry just patched is sitting open in the editor
-    // form, refresh it, or "Save, Publish & Exit" would write the stale form back over this.
-    if(editingId && getEntry(editingId)) openEditor(editingId);
-  }
   const verb = approve ? 'Approved' : 'Rejected';
+  // Nothing actually changed (every id either failed to apply or wasn't found/wasn't 'proposed'
+  // anymore) — nothing to persist, so skip saveWorkLog() entirely rather than round-tripping
+  // GitHub for a no-op rewrite. This is the other half of the auto-approve fix above: without it,
+  // a batch of permanently-failing tasks triggered a real GET+PUT to workLog.json on every single
+  // poll for the rest of the run, racing the orchestrator's own frequent commits to that same file
+  // for no reason at all.
+  if(!applied.length){
+    if(failed.length) wlSetLog(verb + ' 0 \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; '), true);
+    renderWorkLog();
+    return { applied, failed, failedIds };
+  }
+  await saveDb();
+  renderMList();
+  render();
+  // Same guard the importer uses: if the entry just patched is sitting open in the editor
+  // form, refresh it, or "Save, Publish & Exit" would write the stale form back over this.
+  if(editingId && getEntry(editingId)) openEditor(editingId);
+  // AUTO-PUBLISH. Every other review flow in this app already does this the moment you approve —
+  // image finalize (tkResolveImageFinal), audio (tkResolveAudio), and the arbitrate/sentence-edit
+  // screens all call publishToGitHub() right after mutating the entry. Sentence-reword approve was
+  // the one exception, and on a web host that mattered enormously: saveDb() is a no-op there (see
+  // its body — artifact storage doesn't exist, so the change lives in browser memory only), which
+  // means an approved reword reached data.json ONLY if Tom separately remembered to hit Publish.
+  // Anything he didn't publish stayed long-sentenced as far as the repo was concerned, so the next
+  // scan re-queued the same entity, drafted patches against the original text, and those patches
+  // then failed against a session db that had already been changed — the "text not found" loop
+  // diagnosed in v395. Publishing here closes that loop at its source rather than treating its
+  // symptom. Deliberately placed AFTER the db mutation and BEFORE the workLog save, matching the
+  // ordering the other flows use, so content lands first and the task's own bookkeeping second.
+  // Approve only — rejecting changes no entry content, so there'd be nothing to publish.
+  const published = approve ? await publishToGitHub() : true;
   wlSetLog(verb + ' ' + applied.length + (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') + ' \u00b7 saving work log\u2026', !!failed.length);
   const saved = await saveWorkLog(verb + ' ' + applied.length + ' task(s) via Content Manager', applied);
   if(!saved.ok){
     wlSetLog('Content updated in this session, but the work log could not be saved: ' + saved.error + ' \u2014 tap Refresh and try again, or these items will still show as proposed next time.', true);
   }else{
-    wlSetLog(verb + ' ' + applied.length + ' task(s)' + (failed.length ? ' \u00b7 ' + failed.length + ' skipped: ' + failed.join('; ') : '') +
-      (approve ? ' \u00b7 merged into this session \u2014 Publish to GitHub to put it live.' : ''), !!failed.length);
+    wlSetLog(verb + ' ' + applied.length + ' task(s)' + (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') +
+      (approve ? (published ? ' \u00b7 published to GitHub \u2014 live in about a minute.' : ' \u00b7 NOT published \u2014 use Publish manually.') : ''), !!failed.length || (approve && !published));
   }
   renderWorkLog();
-  if(approve && applied.length) setStatus(verb + ' ' + applied.length + ' \u2014 Publish to make it live');
+  if(approve && applied.length) setStatus(verb + ' ' + applied.length + (published ? ' \u2014 published' : ' \u2014 NOT published'));
+  return { applied, failed, failedIds };
 }
 
 // ---- Run a GitHub Actions workflow directly from the app (no need to navigate GitHub's UI) ----
@@ -13703,13 +13884,20 @@ function patchParseElementOccurrence(element){
 
 // Matches against each section's full raw body (tags included), so a match text may freely
 // span a formatting tag like <b>/<i> — those carry no navigation data, so there's nothing to
-// protect. The one thing still off-limits is a cross-reference link's visible text: replacing
-// part of an <a href="entry:...">...</a> span could leave a broken half-link with no obvious
-// symptom, so any match that overlaps an anchor span is skipped, same protection
-// manualLinkApplyToEntry gives the auto-linker, just checked against the whole string now
-// instead of accidentally extending to every tag via per-segment tokenizing (v155-v268's bug —
-// see CHANGES). Never mutates the entry in place — returns a new sections array — so a failed
-// patch can't half-apply.
+// protect. Cross-reference links get a narrower, smarter guard than the old blanket "any overlap
+// with an <a> span is refused":
+//   - A match that CUTS THROUGH an anchor (starts or ends mid-link) is still always refused —
+//     replacing that could leave a broken half-link with no obvious symptom.
+//   - A match that WHOLLY CONTAINS one or more anchors is allowed for a U patch, provided every
+//     contained link appears byte-for-byte in the replacement. That's the same property
+//     sentence-reword.mjs's linksPreserved() already verifies before it ever proposes the patch;
+//     checking it again here at apply time means a sentence with a link inside it can actually be
+//     reworded instead of being silently unfixable. The old blanket refusal made the handler's
+//     whole link-preservation design unusable — it deliberately attempts linked sentences and
+//     verifies the links survived, and the CMS then threw every one of those away as "text not
+//     found." (13 of the 46 patches in the 2026-09-16 workLog were stuck on exactly this.)
+// Never mutates the entry in place — returns a new sections array — so a failed patch can't
+// half-apply.
 function patchTextInSections(sections, matchText, occurrence, op, value){
   let seen = 0, done = false;
   const re = new RegExp(xrefEscapeRegex(matchText), 'g');
@@ -13722,11 +13910,29 @@ function patchTextInSections(sections, matchText, occurrence, op, value){
     while((am = anchorRe.exec(body))){
       anchorRanges.push([am.index, am.index + am[0].length]);
     }
-    const overlapsAnchor = (start, len) => anchorRanges.some(([s, e]) => start < e && (start + len) > s);
+    // 'cuts' = the span crosses an anchor boundary (never allowed). 'contained' = whole anchors
+    // sitting entirely inside the span, returned so the caller can verify they survive.
+    const anchorCheck = (start, len) => {
+      const end = start + len, contained = [];
+      for(const [s, e] of anchorRanges){
+        if(start < e && end > s){
+          if(s >= start && e <= end) contained.push(body.slice(s, e));
+          else return { cuts: true, contained: [] };
+        }
+      }
+      return { cuts: false, contained };
+    };
     let out = '', cursor = 0, m;
     re.lastIndex = 0;
     while((m = re.exec(body))){
-      if(overlapsAnchor(m.index, m[0].length)) continue; // would corrupt a cross-ref link — skip, keep scanning
+      const rel = anchorCheck(m.index, m[0].length);
+      if(rel.cuts) continue; // would corrupt a cross-ref link — skip, keep scanning
+      if(rel.contained.length){
+        // Only a straight replacement can be checked for link survival; an insert or delete
+        // around a link is left alone as before.
+        if(op !== 'U') continue;
+        if(!rel.contained.every(a => String(value).includes(a))) continue;
+      }
       seen++;
       if(seen === occurrence){
         out += body.slice(cursor, m.index);
@@ -13745,10 +13951,13 @@ function patchTextInSections(sections, matchText, occurrence, op, value){
   return { changed: done, sections: newSections };
 }
 
-// Read-only counterpart to patchTextInSections() above — same matching rules (anchor-span
-// protection, @N occurrence counting via the caller), but locates a match instead of editing it.
-// Used by the sentence-reword review (tkRenderSentenceRewordReview) to find where a patch's
-// original or replacement text actually sits, in RAW (tag-included) offsets, for highlighting.
+// Read-only counterpart to patchTextInSections() above — same matching rules (including the
+// cuts-through-an-anchor refusal; it does NOT need the link-survival check, since locating a
+// match changes nothing), but locates a match instead of editing it. Used by the sentence-reword
+// review (tkRenderSentenceRewordReview) to find where a patch's original or replacement text
+// actually sits, in RAW (tag-included) offsets, for highlighting. Kept in step with the relaxed
+// rule above deliberately: if the two disagree, the review highlights a sentence that Approve
+// then refuses, or vice versa.
 function locateTextInSections(sections, matchText, occurrence){
   let seen = 0;
   const re = new RegExp(xrefEscapeRegex(matchText), 'g');
@@ -13760,11 +13969,14 @@ function locateTextInSections(sections, matchText, occurrence){
     while((am = anchorRe.exec(body))){
       anchorRanges.push([am.index, am.index + am[0].length]);
     }
-    const overlapsAnchor = (start, len) => anchorRanges.some(([s, e]) => start < e && (start + len) > s);
+    const cutsAnchor = (start, len) => {
+      const end = start + len;
+      return anchorRanges.some(([s, e]) => start < e && end > s && !(s >= start && e <= end));
+    };
     re.lastIndex = 0;
     let m;
     while((m = re.exec(body))){
-      if(overlapsAnchor(m.index, m[0].length)) continue;
+      if(cutsAnchor(m.index, m[0].length)) continue;
       seen++;
       if(seen === occurrence) return { sectionIndex: si, start: m.index, end: m.index + m[0].length };
     }
@@ -13902,7 +14114,30 @@ function applyOnePatch(entry, patch){
     if(!parsedEl.text){ return { ok: false, note: tag + ' — empty match text' }; }
     const result = patchTextInSections(entry.art.sections, parsedEl.text, parsedEl.occurrence, op, op === 'D' ? '' : value);
     if(!result.changed){
+      // ALREADY-APPLIED detection. The single biggest source of "text not found" here isn't a
+      // corrupt patch — it's a patch that already ran. The sentence-reword service drafts its
+      // patches against the repo's data.json, but approving one only edits THIS session's db;
+      // the change doesn't reach data.json until Publish. So an entity reworded-and-approved but
+      // not yet published still looks un-reworded to the next scan, gets queued again, and comes
+      // back with patches keyed to the ORIGINAL sentence — which this session's db no longer
+      // contains, because it was already replaced. Reporting that as a failure is both wrong and
+      // actively confusing: nothing is broken, the edit is already in place. So before calling a
+      // U patch failed, check whether its REPLACEMENT text is already sitting in the article. If
+      // it is, the work is done — report success with a distinct note and change nothing, which
+      // also lets the parent task settle as approved instead of jamming at 'proposed' forever.
+      if(op === 'U' && value){
+        const already = locateTextInSections(entry.art.sections, String(value), 1);
+        if(already) return { ok: true, note: tag + ' — already applied (replacement text is present), left as is' };
+      }
       const preview = parsedEl.text.length > 40 ? parsedEl.text.slice(0, 40) + '…' : parsedEl.text;
+      // A link-bearing match that still didn't apply means one of two things, both worth naming
+      // precisely rather than calling "text not found": the span cut through a link instead of
+      // containing it whole, or the replacement dropped/altered a link the original carried.
+      // (Link-bearing sentences ARE reworded now, as long as every link survives verbatim — see
+      // patchTextInSections. sentence-reword.mjs verifies the same property before proposing.)
+      if(/<a\b[^>]*>/i.test(parsedEl.text)){
+        return { ok: false, note: tag + ' — skipped: a cross-reference link in this sentence isn\u2019t preserved intact in the replacement ("' + preview + '")' };
+      }
       return { ok: false, note: tag + ' — text not found (occurrence ' + parsedEl.occurrence + ' of "' + preview + '")' };
     }
     entry.art.sections = result.sections;
