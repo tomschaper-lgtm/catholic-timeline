@@ -13807,14 +13807,25 @@
       "type": "sentence-reword",
       "entityId": "em-walldurn-1330",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Walldürn",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-walldurn-1330",
+        "name": "Walldürn",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:48:06.508Z",
       "error": null
     },
     {
@@ -15949,6 +15960,53 @@
       "error": null,
       "createdAt": "2026-09-16T12:47:55.701Z",
       "updatedAt": "2026-09-16T12:47:55.701Z"
+    },
+    {
+      "id": "task-sentence-reword-em-walldurn-1330-1789562886508-9045",
+      "type": "sentence-reword",
+      "entityId": "em-walldurn-1330",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Walldürn",
+      "payload": {},
+      "result": {
+        "name": "Walldürn",
+        "patches": [
+          [
+            "article",
+            "In 1330, a priest named <b>Heinrich Otto</b> was celebrating Mass in the small town of <b>Walldürn</b>, in southern Germany, when he accidentally knocked over the chalice containing the Precious Blood, spilling it across the corporal, the linen cloth on the altar before him.",
+            "U",
+            "In 1330, a priest named <b>Heinrich Otto</b> was celebrating Mass in the small town of <b>Walldürn</b>, in southern Germany. He accidentally knocked over the chalice containing the Precious Blood, spilling it across the corporal, the linen cloth on the altar before him."
+          ],
+          [
+            "article",
+            "As the wine spread across the linen, it formed an image tradition describes as the crucified Christ surrounded by eleven identical heads of Christ crowned with thorns — a pattern precise enough that Otto, uncertain whether he had committed some sacrilege by the spill, hid the corporal away rather than reveal it, examining it again after Mass and finding the image only clearer than before.",
+            "U",
+            "As the wine spread across the linen, it formed an image tradition describes as the crucified Christ surrounded by eleven identical heads of Christ crowned with thorns. The pattern was precise enough that Otto, uncertain whether he had committed some sacrilege by the spill, hid the corporal away rather than reveal it. He examined it again after Mass and found the image only clearer than before."
+          ],
+          [
+            "article",
+            "Otto told no one what had happened, and the stained corporal remained hidden until shortly before his death, when he finally confessed the secret to his confessor; the cloth was recovered exactly where he had concealed it and was enshrined soon afterward.",
+            "U",
+            "Otto told no one what had happened, and the stained corporal remained hidden until shortly before his death.  \nHe finally confessed the secret to his confessor; the cloth was recovered exactly where he had concealed it and enshrined soon afterward."
+          ],
+          [
+            "article",
+            "One of the most complete surviving accounts of the miracle was written by the local monk Jost Hoffius in 1589, drawing on tradition already well established by his time; Pope Eugene IV had formally confirmed the miracle over a century earlier, in 1445, granting indulgences to pilgrims who came to venerate it.",
+            "U",
+            "One of the most complete surviving accounts of the miracle was written by the local monk Jost Hoffius in 1589. His account drew on tradition already well established by his time. Pope Eugene IV had formally confirmed the miracle over a century earlier, in 1445, granting indulgences to pilgrims who came to venerate it."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:48:06.508Z",
+      "updatedAt": "2026-09-16T12:48:06.508Z"
     }
   ]
 }
