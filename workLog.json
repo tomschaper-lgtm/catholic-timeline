@@ -3592,14 +3592,25 @@
       "type": "sentence-reword",
       "entityId": "st-ansgar-865",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Ansgar",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-ansgar-865",
+        "name": "St. Ansgar",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:36:31.034Z",
-      "updatedAt": "2026-09-16T02:57:28.977Z",
+      "updatedAt": "2026-09-16T02:58:07.322Z",
       "error": null
     },
     {
@@ -6170,6 +6181,47 @@
       "error": null,
       "createdAt": "2026-09-16T02:57:59.682Z",
       "updatedAt": "2026-09-16T02:57:59.682Z"
+    },
+    {
+      "id": "task-sentence-reword-st-ansgar-865-1789527487322-4619",
+      "type": "sentence-reword",
+      "entityId": "st-ansgar-865",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — St. Ansgar",
+      "payload": {},
+      "result": {
+        "name": "St. Ansgar",
+        "patches": [
+          [
+            "article",
+            "Born around 801 in <b>Picardy</b>, in what is now northern France, <b>Ansgar</b> entered the Benedictine monastery of Corbie as a young man and later moved to the daughter house of Corvey in Westphalia, where he taught and preached before being drawn into the great missionary project of his age: bringing Christianity to Scandinavia.",
+            "U",
+            "Born around 801 in <b>Picardy</b>, in what is now northern France, <b>Ansgar</b> entered the Benedictine monastery of Corbie as a young man. He later moved to the daughter house of Corvey in Westphalia, where he taught and preached before being drawn into the great missionary project of his age: bringing Christianity to Scandinavia."
+          ],
+          [
+            "article",
+            "In 826, Ansgar accompanied the newly baptized but soon-exiled Danish King <b>Harald</b> back toward his homeland, founding a school at Schleswig, but the mission collapsed within a few years amid renewed political turmoil and Harald's own second expulsion, forcing Ansgar's return to Frankish territory.",
+            "U",
+            "In 826, Ansgar accompanied the newly baptized but soon-exiled Danish King <b>Harald</b> toward his homeland and founded a school at Schleswig. Within a few years, renewed political turmoil and Harald's second expulsion caused the mission to collapse, forcing Ansgar's return to Frankish territory."
+          ],
+          [
+            "article",
+            "Though much of his direct missionary work was undone by pagan reaction after his death, his sustained example and the missionary structures he built at Hamburg-Bremen laid essential groundwork for Scandinavia's eventual, permanent Christianization in the centuries that followed, earning him the enduring title Apostle of the North.",
+            "U",
+            "Though much of his direct missionary work was undone by pagan reaction after his death, his sustained example laid essential groundwork. The missionary structures he built at Hamburg-Bremen likewise supported Scandinavia's eventual, permanent Christianization in the centuries that followed, earning him the enduring title Apostle of the North."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:58:07.322Z",
+      "updatedAt": "2026-09-16T02:58:07.322Z"
     }
   ]
 }
