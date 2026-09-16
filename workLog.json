@@ -2942,14 +2942,25 @@
       "type": "sentence-reword",
       "entityId": "st-basil-the-great-379",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Basil the Great",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-basil-the-great-379",
+        "name": "St. Basil the Great",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:36:31.034Z",
-      "updatedAt": "2026-09-16T02:37:52.851Z",
+      "updatedAt": "2026-09-16T02:38:41.614Z",
       "error": null
     },
     {
@@ -3836,6 +3847,35 @@
       "error": null,
       "createdAt": "2026-09-16T02:38:39.097Z",
       "updatedAt": "2026-09-16T02:38:39.097Z"
+    },
+    {
+      "id": "task-sentence-reword-st-basil-the-great-379-1789526321614-3787",
+      "type": "sentence-reword",
+      "entityId": "st-basil-the-great-379",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Basil the Great",
+      "payload": {},
+      "result": {
+        "name": "St. Basil the Great",
+        "patches": [
+          [
+            "article",
+            "He then withdrew to found his own monastic community in Pontus, where he composed the ascetic rules — still followed, in modified form, by Eastern monks to this day — that earned him lasting recognition as one of the great legislators of Christian monastic life.",
+            "U",
+            "He then withdrew to found his own monastic community in Pontus. There, he composed the ascetic rules — still followed, in modified form, by Eastern monks to this day — that earned him lasting recognition as one of the great legislators of Christian monastic life."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:38:41.614Z",
+      "updatedAt": "2026-09-16T02:38:41.614Z"
     }
   ]
 }
