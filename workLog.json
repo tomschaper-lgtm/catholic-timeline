@@ -14033,14 +14033,25 @@
       "type": "sentence-reword",
       "entityId": "st-philip-the-apostle-80",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Philip the Apostle",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-philip-the-apostle-80",
+        "name": "St. Philip the Apostle",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:24:33.130Z",
       "error": null
     },
     {
@@ -14670,6 +14681,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:24:30.871Z",
       "updatedAt": "2026-09-16T04:24:30.871Z"
+    },
+    {
+      "id": "task-sentence-reword-st-philip-the-apostle-80-1789532673130-6703",
+      "type": "sentence-reword",
+      "entityId": "st-philip-the-apostle-80",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Philip the Apostle",
+      "payload": {},
+      "result": {
+        "name": "St. Philip the Apostle",
+        "patches": [
+          [
+            "article",
+            "Philip's announcement to Nathanael carries the unfiltered enthusiasm of a man who has discovered something too large to hold alone: \"we have found him of whom Moses in the Law and also the prophets wrote, Jesus of Nazareth, the son of Joseph.\"",
+            "U",
+            "Philip's announcement to Nathanael carries the unfiltered enthusiasm of a man who has discovered something too large to hold alone. He declares, \"we have found him of whom Moses in the Law and also the prophets wrote, Jesus of Nazareth, the son of Joseph.\""
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:24:33.130Z",
+      "updatedAt": "2026-09-16T04:24:33.130Z"
     }
   ]
 }
