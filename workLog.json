@@ -7837,14 +7837,25 @@
       "type": "sentence-reword",
       "entityId": "st-richard-of-chichester-1253",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Richard of Chichester",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-richard-of-chichester-1253",
+        "name": "St. Richard of Chichester",
+        "sentencesFound": 4,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 2,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:10:34.083Z",
-      "updatedAt": "2026-09-16T03:12:04.374Z",
+      "updatedAt": "2026-09-16T03:14:15.818Z",
       "error": null
     },
     {
@@ -8955,6 +8966,41 @@
       "error": null,
       "createdAt": "2026-09-16T03:14:10.587Z",
       "updatedAt": "2026-09-16T03:14:10.587Z"
+    },
+    {
+      "id": "task-sentence-reword-st-richard-of-chichester-1253-1789528455818-7720",
+      "type": "sentence-reword",
+      "entityId": "st-richard-of-chichester-1253",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Richard of Chichester",
+      "payload": {},
+      "result": {
+        "name": "St. Richard of Chichester",
+        "patches": [
+          [
+            "article",
+            "Rather than accept his brother's offer to make over the whole inheritance to him, or a marriage that would have secured his fortune, Richard chose instead to restore the estate to profitability with his own hands and then walk away from it entirely, setting off for Oxford to study.",
+            "U",
+            "Rather than accept his brother's offer to make over the whole inheritance to him, or a marriage that would have secured his fortune, Richard chose instead to restore the estate to profitability with his own hands. He then walked away from it entirely, setting off for Oxford to study."
+          ],
+          [
+            "article",
+            "Miracles reported at Richard's tomb led Pope Urban IV to canonize him in 1262, and in 1276 his relics were translated to a shrine that became one of medieval England's great centers of pilgrimage, until it was plundered and destroyed by order of Thomas Cromwell in 1538.",
+            "U",
+            "Miracles reported at Richard's tomb led Pope Urban IV to canonize him in 1262. In 1276, his relics were translated to a shrine that became one of medieval England's great pilgrimage centers. Thomas Cromwell ordered it plundered and destroyed in 1538."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 2,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:14:15.818Z",
+      "updatedAt": "2026-09-16T03:14:15.818Z"
     }
   ]
 }
