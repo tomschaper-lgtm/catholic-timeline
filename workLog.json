@@ -8298,14 +8298,25 @@
       "type": "sentence-reword",
       "entityId": "persecution-under-nero-64",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Persecution under Nero",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "persecution-under-nero-64",
+        "name": "Persecution under Nero",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:24:31.696Z",
-      "updatedAt": "2026-09-16T06:26:03.127Z",
+      "updatedAt": "2026-09-16T06:26:43.017Z",
       "error": null
     },
     {
@@ -8726,6 +8737,41 @@
       "error": null,
       "createdAt": "2026-09-16T06:26:27.156Z",
       "updatedAt": "2026-09-16T06:26:27.156Z"
+    },
+    {
+      "id": "task-sentence-reword-persecution-under-nero-64-1789540003016-2425",
+      "type": "sentence-reword",
+      "entityId": "persecution-under-nero-64",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Persecution under Nero",
+      "payload": {},
+      "result": {
+        "name": "Persecution under Nero",
+        "patches": [
+          [
+            "article",
+            "Nero's agents arrested Christians throughout the city, and, in Tacitus's account, an \"immense multitude\" was convicted — not primarily on the charge of arson, which few believed, but on the charge of \"hatred of the human race.\" The punishments were deliberately theatrical and cruel: Christians were sewn into the skins of wild animals and torn apart by dogs, crucified, or set alight as living torches to illuminate Nero's gardens at night.",
+            "U",
+            "Nero's agents arrested Christians throughout the city. In Tacitus's account, an \"immense multitude\" was convicted — not primarily on the charge of arson, which few believed, but on the charge of \"hatred of the human race.\"\n\nThe punishments were deliberately theatrical and cruel: Christians were sewn into the skins of wild animals and torn apart by dogs, crucified, or set alight as living torches to illuminate Nero's gardens at night."
+          ],
+          [
+            "article",
+            "But the persecution he unleashed left Rome, sanctified by the blood of its two greatest Apostles, at the center of Christian memory — the see that Peter and Paul had both led and died for, and the foundation of the Church's abiding reverence for the city as the seat of Peter's successors.",
+            "U",
+            "But the persecution he unleashed left Rome at the center of Christian memory, sanctified by the blood of its two greatest Apostles. It was the see that Peter and Paul had both led and died for, and the foundation of the Church's abiding reverence for the city as the seat of Peter's successors."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:26:43.016Z",
+      "updatedAt": "2026-09-16T06:26:43.016Z"
     }
   ]
 }
