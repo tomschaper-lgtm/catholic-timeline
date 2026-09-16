@@ -10860,14 +10860,25 @@
       "type": "sentence-reword",
       "entityId": "jerusalem-falls-to-islam-638",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Jerusalem Falls to Islam",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "jerusalem-falls-to-islam-638",
+        "name": "Jerusalem Falls to Islam",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:27:25.568Z",
       "error": null
     },
     {
@@ -11745,6 +11756,53 @@
       "error": null,
       "createdAt": "2026-09-16T07:27:17.448Z",
       "updatedAt": "2026-09-16T07:27:17.448Z"
+    },
+    {
+      "id": "task-sentence-reword-jerusalem-falls-to-islam-638-1789543645568-7399",
+      "type": "sentence-reword",
+      "entityId": "jerusalem-falls-to-islam-638",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Jerusalem Falls to Islam",
+      "payload": {},
+      "result": {
+        "name": "Jerusalem Falls to Islam",
+        "patches": [
+          [
+            "article",
+            "Emperor Heraclius had recovered the Cross and restored it to the city in 630 amid great celebration, but within a few years the armies of the new Rashidun Caliphate, unified under Islam, swept out of Arabia into Byzantine Syria and Palestine.",
+            "U",
+            "Emperor Heraclius had recovered the Cross and restored it to the city in 630 amid great celebration. Within a few years, the new Rashidun Caliphate’s armies, unified under Islam, swept out of Arabia into Byzantine Syria and Palestine."
+          ],
+          [
+            "article",
+            "After roughly six months, Sophronius agreed to surrender the city, but only directly to the Caliph himself. <b>Umar ibn al-Khattab</b> traveled from Medina to receive the submission of Jerusalem in person, meeting the aged patriarch, reportedly within the Church of the Holy Sepulchre.",
+            "U",
+            "After roughly six months, Sophronius agreed to surrender the city, but only directly to the Caliph himself. <b>Umar ibn al-Khattab</b> traveled from Medina to receive Jerusalem’s submission in person. He met the aged patriarch, reportedly within the Church of the Holy Sepulchre."
+          ],
+          [
+            "article",
+            "Umar granted the Christian population what became known as the Assurance of Umar, guaranteeing their churches, property, and freedom of worship in exchange for tribute and certain restrictions — terms that, however imperfectly kept over the centuries, preserved a continuous Christian presence in the city.",
+            "U",
+            "Umar granted the Christian population what became known as the Assurance of Umar, guaranteeing their churches, property, and freedom of worship. These protections came in exchange for tribute and certain restrictions—terms that, however imperfectly kept over the centuries, preserved a continuous Christian presence in the city."
+          ],
+          [
+            "article",
+            "The loss of Jerusalem and the wider Christian East reshaped the balance of the Church decisively toward Rome and Constantinople in the centuries that followed, while the enduring, if often precarious, Christian communities of the Holy Land trace an unbroken line back to Sophronius's flock.",
+            "U",
+            "The loss of Jerusalem and the wider Christian East reshaped the Church’s balance decisively toward Rome and Constantinople in the centuries that followed. The enduring, if often precarious, Christian communities of the Holy Land trace an unbroken line back to Sophronius's flock."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:27:25.568Z",
+      "updatedAt": "2026-09-16T07:27:25.568Z"
     }
   ]
 }
