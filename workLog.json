@@ -14345,14 +14345,25 @@
       "type": "sentence-reword",
       "entityId": "sts-cyril-methodius-869",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Sts. Cyril & Methodius",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "sts-cyril-methodius-869",
+        "name": "Sts. Cyril & Methodius",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:25:12.471Z",
       "error": null
     },
     {
@@ -15139,6 +15150,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:25:09.786Z",
       "updatedAt": "2026-09-16T04:25:09.786Z"
+    },
+    {
+      "id": "task-sentence-reword-sts-cyril-methodius-869-1789532712471-8490",
+      "type": "sentence-reword",
+      "entityId": "sts-cyril-methodius-869",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Sts. Cyril & Methodius",
+      "payload": {},
+      "result": {
+        "name": "Sts. Cyril & Methodius",
+        "patches": [
+          [
+            "article",
+            "He approved the Slavonic liturgy, personally welcomed the brothers, and ordained both of them bishops—a formal papal endorsement settling, at the highest level of Church authority, the principle they had staked their whole mission on: that no people should be denied access to the Gospel and the liturgy in their own living language.",
+            "U",
+            "He approved the Slavonic liturgy, personally welcomed the brothers, and ordained both of them bishops. This formal papal endorsement settled, at the highest level of Church authority, the principle they had staked their whole mission on: no people should be denied access to the Gospel and the liturgy in their own living language."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:25:12.471Z",
+      "updatedAt": "2026-09-16T04:25:12.471Z"
     }
   ]
 }
