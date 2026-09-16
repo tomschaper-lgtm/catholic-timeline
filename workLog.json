@@ -10938,14 +10938,25 @@
       "type": "sentence-reword",
       "entityId": "cluny-founded-910",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Cluny Founded",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "cluny-founded-910",
+        "name": "Cluny Founded",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:27:45.723Z",
       "error": null
     },
     {
@@ -11907,6 +11918,47 @@
       "error": null,
       "createdAt": "2026-09-16T07:27:39.132Z",
       "updatedAt": "2026-09-16T07:27:39.132Z"
+    },
+    {
+      "id": "task-sentence-reword-cluny-founded-910-1789543665723-8381",
+      "type": "sentence-reword",
+      "entityId": "cluny-founded-910",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Cluny Founded",
+      "payload": {},
+      "result": {
+        "name": "Cluny Founded",
+        "patches": [
+          [
+            "article",
+            "By the early tenth century, Benedictine monasticism across Western Europe had suffered badly from Viking, Magyar, and Saracen raids, from the impoverishment and disorder of the late Carolingian world, and from the corrosive practice of lay lords treating abbeys as private property, installing relatives or favorites as abbots with little regard for the Rule of St. Benedict.",
+            "U",
+            "By the early tenth century, Benedictine monasticism across Western Europe had suffered badly from Viking, Magyar, and Saracen raids. It also suffered from the impoverishment and disorder of the late Carolingian world. Lay lords treated abbeys as private property, installing relatives or favorites as abbots with little regard for the Rule of St. Benedict."
+          ],
+          [
+            "article",
+            "In 910, <b>William I, Duke of Aquitaine</b>, known as 'the Pious,' donated a hunting estate near the Grosne River in Burgundy — complete with vineyards, fields, mills, and woods — to found a new Benedictine monastery dedicated to <b>Sts. Peter and Paul</b>.",
+            "U",
+            "In 910, <b>William I, Duke of Aquitaine</b>, known as 'the Pious,' donated a hunting estate near the Grosne River in Burgundy. The estate included vineyards, fields, mills, and woods, and was given to found a new Benedictine monastery dedicated to <b>Sts. Peter and Paul</b>."
+          ],
+          [
+            "article",
+            "Cluny's reform is widely credited with reviving the moral and spiritual vigor of Western monasticism after its Carolingian-era decline, and with training many of the churchmen who later drove the broader eleventh-century Gregorian Reform against simony and lay investiture, including Pope Urban II, who would launch the First Crusade in 1095.",
+            "U",
+            "Cluny's reform is widely credited with reviving the moral and spiritual vigor of Western monasticism after its Carolingian-era decline. It is also credited with training many churchmen who later drove the broader eleventh-century Gregorian Reform against simony and lay investiture, including Pope Urban II, who would launch the First Crusade in 1095."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:27:45.723Z",
+      "updatedAt": "2026-09-16T07:27:45.723Z"
     }
   ]
 }
