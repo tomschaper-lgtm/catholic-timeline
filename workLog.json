@@ -3878,14 +3878,25 @@
       "type": "sentence-reword",
       "entityId": "st-peter-damian-1072",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Peter Damian",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-peter-damian-1072",
+        "name": "St. Peter Damian",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:36:31.034Z",
-      "updatedAt": "2026-09-16T02:57:28.977Z",
+      "updatedAt": "2026-09-16T03:00:59.071Z",
       "error": null
     },
     {
@@ -7006,6 +7017,53 @@
       "error": null,
       "createdAt": "2026-09-16T03:00:50.582Z",
       "updatedAt": "2026-09-16T03:00:50.582Z"
+    },
+    {
+      "id": "task-sentence-reword-st-peter-damian-1072-1789527659071-1188",
+      "type": "sentence-reword",
+      "entityId": "st-peter-damian-1072",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — St. Peter Damian",
+      "payload": {},
+      "result": {
+        "name": "St. Peter Damian",
+        "patches": [
+          [
+            "article",
+            "After his parents' deaths, one brother forced him to work as a swineherd, but another brother, an archpriest named Damian, took him in and gave him a genuine education — Peter later adopted his benefactor's name in gratitude, becoming 'Peter Damian.'",
+            "U",
+            "After his parents' deaths, one brother forced him to work as a swineherd. Another brother, an archpriest named Damian, took him in and gave him a genuine education. Peter later adopted his benefactor's name in gratitude, becoming 'Peter Damian.'"
+          ],
+          [
+            "article",
+            "In this office he served as a trusted papal legate on sensitive missions across Italy, France, and Germany — once persuading a German king not to divorce his wife, and helping settle disputes between rival claimants to sees and even between antipopes contesting Rome itself.",
+            "U",
+            "In this office he served as a trusted papal legate on sensitive missions across Italy, France, and Germany. Once, he persuaded a German king not to divorce his wife and helped settle disputes between rival claimants to sees and even between antipopes contesting Rome itself."
+          ],
+          [
+            "article",
+            "Peter Damian played a role in the landmark Lateran Synod of 1059, which established that the College of Cardinals alone held the right to elect future popes — a foundational reform in the Church's governance that helped free papal elections from the interference of secular rulers.",
+            "U",
+            "Peter Damian played a role in the landmark Lateran Synod of 1059. It established that the College of Cardinals alone held the right to elect future popes. This foundational reform in the Church's governance helped free papal elections from the interference of secular rulers."
+          ],
+          [
+            "article",
+            "Never formally canonized in the medieval sense, his cultus flourished spontaneously after death; Pope Leo XII extended his feast to the universal Church and declared him a Doctor of the Church in 1828, honoring a monk-reformer whose fierce writings and personal example did much to prepare the ground for the broader Gregorian Reform of the following decades.",
+            "U",
+            "Never formally canonized in the medieval sense, his cultus flourished spontaneously after death. Pope Leo XII extended his feast to the universal Church and declared him a Doctor of the Church in 1828. This honored a monk-reformer whose fierce writings and personal example did much to prepare the ground for the broader Gregorian Reform of the following decades."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:00:59.071Z",
+      "updatedAt": "2026-09-16T03:00:59.071Z"
     }
   ]
 }
