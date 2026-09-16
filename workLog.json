@@ -11852,14 +11852,25 @@
       "type": "sentence-reword",
       "entityId": "st-john-bosco-1888",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. John Bosco",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-john-bosco-1888",
+        "name": "St. John Bosco",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:44:38.103Z",
-      "updatedAt": "2026-09-16T03:47:24.920Z",
+      "updatedAt": "2026-09-16T03:52:34.005Z",
       "error": null
     },
     {
@@ -13470,6 +13481,59 @@
       "error": null,
       "createdAt": "2026-09-16T03:52:23.951Z",
       "updatedAt": "2026-09-16T03:52:23.951Z"
+    },
+    {
+      "id": "task-sentence-reword-st-john-bosco-1888-1789530754005-1472",
+      "type": "sentence-reword",
+      "entityId": "st-john-bosco-1888",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — St. John Bosco",
+      "payload": {},
+      "result": {
+        "name": "St. John Bosco",
+        "patches": [
+          [
+            "article",
+            "Even as a boy tending sheep, John displayed a natural gift for holding other children's attention, entertaining them with tricks and acrobatics learned from traveling performers so he could then repeat, word for word, the sermon he had heard at Mass that day.",
+            "U",
+            "Even as a boy tending sheep, John displayed a natural gift for holding other children's attention. He entertained them with tricks and acrobatics learned from traveling performers, then repeated, word for word, the sermon he had heard at Mass that day."
+          ],
+          [
+            "article",
+            "Ordained a priest in Turin in 1841, John's ministry began almost by accident: on 8 December 1841, he met a poor orphan named Bartolomeo Garelli in a sacristy and, discovering the boy knew nothing of the faith, resolved to prepare him for his First Communion — the seed of what became a lifelong mission to the abandoned, working-class boys flooding into industrializing Turin.",
+            "U",
+            "Ordained a priest in Turin in 1841, John's ministry began almost by accident. On 8 December 1841, he met a poor orphan named Bartolomeo Garelli in a sacristy. Discovering the boy knew nothing of the faith, he resolved to prepare him for his First Communion — the seed of what became a lifelong mission to the abandoned, working-class boys flooding into industrializing Turin."
+          ],
+          [
+            "article",
+            "John developed and refined what became known as the <b>Salesian preventive system</b>, deliberately rejecting the corporal punishment common in the era's schools in favor of surrounding boys with positive environments, frequent confession and Communion, and patient, fatherly guidance meant to prevent wrongdoing rather than merely punish it after the fact.",
+            "U",
+            "John developed and refined what became known as the <b>Salesian preventive system</b>. He deliberately rejected the corporal punishment common in the era's schools, instead surrounding boys with positive environments, frequent confession and Communion, and patient, fatherly guidance. This approach was meant to prevent wrongdoing rather than merely punish it after the fact."
+          ],
+          [
+            "article",
+            "By the time of his death the order had grown from its original seventeen members to over a thousand, with foundations across Italy, Spain, France, England, and South America; John also co-founded, with St. Maria Domenica Mazzarello, a corresponding congregation of women religious devoted to poor girls.",
+            "U",
+            "By the time of his death, the order had grown from its original seventeen members to over a thousand, with foundations across Italy, Spain, France, England, and South America. John also co-founded, with St. Maria Domenica Mazzarello, a corresponding congregation of women religious devoted to poor girls."
+          ],
+          [
+            "article",
+            "His enduring devotion to Mary under the title Help of Christians led him to build a great basilica in her honor in Turin, and the Salesian order he founded remains today one of the largest religious congregations in the Catholic Church, still guided by his conviction that young people are best formed not through fear, but through reason, religion, and kindness.",
+            "U",
+            "His enduring devotion to Mary under the title Help of Christians led him to build a great basilica in her honor in Turin. The Salesian order he founded remains today one of the largest religious congregations in the Catholic Church, still guided by his conviction that young people are best formed not through fear, but through reason, religion, and kindness."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:52:34.005Z",
+      "updatedAt": "2026-09-16T03:52:34.005Z"
     }
   ]
 }
