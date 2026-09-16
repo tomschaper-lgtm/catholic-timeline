@@ -1074,14 +1074,25 @@
       "type": "sentence-reword",
       "entityId": "st-carlo-acutis-2006",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Carlo Acutis",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-carlo-acutis-2006",
+        "name": "St. Carlo Acutis",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:30:39.114Z",
-      "updatedAt": "2026-09-16T04:31:39.369Z",
+      "updatedAt": "2026-09-16T04:33:52.472Z",
       "error": null
     },
     {
@@ -2192,6 +2203,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:33:49.699Z",
       "updatedAt": "2026-09-16T04:33:49.699Z"
+    },
+    {
+      "id": "task-sentence-reword-st-carlo-acutis-2006-1789533232472-3765",
+      "type": "sentence-reword",
+      "entityId": "st-carlo-acutis-2006",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Carlo Acutis",
+      "payload": {},
+      "result": {
+        "name": "St. Carlo Acutis",
+        "patches": [
+          [
+            "article",
+            "Drawing on his technical skill and a deep personal devotion to the Eucharist — he once said, <blockquote>\"The Eucharist is the highway to heaven\"</blockquote> — Carlo spent roughly the last two and a half years of his life researching and building a comprehensive website.",
+            "U",
+            "Drawing on his technical skill and deep personal devotion to the Eucharist, Carlo spent roughly the last two and a half years of his life researching and building a comprehensive website. He once said, <blockquote>\"The Eucharist is the highway to heaven\"</blockquote>."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:33:52.472Z",
+      "updatedAt": "2026-09-16T04:33:52.472Z"
     }
   ]
 }
