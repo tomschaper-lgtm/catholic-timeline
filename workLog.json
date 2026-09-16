@@ -14712,14 +14712,25 @@
       "type": "sentence-reword",
       "entityId": "em-salzano-1517",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Salzano",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-salzano-1517",
+        "name": "Salzano",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:37:38.808Z",
       "error": null
     },
     {
@@ -17786,6 +17797,59 @@
       "error": null,
       "createdAt": "2026-09-16T18:37:27.757Z",
       "updatedAt": "2026-09-16T18:37:27.757Z"
+    },
+    {
+      "id": "task-sentence-reword-em-salzano-1517-1789583858808-3046",
+      "type": "sentence-reword",
+      "entityId": "em-salzano-1517",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — Salzano",
+      "payload": {},
+      "result": {
+        "name": "Salzano",
+        "patches": [
+          [
+            "article",
+            "Because of the late hour and the season, there was no time to organize the usual solemn procession, and the priest set out with only a single altar boy for company, carrying the Blessed Sacrament across the meadows bordering the Muson River.",
+            "U",
+            "Because of the late hour and the season, there was no time to organize the usual solemn procession. The priest set out with only a single altar boy for company, carrying the Blessed Sacrament across the meadows bordering the Muson River."
+          ],
+          [
+            "article",
+            "As the small party crossed the fields, several donkeys grazing nearby turned to face the approaching priest and, drawing near, bent their knees before the Blessed Sacrament he carried — a gesture of recognition the animals had no evident reason to make of their own accord.",
+            "U",
+            "As the small party crossed the fields, several donkeys grazing nearby turned to face the approaching priest and drew near. They bent their knees before the Blessed Sacrament he carried—a gesture of recognition the animals had no evident reason to make of their own accord."
+          ],
+          [
+            "article",
+            "Having genuflected, the donkeys fell in alongside the small procession and followed it all the way to the dying parishioner's house, renewing their genuflection there before accompanying the priest back across the same fields toward their own pasture, where they finally returned to grazing as though nothing unusual had happened.",
+            "U",
+            "Having genuflected, the donkeys fell in alongside the small procession and followed it all the way to the dying parishioner's house. There, they renewed their genuflection before accompanying the priest back across the same fields toward their own pasture. They finally returned to grazing as though nothing unusual had happened."
+          ],
+          [
+            "article",
+            "Ignatius of Loyola and his early companions are said to have passed through the region only a couple of decades later, in 1536, drawing the attention of a wider Catholic reform movement already gathering in nearby Venice to a devotion still fresh in local memory.",
+            "U",
+            "Ignatius of Loyola and his early companions are said to have passed through the region only a couple of decades later, in 1536. Their visit drew the attention of a wider Catholic reform movement already gathering in nearby Venice to a devotion still fresh in local memory."
+          ],
+          [
+            "article",
+            "The Salzano account belongs to a distinct and gentler category among Eucharistic traditions — no theft, no violence, no doubt to be resolved, only ordinary animals recognizing, in the telling, what the faithful believed they carried past them in the field.",
+            "U",
+            "The Salzano account belongs to a distinct and gentler category among Eucharistic traditions. There was no theft, no violence, and no doubt to be resolved. Only ordinary animals recognized, in the telling, what the faithful believed they carried past them in the field."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:37:38.808Z",
+      "updatedAt": "2026-09-16T18:37:38.808Z"
     }
   ]
 }
