@@ -2968,14 +2968,25 @@
       "type": "sentence-reword",
       "entityId": "st-martin-of-tours-397",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Martin of Tours",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-martin-of-tours-397",
+        "name": "St. Martin of Tours",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:36:31.034Z",
-      "updatedAt": "2026-09-16T02:37:52.851Z",
+      "updatedAt": "2026-09-16T02:38:44.606Z",
       "error": null
     },
     {
@@ -3876,6 +3887,35 @@
       "error": null,
       "createdAt": "2026-09-16T02:38:41.614Z",
       "updatedAt": "2026-09-16T02:38:41.614Z"
+    },
+    {
+      "id": "task-sentence-reword-st-martin-of-tours-397-1789526324606-6167",
+      "type": "sentence-reword",
+      "entityId": "st-martin-of-tours-397",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Martin of Tours",
+      "payload": {},
+      "result": {
+        "name": "St. Martin of Tours",
+        "patches": [
+          [
+            "article",
+            "Generations of Frankish kings visited and venerated it, preserving his cloak as a sacred relic — the very origin, through the Latin <i>cappella</i>, of the modern word 'chapel.' He remains one of the most universally beloved saints of the early Church, a soldier whose single act of shared charity at a city gate became the founding image of an entire life given to Christ and the poor.",
+            "U",
+            "Generations of Frankish kings visited and venerated it, preserving his cloak as a sacred relic—the very origin, through the Latin <i>cappella</i>, of the modern word 'chapel.'\n\nHe remains one of the most universally beloved saints of the early Church, a soldier whose single act of shared charity at a city gate became the founding image of an entire life given to Christ and the poor."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:38:44.606Z",
+      "updatedAt": "2026-09-16T02:38:44.606Z"
     }
   ]
 }
