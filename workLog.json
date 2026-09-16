@@ -14783,14 +14783,25 @@
       "type": "sentence-reword",
       "entityId": "em-middleburg-louvain-1374",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Middelburg-Louvain",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-middleburg-louvain-1374",
+        "name": "Middelburg-Louvain",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:11:34.597Z",
       "error": null
     },
     {
@@ -18216,6 +18227,53 @@
       "error": null,
       "createdAt": "2026-09-16T18:11:24.971Z",
       "updatedAt": "2026-09-16T18:11:24.971Z"
+    },
+    {
+      "id": "task-sentence-reword-em-middleburg-louvain-1374-1789582294597-1473",
+      "type": "sentence-reword",
+      "entityId": "em-middleburg-louvain-1374",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Middelburg-Louvain",
+      "payload": {},
+      "result": {
+        "name": "Middelburg-Louvain",
+        "patches": [
+          [
+            "article",
+            "In the town of <b>Middelburg</b>, in the Duchy of Brabant, a noblewoman known for her devotion and her careful spiritual formation of her household staff gathered her entire domestic staff each Lent to prepare for Easter through confession and Communion, as she had for years by 1374.",
+            "U",
+            "In the town of <b>Middelburg</b>, in the Duchy of Brabant, a noblewoman was known for her devotion and careful spiritual formation of her household staff. Each Lent, she gathered her entire domestic staff to prepare for Easter through confession and Communion, as she had for years by 1374."
+          ],
+          [
+            "article",
+            "Among her servants that Lent was a man known simply as Jan, who had not been to confession in many years and approached the sacrament with evident indifference, attending Mass and receiving Communion only, it seems, to avoid disappointing his employer rather than out of any genuine devotion.",
+            "U",
+            "Among her servants that Lent was a man known simply as Jan. He had not been to confession in many years and approached the sacrament with evident indifference. He attended Mass and received Communion only, it seems, to avoid disappointing his employer rather than out of any genuine devotion."
+          ],
+          [
+            "article",
+            "As soon as the Host touched Jan's tongue, tradition holds, it transformed into visibly bleeding flesh; startled, he removed the particle from his mouth at once, and blood dripped from it onto the cloth covering the communion rail in full view of the priest and the assembled household.",
+            "U",
+            "As soon as the Host touched Jan's tongue, tradition holds, it transformed into visibly bleeding flesh. Startled, he removed the particle from his mouth at once. Blood dripped from it onto the cloth covering the communion rail, in full view of the priest and the assembled household."
+          ],
+          [
+            "article",
+            "The recovered relic was formally investigated and its public veneration approved, and it was later divided between two locations: a portion remained at St. Peter's Church in Middelburg, while the other was given, at the request of a confessor to the local archbishop, to the Augustinian Fathers in the university city of <b>Louvain</b>, where it remains to this day.",
+            "U",
+            "The recovered relic was formally investigated, and its public veneration was approved. It was later divided between two locations: a portion remained at St. Peter's Church in Middelburg, while the other was given to the Augustinian Fathers in the university city of <b>Louvain</b>, at a confessor's request to the local archbishop, where it remains to this day."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:11:34.597Z",
+      "updatedAt": "2026-09-16T18:11:34.597Z"
     }
   ]
 }
