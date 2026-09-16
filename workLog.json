@@ -14215,14 +14215,25 @@
       "type": "sentence-reword",
       "entityId": "st-brigid-of-kildare-525",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Brigid of Kildare",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-brigid-of-kildare-525",
+        "name": "St. Brigid of Kildare",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:24:56.300Z",
       "error": null
     },
     {
@@ -14933,6 +14944,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:24:53.623Z",
       "updatedAt": "2026-09-16T04:24:53.623Z"
+    },
+    {
+      "id": "task-sentence-reword-st-brigid-of-kildare-525-1789532696300-3304",
+      "type": "sentence-reword",
+      "entityId": "st-brigid-of-kildare-525",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Brigid of Kildare",
+      "payload": {},
+      "result": {
+        "name": "St. Brigid of Kildare",
+        "patches": [
+          [
+            "article",
+            "Kildare was home to a renowned scriptorium whose illuminated Gospel book — since lost, but praised centuries later by the visiting chronicler Giraldus Cambrensis as a work of nearly miraculous beauty — testified to the extraordinary flourishing of Christian art and scholarship that grew up under her foundation's protection.",
+            "U",
+            "Kildare was home to a renowned scriptorium and its illuminated Gospel book, since lost, testified to an extraordinary flourishing of Christian art and scholarship. Centuries later, the visiting chronicler Giraldus Cambrensis praised it as a work of nearly miraculous beauty, flourishing under her foundation's protection."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:24:56.300Z",
+      "updatedAt": "2026-09-16T04:24:56.300Z"
     }
   ]
 }
