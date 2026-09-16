@@ -1,9 +1,24 @@
 <!--
-VERSION: 398
-DATE: 2026-09-16T07:05:00-05:00
+VERSION: 399
+DATE: 2026-09-16T08:10:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Found the actual mechanism behind "they keep going through and getting back in line, done but
+  not marked as being done" — confirmed in wlApplyTaskToDb's own prior comment: "the task counts
+  as applied as long as at least one patch actually landed." A sentence-reword task usually bundles
+  several long-sentence fixes into one task. If some patches apply and one doesn't (stale match
+  text, drift, a second task queued for the same entity before the first was resolved), the WHOLE
+  task still landed as a clean 'approved' — the failed sub-note was computed and then thrown away,
+  nothing recorded it. The entity still carries that one over-length sentence, so the next
+  Add Task scan finds it again with zero explanation of why an "approved" entity is still eligible.
+  Fix: wlApplyTaskToDb now returns partial:true when this happens, and (a) flags the entry via the
+  existing review/reviewNote mechanism — visible in Review Mode immediately, including from an
+  unattended auto-approve run nobody was watching the status line for — and (b) the status line
+  itself now says "N only partially applied — flagged for review" instead of reporting a silent
+  full success. Verified with a harness built from the real applyOnePatch/patchTextInSections/etc:
+  a task with one matchable and one already-stale patch now applies the one that can, reports the
+  one that can't instead of hiding it, and sets entry.review + reviewNote accordingly.
 - Approve in the review queue is snappy again. v396 made every approve publish, which for manual
   tap-through meant a full GitHub round-trip (read data.json, merge, commit) per item — Tom
   measured ~30s per tap. Batched now: wlResolveTasks() takes deferPublish, and tkResolveCurrent
@@ -4823,7 +4838,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v398';
+const APP_VERSION = 'v399';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -9934,12 +9949,12 @@ function wlApplyTaskToDb(task){
   if(!patches && !Array.isArray(patch)) return { ok: false, note: 'task carries no patch array' };
 
   let anyOk = false;
-  const notes = [];
+  const notes = [], failNotes = [];
   if(patches){
     patches.forEach(p => {
       const r = applyOnePatch(entry, p);
       notes.push(r.note);
-      if(r.ok) anyOk = true;
+      if(r.ok) anyOk = true; else failNotes.push(r.note);
     });
   }else{
     const r = applyOnePatch(entry, patch);
@@ -9959,8 +9974,24 @@ function wlApplyTaskToDb(task){
       audioPurgeQueue.add(task.entityId);
       entry.audio = '';
     }
+    // PARTIAL APPLY: some of this task's patches landed but at least one didn't — most often the
+    // sentence it targeted no longer matches verbatim (drift since the patch was drafted, or two
+    // sentence-reword tasks queued for the same entity before the first was resolved). Silently
+    // discarding that (the old behavior — anyOk alone decided "applied", the failed sub-notes
+    // were computed and then thrown away) meant a task could read as a clean "approved" while the
+    // article still carried an over-length sentence, which then reappeared in a LATER batch with
+    // no explanation — reported as "done but not marked as being done." Flagging the entry here,
+    // through the same review mechanism content-authoring-skill.md already defines, makes the gap
+    // visible immediately in Review Mode, even for an unattended auto-approve run nobody was
+    // watching the status line for. Appended rather than overwritten, since the entry may already
+    // carry an unrelated reviewNote (thin sourcing, etc).
+    if(task.type === 'sentence-reword' && failNotes.length){
+      entry.review = true;
+      const flag = 'Sentence-reword left ' + failNotes.length + ' sentence(s) unfixed \u2014 it will be re-queued next scan: ' + failNotes.join('; ');
+      entry.reviewNote = entry.reviewNote ? entry.reviewNote + ' \u2014 ' + flag : flag;
+    }
   }
-  return { ok: anyOk, note: notes.join('; ') };
+  return { ok: anyOk, note: notes.join('; '), partial: anyOk && failNotes.length > 0 };
 }
 
 // Auto-approve: the checkbox next to Run/Refresh (#tkAutoApprove), remembered on this device.
@@ -10011,15 +10042,17 @@ const tkAutoApproveFailedIds = new Set();
 
 async function wlResolveTasks(taskIds, approve, opts){
   const deferPublish = !!(opts && opts.deferPublish);
-  if(!wlData || !taskIds.length) return { applied: [], failed: [], failedIds: [] };
+  if(!wlData || !taskIds.length) return { applied: [], failed: [], failedIds: [], partialCount: 0 };
   const nowIso = new Date().toISOString();
   const applied = [], failed = [], failedIds = [];
+  let partialCount = 0;
   taskIds.forEach(id => {
     const task = wlData.tasks.find(t => t.id === id);
     if(!task || task.status !== 'proposed') return;
     if(approve){
       const res = wlApplyTaskToDb(task);
       if(!res.ok){ failed.push(res.note); failedIds.push(id); return; }
+      if(res.partial) partialCount++;
       task.status = 'approved';
       applied.push(id);
     }else{
@@ -10038,7 +10071,7 @@ async function wlResolveTasks(taskIds, approve, opts){
   if(!applied.length){
     if(failed.length) wlSetLog(verb + ' 0 \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; '), true);
     renderWorkLog();
-    return { applied, failed, failedIds };
+    return { applied, failed, failedIds, partialCount };
   }
   await saveDb();
   renderMList();
@@ -10071,17 +10104,19 @@ async function wlResolveTasks(taskIds, approve, opts){
     if(deferPublish){ tkDeferredPublish = true; }
     else { published = await publishToGitHub(); if(published) tkDeferredPublish = false; }
   }
-  wlSetLog(verb + ' ' + applied.length + (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') + ' \u00b7 saving work log\u2026', !!failed.length);
+  wlSetLog(verb + ' ' + applied.length + (partialCount ? ' (' + partialCount + ' partially \u2014 flagged for review)' : '') + (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') + ' \u00b7 saving work log\u2026', !!failed.length || !!partialCount);
   const saved = await saveWorkLog(verb + ' ' + applied.length + ' task(s) via Content Manager', applied);
   if(!saved.ok){
     wlSetLog('Content updated in this session, but the work log could not be saved: ' + saved.error + ' \u2014 tap Refresh and try again, or these items will still show as proposed next time.', true);
   }else{
-    wlSetLog(verb + ' ' + applied.length + ' task(s)' + (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') +
-      (approve ? (deferPublish ? ' \u00b7 saved \u2014 publishing once you finish the queue.' : (published ? ' \u00b7 published to GitHub \u2014 live in about a minute.' : ' \u00b7 NOT published \u2014 use Publish manually.')) : ''), !!failed.length || (approve && !deferPublish && !published));
+    wlSetLog(verb + ' ' + applied.length + ' task(s)' +
+      (partialCount ? ' \u00b7 ' + partialCount + ' only partially applied \u2014 flagged for Review (that entry will be re-queued next scan)' : '') +
+      (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') +
+      (approve ? (deferPublish ? ' \u00b7 saved \u2014 publishing once you finish the queue.' : (published ? ' \u00b7 published to GitHub \u2014 live in about a minute.' : ' \u00b7 NOT published \u2014 use Publish manually.')) : ''), !!failed.length || !!partialCount || (approve && !deferPublish && !published));
   }
   renderWorkLog();
   if(approve && applied.length) setStatus(verb + ' ' + applied.length + (deferPublish ? '' : (published ? ' \u2014 published' : ' \u2014 NOT published')));
-  return { applied, failed, failedIds };
+  return { applied, failed, failedIds, partialCount };
 }
 
 // ---- Run a GitHub Actions workflow directly from the app (no need to navigate GitHub's UI) ----
