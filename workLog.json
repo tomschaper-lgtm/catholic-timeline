@@ -630,14 +630,25 @@
       "type": "sentence-reword",
       "entityId": "pope-st-damasus-i-384",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Pope St. Damasus I",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "pope-st-damasus-i-384",
+        "name": "Pope St. Damasus I",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-15T18:53:31.898Z",
-      "updatedAt": "2026-09-16T02:06:02.700Z",
+      "updatedAt": "2026-09-16T02:06:31.439Z",
       "error": null
     },
     {
@@ -1909,6 +1920,53 @@
       "error": null,
       "createdAt": "2026-09-16T02:06:21.880Z",
       "updatedAt": "2026-09-16T02:06:21.880Z"
+    },
+    {
+      "id": "task-sentence-reword-pope-st-damasus-i-384-1789524391439-5089",
+      "type": "sentence-reword",
+      "entityId": "pope-st-damasus-i-384",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Pope St. Damasus I",
+      "payload": {},
+      "result": {
+        "name": "Pope St. Damasus I",
+        "patches": [
+          [
+            "article",
+            "A faction of zealous supporters of his predecessor's rival, however, refused to accept the result, irregularly consecrating the deacon Ursinus as a rival claimant — a schism that led to genuine violence and bloodshed in the streets of Rome before Damasus's position was secured.",
+            "U",
+            "A faction of zealous supporters of his predecessor's rival, however, refused to accept the result. They irregularly consecrated the deacon Ursinus as a rival claimant, creating a schism that led to genuine violence and bloodshed in Rome's streets before Damasus's position was secured."
+          ],
+          [
+            "article",
+            "Once firmly established, Damasus defended Nicene orthodoxy vigorously against the lingering heresies of Arianism, Macedonianism, and Apollinarianism, formally excommunicating the Arian bishop Auxentius of Milan at a Roman synod around 369–370, and convening further councils that clarified and reaffirmed the Church's teaching on the Trinity and the Holy Spirit.",
+            "U",
+            "Once firmly established, Damasus vigorously defended Nicene orthodoxy against the lingering heresies of Arianism, Macedonianism, and Apollinarianism. He formally excommunicated the Arian bishop Auxentius of Milan at a Roman synod around 369–370. He convened further councils that clarified and reaffirmed the Church's teaching on the Trinity and the Holy Spirit."
+          ],
+          [
+            "article",
+            "Damasus's most consequential act may have been his commission to his brilliant secretary, <b><a href=\"entry:st-jerome-420\">St. Jerome</a></b>, to revise the confused and inconsistent Old Latin translations of the Gospels then in use across the Western Church — the beginning of the project that would eventually grow into Jerome's complete Latin Vulgate, the Bible of the West for the next fifteen centuries.",
+            "U",
+            "Damasus's most consequential act may have been his commission to his brilliant secretary, <b><a href=\"entry:st-jerome-420\">St. Jerome</a></b>, to revise the confused and inconsistent Old Latin translations of the Gospels. These were then in use across the Western Church, beginning the project that would eventually grow into Jerome's complete Latin Vulgate, the Bible of the West for the next fifteen centuries."
+          ],
+          [
+            "article",
+            "Damasus is remembered with particular affection for his deep personal devotion to Rome's early martyrs, composing dozens of elegant verse epitaphs — the celebrated 'Damasan tituli,' inscribed in a distinctive lettering by his friend Furius Dionysius Filocalus — to mark and honor their tombs throughout the catacombs.",
+            "U",
+            "Damasus is remembered with particular affection for his deep personal devotion to Rome's early martyrs. He composed dozens of elegant verse epitaphs—the celebrated 'Damasan tituli'—to mark and honor their tombs throughout the catacombs. His friend Furius Dionysius Filocalus inscribed them in a distinctive lettering."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:06:31.439Z",
+      "updatedAt": "2026-09-16T02:06:31.439Z"
     }
   ]
 }
