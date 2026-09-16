@@ -10598,14 +10598,25 @@
       "type": "sentence-reword",
       "entityId": "persian-persecution-340",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Persian Persecution",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "persian-persecution-340",
+        "name": "Persian Persecution",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:45:19.294Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:26:04.307Z",
       "error": null
     },
     {
@@ -11215,6 +11226,35 @@
       "error": null,
       "createdAt": "2026-09-16T07:26:01.263Z",
       "updatedAt": "2026-09-16T07:26:01.263Z"
+    },
+    {
+      "id": "task-sentence-reword-persian-persecution-340-1789543564307-662",
+      "type": "sentence-reword",
+      "entityId": "persian-persecution-340",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Persian Persecution",
+      "payload": {},
+      "result": {
+        "name": "Persian Persecution",
+        "patches": [
+          [
+            "article",
+            "Within a few short centuries, that community would carry the Gospel along the Silk Road as far as Central Asia and China—a missionary reach that makes their endurance look, in hindsight, like the seed of something far larger than the persecution ever imagined it could contain.",
+            "U",
+            "Within a few short centuries, that community would carry the Gospel along the Silk Road as far as Central Asia and China. In hindsight, this missionary reach makes their endurance look like the seed of something far larger than the persecution ever imagined it could contain."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:26:04.307Z",
+      "updatedAt": "2026-09-16T07:26:04.307Z"
     }
   ]
 }
