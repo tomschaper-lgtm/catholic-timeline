@@ -10964,14 +10964,25 @@
       "type": "sentence-reword",
       "entityId": "baptism-of-the-rus-988",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Baptism of the Rus",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "baptism-of-the-rus-988",
+        "name": "Baptism of the Rus",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:27:51.753Z",
       "error": null
     },
     {
@@ -11959,6 +11970,47 @@
       "error": null,
       "createdAt": "2026-09-16T07:27:45.723Z",
       "updatedAt": "2026-09-16T07:27:45.723Z"
+    },
+    {
+      "id": "task-sentence-reword-baptism-of-the-rus-988-1789543671753-7857",
+      "type": "sentence-reword",
+      "entityId": "baptism-of-the-rus-988",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Baptism of the Rus",
+      "payload": {},
+      "result": {
+        "name": "Baptism of the Rus",
+        "patches": [
+          [
+            "article",
+            "The envoys reportedly returned enraptured by the splendor of the Byzantine liturgy at Hagia Sophia, unsure whether they had been in heaven or on earth — a legendary account, but one that captures the real cultural gravity Constantinople exerted on Kyiv.",
+            "U",
+            "The envoys reportedly returned enraptured by the splendor of the Byzantine liturgy at Hagia Sophia, unsure whether they had been in heaven or on earth. It is a legendary account, but one that captures the real cultural gravity Constantinople exerted on Kyiv."
+          ],
+          [
+            "article",
+            "In 988 Vladimir besieged and captured the Byzantine city of <b>Chersonesus</b> in the Crimea, then used his new leverage to demand marriage to <b>Anna</b>, sister of the Byzantine emperor Basil II — an unprecedented match, since no Byzantine imperial princess had ever before been given to a 'barbarian' ruler.",
+            "U",
+            "In 988 Vladimir besieged and captured the Byzantine city of <b>Chersonesus</b> in the Crimea. He then used his new leverage to demand marriage to <b>Anna</b>, sister of the Byzantine emperor Basil II—an unprecedented match. No Byzantine imperial princess had ever before been given to a 'barbarian' ruler."
+          ],
+          [
+            "article",
+            "Though the Byzantine rite adopted at Kyiv would, after 1054, follow the East on its own path apart from Rome, the event itself remains one of the great missionary turning points of the entire Christian Middle Ages, still commemorated as a national and religious milestone, as it was at its own millennium in 1988.",
+            "U",
+            "Though the Byzantine rite adopted at Kyiv would, after 1054, follow the East on its own path apart from Rome, the event itself remains a great missionary turning point. It stands among the entire Christian Middle Ages’ greatest missionary turning points and is still commemorated as a national and religious milestone, as it was at its own millennium in 1988."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:27:51.753Z",
+      "updatedAt": "2026-09-16T07:27:51.753Z"
     }
   ]
 }
