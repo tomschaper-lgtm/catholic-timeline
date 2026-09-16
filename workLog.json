@@ -7870,14 +7870,25 @@
       "type": "sentence-reword",
       "entityId": "chalcedon-451",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Chalcedon",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "chalcedon-451",
+        "name": "Chalcedon",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:12:54.789Z",
-      "updatedAt": "2026-09-16T06:17:43.391Z",
+      "updatedAt": "2026-09-16T06:18:15.087Z",
       "error": null
     },
     {
@@ -8057,6 +8068,35 @@
       "error": null,
       "createdAt": "2026-09-16T06:18:11.471Z",
       "updatedAt": "2026-09-16T06:18:11.471Z"
+    },
+    {
+      "id": "task-sentence-reword-chalcedon-451-1789539495087-4119",
+      "type": "sentence-reword",
+      "entityId": "chalcedon-451",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Chalcedon",
+      "payload": {},
+      "result": {
+        "name": "Chalcedon",
+        "patches": [
+          [
+            "article",
+            "But it gave the Church a precise, durable vocabulary for confessing a mystery that Nicaea, Constantinople, and Ephesus had each addressed from a different angle: in Jesus Christ, true God and true man are united, undivided and unconfused, in a single Person.",
+            "U",
+            "But it gave the Church a precise, durable vocabulary for confessing a mystery. Nicaea, Constantinople, and Ephesus had each addressed it from a different angle: in Jesus Christ, true God and true man are united, undivided and unconfused, in a single Person."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:18:15.087Z",
+      "updatedAt": "2026-09-16T06:18:15.087Z"
     }
   ]
 }
