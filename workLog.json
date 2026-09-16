@@ -10676,14 +10676,25 @@
       "type": "sentence-reword",
       "entityId": "destruction-of-the-temple-70",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Destruction of the Temple",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "destruction-of-the-temple-70",
+        "name": "Destruction of the Temple",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:26:17.253Z",
       "error": null
     },
     {
@@ -11335,6 +11346,47 @@
       "error": null,
       "createdAt": "2026-09-16T07:26:10.406Z",
       "updatedAt": "2026-09-16T07:26:10.406Z"
+    },
+    {
+      "id": "task-sentence-reword-destruction-of-the-temple-70-1789543577253-5495",
+      "type": "sentence-reword",
+      "entityId": "destruction-of-the-temple-70",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Destruction of the Temple",
+      "payload": {},
+      "result": {
+        "name": "Destruction of the Temple",
+        "patches": [
+          [
+            "article",
+            "Vespasian methodically subdued Galilee and the surrounding countryside before the campaign was interrupted by the political chaos in Rome following Nero's death in 68; Vespasian himself was proclaimed emperor by his troops in 69, leaving Titus to complete the siege of Jerusalem.",
+            "U",
+            "Vespasian methodically subdued Galilee and the surrounding countryside. The campaign was interrupted by political chaos in Rome following Nero's death in 68. Vespasian himself was proclaimed emperor by his troops in 69, leaving Titus to complete the siege of Jerusalem."
+          ],
+          [
+            "article",
+            "According to the Jewish historian Josephus, Titus wished to preserve the Temple as an ornament of Roman victory, but in the chaos of the final fighting a soldier threw a firebrand into the building, and it was consumed by flames despite efforts to stop the blaze.",
+            "U",
+            "According to the Jewish historian Josephus, Titus wished to preserve the Temple as an ornament of Roman victory. However, in the chaos of the final fighting, a soldier threw a firebrand into the building, and it was consumed by flames despite efforts to stop the blaze."
+          ],
+          [
+            "article",
+            "For Christian writers, the fall of Jerusalem was widely read as confirmation of Christ's own prophecy in the Gospels — recorded, for instance, in Luke 21 and Matthew 24 — that not one stone of the Temple would be left upon another.",
+            "U",
+            "For Christian writers, the fall of Jerusalem was widely read as confirmation of Christ’s own prophecy in the Gospels. This prophecy, recorded, for instance, in Luke 21 and Matthew 24, stated that not one stone of the Temple would be left upon another."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:26:17.253Z",
+      "updatedAt": "2026-09-16T07:26:17.253Z"
     }
   ]
 }
