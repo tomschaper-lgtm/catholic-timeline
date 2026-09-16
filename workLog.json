@@ -15050,14 +15050,25 @@
       "type": "sentence-reword",
       "entityId": "em-dronero-1631",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Dronero",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-dronero-1631",
+        "name": "Dronero",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:39:34.715Z",
       "error": null
     },
     {
@@ -18540,6 +18551,41 @@
       "error": null,
       "createdAt": "2026-09-16T18:39:29.963Z",
       "updatedAt": "2026-09-16T18:39:29.963Z"
+    },
+    {
+      "id": "task-sentence-reword-em-dronero-1631-1789583974714-4007",
+      "type": "sentence-reword",
+      "entityId": "em-dronero-1631",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Dronero",
+      "payload": {},
+      "result": {
+        "name": "Dronero",
+        "patches": [
+          [
+            "article",
+            "A Capuchin friar, Father Maurizio da Ceva, moved by his devotion to the Blessed Sacrament, resolved to answer the fire not with more water or manpower but with prayer: he took the monstrance holding a large consecrated Host from the church of St. Bridget and organized a solemn procession, joined by the townspeople, straight toward the burning district.",
+            "U",
+            "A Capuchin friar, Father Maurizio da Ceva, moved by his devotion to the Blessed Sacrament, resolved to answer the fire with prayer. He took the monstrance holding a large consecrated Host from the church of St. Bridget and organized a solemn procession with the townspeople, straight toward the burning district."
+          ],
+          [
+            "article",
+            "Every year on the feast of Corpus Christi, the people of Dronero mark the anniversary with a solemn procession of their own, carrying the Blessed Sacrament in memory of the day a friar chose to meet an uncontrollable fire not with equipment but with the same object of devotion that had first inspired him to act.",
+            "U",
+            "Every year on the feast of Corpus Christi, the people of Dronero mark the anniversary with a solemn procession of their own. They carry the Blessed Sacrament in memory of the day a friar chose to meet an uncontrollable fire not with equipment, but with the same object of devotion that had first inspired him to act."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:39:34.714Z",
+      "updatedAt": "2026-09-16T18:39:34.714Z"
     }
   ]
 }
