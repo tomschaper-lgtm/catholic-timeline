@@ -7603,14 +7603,25 @@
       "type": "sentence-reword",
       "entityId": "st-stephen-of-hungary-1038",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Stephen of Hungary",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-stephen-of-hungary-1038",
+        "name": "St. Stephen of Hungary",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:10:34.083Z",
-      "updatedAt": "2026-09-16T03:12:04.374Z",
+      "updatedAt": "2026-09-16T03:12:14.451Z",
       "error": null
     },
     {
@@ -8361,6 +8372,41 @@
       "error": null,
       "createdAt": "2026-09-16T03:12:08.661Z",
       "updatedAt": "2026-09-16T03:12:08.661Z"
+    },
+    {
+      "id": "task-sentence-reword-st-stephen-of-hungary-1038-1789528334451-8851",
+      "type": "sentence-reword",
+      "entityId": "st-stephen-of-hungary-1038",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Stephen of Hungary",
+      "payload": {},
+      "result": {
+        "name": "St. Stephen of Hungary",
+        "patches": [
+          [
+            "article",
+            "Accustomed to older pagan practices, they saw Stephen establish two archbishoprics and numerous dioceses, invite Benedictine monks to found monasteries across the realm, promulgate law codes grounded explicitly in Christian principle, and work to eliminate the remaining structures of the old pagan tribal religion.",
+            "U",
+            "Accustomed to older pagan practices, they saw Stephen establish two archbishoprics and numerous dioceses. He invited Benedictine monks to found monasteries across the realm and promulgated law codes grounded explicitly in Christian principle. Stephen also worked to eliminate the remaining structures of the old pagan tribal religion."
+          ],
+          [
+            "article",
+            "This shattered Stephen's hope of passing his Christian vision for Hungary intact into a new generation, opening the way for bitter succession disputes among his surviving relatives — some of whom, tradition holds, even conspired against Stephen's own life in the anxious years that followed.",
+            "U",
+            "This shattered Stephen's hope of passing his Christian vision for Hungary intact into a new generation. It opened the way for bitter succession disputes among his surviving relatives — some of whom, tradition holds, even conspired against Stephen's own life in the anxious years that followed."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:12:14.451Z",
+      "updatedAt": "2026-09-16T03:12:14.451Z"
     }
   ]
 }
