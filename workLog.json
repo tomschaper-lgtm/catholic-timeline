@@ -12895,14 +12895,25 @@
       "type": "sentence-reword",
       "entityId": "em-rome-6c",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Rome (6th–7th c.)",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-rome-6c",
+        "name": "Rome (6th–7th c.)",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:40:55.169Z",
       "error": null
     },
     {
@@ -13765,6 +13776,59 @@
       "error": null,
       "createdAt": "2026-09-16T12:40:43.833Z",
       "updatedAt": "2026-09-16T12:40:43.833Z"
+    },
+    {
+      "id": "task-sentence-reword-em-rome-6c-1789562455169-5239",
+      "type": "sentence-reword",
+      "entityId": "em-rome-6c",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — Rome (6th–7th c.)",
+      "payload": {},
+      "result": {
+        "name": "Rome (6th–7th c.)",
+        "patches": [
+          [
+            "article",
+            "One Sunday, as Gregory distributed Holy Communion in the ancient basilica built over the tomb of St. Peter, he noticed that one woman standing in the line, herself among those who had prepared bread that day, was laughing openly as she approached.",
+            "U",
+            "One Sunday, Gregory distributed Holy Communion in the ancient basilica built over the tomb of St. Peter. He noticed one woman in line, among those who had prepared bread that day, laughing openly as she approached."
+          ],
+          [
+            "article",
+            "The earliest surviving written account connecting this event to Gregory appears in a life of the pope traditionally attributed to the Lombard monk and historian Paul the Deacon, compiled toward the end of the eighth century — a gap of roughly two hundred years that places it, in the careful language of tradition, among early testimony rather than a strictly contemporary record.",
+            "U",
+            "The earliest surviving written account connecting this event to Gregory appears in a life of the pope traditionally attributed to Paul the Deacon. The Lombard monk and historian compiled it toward the end of the eighth century, a gap of roughly two hundred years. In the careful language of tradition, this places it among early testimony rather than a strictly contemporary record."
+          ],
+          [
+            "article",
+            "Later medieval devotion held that a portion of the relic eventually made its way north to the Benedictine abbey of Andechs in Bavaria, where local tradition still venerates it today, though this later chain of custody rests on devotional rather than documentary sources and cannot be independently confirmed with the same confidence as the account's origin.",
+            "U",
+            "Later medieval devotion held that a portion of the relic eventually made its way north to the Benedictine abbey of Andechs in Bavaria. Local tradition still venerates it there today, though this later chain of custody rests on devotional rather than documentary sources. It cannot be independently confirmed with the same confidence as the account's origin."
+          ],
+          [
+            "article",
+            "Centuries before the more famous accounts of Bolsena or Lanciano would draw pilgrims from across Europe, this quieter Roman episode had already tied the doctrine of the Real Presence to one of the Church's most revered popes, a man remembered above all for his humility, having styled himself \"servant of the servants of God.\"",
+            "U",
+            "Centuries before the more famous accounts of Bolsena or Lanciano would draw pilgrims from across Europe, this quieter Roman episode had already tied the doctrine of the Real Presence to one of the Church's most revered popes. He was remembered above all for his humility, having styled himself \"servant of the servants of God.\""
+          ],
+          [
+            "article",
+            "Gregory's response was neither anger nor dismissal, but prayer — a pattern the Church has returned to again and again whenever faith in the Eucharist has wavered, trusting that the same Lord who answered a pope's prayer in sixth-century Rome still meets sincere doubt with mercy today.",
+            "U",
+            "Gregory's response was neither anger nor dismissal, but prayer. The Church has returned to this pattern again and again whenever faith in the Eucharist has wavered. It trusts that the same Lord who answered a pope's prayer in sixth-century Rome still meets sincere doubt with mercy today."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:40:55.169Z",
+      "updatedAt": "2026-09-16T12:40:55.169Z"
     }
   ]
 }
