@@ -5,12 +5,29 @@
 // One task = one entity, queued via Task Automation's Add Task batch selector (Category/Start/
 // Quantity — the same picker shape image-generate uses; see sentenceRewordPool() in index.html).
 // This handler scans every section's `b` field for a paragraph containing a sentence over 40
-// words, asks Claude to reword just that one sentence into shorter ones, and — if it finds any —
-// spawns exactly ONE `proposed` task for the whole entity, carrying every fix as a `patches`
-// array (['article', matchText, 'U', replacement] tuples). Reviewing that one task shows the
-// WHOLE article at once (index.html's tkRenderSentenceRewordReview), not one screen per sentence
-// — a paragraph with three long sentences is one decision, not three. This task itself never
-// touches data.json — only an approved child does, and only once a human taps Approve.
+// words and asks Claude to reword just that one sentence into shorter ones. What happens with a
+// fix from there depends on task.payload.autoApprove, decided once at Add Task time (the "Auto-
+// approve split sentences" checkbox), not re-checked later:
+//
+//   - autoApprove FALSE (default): spawns exactly ONE `proposed` task for the whole entity,
+//     carrying every fix as a `patches` array (['article', matchText, 'U', replacement] tuples).
+//     Reviewing that one task shows the WHOLE article at once (index.html's
+//     tkRenderSentenceRewordReview), not one screen per sentence. This task itself never touches
+//     data.json — only an approved child does, and only once a human taps Approve in the app.
+//
+//   - autoApprove TRUE: no human in the loop, no spawned task, no client involvement of any
+//     kind. This handler applies its own patches directly to dataJson (applySentencePatchToDb
+//     below — a straight port of index.html's patchTextInSections/v397 anchor rule), clears the
+//     entity's now-stale audio field, and returns dataDirty:true instead of spawning anything.
+//     orchestrator.mjs batches these into a commit every DATA_COMMIT_BATCH_SIZE entities rather
+//     than one per task — see the ORPHAN RECLAIM/BATCH CLAIMING-style comment block there. This
+//     is the same shape image-generate/audio-generate already use for content that doesn't need
+//     review; sentence-reword just couldn't use it before autoApprove existed as a concept.
+//     KNOWN GAP: unlike the client's publishToGitHub() → purgeStaleAudioFiles() path, this branch
+//     does not delete the now-orphaned audio/timing FILES from the repo — only clears the
+//     entry's own audio field (the correctness-critical half; a stale file sitting unreferenced
+//     in the repo is a cleanup nicety, not a live-site bug). Worth a follow-up if the number of
+//     orphaned files becomes a real nuisance.
 //
 // Scope, per content-authoring-skill.md's "Sentence length — write for the ear" section:
 //   - `art.sections[].b` only. Never `quotes`, `facts`, or anything else.
@@ -80,6 +97,83 @@ function extractEntryLinks(text){
 // entirely" used to give up on without even trying.
 function linksPreserved(originalLinks, replacement){
   return originalLinks.every(link => replacement.includes(link));
+}
+
+// Server-side port of index.html's patchTextInSections() (v397's relaxed anchor rule). Duplicated
+// rather than imported — that function lives in browser JS with no module boundary this file
+// could reach — so keep the two in step by hand if either ever changes: a match that CUTS
+// THROUGH a cross-reference link (starts or ends mid-anchor) is refused; one that WHOLLY
+// CONTAINS link(s) is allowed provided every one survives byte-for-byte in the replacement.
+// Applying here, synchronously, against the exact entry object this task just scanned moments
+// earlier, is actually more reliable than the client's version of this same operation ever was:
+// there's no possibility of the match text having gone stale between "found it" and "apply it",
+// since nothing else touches this entry in between and Node has no other thread that could.
+// Takes matchText/occurrence/replacement directly rather than a serialized 'text@N' element —
+// this handler already has all three as plain values from the scan above, no reason to round-trip
+// through the tuple format only the human-review path actually needs.
+function applySentencePatchToSections(sections, matchText, occurrence, replacement){
+  let seen = 0, done = false;
+  const re = new RegExp(matchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+  const newSections = sections.map(sec => {
+    if(done) return sec;
+    const body = String(sec.b || '');
+    const anchorRanges = [];
+    const anchorRe = /<a\b[^>]*>[\s\S]*?<\/a>/gi;
+    let am;
+    while((am = anchorRe.exec(body))) anchorRanges.push([am.index, am.index + am[0].length]);
+    const anchorCheck = (start, len) => {
+      const end = start + len, contained = [];
+      for(const [s, e] of anchorRanges){
+        if(start < e && end > s){
+          if(s >= start && e <= end) contained.push(body.slice(s, e));
+          else return { cuts: true, contained: [] };
+        }
+      }
+      return { cuts: false, contained };
+    };
+    let out = '', cursor = 0, m;
+    re.lastIndex = 0;
+    while((m = re.exec(body))){
+      const rel = anchorCheck(m.index, m[0].length);
+      if(rel.cuts) continue; // would corrupt a cross-ref link — skip, keep scanning
+      if(rel.contained.length && !rel.contained.every(a => replacement.includes(a))) continue;
+      seen++;
+      if(seen === occurrence){
+        out += body.slice(cursor, m.index) + replacement;
+        cursor = m.index + m[0].length;
+        done = true;
+        break; // one edit total, ever, for this patch
+      }
+    }
+    if(!done) return sec;
+    out += body.slice(cursor);
+    return { h: sec.h, b: out };
+  });
+  return { changed: done, sections: newSections };
+}
+// Applies every sentence patch for one entity in order (each sees the previous one's result, same
+// rule json-import-skill.md's patches format defines) directly onto entry.art.sections. A patch
+// that can't be re-located (should essentially never happen here — see the function comment
+// above — but handled rather than assumed away) is reported, not silently dropped, and flags the
+// entry via review/reviewNote exactly as index.html's v399 fix does for the client-side partial-
+// apply case, so a genuine mismatch is still visible in Review Mode even though no human was ever
+// in the approval loop for this entity.
+function applyPatchesToEntry(entry, sentencePatches){
+  let sections = entry.art.sections;
+  let appliedCount = 0;
+  const failNotes = [];
+  for(const p of sentencePatches){
+    const r = applySentencePatchToSections(sections, p.matchText, p.occurrence, p.replacement);
+    if(r.changed){ sections = r.sections; appliedCount++; }
+    else failNotes.push('could not re-locate: "' + p.matchText.slice(0, 60) + (p.matchText.length > 60 ? '\u2026' : '') + '"');
+  }
+  entry.art.sections = sections;
+  if(failNotes.length){
+    entry.review = true;
+    const flag = 'Auto-approved sentence-reword left ' + failNotes.length + ' sentence(s) unfixed: ' + failNotes.join('; ');
+    entry.reviewNote = entry.reviewNote ? entry.reviewNote + ' \u2014 ' + flag : flag;
+  }
+  return { appliedCount, failNotes };
 }
 
 // Titles, honorifics, and other common abbreviations that end in a period but do NOT end a
@@ -337,6 +431,9 @@ export async function runSentenceReword(task, dataJson){
   const providerInfo = PROVIDERS[provider];
   const apiKey = process.env[providerInfo.apiKeyEnv];
   if(!apiKey) throw new Error('Missing ' + providerInfo.apiKeyEnv + ' secret (add it under repo Settings \u2192 Secrets \u2192 Actions).');
+  // Decided once, at Add Task time in index.html — not re-read from anywhere else here, and not
+  // re-checked per sentence. See the file header for what each branch actually does.
+  const autoApprove = !!(task.payload && task.payload.autoApprove);
 
   const entry = (dataJson.entries || []).find(e => e.id === task.entityId);
   if(!entry){
@@ -349,7 +446,8 @@ export async function runSentenceReword(task, dataJson){
   const fullText = sections.map(s => String(s.b || '')).join('\u0000');
 
   let sectionOffset = 0;
-  const patches = []; // every fix for this entity, bundled into one review instead of one task each
+  const patches = []; // tuple form, ['article', matchText[@N], 'U', replacement] — only actually used by the human-review branch below, but built either way since it's also this task's audit trail in workLog.json
+  const sentencePatches = []; // {matchText, occurrence, replacement} — the form applyPatchesToEntry() above actually consumes, for the autoApprove branch
   let found = 0, reworded = 0, skippedTagMismatch = 0, apiErrors = 0, linkNotPreserved = 0;
   const apiErrorSamples = []; // first few actual error messages — surfaced in the review, not just a bare count
 
@@ -403,6 +501,7 @@ export async function runSentenceReword(task, dataJson){
                 reworded++;
                 const element = occurrence > 1 ? sentence + '@' + occurrence : sentence;
                 patches.push(['article', element, 'U', replacement]);
+                sentencePatches.push({ matchText: sentence, occurrence, replacement });
               }
             }
           }
@@ -413,31 +512,56 @@ export async function runSentenceReword(task, dataJson){
     sectionOffset += body.length + 1; // '\u0000' separator
   }
 
-  const summary = (found === 0)
-    ? 'no sentences over ' + MAX_SENTENCE_WORDS + ' words found \u2014 nothing queued for review'
-    : reworded + ' of ' + found + ' long sentence(s) reworded via ' + providerInfo.label + ' and queued for review' +
+  const baseSummary = (found === 0)
+    ? 'no sentences over ' + MAX_SENTENCE_WORDS + ' words found \u2014 nothing to do'
+    : reworded + ' of ' + found + ' long sentence(s) reworded via ' + providerInfo.label +
       (skippedTagMismatch ? ' \u00b7 ' + skippedTagMismatch + ' skipped (spans a formatting tag)' : '') +
       (apiErrors ? ' \u00b7 ' + apiErrors + ' call(s) failed after retries \u2014 ' + apiErrorSamples.join(' | ') : '') +
       (linkNotPreserved ? ' \u00b7 ' + linkNotPreserved + ' left untouched (contains a cross-reference link that didn\u2019t survive the rewording \u2014 fix by hand)' : '');
 
-  const spawnedTasks = [];
-  if(patches.length){
+  const baseResult = {
+    entityId: entry.id, name: entry.n,
+    sentencesFound: found, sentencesReworded: reworded,
+    skippedTagMismatch, apiErrors, apiErrorSamples, linkNotPreserved, provider, providerLabel: providerInfo.label
+  };
+
+  if(!sentencePatches.length){
+    // Nothing to apply either way (found===0, or everything that was found got skipped/failed
+    // above) — autoApprove is irrelevant when there's nothing to act on.
+    return { result: baseResult, summary: baseSummary, spawnedTasks: [] };
+  }
+
+  if(!autoApprove){
+    // Unchanged from before autoApprove existed: bundle every fix into one 'proposed' task for a
+    // human to review in the app. This task itself still never touches data.json.
     const nowIso = new Date().toISOString();
-    spawnedTasks.push({
+    const spawnedTasks = [{
       id: 'task-sentence-reword-' + entry.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
       type: 'sentence-reword', entityId: entry.id, batchId: null, status: 'proposed',
       description: 'Reword ' + patches.length + ' long sentence' + (patches.length === 1 ? '' : 's') + ' \u2014 ' + entry.n,
       payload: {}, result: { name: entry.n, patches, apiErrors, apiErrorSamples, skippedTagMismatch, linkNotPreserved, provider, providerLabel: providerInfo.label }, error: null, createdAt: nowIso, updatedAt: nowIso
-    });
+    }];
+    return { result: baseResult, summary: baseSummary + ' and queued for review', spawnedTasks };
   }
 
+  // AUTO-APPROVE: apply directly, no human, no spawned task. dataDirty (not filesToCommit) is
+  // the signal orchestrator.mjs batches on — see DATA_COMMIT_BATCH_SIZE there — rather than
+  // committing data.json after every single entity the way filesToCommit would.
+  const applied = applyPatchesToEntry(entry, sentencePatches);
+  if(applied.appliedCount > 0 && entry.audio){
+    // Stale narration — same rule index.html's wlApplyTaskToDb applies for a human-reviewed
+    // approval. Note the KNOWN GAP from the file header: this clears the reference but does not
+    // delete the underlying audio/timing files from the repo.
+    entry.audio = '';
+  }
+  const autoSummary = baseSummary + (applied.appliedCount > 0
+    ? ' \u2014 auto-applied' + (applied.failNotes.length ? ' ' + applied.appliedCount + '/' + sentencePatches.length + ' (' + applied.failNotes.length + ' could not be re-located \u2014 entry flagged for review)' : ', no review needed')
+    : ' \u2014 none could be applied (entry flagged for review): ' + applied.failNotes.join('; '));
+
   return {
-    result: {
-      entityId: entry.id, name: entry.n,
-      sentencesFound: found, sentencesReworded: reworded,
-      skippedTagMismatch, apiErrors, apiErrorSamples, linkNotPreserved, provider, providerLabel: providerInfo.label
-    },
-    summary,
-    spawnedTasks
+    result: Object.assign({}, baseResult, { autoApplied: true, appliedCount: applied.appliedCount, applyFailNotes: applied.failNotes }),
+    summary: autoSummary,
+    dataDirty: applied.appliedCount > 0,
+    spawnedTasks: []
   };
 }
