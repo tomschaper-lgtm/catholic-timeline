@@ -552,14 +552,25 @@
       "type": "sentence-reword",
       "entityId": "st-thomas-aquinas-1274",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Thomas Aquinas",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-thomas-aquinas-1274",
+        "name": "St. Thomas Aquinas",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:30:39.114Z",
-      "updatedAt": "2026-09-16T04:31:39.369Z",
+      "updatedAt": "2026-09-16T04:32:46.888Z",
       "error": null
     },
     {
@@ -1407,6 +1418,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:32:42.859Z",
       "updatedAt": "2026-09-16T04:32:42.859Z"
+    },
+    {
+      "id": "task-sentence-reword-st-thomas-aquinas-1274-1789533166888-8131",
+      "type": "sentence-reword",
+      "entityId": "st-thomas-aquinas-1274",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Thomas Aquinas",
+      "payload": {},
+      "result": {
+        "name": "St. Thomas Aquinas",
+        "patches": [
+          [
+            "article",
+            "It produced one of the most ambitious and enduring theological achievements in the whole history of Christian thought: the <b>Summa Theologiae</b>, a comprehensive, systematically organized treatment of the entire Christian faith, alongside the earlier <i>Summa Contra Gentiles</i> and an extensive body of biblical commentary and philosophical writing.",
+            "U",
+            "It produced one of the most ambitious and enduring theological achievements in the whole history of Christian thought: the <b>Summa Theologiae</b>. This comprehensive, systematically organized treatment of the entire Christian faith stood alongside the earlier <i>Summa Contra Gentiles</i> and extensive biblical commentary and philosophical writing."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:32:46.888Z",
+      "updatedAt": "2026-09-16T04:32:46.888Z"
     }
   ]
 }
