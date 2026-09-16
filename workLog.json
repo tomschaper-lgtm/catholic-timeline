@@ -10520,14 +10520,25 @@
       "type": "sentence-reword",
       "entityId": "martyrs-of-lyons-177",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Martyrs of Lyons",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "martyrs-of-lyons-177",
+        "name": "Martyrs of Lyons",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:45:19.294Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:25:53.029Z",
       "error": null
     },
     {
@@ -11083,6 +11094,41 @@
       "error": null,
       "createdAt": "2026-09-16T07:25:48.220Z",
       "updatedAt": "2026-09-16T07:25:48.220Z"
+    },
+    {
+      "id": "task-sentence-reword-martyrs-of-lyons-177-1789543553029-5055",
+      "type": "sentence-reword",
+      "entityId": "martyrs-of-lyons-177",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Martyrs of Lyons",
+      "payload": {},
+      "result": {
+        "name": "Martyrs of Lyons",
+        "patches": [
+          [
+            "article",
+            "Instead, Blandina endured a full day of interrogation and abuse, answering every question with the same simple, unbroken testimony — \"I am a Christian, and nothing wicked happens among us.\" Until, the ancient account tells us, even her exhausted torturers confessed themselves outdone by a girl they had expected to break within the hour.",
+            "U",
+            "Instead, Blandina endured a full day of interrogation and abuse, answering every question with the same simple, unbroken testimony: “I am a Christian, and nothing wicked happens among us.” The ancient account tells us that even her exhausted torturers confessed themselves outdone by a girl they had expected to break within the hour."
+          ],
+          [
+            "article",
+            "She was scourged, placed on a heated iron grate, wrapped in a net, and finally thrown before a wild bull — enduring, witnesses recorded, with such visible serenity that the crowd itself remarked they had never seen a woman suffer so long and so completely without breaking.",
+            "U",
+            "She was scourged, placed on a heated iron grate, wrapped in a net, and finally thrown before a wild bull. Witnesses recorded that she endured with such visible serenity that the crowd remarked they had never seen a woman suffer so long and so completely without breaking."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:25:53.029Z",
+      "updatedAt": "2026-09-16T07:25:53.029Z"
     }
   ]
 }
