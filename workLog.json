@@ -11198,14 +11198,25 @@
       "type": "sentence-reword",
       "entityId": "luther-s-ninety-five-theses-1517",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Luther's Ninety-Five Theses",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "luther-s-ninety-five-theses-1517",
+        "name": "Luther's Ninety-Five Theses",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:29:02.819Z",
       "error": null
     },
     {
@@ -12451,6 +12462,47 @@
       "error": null,
       "createdAt": "2026-09-16T07:28:56.780Z",
       "updatedAt": "2026-09-16T07:28:56.780Z"
+    },
+    {
+      "id": "task-sentence-reword-luther-s-ninety-five-theses-1517-1789543742819-2566",
+      "type": "sentence-reword",
+      "entityId": "luther-s-ninety-five-theses-1517",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Luther's Ninety-Five Theses",
+      "payload": {},
+      "result": {
+        "name": "Luther's Ninety-Five Theses",
+        "patches": [
+          [
+            "article",
+            "According to long tradition, Luther nailed his <i>Disputation on the Power and Efficacy of Indulgences</i> — the <b>Ninety-Five Theses</b> — to the door of the Castle Church at Wittenberg on <b>31 October 1517</b>, then the customary place for posting notices of academic disputations.",
+            "U",
+            "According to long tradition, Luther nailed his <i>Disputation on the Power and Efficacy of Indulgences</i> — the <b>Ninety-Five Theses</b> — to the door of the Castle Church at Wittenberg. He did so on <b>31 October 1517</b>, then the customary place for posting notices of academic disputations."
+          ],
+          [
+            "article",
+            "Summoned before the Imperial Diet at Worms in 1521, Luther again declined to retract his positions, reportedly declaring he could not act against conscience — a defiance that placed him under imperial ban even as sympathetic German princes shielded him from arrest.",
+            "U",
+            "Summoned before the Imperial Diet at Worms in 1521, Luther again declined to retract his positions. He reportedly declared he could not act against conscience, a defiance that placed him under imperial ban. Sympathetic German princes nevertheless shielded him from arrest."
+          ],
+          [
+            "article",
+            "The controversy prompted the Catholic Church's own vigorous response at the Council of Trent decades later, while Luther's own translation of the Bible into German and his doctrine of justification by faith alone reshaped the religious landscape of Northern Europe for centuries to come.",
+            "U",
+            "The controversy prompted the Catholic Church's own vigorous response at the Council of Trent decades later. Luther's own translation of the Bible into German and his doctrine of justification by faith alone reshaped Northern Europe's religious landscape for centuries to come."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:29:02.819Z",
+      "updatedAt": "2026-09-16T07:29:02.819Z"
     }
   ]
 }
