@@ -7655,14 +7655,25 @@
       "type": "sentence-reword",
       "entityId": "st-anselm-1109",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Anselm",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-anselm-1109",
+        "name": "St. Anselm",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:10:34.083Z",
-      "updatedAt": "2026-09-16T03:12:04.374Z",
+      "updatedAt": "2026-09-16T03:12:24.164Z",
       "error": null
     },
     {
@@ -8453,6 +8464,35 @@
       "error": null,
       "createdAt": "2026-09-16T03:12:20.798Z",
       "updatedAt": "2026-09-16T03:12:20.798Z"
+    },
+    {
+      "id": "task-sentence-reword-st-anselm-1109-1789528344164-5334",
+      "type": "sentence-reword",
+      "entityId": "st-anselm-1109",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Anselm",
+      "payload": {},
+      "result": {
+        "name": "St. Anselm",
+        "patches": [
+          [
+            "article",
+            "This conviction made Anselm one of the founding figures of the intellectual movement later ages would call <b>Scholasticism</b>, the disciplined marriage of faith and philosophical reason that would flower fully in the great university theology of the following two centuries.",
+            "U",
+            "This conviction made Anselm one of the founding figures of the intellectual movement later ages would call <b>Scholasticism</b>. It was the disciplined marriage of faith and philosophical reason that would flower fully in the great university theology of the following two centuries."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:12:24.164Z",
+      "updatedAt": "2026-09-16T03:12:24.164Z"
     }
   ]
 }
