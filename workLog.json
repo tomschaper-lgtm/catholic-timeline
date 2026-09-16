@@ -14423,14 +14423,25 @@
       "type": "sentence-reword",
       "entityId": "st-dominic-1221",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Dominic",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-dominic-1221",
+        "name": "St. Dominic",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:25:22.351Z",
       "error": null
     },
     {
@@ -15259,6 +15270,41 @@
       "error": null,
       "createdAt": "2026-09-16T04:25:17.374Z",
       "updatedAt": "2026-09-16T04:25:17.374Z"
+    },
+    {
+      "id": "task-sentence-reword-st-dominic-1221-1789532722351-2380",
+      "type": "sentence-reword",
+      "entityId": "st-dominic-1221",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Dominic",
+      "payload": {},
+      "result": {
+        "name": "St. Dominic",
+        "patches": [
+          [
+            "article",
+            "Its distinctive emphasis on advanced theological training positioned it from the very outset to become one of the medieval Church's great intellectual forces—a promise spectacularly fulfilled within a single generation by two towering Dominican minds, <b><a href=\"entry:st-albert-the-great-1280\">St. Albert the Great</a></b> and his even more celebrated pupil, <b><a href=\"entry:st-thomas-aquinas-1274\">St. Thomas Aquinas</a></b>.",
+            "U",
+            "Its distinctive emphasis on advanced theological training positioned it from the very outset to become one of the medieval Church's great intellectual forces. That promise was spectacularly fulfilled within a single generation by two towering Dominican minds, <b><a href=\"entry:st-albert-the-great-1280\">St. Albert the Great</a></b> and his even more celebrated pupil, <b><a href=\"entry:st-thomas-aquinas-1274\">St. Thomas Aquinas</a></b>."
+          ],
+          [
+            "article",
+            "Across the following eight centuries, this became a lasting testament to Dominic's own founding conviction: heresy and error are best answered not by the sword, but by minds trained seriously enough and lives lived poorly enough to make the truth genuinely, patiently persuasive.",
+            "U",
+            "Across the following eight centuries, this became a lasting testament to Dominic's own founding conviction. Heresy and error are best answered not by the sword, but by minds trained seriously enough and lives lived poorly enough to make the truth genuinely, patiently persuasive."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:25:22.351Z",
+      "updatedAt": "2026-09-16T04:25:22.351Z"
     }
   ]
 }
