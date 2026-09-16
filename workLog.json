@@ -8558,14 +8558,25 @@
       "type": "sentence-reword",
       "entityId": "vietnamese-persecutions-1833",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Vietnamese Persecutions",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "vietnamese-persecutions-1833",
+        "name": "Vietnamese Persecutions",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:24:31.696Z",
-      "updatedAt": "2026-09-16T06:26:03.127Z",
+      "updatedAt": "2026-09-16T06:29:36.920Z",
       "error": null
     },
     {
@@ -9522,6 +9533,53 @@
       "error": null,
       "createdAt": "2026-09-16T06:29:27.800Z",
       "updatedAt": "2026-09-16T06:29:27.800Z"
+    },
+    {
+      "id": "task-sentence-reword-vietnamese-persecutions-1833-1789540176920-7487",
+      "type": "sentence-reword",
+      "entityId": "vietnamese-persecutions-1833",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Vietnamese Persecutions",
+      "payload": {},
+      "result": {
+        "name": "Vietnamese Persecutions",
+        "patches": [
+          [
+            "article",
+            "By the seventeenth and eighteenth centuries, a Vietnamese Catholic community had grown large enough, and visible enough, to draw the suspicion of the country's Nguyễn emperors, who governed the three regions of <b>Tonkin, Annam, and Cochin China</b> and viewed the new faith as a foreign loyalty rivaling their own absolute authority.",
+            "U",
+            "By the seventeenth and eighteenth centuries, a Vietnamese Catholic community had grown large enough and visible enough to draw suspicion from the country's Nguyễn emperors. They governed the three regions of <b>Tonkin, Annam, and Cochin China</b>, and viewed the new faith as a foreign loyalty rivaling their own absolute authority."
+          ],
+          [
+            "article",
+            "Tortured for months and repeatedly ordered to trample a crucifix underfoot, she refused each time, reportedly telling her interrogators that she would rather die than deny her Lord, and died of her wounds in prison in 1841 before a formal execution could take place.",
+            "U",
+            "Tortured for months, she was repeatedly ordered to trample a crucifix underfoot but refused each time. Reportedly, she told her interrogators that she would rather die than deny her Lord, and died of her wounds in prison in 1841 before a formal execution could take place."
+          ],
+          [
+            "article",
+            "Between the first recorded martyrdoms in the 1600s and the last major wave in 1886, historians estimate that between <b>one hundred thirty thousand and three hundred thousand</b> Vietnamese Christians gave their lives for the faith, the overwhelming majority known to God alone rather than to any historical record.",
+            "U",
+            "Between the first recorded martyrdoms in the 1600s and the last major wave in 1886, historians estimate that between <b>one hundred thirty thousand and three hundred thousand</b> Vietnamese Christians gave their lives for the faith. The overwhelming majority were known to God alone rather than to any historical record."
+          ],
+          [
+            "article",
+            "Pope <b>St. John Paul II</b> canonized all 117 named martyrs together on <b>June 19, 1988</b>, in a ceremony the communist government of Vietnam did not permit a single representative to attend, though eight thousand members of the Vietnamese diaspora filled St. Peter's Square in their place.",
+            "U",
+            "Pope <b>St. John Paul II</b> canonized all 117 named martyrs together on <b>June 19, 1988</b>. The communist government of Vietnam did not permit a single representative to attend the ceremony, though eight thousand Vietnamese diaspora members filled St. Peter’s Square in their place."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:29:36.919Z",
+      "updatedAt": "2026-09-16T06:29:36.919Z"
     }
   ]
 }
