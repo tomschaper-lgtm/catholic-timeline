@@ -14053,14 +14053,25 @@
       "type": "sentence-reword",
       "entityId": "em-clare-assisi-1240",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Saint Clare of Assisi",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-clare-assisi-1240",
+        "name": "Saint Clare of Assisi",
+        "sentencesFound": 5,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 1,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:05:37.244Z",
       "error": null
     },
     {
@@ -16528,6 +16539,53 @@
       "error": null,
       "createdAt": "2026-09-16T18:05:26.474Z",
       "updatedAt": "2026-09-16T18:05:26.474Z"
+    },
+    {
+      "id": "task-sentence-reword-em-clare-assisi-1240-1789581937244-9247",
+      "type": "sentence-reword",
+      "entityId": "em-clare-assisi-1240",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Saint Clare of Assisi",
+      "payload": {},
+      "result": {
+        "name": "Saint Clare of Assisi",
+        "patches": [
+          [
+            "article",
+            "The soldiers who had already scaled the convent walls were, by the same early account, seized with a sudden terror they could not themselves account for, and fled back over the walls they had just climbed, leaving the community entirely unharmed; the wider imperial force is said to have turned away from Assisi itself the following day as well.",
+            "U",
+            "The soldiers who had already scaled the convent walls were, by the same early account, seized with sudden terror they could not themselves account for. They fled back over the walls they had just climbed, leaving the community entirely unharmed; the wider imperial force is said to have turned away from Assisi itself the following day as well."
+          ],
+          [
+            "article",
+            "The episode entered the Church's official record when witnesses who had lived through it testified to it under oath during the canonical process for Clare's canonization in 1253, only two years after her death — testimony a Church otherwise cautious about embellished convent legend judged credible enough to include among the evidences of her sanctity.",
+            "U",
+            "The episode entered the Church's official record when witnesses who had lived through it testified under oath during Clare's canonization process in 1253. This occurred only two years after her death. A Church otherwise cautious about embellished convent legend judged the testimony credible enough to include among the evidences of her sanctity."
+          ],
+          [
+            "article",
+            "Clare died thirteen years after the attack, and the episode became, in the centuries that followed, one of the most frequently painted scenes of her life, artists typically placing a monstrance in her hands even though that particular vessel would not come into common use for another century after her death.",
+            "U",
+            "Clare died thirteen years after the attack. In the centuries that followed, the episode became one of the most frequently painted scenes of her life. Artists typically placed a monstrance in her hands, even though that particular vessel would not come into common use for another century after her death."
+          ],
+          [
+            "article",
+            "The story remains treasured less as a tale of miraculous rescue than as a witness to the same unshakeable Eucharistic confidence Clare had spent her whole religious life quietly practicing — that the Lord she had given everything to serve could, in turn, be trusted completely with whatever she herself could no longer defend.",
+            "U",
+            "The story remains treasured less as a tale of miraculous rescue than as a witness to the same unshakeable Eucharistic confidence Clare had spent her whole religious life quietly practicing. She trusted that the Lord she had given everything to serve could, in turn, be trusted completely with whatever she herself could no longer defend."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 1,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:05:37.244Z",
+      "updatedAt": "2026-09-16T18:05:37.244Z"
     }
   ]
 }
