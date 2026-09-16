@@ -12947,14 +12947,25 @@
       "type": "sentence-reword",
       "entityId": "em-trani-11c",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Trani",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-trani-11c",
+        "name": "Trani",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:41:43.216Z",
       "error": null
     },
     {
@@ -13917,6 +13928,47 @@
       "error": null,
       "createdAt": "2026-09-16T12:41:36.237Z",
       "updatedAt": "2026-09-16T12:41:36.237Z"
+    },
+    {
+      "id": "task-sentence-reword-em-trani-11c-1789562503216-463",
+      "type": "sentence-reword",
+      "entityId": "em-trani-11c",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Trani",
+      "payload": {},
+      "result": {
+        "name": "Trani",
+        "patches": [
+          [
+            "article",
+            "Medieval sources hold that a consecrated host, obtained under false pretenses, by a non-Christian woman was subjected to fire in an attempt to test or disprove the Church's teaching on the Real Presence — and that it turned visibly into bleeding flesh rather than being consumed.",
+            "U",
+            "Medieval sources hold that a non-Christian woman obtained a consecrated host under false pretenses. She subjected it to fire to test or disprove the Church's teaching on the Real Presence, and it turned visibly into bleeding flesh rather than being consumed."
+          ],
+          [
+            "article",
+            "According to the devotional accounts that survive, most committed to writing centuries after the event's traditional date, the host was thrown into boiling oil in a private home and is said to have bled so profusely that it spread through the house, drawing neighbors who alerted the local clergy.",
+            "U",
+            "According to the devotional accounts that survive, most committed to writing centuries after the event's traditional date, the host was thrown into boiling oil in a private home. It is said to have bled so profusely that it spread through the house, drawing neighbors who alerted the local clergy."
+          ],
+          [
+            "article",
+            "Historians of the period have documented how accounts of this kind — alleging that Jews desecrated the consecrated host — spread across medieval Europe from the thirteenth century onward, and that they contributed directly to expulsions, violence, and the antisemitic \"blood libel\" accounts whose distorted echoes have never fully disappeared.",
+            "U",
+            "Historians of the period have documented how accounts of this kind — alleging that Jews desecrated the consecrated host — spread across medieval Europe. They spread from the thirteenth century onward and contributed directly to expulsions, violence, and the antisemitic \"blood libel\" accounts. Those accounts’ distorted echoes have never fully disappeared."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:41:43.216Z",
+      "updatedAt": "2026-09-16T12:41:43.216Z"
     }
   ]
 }
