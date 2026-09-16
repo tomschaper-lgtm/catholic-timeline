@@ -7818,14 +7818,25 @@
       "type": "sentence-reword",
       "entityId": "council-of-hippo-393",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Council of Hippo",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "council-of-hippo-393",
+        "name": "Council of Hippo",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:12:54.789Z",
-      "updatedAt": "2026-09-16T06:17:43.391Z",
+      "updatedAt": "2026-09-16T06:18:08.041Z",
       "error": null
     },
     {
@@ -7977,6 +7988,35 @@
       "createdAt": "2026-09-16T06:12:54.789Z",
       "updatedAt": "2026-09-16T06:17:43.391Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-council-of-hippo-393-1789539488041-7552",
+      "type": "sentence-reword",
+      "entityId": "council-of-hippo-393",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Council of Hippo",
+      "payload": {},
+      "result": {
+        "name": "Council of Hippo",
+        "patches": [
+          [
+            "article",
+            "Its formal settlement of the New Testament canon marks one of the genuinely pivotal moments in the Bible's formation, when a specific, enumerated list of books, essentially identical to the one modern Catholics still read, first received a formal council's endorsement, with the young priest who would become Augustine of Hippo among those present to witness it.",
+            "U",
+            "Its formal settlement of the New Testament canon marks one of the genuinely pivotal moments in the Bible's formation. A specific, enumerated list of books, essentially identical to the one modern Catholics still read, first received a formal council's endorsement. The young priest who would become Augustine of Hippo was among those present to witness it."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:18:08.041Z",
+      "updatedAt": "2026-09-16T06:18:08.041Z"
     }
   ]
 }
