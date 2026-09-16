@@ -13833,14 +13833,25 @@
       "type": "sentence-reword",
       "entityId": "em-blanot-1331",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Blanot",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-blanot-1331",
+        "name": "Blanot",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:48:21.061Z",
       "error": null
     },
     {
@@ -16007,6 +16018,59 @@
       "error": null,
       "createdAt": "2026-09-16T12:48:06.508Z",
       "updatedAt": "2026-09-16T12:48:06.508Z"
+    },
+    {
+      "id": "task-sentence-reword-em-blanot-1331-1789562901061-8773",
+      "type": "sentence-reword",
+      "entityId": "em-blanot-1331",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — Blanot",
+      "payload": {},
+      "result": {
+        "name": "Blanot",
+        "patches": [
+          [
+            "article",
+            "On Easter Sunday, 31 March 1331, at the first Mass of the day in the small village of <b>Blanot</b> in Burgundy, the parish vicar, <b>Hugues de la Baume</b>, was distributing Communion when a small particle of the Host fell unnoticed from the mouth of a widow named Jacquette, landing on the linen cloth the altar servers held beneath the hands of each communicant.",
+            "U",
+            "On Easter Sunday, 31 March 1331, at the first Mass of the day in the small village of <b>Blanot</b> in Burgundy, the parish vicar, <b>Hugues de la Baume</b>, was distributing Communion. A small particle of the Host fell unnoticed from the mouth of a widow named Jacquette, landing on the linen cloth the altar servers held beneath each communicant’s hands."
+          ],
+          [
+            "article",
+            "An altar server assisting at the Mass, Thomas Caillot, caught what the priest had not and called him back to the rail, saying: <blockquote>\"Father, you must return to the rail because the Body of Our Lord fell from the mouth of this lady onto the cloth.\"</blockquote> The priest returned to find, in place of the fallen particle, a small, distinct stain of blood soaked into the linen.",
+            "U",
+            "An altar server assisting at the Mass, Thomas Caillot, caught what the priest had not and called him back to the rail, saying: <blockquote>\"Father, you must return to the rail because the Body of Our Lord fell from the mouth of this lady onto the cloth.\"</blockquote> The priest returned to find a small, distinct stain of blood soaked into the linen, in place of the fallen particle."
+          ],
+          [
+            "article",
+            "The priest attempted repeatedly to wash the stain from the cloth, but each attempt only left the mark darker and larger, and the water in his basin itself turned bloody; unable to remove it by any means, he cut the stained square from the larger cloth and declared before the assembled congregation, in words later recorded, that this was the Precious Blood of Christ.",
+            "U",
+            "The priest repeatedly attempted to wash the stain from the cloth, but each attempt left the mark darker and larger.  \nThe water in his basin itself turned bloody; unable to remove it by any means, he cut the stained square from the larger cloth.  \nBefore the assembled congregation, he declared, in words later recorded, that this was the Precious Blood of Christ."
+          ],
+          [
+            "article",
+            "The Bishop of Autun, <b>Pierre Bertrand</b>, opened a formal inquiry into the events soon afterward, interviewing the witnesses present at the Mass; the resulting documentation was sent to Pope John XXII, who confirmed the sign as a genuine Eucharistic miracle.",
+            "U",
+            "The Bishop of Autun, <b>Pierre Bertrand</b>, opened a formal inquiry into the events soon afterward, interviewing the witnesses present at the Mass. The resulting documentation was sent to Pope John XXII, who confirmed the sign as a genuine Eucharistic miracle."
+          ],
+          [
+            "article",
+            "The stained cloth was hidden by nuns and parishioners through the upheavals of the <a href=\"entry:french-revolution-1793\">French Revolution</a> and returned to the church once the danger had passed; an eighteenth-century examination by the Bishop of Autun found the blood still bright red and the cloth itself undecayed after hundreds of years.",
+            "U",
+            "The stained cloth was hidden by nuns and parishioners through the upheavals of the <a href=\"entry:french-revolution-1793\">French Revolution</a>. It was returned to the church once the danger had passed. An eighteenth-century examination by the Bishop of Autun found the blood still bright red and the cloth itself undecayed after hundreds of years."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:48:21.061Z",
+      "updatedAt": "2026-09-16T12:48:21.061Z"
     }
   ]
 }
