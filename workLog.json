@@ -14764,14 +14764,25 @@
       "type": "sentence-reword",
       "entityId": "em-marseille-beauvais-1533",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Marseille-en-Beauvaisis",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-marseille-beauvais-1533",
+        "name": "Marseille-en-Beauvaisis",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:37:54.744Z",
       "error": null
     },
     {
@@ -17908,6 +17919,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:37:48.257Z",
       "updatedAt": "2026-09-16T18:37:48.257Z"
+    },
+    {
+      "id": "task-sentence-reword-em-marseille-beauvais-1533-1789583874744-7417",
+      "type": "sentence-reword",
+      "entityId": "em-marseille-beauvais-1533",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Marseille-en-Beauvaisis",
+      "payload": {},
+      "result": {
+        "name": "Marseille-en-Beauvaisis",
+        "patches": [
+          [
+            "article",
+            "On New Year's Day 1533, a resident named Jean Moucque was making his way down the same street through a driving blast of wind and snow when his attention was caught by something unusual: a single stone lying in the open, exposed to the full force of the storm, that had not gathered a single flake of snow on its surface while everything around it lay buried.",
+            "U",
+            "On New Year's Day 1533, a resident named Jean Moucque was making his way down the same street through a driving blast of wind and snow. His attention was caught by something unusual: a single stone lying in the open, exposed to the storm's full force. It had not gathered a single flake of snow on its surface, while everything around it lay buried."
+          ],
+          [
+            "article",
+            "A chapel — the Chapelle des Saintes-Hosties, still standing today beside the parish church — was raised soon afterward to encourage devotion at the site, and several healings were subsequently attributed to prayer there, most notably that of a paralyzed priest named Jacques Sauvage, who was reportedly cured completely.",
+            "U",
+            "A chapel — the Chapelle des Saintes-Hosties, still standing today beside the parish church — was raised soon afterward to encourage devotion at the site. Several healings were subsequently attributed to prayer there, most notably that of a paralyzed priest named Jacques Sauvage, who was reportedly cured completely."
+          ],
+          [
+            "article",
+            "The Marseille-en-Beauvaisis account joins a substantial body of medieval and early modern tradition built around Hosts abandoned by thieves and preserved against every natural expectation — in this case, not fire or flood but simple exposure to a winter storm the stone itself seemed mysteriously spared.",
+            "U",
+            "The Marseille-en-Beauvaisis account joins a substantial body of medieval and early modern tradition built around Hosts abandoned by thieves. These Hosts were preserved against every natural expectation — in this case, not fire or flood but simple exposure to a winter storm the stone itself seemed mysteriously spared."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:37:54.744Z",
+      "updatedAt": "2026-09-16T18:37:54.744Z"
     }
   ]
 }
