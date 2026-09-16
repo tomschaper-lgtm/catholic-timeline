@@ -13181,14 +13181,25 @@
       "type": "sentence-reword",
       "entityId": "em-meerssen-1222",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Meerssen",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-meerssen-1222",
+        "name": "Meerssen",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:43:27.590Z",
       "error": null
     },
     {
@@ -14493,6 +14504,41 @@
       "error": null,
       "createdAt": "2026-09-16T12:43:21.689Z",
       "updatedAt": "2026-09-16T12:43:21.689Z"
+    },
+    {
+      "id": "task-sentence-reword-em-meerssen-1222-1789562607590-8166",
+      "type": "sentence-reword",
+      "entityId": "em-meerssen-1222",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Meerssen",
+      "payload": {},
+      "result": {
+        "name": "Meerssen",
+        "patches": [
+          [
+            "article",
+            "The rebuilt church continued to draw pilgrims across the following centuries, and in 1938 Pope Pius XI formally raised it to the rank of minor basilica, today known as the Basilica of the Blessed Sacrament, dedicated jointly to the Holy Sacrament and to St. Bartholomew the Apostle.",
+            "U",
+            "The rebuilt church continued to draw pilgrims across the following centuries. In 1938, Pope Pius XI formally raised it to the rank of minor basilica, today known as the Basilica of the Blessed Sacrament. It is dedicated jointly to the Holy Sacrament and to St. Bartholomew the Apostle."
+          ],
+          [
+            "article",
+            "For a community that has now carried the same relic in procession for nearly eight hundred years, the deeper lesson may be less about the wonder of any single event than about fidelity itself: a town's willingness, across war, reformation, and fire alike, to keep returning to the same small relic and the same unbroken act of thanksgiving.",
+            "U",
+            "For a community that has now carried the same relic in procession for nearly eight hundred years, the deeper lesson may be less about wonder. It may be less about any single event than about fidelity itself: a town's willingness, across war, reformation, and fire alike, to keep returning to the same small relic and unbroken thanksgiving."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:43:27.590Z",
+      "updatedAt": "2026-09-16T12:43:27.590Z"
     }
   ]
 }
