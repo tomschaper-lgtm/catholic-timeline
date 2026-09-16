@@ -16362,14 +16362,25 @@
       "type": "sentence-reword",
       "entityId": "em-poznan-1399",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Poznań",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-poznan-1399",
+        "name": "Poznań",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:13:21.250Z",
       "error": null
     },
     {
@@ -18864,6 +18875,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:13:11.322Z",
       "updatedAt": "2026-09-16T18:13:11.322Z"
+    },
+    {
+      "id": "task-sentence-reword-em-poznan-1399-1789582401250-4761",
+      "type": "sentence-reword",
+      "entityId": "em-poznan-1399",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Poznań",
+      "payload": {},
+      "result": {
+        "name": "Poznań",
+        "patches": [
+          [
+            "article",
+            "By the following century, a fuller and considerably more dramatic account had taken hold in popular memory: that a servant girl, bribed by men hostile to the faith, had stolen three consecrated Hosts from a Dominican church; that the men pierced the Hosts with sharp instruments in a nearby house, causing them to bleed; and that, attempting to dispose of the evidence in the same marsh, they saw the Hosts rise into the air surrounded by light before the local bishop was able to recover them.",
+            "U",
+            "By the following century, a fuller and considerably more dramatic account had taken hold in popular memory: a servant girl, bribed by men hostile to the faith, had stolen three consecrated Hosts from a Dominican church. The men pierced the Hosts with sharp instruments in a nearby house, causing them to bleed. Attempting to dispose of the evidence in the same marsh, they saw the Hosts rise into the air surrounded by light before the local bishop was able to recover them."
+          ],
+          [
+            "article",
+            "The Archdiocese of Poznan itself, examining its own medieval sources, states plainly that the desecration-and-bleeding narrative cannot be documented in records contemporary with the event, and that the confirmed historical core is considerably more modest: a Host found in the meadow, and the intense, well-attested popular devotion that followed.",
+            "U",
+            "The Archdiocese of Poznan itself examines its own medieval sources and states plainly that the desecration-and-bleeding narrative cannot be documented in contemporary records. The confirmed historical core is considerably more modest: a Host found in the meadow, and the intense, well-attested popular devotion that followed."
+          ],
+          [
+            "article",
+            "Whatever the precise shape of the original fourteenth-century happening — a straightforward, well-attested discovery, later dressed in a more elaborate story of theft and desecration — the underlying devotion it produced has proven durable enough to stand the test of time.",
+            "U",
+            "Whatever the precise shape of the original fourteenth-century happening, it was a straightforward, well-attested discovery. Later, it was dressed in a more elaborate story of theft and desecration, but the underlying devotion it produced has proven durable enough to stand the test of time."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:13:21.250Z",
+      "updatedAt": "2026-09-16T18:13:21.250Z"
     }
   ]
 }
