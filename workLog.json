@@ -1048,14 +1048,25 @@
       "type": "sentence-reword",
       "entityId": "st-john-paul-ii-2005",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. John Paul II",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-john-paul-ii-2005",
+        "name": "St. John Paul II",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:30:39.114Z",
-      "updatedAt": "2026-09-16T04:31:39.369Z",
+      "updatedAt": "2026-09-16T04:33:49.699Z",
       "error": null
     },
     {
@@ -2152,6 +2163,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:33:47.163Z",
       "updatedAt": "2026-09-16T04:33:47.163Z"
+    },
+    {
+      "id": "task-sentence-reword-st-john-paul-ii-2005-1789533229699-8520",
+      "type": "sentence-reword",
+      "entityId": "st-john-paul-ii-2005",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. John Paul II",
+      "payload": {},
+      "result": {
+        "name": "St. John Paul II",
+        "patches": [
+          [
+            "article",
+            "He canonized more saints during his pontificate than all his predecessors combined and left behind substantial encyclicals, including influential teaching on human dignity and the 'theology of the body.' Canonized himself in 2014 by Pope Francis, he remains, for many, simply 'John Paul the Great' — a pope whose personal courage helped reshape the map of twentieth-century Europe.",
+            "U",
+            "He canonized more saints during his pontificate than all his predecessors combined and left behind substantial encyclicals. These included influential teaching on human dignity and the 'theology of the body.' Canonized himself in 2014 by Pope Francis, he remains, for many, simply 'John Paul the Great' — a pope whose personal courage helped reshape the map of twentieth-century Europe."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:33:49.699Z",
+      "updatedAt": "2026-09-16T04:33:49.699Z"
     }
   ]
 }
