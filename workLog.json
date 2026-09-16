@@ -7744,14 +7744,25 @@
       "type": "sentence-reword",
       "entityId": "council-of-arles-314",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Council of Arles",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "council-of-arles-314",
+        "name": "Council of Arles",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T05:55:49.461Z",
-      "updatedAt": "2026-09-16T05:58:14.698Z",
+      "updatedAt": "2026-09-16T05:58:28.871Z",
       "error": null
     },
     {
@@ -7768,6 +7779,35 @@
       "createdAt": "2026-09-16T05:55:49.461Z",
       "updatedAt": "2026-09-16T05:58:14.698Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-council-of-arles-314-1789538308871-3029",
+      "type": "sentence-reword",
+      "entityId": "council-of-arles-314",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Council of Arles",
+      "payload": {},
+      "result": {
+        "name": "Council of Arles",
+        "patches": [
+          [
+            "article",
+            "Donatist Christians had rejected Caecilian's election as Bishop of Carthage in 311, arguing that one ordaining bishop was a traditor — a Christian who had handed over sacred texts to be burned during the recent persecution — making his ordination invalid.",
+            "U",
+            "Donatist Christians had rejected Caecilian's election as Bishop of Carthage in 311. They argued that one ordaining bishop was a traditor — a Christian who had handed over sacred texts to be burned during the recent persecution — making his ordination invalid."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T05:58:28.871Z",
+      "updatedAt": "2026-09-16T05:58:28.871Z"
     }
   ]
 }
