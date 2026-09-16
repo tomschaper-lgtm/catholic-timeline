@@ -14504,14 +14504,25 @@
       "type": "sentence-reword",
       "entityId": "em-alkmaar-1429",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Alkmaar",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-alkmaar-1429",
+        "name": "Alkmaar",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:36:19.814Z",
       "error": null
     },
     {
@@ -17334,6 +17345,41 @@
       "error": null,
       "createdAt": "2026-09-16T18:36:15.227Z",
       "updatedAt": "2026-09-16T18:36:15.227Z"
+    },
+    {
+      "id": "task-sentence-reword-em-alkmaar-1429-1789583779814-4770",
+      "type": "sentence-reword",
+      "entityId": "em-alkmaar-1429",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Alkmaar",
+      "payload": {},
+      "result": {
+        "name": "Alkmaar",
+        "patches": [
+          [
+            "article",
+            "A distinct part of the wider Alkmaar tradition adds a further, later chapter: a ship's captain in danger at sea reported an angel appearing to him holding a cloth marked with three drops of blood, telling him his vessel would be saved only if he sailed to Alkmaar and had the pastor of St. Lawrence unearth a buried cloth.",
+            "U",
+            "A distinct part of the wider Alkmaar tradition adds a further, later chapter. A ship's captain in danger at sea reported an angel appearing to him, holding a cloth marked with three drops of blood. The angel told him his vessel would be saved only if he sailed to Alkmaar and had the pastor of St. Lawrence unearth a buried cloth."
+          ],
+          [
+            "article",
+            "The Alkmaar tradition, spanning a young priest's spilled chalice and a sailor's vision at sea, illustrates how a single local relic could accumulate more than one layer of devotional memory over time, each reinforcing the other's claim on the community's attention.",
+            "U",
+            "The Alkmaar tradition spans a young priest's spilled chalice and a sailor's vision at sea. It illustrates how a single local relic could accumulate multiple layers of devotional memory over time, each reinforcing the other's claim on the community's attention."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:36:19.814Z",
+      "updatedAt": "2026-09-16T18:36:19.814Z"
     }
   ]
 }
