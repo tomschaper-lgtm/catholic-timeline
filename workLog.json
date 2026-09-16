@@ -630,14 +630,25 @@
       "type": "sentence-reword",
       "entityId": "st-joan-of-arc-1431",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Joan of Arc",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-joan-of-arc-1431",
+        "name": "St. Joan of Arc",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:30:39.114Z",
-      "updatedAt": "2026-09-16T04:31:39.369Z",
+      "updatedAt": "2026-09-16T04:32:54.788Z",
       "error": null
     },
     {
@@ -1527,6 +1538,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:32:52.010Z",
       "updatedAt": "2026-09-16T04:32:52.010Z"
+    },
+    {
+      "id": "task-sentence-reword-st-joan-of-arc-1431-1789533174788-931",
+      "type": "sentence-reword",
+      "entityId": "st-joan-of-arc-1431",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Joan of Arc",
+      "payload": {},
+      "result": {
+        "name": "St. Joan of Arc",
+        "patches": [
+          [
+            "article",
+            "She eventually met Charles VII himself, convincing the initially doubtful prince and his advisors of the genuineness of her mission — reportedly, according to persistent tradition, by identifying him correctly despite his having disguised himself among his own courtiers to test her.",
+            "U",
+            "She eventually met Charles VII himself, convincing the initially doubtful prince and his advisors of the genuineness of her mission. Reportedly, according to persistent tradition, she identified him correctly despite his having disguised himself among his own courtiers to test her."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:32:54.788Z",
+      "updatedAt": "2026-09-16T04:32:54.788Z"
     }
   ]
 }
