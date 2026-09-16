@@ -7629,14 +7629,25 @@
       "type": "sentence-reword",
       "entityId": "st-edward-the-confessor-1066",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Edward the Confessor",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-edward-the-confessor-1066",
+        "name": "St. Edward the Confessor",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:10:34.083Z",
-      "updatedAt": "2026-09-16T03:12:04.374Z",
+      "updatedAt": "2026-09-16T03:12:20.798Z",
       "error": null
     },
     {
@@ -8407,6 +8418,41 @@
       "error": null,
       "createdAt": "2026-09-16T03:12:14.451Z",
       "updatedAt": "2026-09-16T03:12:14.451Z"
+    },
+    {
+      "id": "task-sentence-reword-st-edward-the-confessor-1066-1789528340798-658",
+      "type": "sentence-reword",
+      "entityId": "st-edward-the-confessor-1066",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Edward the Confessor",
+      "payload": {},
+      "result": {
+        "name": "St. Edward the Confessor",
+        "patches": [
+          [
+            "article",
+            "He required Edith's agreement to live together only as brother and sister rather than as husband and wife in the ordinary sense—a marriage of political necessity honored, on Edward's part, without compromise to a deeper spiritual commitment he refused to set aside even for the sake of a royal heir.",
+            "U",
+            "He required Edith's agreement to live together only as brother and sister, rather than as husband and wife in the ordinary sense. It was a marriage of political necessity, honored on Edward's part without compromising a deeper spiritual commitment he refused to set aside, even for the sake of a royal heir."
+          ],
+          [
+            "article",
+            "Instead, it rests on a quieter, more difficult kind of holiness: chastity, gentleness, and generosity maintained consistently at the very apex of worldly power, in an age and a court that gave him every opportunity and every incentive to abandon them.",
+            "U",
+            "Instead, it rests on a quieter, more difficult kind of holiness: chastity, gentleness, and generosity maintained consistently at the very apex of worldly power. This was an age and a court that gave him every opportunity and every incentive to abandon them."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:12:20.798Z",
+      "updatedAt": "2026-09-16T03:12:20.798Z"
     }
   ]
 }
