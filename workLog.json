@@ -14631,14 +14631,25 @@
       "type": "sentence-reword",
       "entityId": "st-john-of-kanty-1473",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. John of Kanty",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-john-of-kanty-1473",
+        "name": "St. John of Kanty",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:25:43.467Z",
       "error": null
     },
     {
@@ -15556,6 +15567,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:25:40.603Z",
       "updatedAt": "2026-09-16T04:25:40.603Z"
+    },
+    {
+      "id": "task-sentence-reword-st-john-of-kanty-1473-1789532743467-4703",
+      "type": "sentence-reword",
+      "entityId": "st-john-of-kanty-1473",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. John of Kanty",
+      "payload": {},
+      "result": {
+        "name": "St. John of Kanty",
+        "patches": [
+          [
+            "article",
+            "He distinguished himself with such affable warmth and diligence that, in the words of his early biographer Michael Miechowita, he 'won the hearts of all who came in contact with him.' He earned degrees as bachelor, master, and doctor, was ordained a priest, and was appointed professor of theology at his alma mater.",
+            "U",
+            "He distinguished himself with such affable warmth and diligence that, in the words of his early biographer Michael Miechowita, he 'won the hearts of all who came in contact with him.' He earned degrees as bachelor, master, and doctor, was ordained a priest, and became a professor of theology at his alma mater."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:25:43.467Z",
+      "updatedAt": "2026-09-16T04:25:43.467Z"
     }
   ]
 }
