@@ -7896,14 +7896,25 @@
       "type": "sentence-reword",
       "entityId": "nicaea-ii-787",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Nicaea II",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "nicaea-ii-787",
+        "name": "Nicaea II",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:12:54.789Z",
-      "updatedAt": "2026-09-16T06:17:43.391Z",
+      "updatedAt": "2026-09-16T06:18:17.930Z",
       "error": null
     },
     {
@@ -8097,6 +8108,35 @@
       "error": null,
       "createdAt": "2026-09-16T06:18:15.087Z",
       "updatedAt": "2026-09-16T06:18:15.087Z"
+    },
+    {
+      "id": "task-sentence-reword-nicaea-ii-787-1789539497930-4569",
+      "type": "sentence-reword",
+      "entityId": "nicaea-ii-787",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Nicaea II",
+      "payload": {},
+      "result": {
+        "name": "Nicaea II",
+        "patches": [
+          [
+            "article",
+            "A first attempt to open the council at Constantinople in 786 was broken up by iconoclast soldiers loyal to the memory of Constantine V. Irene replaced the mutinous garrison and reconvened the council the following year at the safer location of <b>Nicaea</b>, the same city that had hosted the first ecumenical council 462 years earlier.",
+            "U",
+            "A first attempt to open the council at Constantinople in 786 was broken up by iconoclast soldiers loyal to the memory of Constantine V. Irene replaced the mutinous garrison and reconvened the council the following year at the safer location of <b>Nicaea</b>. It was the same city that had hosted the first ecumenical council 462 years earlier."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:18:17.930Z",
+      "updatedAt": "2026-09-16T06:18:17.930Z"
     }
   ]
 }
