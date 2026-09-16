@@ -10782,14 +10782,25 @@
       "type": "sentence-reword",
       "entityId": "vulgate-completed-405",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Vulgate Completed",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "vulgate-completed-405",
+        "name": "Vulgate Completed",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:27:02.363Z",
       "error": null
     },
     {
@@ -11595,6 +11606,35 @@
       "error": null,
       "createdAt": "2026-09-16T07:26:59.664Z",
       "updatedAt": "2026-09-16T07:26:59.664Z"
+    },
+    {
+      "id": "task-sentence-reword-vulgate-completed-405-1789543622363-2366",
+      "type": "sentence-reword",
+      "entityId": "vulgate-completed-405",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Vulgate Completed",
+      "payload": {},
+      "result": {
+        "name": "Vulgate Completed",
+        "patches": [
+          [
+            "article",
+            "The <b>Council of Trent</b> in the sixteenth century formally declared the Vulgate the Church's authentic Latin Scripture text for public reading, disputation, and preaching, prompting official revisions culminating in the Clementine edition of 1592, which remained standard until the Nova Vulgata of 1979.",
+            "U",
+            "The <b>Council of Trent</b> in the sixteenth century formally declared the Vulgate the Church's authentic Latin Scripture text for public reading, disputation, and preaching. This prompted official revisions culminating in the Clementine edition of 1592, which remained standard until the Nova Vulgata of 1979."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:27:02.363Z",
+      "updatedAt": "2026-09-16T07:27:02.363Z"
     }
   ]
 }
