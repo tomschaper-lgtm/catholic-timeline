@@ -1,9 +1,26 @@
 <!--
-VERSION: 397
-DATE: 2026-09-16T06:20:00-05:00
+VERSION: 398
+DATE: 2026-09-16T07:05:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Approve in the review queue is snappy again. v396 made every approve publish, which for manual
+  tap-through meant a full GitHub round-trip (read data.json, merge, commit) per item — Tom
+  measured ~30s per tap. Batched now: wlResolveTasks() takes deferPublish, and tkResolveCurrent
+  looks ahead BEFORE resolving (the current item is still 'proposed' at that point, so scanning
+  from the next index finds what's genuinely still awaiting a decision). Another item waiting ->
+  skip the publish, keep moving. Last item in the queue -> publish for real, which covers every
+  entry approved along the way, since publishToGitHub() always sends all dirty entries rather than
+  just the latest. N approvals now cost 1 round-trip instead of N, landing identical content.
+- Leaving the queue early can't strand anything: new tkDeferredPublish flag + tkFlushDeferredPublish(),
+  called from BOTH tkGoList() (backing out to the list) and closeTaskPanel() (closing outright).
+  Without that pair, walking away mid-queue would leave approved-but-unpublished entries — exactly
+  the state that caused the re-queue loop diagnosed in v395/v396. Status line distinguishes the
+  three outcomes: published, deferred ("publishing once you finish the queue"), or failed.
+  Auto-approve is unaffected — it already resolved a whole batch in one wlResolveTasks() call, so
+  it was always one publish per batch, not per item.
+- Verified by simulation: 5 sequential approvals produce exactly 1 publish; exiting mid-queue after
+  deferred approvals still produces exactly 1 (never 0).
 - CORRECTION to v395/v396: I blamed sentence-reword.mjs for proposing patches on link-bearing
   sentences, and said its spec required skipping them. Reading the actual handler, that's wrong —
   it deliberately ATTEMPTS linked sentences (an improvement over an older blanket skip, per its own
@@ -4806,7 +4823,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v397';
+const APP_VERSION = 'v398';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -9319,11 +9336,29 @@ function renderTaskPanel(){
   else if(tkView === 'review') renderTaskReview();
 }
 
+// Set when an approve deliberately skipped its publish because more review items were waiting
+// behind it (see deferPublish in wlResolveTasks). The content is already in the session db and
+// data.json is behind until this is flushed, so every way OUT of the review queue has to flush:
+// finishing it normally (the last item publishes directly, not deferred), backing out to the
+// list, or closing the panel outright. Without that last pair, walking away mid-queue would
+// leave approved-but-unpublished entries — exactly the state that caused the re-queue loop
+// diagnosed in v395/v396.
+let tkDeferredPublish = false;
+async function tkFlushDeferredPublish(){
+  if(!tkDeferredPublish) return;
+  tkDeferredPublish = false;
+  wlSetLog('Publishing approved changes\u2026');
+  const ok = await publishToGitHub();
+  wlSetLog(ok
+    ? 'Published to GitHub \u2014 live in about a minute.'
+    : 'Approved changes are saved in this session but publishing failed \u2014 use Publish manually, or the next scan will queue those entries again.', !ok);
+}
 function tkGoList(){
   tkStopAudioPlayer();
   tkView = 'list';
   tkReviewIds = [];
   renderTaskPanel();
+  tkFlushDeferredPublish(); // not awaited — the list should paint immediately, publish rides behind it
 }
 // Opening any row hands the review view the CURRENTLY VISIBLE list — same filter, same sort —
 // so "the next item" means the one you can see below it, not a separate hidden ordering.
@@ -9383,17 +9418,22 @@ async function tkResolveCurrent(approve){
   const btnA = document.getElementById('tkApprove'), btnR = document.getElementById('tkReject');
   if(btnA) btnA.disabled = true;
   if(btnR) btnR.disabled = true;
-  await wlResolveTasks([id], approve);
-  if(nextStepType && t && t.entityId){
-    await tkQueueNextStepForEntity(nextStepType, t.entityId);
-  }
+  // Look ahead BEFORE resolving: the current item is still 'proposed' right now, so scanning
+  // from the next index finds whatever is genuinely still awaiting a decision. If something is
+  // waiting, this approve defers its publish and the queue stays snappy; the last item in the
+  // queue publishes for real, covering everything approved along the way.
   let next = tkReviewIdx + 1;
   while(next < tkReviewIds.length){
     const t2 = tkTask(tkReviewIds[next]);
     if(t2 && t2.status === 'proposed') break;
     next++;
   }
-  if(next >= tkReviewIds.length){ tkGoList(); return; }
+  const moreAhead = next < tkReviewIds.length;
+  await wlResolveTasks([id], approve, { deferPublish: moreAhead });
+  if(nextStepType && t && t.entityId){
+    await tkQueueNextStepForEntity(nextStepType, t.entityId);
+  }
+  if(!moreAhead){ tkGoList(); return; }
   tkReviewIdx = next;
   renderTaskPanel();
 }
@@ -9422,6 +9462,7 @@ function closeTaskPanel(){
   tkStopAudioPlayer();
   taskPanelEl.classList.remove('open');
   tkScrimEl.classList.remove('open');
+  tkFlushDeferredPublish(); // closing mid-queue must not strand approved-but-unpublished entries
 }
 // iOS suspends a backgrounded tab's JS wholesale — timers, in-flight fetches, all of it — so
 // triggerWorkflow's own watch loop (and the loadWorkLog() it calls on every poll, see the Run
@@ -9968,7 +10009,8 @@ async function tkAutoApproveSentenceRewords(){
 // stopping the SAME session's live-watch loop from hammering the same dead end forever.
 const tkAutoApproveFailedIds = new Set();
 
-async function wlResolveTasks(taskIds, approve){
+async function wlResolveTasks(taskIds, approve, opts){
+  const deferPublish = !!(opts && opts.deferPublish);
   if(!wlData || !taskIds.length) return { applied: [], failed: [], failedIds: [] };
   const nowIso = new Date().toISOString();
   const applied = [], failed = [], failedIds = [];
@@ -10017,17 +10059,28 @@ async function wlResolveTasks(taskIds, approve){
   // symptom. Deliberately placed AFTER the db mutation and BEFORE the workLog save, matching the
   // ordering the other flows use, so content lands first and the task's own bookkeeping second.
   // Approve only — rejecting changes no entry content, so there'd be nothing to publish.
-  const published = approve ? await publishToGitHub() : true;
+  // deferPublish: when stepping through a review queue, publishing after EVERY tap meant a full
+  // GitHub round-trip (read data.json, merge, commit) per item — ~30s of thumb-twiddling between
+  // approvals. The edits are already safe in the session db at this point, and publishToGitHub()
+  // always sends every dirty entry rather than just the latest, so one publish at the END of the
+  // queue lands exactly the same content as N publishes along the way, for one round-trip instead
+  // of N. tkResolveCurrent sets this whenever another proposed item is waiting behind this one;
+  // tkFlushDeferredPublish() is the safety net for leaving the queue early (see there).
+  let published = true;
+  if(approve){
+    if(deferPublish){ tkDeferredPublish = true; }
+    else { published = await publishToGitHub(); if(published) tkDeferredPublish = false; }
+  }
   wlSetLog(verb + ' ' + applied.length + (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') + ' \u00b7 saving work log\u2026', !!failed.length);
   const saved = await saveWorkLog(verb + ' ' + applied.length + ' task(s) via Content Manager', applied);
   if(!saved.ok){
     wlSetLog('Content updated in this session, but the work log could not be saved: ' + saved.error + ' \u2014 tap Refresh and try again, or these items will still show as proposed next time.', true);
   }else{
     wlSetLog(verb + ' ' + applied.length + ' task(s)' + (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') +
-      (approve ? (published ? ' \u00b7 published to GitHub \u2014 live in about a minute.' : ' \u00b7 NOT published \u2014 use Publish manually.') : ''), !!failed.length || (approve && !published));
+      (approve ? (deferPublish ? ' \u00b7 saved \u2014 publishing once you finish the queue.' : (published ? ' \u00b7 published to GitHub \u2014 live in about a minute.' : ' \u00b7 NOT published \u2014 use Publish manually.')) : ''), !!failed.length || (approve && !deferPublish && !published));
   }
   renderWorkLog();
-  if(approve && applied.length) setStatus(verb + ' ' + applied.length + (published ? ' \u2014 published' : ' \u2014 NOT published'));
+  if(approve && applied.length) setStatus(verb + ' ' + applied.length + (deferPublish ? '' : (published ? ' \u2014 published' : ' \u2014 NOT published')));
   return { applied, failed, failedIds };
 }
 
