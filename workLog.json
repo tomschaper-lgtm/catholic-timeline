@@ -14686,14 +14686,25 @@
       "type": "sentence-reword",
       "entityId": "em-volterra-1472",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Volterra",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-volterra-1472",
+        "name": "Volterra",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:37:27.757Z",
       "error": null
     },
     {
@@ -17722,6 +17733,59 @@
       "error": null,
       "createdAt": "2026-09-16T18:37:17.775Z",
       "updatedAt": "2026-09-16T18:37:17.775Z"
+    },
+    {
+      "id": "task-sentence-reword-em-volterra-1472-1789583847757-5750",
+      "type": "sentence-reword",
+      "entityId": "em-volterra-1472",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — Volterra",
+      "payload": {},
+      "result": {
+        "name": "Volterra",
+        "patches": [
+          [
+            "article",
+            "In 1472, war over control of the region's lucrative alum mines set Volterra, Italy, against Florence: troops under Duke Federico da Montefeltro, hired by Lorenzo de' Medici, stormed the city and subjected it to a brutal sack that has remained notorious in local memory ever since.",
+            "U",
+            "In 1472, war over control of the region's lucrative alum mines set Volterra, Italy, against Florence. Troops under Duke Federico da Montefeltro, hired by Lorenzo de' Medici, stormed the city and subjected it to a brutal sack. The sack has remained notorious in local memory ever since."
+          ],
+          [
+            "article",
+            "Accounts differ on exactly what happened next — whether just outside the church or at another point in his flight — but agree that, seized by fury against what the pyx contained, the soldier hurled it violently against a stone wall.",
+            "U",
+            "Accounts differ on exactly what happened next—whether just outside the church or at another point in his flight. But they agree that, seized by fury against what the pyx contained, the soldier hurled it violently against a stone wall."
+          ],
+          [
+            "article",
+            "Rather than scattering and falling as ordinary bread would, the consecrated Hosts freed from the shattered pyx rose into the air on their own, glowing with an inexplicable light and remaining suspended before numerous witnesses for what accounts describe as a considerable length of time.",
+            "U",
+            "Rather than scattering and falling as ordinary bread would, the consecrated Hosts freed from the shattered pyx rose into the air on their own. They glowed with an inexplicable light, remaining suspended before numerous witnesses for what accounts describe as a considerable length of time."
+          ],
+          [
+            "article",
+            "The surviving sources do not agree on every detail — which church the pyx was taken from, and whether the Hosts rose into the air or were simply found unharmed on the ground, vary between accounts written at different removes from the event itself.",
+            "U",
+            "The surviving sources do not agree on every detail. Accounts written at different removes from the event vary over which church the pyx was taken from. They also differ on whether the Hosts rose into the air or were simply found unharmed on the ground."
+          ],
+          [
+            "article",
+            "The Volterra account sits within a substantial body of late-medieval Eucharistic tradition built around wartime sacrilege — soldiers, plunder, and consecrated objects treated as loot rather than sacred — met, in the telling, by some visible resistance the violence itself could not overcome.",
+            "U",
+            "The Volterra account sits within a substantial body of late-medieval Eucharistic tradition built around wartime sacrilege. Soldiers treated plunder and consecrated objects as loot rather than sacred, yet, in the telling, some visible resistance overcame the violence itself."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:37:27.757Z",
+      "updatedAt": "2026-09-16T18:37:27.757Z"
     }
   ]
 }
