@@ -10912,14 +10912,25 @@
       "type": "sentence-reword",
       "entityId": "coronation-of-charlemagne-800",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Coronation of Charlemagne",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "coronation-of-charlemagne-800",
+        "name": "Coronation of Charlemagne",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:27:39.132Z",
       "error": null
     },
     {
@@ -11861,6 +11872,41 @@
       "error": null,
       "createdAt": "2026-09-16T07:27:34.195Z",
       "updatedAt": "2026-09-16T07:27:34.195Z"
+    },
+    {
+      "id": "task-sentence-reword-coronation-of-charlemagne-800-1789543659132-1404",
+      "type": "sentence-reword",
+      "entityId": "coronation-of-charlemagne-800",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Coronation of Charlemagne",
+      "payload": {},
+      "result": {
+        "name": "Coronation of Charlemagne",
+        "patches": [
+          [
+            "article",
+            "The assembled crowd is recorded as having acclaimed him at once:<blockquote>\"To Charles, the most pious Augustus, crowned by God, to our great and pacific emperor life and victory!\"</blockquote>By this act, in the Church's own understanding, the Roman Empire in the West was revived after more than three centuries.",
+            "U",
+            "The assembled crowd is recorded as having acclaimed him at once:<blockquote>\"To Charles, the most pious Augustus, crowned by God, to our great and pacific emperor life and victory!\"</blockquote> By this act, in the Church's own understanding, the Roman Empire in the West was revived after more than three centuries."
+          ],
+          [
+            "article",
+            "It fused Frankish military power with Roman and papal legitimacy, giving concrete political shape to the idea of a unified Christian Europe under the joint authority of emperor and pope — an idea that would shape, and often trouble, Church-state relations for the rest of the Middle Ages.",
+            "U",
+            "It fused Frankish military power with Roman and papal legitimacy. This gave concrete political shape to the idea of a unified Christian Europe under the joint authority of emperor and pope—an idea that would shape, and often trouble, Church-state relations for the rest of the Middle Ages."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:27:39.132Z",
+      "updatedAt": "2026-09-16T07:27:39.132Z"
     }
   ]
 }
