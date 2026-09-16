@@ -13077,14 +13077,25 @@
       "type": "sentence-reword",
       "entityId": "em-ferrara-1171",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Ferrara",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-ferrara-1171",
+        "name": "Ferrara",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:42:53.863Z",
       "error": null
     },
     {
@@ -14261,6 +14272,53 @@
       "error": null,
       "createdAt": "2026-09-16T12:42:45.076Z",
       "updatedAt": "2026-09-16T12:42:45.076Z"
+    },
+    {
+      "id": "task-sentence-reword-em-ferrara-1171-1789562573863-1681",
+      "type": "sentence-reword",
+      "entityId": "em-ferrara-1171",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Ferrara",
+      "payload": {},
+      "result": {
+        "name": "Ferrara",
+        "patches": [
+          [
+            "article",
+            "In the twelfth century, the church of Santa Maria in Vado stood on what was then the edge of Ferrara, a modest chapel in the care of the Canons Regular Portuensi and, since 1135, under the custody of the local bishop.",
+            "U",
+            "In the twelfth century, the church of Santa Maria in Vado stood on what was then the edge of Ferrara. It was a modest chapel in the care of the Canons Regular Portuensi and, since 1135, under the custody of the local bishop."
+          ],
+          [
+            "article",
+            "Word reached Bishop Amato of Ferrara and Archbishop Gerard of Ravenna, both of whom are said to have come in person to examine the stained vault, later attesting to having personally seen what they called \"the Blood which we saw redden the ceiling.\" Their episcopal testimony, distinct from a later devotional retelling, is part of what distinguishes Ferrara's account from many contemporaries.",
+            "U",
+            "Word reached Bishop Amato of Ferrara and Archbishop Gerard of Ravenna. Both are said to have come in person to examine the stained vault, later attesting to having personally seen what they called \"the Blood which we saw redden the ceiling.\" Their episcopal testimony, distinct from a later devotional retelling, is part of what distinguishes Ferrara's account from many contemporaries."
+          ],
+          [
+            "article",
+            "Across the centuries the shrine has drawn a notable line of pilgrims, including several popes; tradition holds that Pope St. John Paul II visited in 1990, continuing a pattern of papal attention to the site that reaches back to Pope Alexander III in the twelfth century.",
+            "U",
+            "Across the centuries, the shrine has drawn a notable line of pilgrims, including several popes. Tradition holds that Pope St. John Paul II visited in 1990, continuing a pattern of papal attention reaching back to Pope Alexander III in the twelfth century."
+          ],
+          [
+            "article",
+            "We recognize in the account of Ferrara something the Church has returned to again and again across the centuries of Eucharistic devotion: not a doubt confronted privately, as at Rome or Scetis, but a public sign witnessed by an entire congregation and then examined, soberly and deliberately, by the bishops responsible for it.",
+            "U",
+            "We recognize in the account of Ferrara something the Church has returned to again and again across the centuries of Eucharistic devotion. It was not a doubt confronted privately, as at Rome or Scetis, but a public sign witnessed by an entire congregation. The bishops responsible for it then examined that sign, soberly and deliberately."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:42:53.863Z",
+      "updatedAt": "2026-09-16T12:42:53.863Z"
     }
   ]
 }
