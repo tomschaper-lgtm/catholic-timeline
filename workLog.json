@@ -14530,14 +14530,25 @@
       "type": "sentence-reword",
       "entityId": "em-dijon-1430",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Dijon",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-dijon-1430",
+        "name": "Dijon",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:36:27.555Z",
       "error": null
     },
     {
@@ -17380,6 +17391,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:36:19.814Z",
       "updatedAt": "2026-09-16T18:36:19.814Z"
+    },
+    {
+      "id": "task-sentence-reword-em-dijon-1430-1789583787555-2456",
+      "type": "sentence-reword",
+      "entityId": "em-dijon-1430",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Dijon",
+      "payload": {},
+      "result": {
+        "name": "Dijon",
+        "patches": [
+          [
+            "article",
+            "In 1430, a woman in Monaco purchased a monstrance from a secondhand dealer, unaware — or perhaps only later realizing — that it still contained a large consecrated Host, almost certainly because the vessel itself had been stolen from a church.",
+            "U",
+            "In 1430, a woman in Monaco purchased a monstrance from a secondhand dealer. She was unaware — or perhaps only later realizing — that it still contained a large consecrated Host. This was almost certainly because the vessel itself had been stolen from a church."
+          ],
+          [
+            "article",
+            "Unsettled by what she had done, the woman brought the Host to a local canon named Anelon, who kept it in his own care; word of the event spread quickly enough to reach Pope Eugene IV, who arranged for the Host to be given to Duke Philip of Burgundy.",
+            "U",
+            "Unsettled by what she had done, the woman brought the Host to a local canon named Anelon, who kept it in his own care. Word of the event spread quickly enough to reach Pope Eugene IV, who arranged for the Host to be given to Duke Philip of Burgundy."
+          ],
+          [
+            "article",
+            "Though the relic itself did not survive, its memory did: numerous period documents and works of art record the event, including a stained-glass window in Dijon Cathedral that still depicts the central scene of a startled woman, a knife, and an image that appeared where none had been painted.",
+            "U",
+            "Though the relic itself did not survive, its memory did. Numerous period documents and works of art record the event, including a stained-glass window in Dijon Cathedral. It still depicts the central scene of a startled woman, a knife, and an image that appeared where none had been painted."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:36:27.555Z",
+      "updatedAt": "2026-09-16T18:36:27.555Z"
     }
   ]
 }
