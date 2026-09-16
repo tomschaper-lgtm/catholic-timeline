@@ -11540,14 +11540,25 @@
       "type": "sentence-reword",
       "entityId": "st-john-baptist-de-la-salle-1719",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. John Baptist de la Salle",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-john-baptist-de-la-salle-1719",
+        "name": "St. John Baptist de la Salle",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:44:38.103Z",
-      "updatedAt": "2026-09-16T03:47:24.920Z",
+      "updatedAt": "2026-09-16T03:50:16.244Z",
       "error": null
     },
     {
@@ -12690,6 +12701,53 @@
       "error": null,
       "createdAt": "2026-09-16T03:50:07.369Z",
       "updatedAt": "2026-09-16T03:50:07.369Z"
+    },
+    {
+      "id": "task-sentence-reword-st-john-baptist-de-la-salle-1719-1789530616244-8712",
+      "type": "sentence-reword",
+      "entityId": "st-john-baptist-de-la-salle-1719",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — St. John Baptist de la Salle",
+      "payload": {},
+      "result": {
+        "name": "St. John Baptist de la Salle",
+        "patches": [
+          [
+            "article",
+            "Born in 1651 at Reims into an old and distinguished French family, <b>John Baptist</b> was ordained a priest and held a comfortable position as a cathedral canon before becoming, almost accidentally, involved in the education of poor children through his support for a group of struggling lay schoolteachers in Reims.",
+            "U",
+            "Born in 1651 at Reims into an old and distinguished French family, <b>John Baptist</b> was ordained a priest. He held a comfortable position as a cathedral canon before becoming, almost accidentally, involved in educating poor children through his support for struggling lay schoolteachers in Reims."
+          ],
+          [
+            "article",
+            "As his involvement deepened, John Baptist made a series of increasingly radical choices: he invited the schoolteachers to live in his own family home, resigned his lucrative canonry, and eventually distributed his entire personal fortune to the poor during a famine — steps he took gradually and deliberately, aware they would strip away every social advantage his birth had given him, in order to place himself on an equal footing with the humble teachers he had come to lead.",
+            "U",
+            "As his involvement deepened, John Baptist made increasingly radical choices: he invited the schoolteachers to live in his family home and resigned his lucrative canonry. Eventually, during a famine, he distributed his entire personal fortune to the poor. He took these steps gradually and deliberately, aware they would strip away every social advantage his birth had given him, placing himself on equal footing with the humble teachers he had come to lead."
+          ],
+          [
+            "article",
+            "Recognizing that his method could only spread as far as properly trained teachers were available, John Baptist established what many historians regard as the first true institution for training lay teachers — a 'normal school' predating similar institutions in Germany by decades.",
+            "U",
+            "Recognizing that his method could only spread as far as properly trained teachers were available, John Baptist established an institution for training lay teachers. Many historians regard it as the first true 'normal school', predating similar institutions in Germany by decades."
+          ],
+          [
+            "article",
+            "Canonized in 1900 and declared patron of teachers by Pope Pius XII in 1950, his Brothers of the Christian Schools remain, over three centuries later, one of the largest teaching orders in the Catholic Church, still operating schools worldwide according to the essential principles he first developed in Reims.",
+            "U",
+            "Canonized in 1900 and declared patron of teachers by Pope Pius XII in 1950, he remains honored by the Church. Over three centuries later, his Brothers of the Christian Schools remain one of the largest teaching orders in the Catholic Church. They still operate schools worldwide according to the essential principles he first developed in Reims."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:50:16.244Z",
+      "updatedAt": "2026-09-16T03:50:16.244Z"
     }
   ]
 }
