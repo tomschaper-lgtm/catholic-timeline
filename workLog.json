@@ -3115,12 +3115,53 @@
       "type": "arbitrate",
       "entityId": "st-joan-of-arc-1431",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Joan of Arc",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Joan of Arc",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "JUDGMENT",
+            "category": "JUDGMENT/TONE",
+            "section": "Legacy",
+            "sentence": "4",
+            "kind": "article",
+            "before": "She was burned as a heretic by the very institution that would one day raise her to its altars as a saint.",
+            "after": "She was condemned and executed by an ecclesiastical tribunal operating under strong English political influence, while the Church later annulled the verdict and raised her to the altars as a saint.",
+            "concern": "The wording misleadingly presents the Church as a single institution that both burned Joan and later canonized her. Her condemnation was issued by a church tribunal under Bishop Pierre Cauchon and English influence, and the later rehabilitation inquiry formally annulled the original proceedings.",
+            "suggestedCorrection": "Replace the sentence with wording that distinguishes the politically influenced tribunal that condemned Joan from the later Church inquiry that annulled the verdict.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The revision provides essential nuance regarding the political nature of the tribunal and the formal annulment, which prevents a misleading institutional contradiction.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "Quick Facts",
+            "sentence": "5",
+            "kind": "facts",
+            "before": "1920, by Pope Benedict XV",
+            "after": "1920, by Pope Benedict XVI",
+            "concern": "Joan of Arc was canonized by Pope Benedict XV in 1920, not Benedict XVI (who reigned from 2005 to 2013).",
+            "suggestedCorrection": "Correct the pope's name to Benedict XV.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "",
+            "proposedBy": "gemini-3.5-flash-lite",
+            "arbitratedBy": "gpt-5.6-luna"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-16T04:36:38.351Z",
-      "updatedAt": "2026-09-16T04:42:51.391Z",
+      "updatedAt": "2026-09-16T04:47:20.324Z",
       "error": null
     },
     {
