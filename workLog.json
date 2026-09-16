@@ -8080,14 +8080,25 @@
       "type": "sentence-reword",
       "entityId": "first-vatican-council-1869",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — First Vatican Council",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "first-vatican-council-1869",
+        "name": "First Vatican Council",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:12:54.789Z",
-      "updatedAt": "2026-09-16T06:17:43.391Z",
+      "updatedAt": "2026-09-16T06:18:45.714Z",
       "error": null
     },
     {
@@ -8350,6 +8361,35 @@
       "error": null,
       "createdAt": "2026-09-16T06:18:42.506Z",
       "updatedAt": "2026-09-16T06:18:42.506Z"
+    },
+    {
+      "id": "task-sentence-reword-first-vatican-council-1869-1789539525714-1968",
+      "type": "sentence-reword",
+      "entityId": "first-vatican-council-1869",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — First Vatican Council",
+      "payload": {},
+      "result": {
+        "name": "First Vatican Council",
+        "patches": [
+          [
+            "article",
+            "When the pope speaks <i>ex cathedra</i> — formally, as shepherd and teacher of all Christians, defining a doctrine of faith or morals to be held by the whole Church — he possesses, through the assistance promised to Peter, the same infallibility Christ willed his Church to enjoy in matters of doctrine.",
+            "U",
+            "When the pope speaks <i>ex cathedra</i> — formally, as shepherd and teacher of all Christians — he defines a doctrine of faith or morals to be held by the whole Church. Through the assistance promised to Peter, he possesses the same infallibility Christ willed his Church to enjoy in matters of doctrine."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:18:45.714Z",
+      "updatedAt": "2026-09-16T06:18:45.714Z"
     }
   ]
 }
