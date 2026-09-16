@@ -7871,12 +7871,53 @@
       "type": "arbitrate",
       "entityId": "first-vatican-council-1869",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — First Vatican Council",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "First Vatican Council",
+        "verdict": "findings",
+        "debates": [
+          {
+            "kind": "article",
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "A Church Facing the Modern World",
+            "sentence": "3",
+            "before": "formally summoned it by the bull Aeterni Patris in June 1869",
+            "after": "formally summoned it by the bull Aeterni Patris in June 1868",
+            "concern": "The bull Aeterni Patris, which formally convoked the First Vatican Council, was issued on 29 June 1868, not in June 1869.",
+            "suggestedCorrection": "Correct the year to 1868.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The First Vatican Council was indeed convoked by the bull Aeterni Patris in June 1868.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "kind": "facts",
+            "severity": "VERIFY",
+            "category": "CATHOLIC TEACHING",
+            "section": "Quick Facts",
+            "sentence": "5",
+            "before": "Rationalism; fideism; conciliarism",
+            "after": "Rationalism; fideism",
+            "concern": "The council's constitutions explicitly condemned rationalism and fideism, but listing conciliarism as something Vatican I condemned is potentially misleading because the council did not issue a specific formal condemnation of conciliarism in the same way.",
+            "suggestedCorrection": "Remove “conciliarism” from this fact unless a precise council text and intended meaning can be supplied.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Removing conciliarism avoids conflating Vatican I's specific condemnations with earlier conciliar debates.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-16T06:21:57.508Z",
-      "updatedAt": "2026-09-16T17:42:17.458Z",
+      "updatedAt": "2026-09-16T17:54:37.238Z",
       "error": null
     },
     {
