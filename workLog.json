@@ -3904,14 +3904,25 @@
       "type": "sentence-reword",
       "entityId": "st-stanislaus-1079",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Stanislaus",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-stanislaus-1079",
+        "name": "St. Stanislaus",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:36:31.034Z",
-      "updatedAt": "2026-09-16T02:57:28.977Z",
+      "updatedAt": "2026-09-16T03:01:03.978Z",
       "error": null
     },
     {
@@ -7064,6 +7075,41 @@
       "error": null,
       "createdAt": "2026-09-16T03:00:59.071Z",
       "updatedAt": "2026-09-16T03:00:59.071Z"
+    },
+    {
+      "id": "task-sentence-reword-st-stanislaus-1079-1789527663978-5075",
+      "type": "sentence-reword",
+      "entityId": "st-stanislaus-1079",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Stanislaus",
+      "payload": {},
+      "result": {
+        "name": "St. Stanislaus",
+        "patches": [
+          [
+            "article",
+            "When Stanislaus refused to lift the excommunication and halted services rather than let the excommunicated king enter the cathedral, an enraged Bolesław sent guards to kill the bishop; when they refused to strike, the king, by the traditional account, personally cut Stanislaus down himself while the bishop was celebrating Mass at the Chapel of St. Michael outside Kraków, on <b>11 April 1079</b>.",
+            "U",
+            "When Stanislaus refused to lift the excommunication and halted services rather than let the excommunicated king enter the cathedral, an enraged Bolesław sent guards to kill the bishop. When they refused to strike, the king, by the traditional account, personally cut Stanislaus down himself while the bishop was celebrating Mass at the Chapel of St. Michael outside Kraków, on <b>11 April 1079</b>."
+          ],
+          [
+            "article",
+            "Stanislaus is venerated as the principal patron of Poland and of the city and Diocese of Kraków, remembered as a symbol of the Church's willingness to hold even the highest secular power accountable to justice and moral law. <a href=\"entry:st-john-paul-ii-2005\">Pope John Paul II</a>, himself a former archbishop of Kraków, called Stanislaus the patron saint of moral order, a fitting tribute to a bishop whose defiance of royal tyranny cost him his life at the altar itself.",
+            "U",
+            "Stanislaus is venerated as the principal patron of Poland and of the city and Diocese of Kraków. He is remembered as a symbol of the Church's willingness to hold even the highest secular power accountable to justice and moral law. <a href=\"entry:st-john-paul-ii-2005\">Pope John Paul II</a>, himself a former archbishop of Kraków, called Stanislaus the patron saint of moral order, a fitting tribute to a bishop whose defiance of royal tyranny cost him his life at the altar itself."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:01:03.978Z",
+      "updatedAt": "2026-09-16T03:01:03.978Z"
     }
   ]
 }
