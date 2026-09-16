@@ -11358,14 +11358,25 @@
       "type": "sentence-reword",
       "entityId": "st-alban-roe-1642",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Alban Roe",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-alban-roe-1642",
+        "name": "St. Alban Roe",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:44:38.103Z",
-      "updatedAt": "2026-09-16T03:47:24.920Z",
+      "updatedAt": "2026-09-16T03:48:29.489Z",
       "error": null
     },
     {
@@ -12188,6 +12199,41 @@
       "error": null,
       "createdAt": "2026-09-16T03:48:25.288Z",
       "updatedAt": "2026-09-16T03:48:25.288Z"
+    },
+    {
+      "id": "task-sentence-reword-st-alban-roe-1642-1789530509489-5209",
+      "type": "sentence-reword",
+      "entityId": "st-alban-roe-1642",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Alban Roe",
+      "payload": {},
+      "result": {
+        "name": "St. Alban Roe",
+        "patches": [
+          [
+            "article",
+            "He was imprisoned in the New Prison at Maiden Lane from 1618 until 1623, when the Spanish ambassador negotiated his release on condition that he leave England for good — a condition Roe kept for barely four months before crossing back.",
+            "U",
+            "He was imprisoned in the New Prison at Maiden Lane from 1618 until 1623. The Spanish ambassador negotiated his release on condition that he leave England for good, but Roe crossed back barely four months later."
+          ],
+          [
+            "article",
+            "He once told a former gaoler, 'My friend, I find that thou art a prophet; thou hast often told me I should be hanged.' On the morning of 21 January he said Mass for his fellow prisoners and addressed a short, steadying speech to them before his execution at Tyburn alongside the priest Thomas Reynolds.",
+            "U",
+            "He once told a former gaoler, 'My friend, I find that thou art a prophet; thou hast often told me I should be hanged.' On the morning of 21 January, he said Mass for his fellow prisoners. Before his execution at Tyburn alongside the priest Thomas Reynolds, he addressed them in a short, steadying speech."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:48:29.489Z",
+      "updatedAt": "2026-09-16T03:48:29.489Z"
     }
   ]
 }
