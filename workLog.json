@@ -2994,14 +2994,25 @@
       "type": "sentence-reword",
       "entityId": "st-liborius-397",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Liborius",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-liborius-397",
+        "name": "St. Liborius",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:36:31.034Z",
-      "updatedAt": "2026-09-16T02:37:52.851Z",
+      "updatedAt": "2026-09-16T02:38:47.323Z",
       "error": null
     },
     {
@@ -3916,6 +3927,35 @@
       "error": null,
       "createdAt": "2026-09-16T02:38:44.606Z",
       "updatedAt": "2026-09-16T02:38:44.606Z"
+    },
+    {
+      "id": "task-sentence-reword-st-liborius-397-1789526327323-7522",
+      "type": "sentence-reword",
+      "entityId": "st-liborius-397",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Liborius",
+      "payload": {},
+      "result": {
+        "name": "St. Liborius",
+        "patches": [
+          [
+            "article",
+            "He spent nearly fifty years shepherding a diocese whose people, in the end, loved him enough to keep his memory alive through a friendship, a relic transfer, and a devotion that outlasted the empire he had lived under by well over a thousand years.",
+            "U",
+            "He spent nearly fifty years shepherding a diocese whose people, in the end, loved him enough to keep his memory alive. They did so through a friendship, a relic transfer, and a devotion that outlasted the empire he had lived under by well over a thousand years."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:38:47.323Z",
+      "updatedAt": "2026-09-16T02:38:47.323Z"
     }
   ]
 }
