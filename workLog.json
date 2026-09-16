@@ -14842,14 +14842,25 @@
       "type": "sentence-reword",
       "entityId": "em-alcoy-1568",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Alcoy",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-alcoy-1568",
+        "name": "Alcoy",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:38:23.452Z",
       "error": null
     },
     {
@@ -18064,6 +18075,59 @@
       "error": null,
       "createdAt": "2026-09-16T18:38:09.467Z",
       "updatedAt": "2026-09-16T18:38:09.467Z"
+    },
+    {
+      "id": "task-sentence-reword-em-alcoy-1568-1789583903452-351",
+      "type": "sentence-reword",
+      "entityId": "em-alcoy-1568",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — Alcoy",
+      "payload": {},
+      "result": {
+        "name": "Alcoy",
+        "patches": [
+          [
+            "article",
+            "On 29 January 1568, a cloth shearer named Joan Prats, struggling with poverty, broke into his own parish church in Alcoy, Spain, and stole a silver ciborium holding forty consecrated Hosts, along with a pyx and a reliquary — sacred vessels worth considerably more than the man's ordinary means.",
+            "U",
+            "On 29 January 1568, a cloth shearer named Joan Prats, struggling with poverty, broke into his own parish church in Alcoy, Spain. He stole a silver ciborium holding forty consecrated Hosts, along with a pyx and a reliquary—sacred vessels worth considerably more than the man's ordinary means."
+          ],
+          [
+            "article",
+            "The theft was discovered quickly, and the town's search for the stolen vessels turned, according to the tradition kept in Alcoy ever since, on an unexpected sign: a statue of the Child Jesus was reported to point toward the location where Prats had concealed his stolen goods, leading searchers directly to the hiding place.",
+            "U",
+            "The theft was discovered quickly, and the town searched for the stolen vessels. According to the tradition kept in Alcoy ever since, an unexpected sign emerged. A statue of the Child Jesus was reported to point toward the location where Prats had concealed his stolen goods, leading searchers directly to the hiding place."
+          ],
+          [
+            "article",
+            "The consecrated Hosts were recovered from where Prats had hidden them, and the theft — resolved with unusual speed for an era when such crimes often went unsolved for months or longer — became, in local memory, less a story of the crime itself than of the swiftness and strangeness of its resolution.",
+            "U",
+            "The consecrated Hosts were recovered from where Prats had hidden them. The theft was resolved with unusual speed for an era when such crimes often went unsolved for months or longer. In local memory, it became less a story of the crime itself than of the swiftness and strangeness of its resolution."
+          ],
+          [
+            "article",
+            "The house where Prats had committed the theft was later converted into an oratory and remains open to visitors in Alcoy today, a physical marker tying the town's devotion directly to the specific building where the sacrilege occurred rather than only to the church it was taken from.",
+            "U",
+            "The house where Prats had committed the theft was later converted into an oratory and remains open to visitors in Alcoy today. It physically ties the town's devotion directly to the building where the sacrilege occurred, rather than only to the church it was taken from."
+          ],
+          [
+            "article",
+            "Every year on 31 January, the people of Alcoy hold a solemn procession — the Procession of the Miraculous Baby Jesus, or Jesuset del Miracle in the local Valencian tongue — commemorating the 1568 theft and its resolution, a devotion now more than four and a half centuries old.",
+            "U",
+            "Every year on 31 January, the people of Alcoy hold a solemn procession, the Procession of the Miraculous Baby Jesus. Also called Jesuset del Miracle in the local Valencian tongue, it commemorates the 1568 theft and its resolution. This devotion is now more than four and a half centuries old."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:38:23.452Z",
+      "updatedAt": "2026-09-16T18:38:23.452Z"
     }
   ]
 }
