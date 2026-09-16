@@ -14527,14 +14527,25 @@
       "type": "sentence-reword",
       "entityId": "st-bonaventure-1274",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Bonaventure",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-bonaventure-1274",
+        "name": "St. Bonaventure",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:25:32.366Z",
       "error": null
     },
     {
@@ -15396,6 +15407,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:25:29.865Z",
       "updatedAt": "2026-09-16T04:25:29.865Z"
+    },
+    {
+      "id": "task-sentence-reword-st-bonaventure-1274-1789532732366-3989",
+      "type": "sentence-reword",
+      "entityId": "st-bonaventure-1274",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Bonaventure",
+      "payload": {},
+      "result": {
+        "name": "St. Bonaventure",
+        "patches": [
+          [
+            "article",
+            "This proves that the most rigorous intellectual argument and the most ardent mystical love of God were never, for Bonaventure, two separate pursuits, but a single unbroken journey of the mind toward the God who had first called it into being.",
+            "U",
+            "This proves that the most rigorous intellectual argument and the most ardent mystical love of God were never, for Bonaventure, two separate pursuits. Instead, they formed a single unbroken journey of the mind toward the God who had first called it into being."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:25:32.366Z",
+      "updatedAt": "2026-09-16T04:25:32.366Z"
     }
   ]
 }
