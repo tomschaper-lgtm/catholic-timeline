@@ -14660,14 +14660,25 @@
       "type": "sentence-reword",
       "entityId": "em-la-rochelle-1461",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — La Rochelle",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-la-rochelle-1461",
+        "name": "La Rochelle",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:37:17.775Z",
       "error": null
     },
     {
@@ -17670,6 +17681,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:37:11.191Z",
       "updatedAt": "2026-09-16T18:37:11.191Z"
+    },
+    {
+      "id": "task-sentence-reword-em-la-rochelle-1461-1789583837775-7918",
+      "type": "sentence-reword",
+      "entityId": "em-la-rochelle-1461",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — La Rochelle",
+      "payload": {},
+      "result": {
+        "name": "La Rochelle",
+        "patches": [
+          [
+            "article",
+            "The parish priest initially refused, since Bertrand's muteness made it impossible for him to make a sacramental confession beforehand — but the boy persisted in his silent pleading until the priest, moved by his evident sincerity, relented and gave him Communion.",
+            "U",
+            "The parish priest initially refused, since Bertrand's muteness made it impossible for him to make a sacramental confession beforehand. But the boy persisted in his silent pleading until the priest, moved by his evident sincerity, relented and gave him Communion."
+          ],
+          [
+            "article",
+            "The La Rochelle account belongs to a smaller category of Eucharistic tradition centered not on a transformation of the bread and wine but on healing granted at the moment of reception itself — the sacrament working, as the faithful understood it, exactly as it claimed to.",
+            "U",
+            "The La Rochelle account belongs to a smaller category of Eucharistic tradition. It centers not on transforming bread and wine, but on healing granted at the moment of reception itself—the sacrament working, as the faithful understood it, exactly as it claimed to."
+          ],
+          [
+            "article",
+            "Whatever a modern reader makes of a five-century-old cure, the manuscript that recorded it, and the persistence of a mute boy who refused to be turned away from Communion, together preserve a story about insistence rewarded rather than fabricated for effect.",
+            "U",
+            "Whatever a modern reader makes of a five-century-old cure, the manuscript that recorded it, and the persistence of a mute boy together preserve a story. He refused to be turned away from Communion, and his insistence was rewarded rather than fabricated for effect."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:37:17.775Z",
+      "updatedAt": "2026-09-16T18:37:17.775Z"
     }
   ]
 }
