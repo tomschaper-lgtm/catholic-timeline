@@ -14137,14 +14137,25 @@
       "type": "sentence-reword",
       "entityId": "st-paulinus-of-nola-431",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Paulinus of Nola",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-paulinus-of-nola-431",
+        "name": "St. Paulinus of Nola",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:24:46.600Z",
       "error": null
     },
     {
@@ -14801,6 +14812,41 @@
       "error": null,
       "createdAt": "2026-09-16T04:24:41.771Z",
       "updatedAt": "2026-09-16T04:24:41.771Z"
+    },
+    {
+      "id": "task-sentence-reword-st-paulinus-of-nola-431-1789532686600-5253",
+      "type": "sentence-reword",
+      "entityId": "st-paulinus-of-nola-431",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Paulinus of Nola",
+      "payload": {},
+      "result": {
+        "name": "St. Paulinus of Nola",
+        "patches": [
+          [
+            "article",
+            "They sold their substantial estates in Gaul and Spain, distributing the proceeds to the poor—a renunciation so complete and startling to Roman aristocratic sensibilities that his old teacher Ausonius wrote him verses of bewildered reproach, to which Paulinus replied with dignified poetic epistles of his own.",
+            "U",
+            "They sold their substantial estates in Gaul and Spain, distributing the proceeds to the poor. This renunciation was so complete and startling to Roman aristocratic sensibilities that his old teacher Ausonius wrote him verses of bewildered reproach. Paulinus replied with dignified poetic epistles of his own."
+          ],
+          [
+            "article",
+            "He also wrote numerous letters to the leading Christian figures of his day — <a href=\"entry:st-augustine-430\">Augustine</a>, <a href=\"entry:st-jerome-420\">Jerome</a>, Sulpicius Severus, and others — filled, in the Catholic Encyclopedia's words, with such extensive biblical language and allusion that 'everything he performed in the Spirit of the Bible.' Tradition also credits him with introducing bells into Christian church worship.",
+            "U",
+            "He also wrote numerous letters to the leading Christian figures of his day — <a href=\"entry:st-augustine-430\">Augustine</a>, <a href=\"entry:st-jerome-420\">Jerome</a>, Sulpicius Severus, and others. In the Catholic Encyclopedia's words, they were filled with such extensive biblical language and allusion that 'everything he performed in the Spirit of the Bible.' Tradition also credits him with introducing bells into Christian church worship."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:24:46.600Z",
+      "updatedAt": "2026-09-16T04:24:46.600Z"
     }
   ]
 }
