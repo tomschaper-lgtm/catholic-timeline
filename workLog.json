@@ -2812,14 +2812,25 @@
       "type": "sentence-reword",
       "entityId": "st-lucy-304",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Lucy",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-lucy-304",
+        "name": "St. Lucy",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:36:31.034Z",
-      "updatedAt": "2026-09-16T02:37:52.851Z",
+      "updatedAt": "2026-09-16T02:38:07.702Z",
       "error": null
     },
     {
@@ -3570,6 +3581,53 @@
       "error": null,
       "createdAt": "2026-09-16T02:37:56.427Z",
       "updatedAt": "2026-09-16T02:37:56.427Z"
+    },
+    {
+      "id": "task-sentence-reword-st-lucy-304-1789526287702-6059",
+      "type": "sentence-reword",
+      "entityId": "st-lucy-304",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — St. Lucy",
+      "payload": {},
+      "result": {
+        "name": "St. Lucy",
+        "patches": [
+          [
+            "article",
+            "The unexpected generosity enraged the young man to whom Lucy had been unwillingly betrothed, who, realizing her dowry was being given away rather than settled on him, denounced her as a Christian to <b>Paschasius</b>, the Roman governor of Sicily, during the height of Diocletian's persecution in 303.",
+            "U",
+            "The unexpected generosity enraged the young man to whom Lucy had been unwillingly betrothed. Realizing her dowry was being given away rather than settled on him, he denounced her as a Christian to <b>Paschasius</b>, the Roman governor of Sicily, during the height of Diocletian's persecution in 303."
+          ],
+          [
+            "article",
+            "Bundles of wood were then piled around her and set alight, yet the flames left her unharmed; she was finally put to death by the sword, but not before, in the account preserved by the Catholic Encyclopedia, foretelling the coming end of the persecution and the deaths of the emperors responsible for it.",
+            "U",
+            "Bundles of wood were then piled around her and set alight, yet the flames left her unharmed. She was finally put to death by the sword, but not before, in the account preserved by the Catholic Encyclopedia, foretelling the coming end of the persecution and the deaths of the emperors responsible for it."
+          ],
+          [
+            "article",
+            "Lucy's name, derived from the Latin <i>lux</i> ('light'), gave rise over the centuries to her strong association with eyesight and vision — a connection reinforced by later medieval legend and iconography depicting her carrying her own eyes on a dish, though the Catholic Encyclopedia itself treats many such graphic details as later embellishment rather than established fact.",
+            "U",
+            "Lucy's name, derived from the Latin <i>lux</i> ('light'), gave rise over the centuries to her strong association with eyesight and vision. Later medieval legend and iconography reinforced this connection by depicting her carrying her own eyes on a dish. However, the Catholic Encyclopedia itself treats many such graphic details as later embellishment rather than established fact."
+          ],
+          [
+            "article",
+            "Devotion to Lucy spread with extraordinary speed for a local Sicilian martyr, venerated by Latins and Greeks alike from an early date, and her feast on 13 December — close to the winter solstice under the old Julian calendar — made her a central figure of light amid midwinter darkness across Northern Europe, especially in Scandinavia, where St. Lucy's Day processions of candlelit young women remain one of the most beloved living Christian customs of the whole liturgical year.",
+            "U",
+            "Devotion to Lucy spread with extraordinary speed for a local Sicilian martyr, venerated by Latins and Greeks alike from an early date. Her feast on 13 December — close to the winter solstice under the old Julian calendar — made her a central figure of light amid midwinter darkness across Northern Europe, especially in Scandinavia. There, St. Lucy's Day processions of candlelit young women remain one of the most beloved living Christian customs of the whole liturgical year."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:38:07.702Z",
+      "updatedAt": "2026-09-16T02:38:07.702Z"
     }
   ]
 }
