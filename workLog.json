@@ -944,14 +944,25 @@
       "type": "sentence-reword",
       "entityId": "st-catherine-labour-1876",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Catherine Labouré",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-catherine-labour-1876",
+        "name": "St. Catherine Labouré",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:30:39.114Z",
-      "updatedAt": "2026-09-16T04:31:39.369Z",
+      "updatedAt": "2026-09-16T04:33:38.980Z",
       "error": null
     },
     {
@@ -1992,6 +2003,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:33:36.397Z",
       "updatedAt": "2026-09-16T04:33:36.397Z"
+    },
+    {
+      "id": "task-sentence-reword-st-catherine-labour-1876-1789533218980-1797",
+      "type": "sentence-reword",
+      "entityId": "st-catherine-labour-1876",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Catherine Labouré",
+      "payload": {},
+      "result": {
+        "name": "St. Catherine Labouré",
+        "patches": [
+          [
+            "article",
+            "Returning from the funeral, she is remembered as having taken up a small statue of Our Lady from the family mantel, held it close, and said, \"Now, dear Blessed Virgin, you will be my mother.\" This child's vow would prove, in the end, no passing grief but the whole shape of a life.",
+            "U",
+            "Returning from the funeral, she is remembered as having taken up a small statue of Our Lady from the family mantel and held it close. She said, \"Now, dear Blessed Virgin, you will be my mother.\" This child's vow would prove, in the end, no passing grief but the whole shape of a life."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:33:38.980Z",
+      "updatedAt": "2026-09-16T04:33:38.980Z"
     }
   ]
 }
