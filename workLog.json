@@ -7844,14 +7844,25 @@
       "type": "sentence-reword",
       "entityId": "council-of-carthage-397",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Council of Carthage",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "council-of-carthage-397",
+        "name": "Council of Carthage",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:12:54.789Z",
-      "updatedAt": "2026-09-16T06:17:43.391Z",
+      "updatedAt": "2026-09-16T06:18:11.471Z",
       "error": null
     },
     {
@@ -8017,6 +8028,35 @@
       "error": null,
       "createdAt": "2026-09-16T06:18:08.041Z",
       "updatedAt": "2026-09-16T06:18:08.041Z"
+    },
+    {
+      "id": "task-sentence-reword-council-of-carthage-397-1789539491471-5063",
+      "type": "sentence-reword",
+      "entityId": "council-of-carthage-397",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Council of Carthage",
+      "payload": {},
+      "result": {
+        "name": "Council of Carthage",
+        "patches": [
+          [
+            "article",
+            "This was aided considerably by the towering theological authority Augustine himself would go on to carry for the rest of his career, and by the fact that their canon matched, in substance, the list already associated with Pope Damasus's Roman synod of 382.",
+            "U",
+            "This was aided considerably by the towering theological authority Augustine himself would go on to carry for the rest of his career. It was also aided by the fact that their canon matched, in substance, the list already associated with Pope Damasus's Roman synod of 382."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:18:11.471Z",
+      "updatedAt": "2026-09-16T06:18:11.471Z"
     }
   ]
 }
