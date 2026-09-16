@@ -11094,14 +11094,25 @@
       "type": "sentence-reword",
       "entityId": "western-schism-1378",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Western Schism",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "western-schism-1378",
+        "name": "Western Schism",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:28:36.796Z",
       "error": null
     },
     {
@@ -12249,6 +12260,47 @@
       "error": null,
       "createdAt": "2026-09-16T07:28:29.995Z",
       "updatedAt": "2026-09-16T07:28:29.995Z"
+    },
+    {
+      "id": "task-sentence-reword-western-schism-1378-1789543716796-6790",
+      "type": "sentence-reword",
+      "entityId": "western-schism-1378",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Western Schism",
+      "payload": {},
+      "result": {
+        "name": "Western Schism",
+        "patches": [
+          [
+            "article",
+            "Citing Rome's summer heat, the disaffected cardinals withdrew first to Anagni and then to <b>Fondi</b>, where, under the protection of Queen Joanna of Naples, thirteen of them declared Urban's election invalid — alleging it had been made under mob duress — and on 20 September 1378 elected <b>Robert of Geneva</b> as a rival pope, who took the name <b>Clement VII</b>.",
+            "U",
+            "Citing Rome's summer heat, the disaffected cardinals withdrew first to Anagni and then to <b>Fondi</b>, under Queen Joanna of Naples's protection. There, thirteen declared Urban's election invalid — alleging it had been made under mob duress — and on 20 September 1378 elected <b>Robert of Geneva</b> as a rival pope, who took the name <b>Clement VII</b>."
+          ],
+          [
+            "article",
+            "The schism outlived both original claimants, passing through successors on each side — Boniface IX, Innocent VII, and Gregory XII at Rome; Benedict XIII at Avignon — and, after a failed attempt at resolution by the Council of Pisa in 1409 that only added a third papal line, was finally resolved by the <b>Council of Constance</b> (1414–1418), which secured the resignation or deposition of the rival claimants and elected Pope Martin V in 1417.",
+            "U",
+            "The schism outlived both original claimants, passing through successors on each side — Boniface IX, Innocent VII, and Gregory XII at Rome; Benedict XIII at Avignon.  \nAfter a failed attempt at resolution by the Council of Pisa in 1409 that only added a third papal line, it was finally resolved by the <b>Council of Constance</b> (1414–1418), which secured the resignation or deposition of the rival claimants and elected Pope Martin V in 1417."
+          ],
+          [
+            "article",
+            "The Western Schism did lasting damage to papal prestige and gave powerful impetus to the conciliarist movement, which argued that a general council held authority even over the pope — a theory the Church would spend much of the following century working through.",
+            "U",
+            "The Western Schism did lasting damage to papal prestige and gave powerful impetus to the conciliarist movement. The movement argued that a general council held authority even over the pope—a theory the Church would spend much of the following century working through."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:28:36.796Z",
+      "updatedAt": "2026-09-16T07:28:36.796Z"
     }
   ]
 }
