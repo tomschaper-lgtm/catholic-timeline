@@ -16154,14 +16154,25 @@
       "type": "sentence-reword",
       "entityId": "em-peter-damian-11c",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Peter Damian",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-peter-damian-11c",
+        "name": "St. Peter Damian",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:12:12.738Z",
       "error": null
     },
     {
@@ -18448,6 +18459,35 @@
       "error": null,
       "createdAt": "2026-09-16T18:12:10.178Z",
       "updatedAt": "2026-09-16T18:12:10.178Z"
+    },
+    {
+      "id": "task-sentence-reword-em-peter-damian-11c-1789582332738-3745",
+      "type": "sentence-reword",
+      "entityId": "em-peter-damian-11c",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Peter Damian",
+      "payload": {},
+      "result": {
+        "name": "St. Peter Damian",
+        "patches": [
+          [
+            "article",
+            "He wrote simply of the event: <i>\"This is a Eucharistic event of great importance.\"</i> To his mind, transforming only half the host demonstrated that ordinary-looking bread held the same reality as what had visibly become flesh—a lesson aimed, he believed, at unbelievers who denied the Real Presence outright.",
+            "U",
+            "He wrote simply of the event: <i>\"This is a Eucharistic event of great importance.\"</i> To his mind, transforming only half the host demonstrated that ordinary-looking bread held the same reality as what had visibly become flesh. He believed this lesson aimed at unbelievers who denied the Real Presence outright."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:12:12.738Z",
+      "updatedAt": "2026-09-16T18:12:12.738Z"
     }
   ]
 }
