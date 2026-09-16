@@ -5595,12 +5595,53 @@
       "type": "arbitrate",
       "entityId": "council-of-trent-1545",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — Council of Trent",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "Council of Trent",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "VERIFY",
+            "category": "MEANING/CLARITY",
+            "section": "Three Periods Across Eighteen Years",
+            "sentence": "1",
+            "kind": "article",
+            "before": "under the direction of five different popes",
+            "after": "during the pontificates of five different popes, although council sessions were held under only three of them",
+            "concern": "Five popes held the papacy during the council's eighteen-year span, but the council's sessions took place under Paul III, Julius III, and Pius IV. Marcellus II and Paul IV did not direct council sessions, so the current wording misleadingly suggests that all five directed the council.",
+            "suggestedCorrection": "Clarify that five popes reigned during the council's overall span, while sessions were held under only three.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Clarifies the distinction between papal reigns and active council direction during a long span.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Reforming Church Discipline",
+            "sentence": "3",
+            "kind": "article",
+            "before": "standardized liturgical practice, laying groundwork that would produce",
+            "after": "laid groundwork for later liturgical standardization, including",
+            "concern": "The Council of Trent did not itself comprehensively standardize liturgical practice. Its post-conciliar implementation included the Roman Missal of 1570, while established local rites were not universally abolished.",
+            "suggestedCorrection": "Describe Trent as laying the groundwork for later liturgical standardization rather than as having standardized liturgical practice itself.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "More historically precise regarding Trent's indirect role in later liturgical standardization.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-16T05:22:54.688Z",
-      "updatedAt": "2026-09-16T17:42:17.458Z",
+      "updatedAt": "2026-09-16T17:43:51.131Z",
       "error": null
     },
     {
