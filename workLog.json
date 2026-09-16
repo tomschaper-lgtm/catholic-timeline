@@ -14790,14 +14790,25 @@
       "type": "sentence-reword",
       "entityId": "em-asti-1535",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Asti",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-asti-1535",
+        "name": "Asti",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:38:04.573Z",
       "error": null
     },
     {
@@ -17960,6 +17971,53 @@
       "error": null,
       "createdAt": "2026-09-16T18:37:54.744Z",
       "updatedAt": "2026-09-16T18:37:54.744Z"
+    },
+    {
+      "id": "task-sentence-reword-em-asti-1535-1789583884573-3113",
+      "type": "sentence-reword",
+      "entityId": "em-asti-1535",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Asti",
+      "payload": {},
+      "result": {
+        "name": "Asti",
+        "patches": [
+          [
+            "article",
+            "Father Domenico, uncertain at first how to proceed, continued the Mass, but when he came to break off the small portion meant for the chalice, blood again came visibly from the Host, and he could no longer doubt what he was seeing; he turned to the congregation and invited them to come forward and witness it for themselves.",
+            "U",
+            "Father Domenico, uncertain at first how to proceed, continued the Mass. When he came to break off the small portion meant for the chalice, blood again came visibly from the Host.\n\nHe could no longer doubt what he was seeing; he turned to the congregation and invited them to come forward and witness it for themselves."
+          ],
+          [
+            "article",
+            "Pope Paul III responded with an Apostolic Brief dated 6 November 1535, granting a plenary indulgence to anyone who visited the Church of San Secondo on the anniversary of the miracle and recited three Our Fathers and three Hail Marys for the pope's intentions.",
+            "U",
+            "Pope Paul III responded with an Apostolic Brief dated 6 November 1535. It granted a plenary indulgence to anyone who visited the Church of San Secondo on the miracle’s anniversary and recited three Our Fathers and three Hail Marys for the pope’s intentions."
+          ],
+          [
+            "article",
+            "Asti's collegiate church would go on to be the site of a second reported Eucharistic sign in 1718, but the 1535 event remains the better documented of the two, anchored in a bishop's own notarized report and a papal brief issued within months of the Mass itself.",
+            "U",
+            "Asti's collegiate church would go on to be the site of a second reported Eucharistic sign in 1718. The 1535 event remains the better documented of the two, anchored in a bishop's own notarized report and a papal brief issued within months of the Mass itself."
+          ],
+          [
+            "article",
+            "Nearly five centuries later, the account still stands as a case where soldiers stationed far from home, in the middle of Europe's religious upheaval, found themselves the unexpected witnesses to a sign that settled, at least for some of them, a question their own age was fiercely divided over.",
+            "U",
+            "Nearly five centuries later, the account still stands as a case where soldiers stationed far from home witnessed a sign amid Europe's religious upheaval. For at least some of them, it settled a question over which their own age was fiercely divided."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:38:04.573Z",
+      "updatedAt": "2026-09-16T18:38:04.573Z"
     }
   ]
 }
