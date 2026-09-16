@@ -14972,14 +14972,25 @@
       "type": "sentence-reword",
       "entityId": "em-faverney-1608",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Faverney",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-faverney-1608",
+        "name": "Faverney",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:39:11.440Z",
       "error": null
     },
     {
@@ -18366,6 +18377,53 @@
       "error": null,
       "createdAt": "2026-09-16T18:39:00.726Z",
       "updatedAt": "2026-09-16T18:39:00.726Z"
+    },
+    {
+      "id": "task-sentence-reword-em-faverney-1608-1789583951440-3878",
+      "type": "sentence-reword",
+      "entityId": "em-faverney-1608",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Faverney",
+      "payload": {},
+      "result": {
+        "name": "Faverney",
+        "patches": [
+          [
+            "article",
+            "Early the next morning the sacristan, Dom Garnier, opened the church doors to find it filled with smoke, the provisional altar already engulfed in flames that would go on to reduce it entirely to ashes, melting even a nearby metal chandelier with the heat.",
+            "U",
+            "Early the next morning, the sacristan, Dom Garnier, opened the church doors and found it filled with smoke. The provisional altar was already engulfed in flames that would reduce it entirely to ashes, melting even a nearby metal chandelier with the heat."
+          ],
+          [
+            "article",
+            "As the fire was finally brought under control and the smoke began to clear, a young novice named Hudelot noticed something the older monks had missed in the chaos: the monstrance itself, holding both Hosts, was hovering in midair above the wreckage of the altar, unsupported by anything beneath it, leaning gently toward the grille at the back where the altar had stood.",
+            "U",
+            "As the fire was finally brought under control and the smoke began to clear, a young novice named Hudelot noticed something. The older monks had missed it in the chaos: the monstrance itself, holding both Hosts, was hovering in midair above the wreckage of the altar. It was unsupported by anything beneath it, leaning gently toward the grille at the back where the altar had stood."
+          ],
+          [
+            "article",
+            "Unsure how to respond, the monks summoned Capuchin friars from nearby Vesoul, who built a new altar directly beneath the suspended monstrance and celebrated Mass; at the moment of elevation, the monstrance descended slowly on its own to rest on the new altar, having remained aloft for some thirty-three hours in all.",
+            "U",
+            "Unsure how to respond, the monks summoned Capuchin friars from nearby Vesoul. They built a new altar directly beneath the suspended monstrance and celebrated Mass. At the moment of elevation, the monstrance descended slowly on its own to rest on the new altar, having remained aloft for some thirty-three hours in all."
+          ],
+          [
+            "article",
+            "One of the two Hosts was later transferred to Dole for safekeeping and was destroyed in the French Revolution, but the second survives and remains venerated at Faverney today, carried each year in the same monstrance — rebuilt after the original's own destruction in the Revolution — that first held it suspended above a burning altar four centuries ago.",
+            "U",
+            "One of the two Hosts was later transferred to Dole for safekeeping and was destroyed in the French Revolution. The second survives and remains venerated at Faverney today, carried each year in the same monstrance. It was rebuilt after the original's destruction in the Revolution and first held the Host suspended above a burning altar four centuries ago."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:39:11.440Z",
+      "updatedAt": "2026-09-16T18:39:11.440Z"
     }
   ]
 }
