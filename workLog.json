@@ -16180,14 +16180,25 @@
       "type": "sentence-reword",
       "entityId": "em-ferrara-1171",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Ferrara",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-ferrara-1171",
+        "name": "Ferrara",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:12:15.330Z",
       "error": null
     },
     {
@@ -18488,6 +18499,35 @@
       "error": null,
       "createdAt": "2026-09-16T18:12:12.738Z",
       "updatedAt": "2026-09-16T18:12:12.738Z"
+    },
+    {
+      "id": "task-sentence-reword-em-ferrara-1171-1789582335330-4383",
+      "type": "sentence-reword",
+      "entityId": "em-ferrara-1171",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Ferrara",
+      "payload": {},
+      "result": {
+        "name": "Ferrara",
+        "patches": [
+          [
+            "article",
+            "Both are said to have come in person to examine the stained vault, later attesting to having personally seen what they called \"the Blood which we saw redden the ceiling.\" Their episcopal testimony, distinct from a later devotional retelling, is part of what distinguishes Ferrara's account from many contemporaries.",
+            "U",
+            "Both are said to have come in person to examine the stained vault. They later attested to having personally seen what they called \"the Blood which we saw redden the ceiling.\" Distinct from a later devotional retelling, their episcopal testimony is part of what distinguishes Ferrara's account from many contemporaries."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:12:15.330Z",
+      "updatedAt": "2026-09-16T18:12:15.330Z"
     }
   ]
 }
