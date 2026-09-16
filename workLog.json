@@ -370,14 +370,25 @@
       "type": "sentence-reword",
       "entityId": "st-blaise-316",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Blaise",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-blaise-316",
+        "name": "St. Blaise",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-15T18:53:31.898Z",
-      "updatedAt": "2026-09-16T01:17:04.243Z",
+      "updatedAt": "2026-09-16T01:17:15.787Z",
       "error": null
     },
     {
@@ -1179,6 +1190,53 @@
       "error": null,
       "createdAt": "2026-09-15T19:00:13.947Z",
       "updatedAt": "2026-09-15T19:00:16.922Z"
+    },
+    {
+      "id": "task-sentence-reword-st-blaise-316-1789521435787-1521",
+      "type": "sentence-reword",
+      "entityId": "st-blaise-316",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — St. Blaise",
+      "payload": {},
+      "result": {
+        "name": "St. Blaise",
+        "patches": [
+          [
+            "article",
+            "As the Catholic Encyclopedia notes with characteristic caution, 'all the particulars concerning his life and martyrdom which are found in the Acts are purely legendary,' though it allows that Blaise was very likely a genuine bishop martyred in the early fourth century.",
+            "U",
+            "The Catholic Encyclopedia notes with characteristic caution, 'all the particulars concerning his life and martyrdom which are found in the Acts are purely legendary.' It allows that Blaise was very likely a genuine bishop martyred in the early fourth century."
+          ],
+          [
+            "article",
+            "While imprisoned awaiting judgment, tradition holds that Blaise was approached by a distraught mother whose young son was choking to death on a fishbone lodged in his throat; the bishop laid hands on the boy, or in another version of the story blessed him with two crossed candles, and the child was miraculously healed — the episode that gave rise to the enduring association between St. Blaise and protection of the throat.",
+            "U",
+            "While imprisoned awaiting judgment, tradition holds that Blaise was approached by a distraught mother whose young son was choking to death on a fishbone lodged in his throat. The bishop laid hands on the boy, or in another version of the story blessed him with two crossed candles, and the child was miraculously healed. This episode gave rise to the enduring association between St. Blaise and protection of the throat."
+          ],
+          [
+            "article",
+            "Devotion to Blaise as a healer of throat ailments spread from the Christian East by the sixth century and reached the Latin West by the ninth, eventually giving rise to the still-practiced <b>Blessing of the Throats</b>, in which a priest holds two crossed candles to a person's throat on or near Blaise's feast day, invoking his intercession against choking and disease.",
+            "U",
+            "Devotion to Blaise as a healer of throat ailments spread from the Christian East by the sixth century and reached the Latin West by the ninth. It eventually gave rise to the still-practiced <b>Blessing of the Throats</b>, in which a priest holds two crossed candles to a person's throat on or near Blaise's feast day, invoking his intercession against choking and disease."
+          ],
+          [
+            "article",
+            "Blaise became one of the medieval <b>Fourteen Holy Helpers</b>, a group of saints especially invoked for particular bodily needs, and his blessing of throats remains one of the most widely observed sacramental customs in the Catholic Church today, a living link to a physician-bishop about whose actual life almost nothing certain can be historically confirmed.",
+            "U",
+            "Blaise became one of the medieval <b>Fourteen Holy Helpers</b>, a group of saints especially invoked for particular bodily needs. His blessing of throats remains one of the most widely observed sacramental customs in the Catholic Church today, a living link to a physician-bishop about whose actual life almost nothing certain can be historically confirmed."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T01:17:15.787Z",
+      "updatedAt": "2026-09-16T01:17:15.787Z"
     }
   ]
 }
