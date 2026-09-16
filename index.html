@@ -1,9 +1,68 @@
 <!--
-VERSION: 400
-DATE: 2026-09-16T08:45:00-05:00
+VERSION: 402
+DATE: 2026-09-17T09:30:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Auto-approve moved server-side for real this time. Tom: "I'm not going to do approvals" — v401's
+  batching still depended on his phone's browser being open to do the actual approving and
+  publishing; he doesn't want that dependency at all going forward, not just for the current
+  backlog. Redesigned across three files:
+  - index.html: the "Auto-approve split sentences" checkbox is read ONCE, at Add Task time, into
+    the queued task's payload.autoApprove — a per-task decision made when queued, not something
+    re-checked later by whatever the checkbox happens to say whenever the task eventually runs.
+    The checkbox itself still lives here (Tom: "approval logic belongs in the index") — only the
+    EXECUTION for an auto-approved task moves server-side. tkAutoApproveSentenceRewords() (the
+    v401 client-side batched-publish mechanism) is untouched and still runs, but now only as a
+    legacy fallback for tasks queued the old way (including ones already sitting in workLog.json)
+    — a task queued with the new flag never reaches 'proposed' at all, so that function simply
+    never sees it. Corrected the checkbox's label, which was no longer true.
+  - scripts/services/sentence-reword.mjs: task.payload.autoApprove true skips the spawned-review-
+    task path entirely. Applies its own patches directly to dataJson via a new
+    applySentencePatchToSections/applyPatchesToEntry — a straight port of index.html's
+    patchTextInSections (v397's relaxed anchor rule included) — clears stale audio, and returns
+    dataDirty:true instead of spawning anything. Verified against the real link-bearing patches
+    from the 2026-09-16 workLog: all 13 apply cleanly with every link intact; a synthetic partial-
+    apply case (one patch matchable, one deliberately stale) applies the one it can and flags the
+    entry for review via entry.review/reviewNote, same as the client-side v399 fix, rather than
+    silently discarding the failure; a link-cutting span is still correctly refused. KNOWN GAP,
+    stated plainly in the file: this clears entry.audio but does not delete the orphaned audio/
+    timing files from the repo the way the client's publishToGitHub()\u2192purgeStaleAudioFiles()
+    chain does — worth a follow-up if that becomes a real nuisance.
+  - scripts/orchestrator.mjs: new DATA_COMMIT_BATCH_SIZE (10, env-overridable). A dataDirty task
+    accumulates rather than commits immediately; once the count reaches the threshold, the commit
+    happens and covers the whole group in one push. A final flush after the run handles a partial
+    group at the end (7 of 10, say) — the server-side equivalent of tkFlushDeferredPublish (v398).
+    Went further than a bare flush: if a batch's commit FAILS, every task already optimistically
+    marked 'done' in that group is retroactively corrected to 'error' with an honest message,
+    not left claiming success for content that never actually reached GitHub — the one prior task
+    that triggered the attempt gets the same correction through the existing shared
+    if(!published) path, so nothing is double-handled.
+    Verified end-to-end in a sandboxed two-repo setup (a real bare "remote" to push to, not just
+    reasoning about git): 13 tasks with a working remote produced exactly 2 content commits (10,
+    then 3) with every task 'done' and all 13 entities actually present in the pushed data.json;
+    the same 13 tasks with NO remote configured (forcing every push to fail) ended with all 13
+    correctly marked 'error' and zero false "done" statuses; a 4-task run exercised the final-
+    flush-only path with a working remote; DATA_COMMIT_BATCH_SIZE=3 confirmed the threshold is
+    actually configurable, not hardcoded despite being named as a constant.
+- Tom asked for automated reword approval that publishes every 10 articles instead of by hand.
+  Auto-approve already existed (the checkbox); what was missing was batched publishing. Fixed:
+  tkAutoApproveSentenceRewords() now always defers (wlResolveTasks(..., {deferPublish:true})) and
+  decides for itself when to actually flush, once dirtyEntryIds — everything approved but not yet
+  published, accumulated across however many poll cycles it took — reaches TK_AUTO_PUBLISH_BATCH_SIZE
+  (10). Reuses tkDeferredPublish/tkFlushDeferredPublish exactly as manual approve (v398) and
+  proofread (v400) already do, so the same safety net applies for free: finishing a run, backing
+  out of Review, or closing the panel all still flush whatever's pending — a partial batch under 10
+  when a run ends is never left stranded unpublished. Verified by simulation: 23 approvals trickling
+  in across 8 poll cycles produced exactly 2 real batch publishes near size 10, plus one final flush
+  for the last 1 — not 23 individual commits, and nothing left unpublished.
+- Closed a gap this surfaced: publishToGitHub() and the audio-purge chain it calls on success
+  (audioPathExistsOnGitHub, audioUrlExists, ghDeleteFile) were the one major network path that
+  never got fetchTimeout in v392 — they only ever ran once per manual tap, so a hang was a rare
+  annoyance, not a stuck-forever bug. Auto-approve now calls this chain unattended, repeatedly,
+  for as long as a run keeps going, which is exactly the shape of bug v392 fixed everywhere else.
+  All five raw fetch() calls in this chain now go through fetchTimeout, same 15s bound as the rest
+  of the app, with AbortError worded as a timeout rather than a token/permissions problem.
 - Extended v398's deferred-publish pattern to the proofread (arbitrate) review — Tom asked for the
   same treatment reword got. tkResolveArbitrateDebate('approve') and tkSaveArbitrateEdit() both
   used to publish on every single sentence decision; proofread review is per-SENTENCE rather than
@@ -4071,7 +4130,7 @@ v332 CHANGES (unchanged from the version this build started from):
       <div class="tkBar" style="padding-top:0; padding-bottom:6px;">
         <label class="tkAutoApproveChk" for="tkAutoApprove">
           <input type="checkbox" id="tkAutoApprove">
-          <span>Auto-approve split sentences &mdash; skips Review, still needs Publish to go live</span>
+          <span>Auto-approve split sentences &mdash; applies and publishes on its own, no phone needed once a run is going</span>
         </label>
       </div>
       <div class="tkNotice" id="tkNotice"></div>
@@ -4850,7 +4909,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v400';
+const APP_VERSION = 'v402';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -6700,7 +6759,15 @@ async function publishToGitHub(){
   try{
     let sha = null;
     let remoteEntries = null;
-    const g = await fetch(api + '?ref=' + encodeURIComponent(branch), { headers: hdr, cache: 'no-store' });
+    // fetchTimeout (defined below — function declarations hoist), not bare fetch: this function
+    // now gets called unattended, repeatedly, by auto-approve's batched publish (see
+    // TK_AUTO_PUBLISH_BATCH_SIZE) over the course of a run that can run for a long time with
+    // nobody watching. A bare fetch() has no timeout — exactly the bug diagnosed in v392 for
+    // loadWorkLog/saveWorkLog/triggerWorkflow, which this function was never brought in line
+    // with because it used to only ever run once per manual tap. Same fix, same reason it matters
+    // now: one stalled connection here would otherwise freeze not just this publish but
+    // tkAutoApproveSentenceRewords's caller (loadWorkLog's poll cycle) right along with it.
+    const g = await fetchTimeout(api + '?ref=' + encodeURIComponent(branch), { headers: hdr, cache: 'no-store' });
     if(g.status === 200){
       const meta = await g.json();
       sha = meta.sha;
@@ -6729,7 +6796,7 @@ async function publishToGitHub(){
     const content = btoa(unescape(encodeURIComponent(json)));
     const body = { message: 'Update data.json (' + db.entries.length + ' entries) via Content Manager', content: content, branch: branch };
     if(sha) body.sha = sha;
-    const put = await fetch(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, hdr), body: JSON.stringify(body) });
+    const put = await fetchTimeout(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, hdr), body: JSON.stringify(body) });
     if(put.status === 200 || put.status === 201){
       dirtyEntryIds.clear();
       deletedEntryIds.clear();
@@ -6751,7 +6818,7 @@ async function publishToGitHub(){
       return true;
     }
     else { let m = ''; try{ m = (await put.json()).message; }catch(e){} throw new Error(m || ('commit failed ' + put.status)); }
-  }catch(err){ st.textContent = 'Publish failed: ' + err.message; return false; }
+  }catch(err){ st.textContent = 'Publish failed: ' + (err.name === 'AbortError' ? 'timed out, will retry next batch' : err.message); return false; }
 }
 // True when enough GitHub detail has been entered for a publish to be worth attempting.
 function ghConfigured(){
@@ -9946,7 +10013,19 @@ document.getElementById('tkAdd').addEventListener('click', async () => {
     const audioPayload = type === 'audio-generate' ? tkAudioPayload() : null;
     if(audioPayload) saveAudioGenSettings(); // remembered for next time, same as every other change to these fields
     const rewordPayload = type === 'sentence-reword'
-      ? { provider: document.getElementById('tkRewordProvider').value || 'anthropic' }
+      ? {
+          provider: document.getElementById('tkRewordProvider').value || 'anthropic',
+          // Read once, at queue time, not left to be decided later by whatever this checkbox
+          // happens to say when the task eventually runs (which could be hours from now, on a
+          // different visit). A task queued with this true is handled ENTIRELY server-side —
+          // scripts/services/sentence-reword.mjs applies its own patches straight to data.json
+          // and the orchestrator batch-commits every TK_AUTO_PUBLISH_BATCH_SIZE — never reaching
+          // 'proposed', never touching this client at all. The checkbox itself still lives here
+          // (that's the "approval logic belongs in the index" half of what Tom asked for); only
+          // the EXECUTION for an auto-approved task moved server-side, matching how image-
+          // generate/audio-generate already work — no review needed, no phone required.
+          autoApprove: !!(document.getElementById('tkAutoApprove') && document.getElementById('tkAutoApprove').checked)
+        }
       : null;
     const newTasks = batch.map(e => {
       const id = 'task-' + type + '-' + e.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
@@ -10070,6 +10149,27 @@ const TK_AUTO_APPROVE_KEY = 'tk-auto-approve-sentence-reword';
     localStorage.setItem(TK_AUTO_APPROVE_KEY, chk.checked ? '1' : '0');
   });
 })();
+// PUBLISH BATCHING: every 10 approved articles, not one commit per poll. Auto-approve used to
+// call wlResolveTasks() with its default (immediate-publish) behavior, which under a live Run
+// meant a real GitHub commit on nearly every ~3-9s poll as new 'proposed' tasks trickled in — Tom
+// asked for fewer, larger commits instead. Always defers now (deferPublish: true), and this
+// function alone decides when to actually flush: once dirtyEntryIds — everything approved but not
+// yet published, across however many poll cycles it took to get there — reaches this many. Reuses
+// tkDeferredPublish/tkFlushDeferredPublish exactly as manual approve and proofread already do
+// (v398/v400), so the same safety net applies for free: finishing the run, backing out of Review,
+// or closing the panel all flush whatever's pending, so a partial batch (fewer than 10 when the
+// run ends) is never left stranded unpublished — same failure mode v395/v396 exist to prevent.
+//
+// LEGACY FALLBACK, as of the payload.autoApprove change above: a task queued with autoApprove
+// true is now handled entirely server-side — sentence-reword.mjs applies its own patches and the
+// orchestrator batch-commits data.json directly (see DATA_COMMIT_BATCH_SIZE in orchestrator.mjs),
+// which means it goes straight to 'done' and this function never even sees it; the 'proposed'
+// status this scans for simply never happens for a task queued the new way. This still exists,
+// unchanged, to finish off any task queued the OLD way, before this split — including the ones
+// already sitting in workLog.json from earlier sessions. Nothing to migrate: the two mechanisms
+// naturally partition by whether a 'proposed' task exists at all, so there's no double-handling
+// to guard against.
+const TK_AUTO_PUBLISH_BATCH_SIZE = 10;
 async function tkAutoApproveSentenceRewords(){
   const chk = document.getElementById('tkAutoApprove');
   if(!chk || !chk.checked || !wlData) return;
@@ -10077,8 +10177,9 @@ async function tkAutoApproveSentenceRewords(){
     .filter(t => t.status === 'proposed' && t.type === 'sentence-reword' && !tkAutoApproveFailedIds.has(t.id))
     .map(t => t.id);
   if(!ids.length) return;
-  const res = await wlResolveTasks(ids, true);
+  const res = await wlResolveTasks(ids, true, { deferPublish: true });
   if(res && res.failedIds) res.failedIds.forEach(id => tkAutoApproveFailedIds.add(id));
+  if(dirtyEntryIds.size >= TK_AUTO_PUBLISH_BATCH_SIZE) await tkFlushDeferredPublish();
 }
 // Ids that have already failed an auto-approve attempt THIS SESSION. tkAutoApproveSentenceRewords
 // runs on every poll of a live Run (triggerWorkflow's onPoll — see there), and a task that fails
@@ -13156,7 +13257,7 @@ async function audioPathExistsOnGitHub(repoPath){
     const url = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' +
                 repoPath.split('/').map(encodeURIComponent).join('/') +
                 '?ref=' + encodeURIComponent(branch) + '&t=' + Date.now();
-    const res = await fetch(url, {
+    const res = await fetchTimeout(url, {
       headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' },
       cache: 'no-store'
     });
@@ -13167,12 +13268,12 @@ async function audioPathExistsOnGitHub(repoPath){
 }
 async function audioUrlExists(url){
   try{
-    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    const res = await fetchTimeout(url, { method: 'HEAD', cache: 'no-store' });
     if(res.ok) return true;
     // A handful of static hosts reject HEAD outright (405/501) rather than 404ing a missing
     // file — a tiny ranged GET distinguishes "method not allowed" from "not there."
     if(res.status === 405 || res.status === 501){
-      const r2 = await fetch(url, { method: 'GET', headers: {Range: 'bytes=0-0'}, cache: 'no-store' });
+      const r2 = await fetchTimeout(url, { method: 'GET', headers: {Range: 'bytes=0-0'}, cache: 'no-store' });
       return r2.ok;
     }
     return false;
@@ -13193,11 +13294,11 @@ async function ghDeleteFile(path, message){
   const api = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' +
     path.split('/').map(encodeURIComponent).join('/');
   try{
-    const lookup = await fetch(api + '?ref=' + encodeURIComponent(g.branch), { headers: g.hdr, cache: 'no-store' });
+    const lookup = await fetchTimeout(api + '?ref=' + encodeURIComponent(g.branch), { headers: g.hdr, cache: 'no-store' });
     if(lookup.status === 404) return { ok: true, skipped: true };
     if(!lookup.ok) return { ok: false, error: 'lookup failed (' + lookup.status + ')' };
     const meta = await lookup.json();
-    const del = await fetch(api, {
+    const del = await fetchTimeout(api, {
       method: 'DELETE',
       headers: Object.assign({'Content-Type':'application/json'}, g.hdr),
       body: JSON.stringify({ message: message, sha: meta.sha, branch: g.branch })
@@ -13205,7 +13306,7 @@ async function ghDeleteFile(path, message){
     if(del.status === 200) return { ok: true };
     let m = ''; try{ m = (await del.json()).message; }catch(e){}
     return { ok: false, error: m || ('delete failed ' + del.status) };
-  }catch(err){ return { ok: false, error: err.message }; }
+  }catch(err){ return { ok: false, error: err.name === 'AbortError' ? 'timed out' : err.message }; }
 }
 // Drains audioPurgeQueue: for each entity, walks the same version/extension convention
 // autoDetectAudio() checks (audio/{folder}/{id}-v{N}.{mp3|wav}, plus its paired {N}.json timing
