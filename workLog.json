@@ -3619,12 +3619,54 @@
       "type": "arbitrate",
       "entityId": "st-john-damascene-749",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. John Damascene",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. John Damascene",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Legacy",
+            "sentence": "3",
+            "kind": "article",
+            "before": "His very political exile from Christian imperial territory",
+            "after": "His voluntary withdrawal from Christian imperial territory",
+            "concern": "John Damascene was not politically exiled from Byzantine territory; he voluntarily resigned his administrative position and entered Mar Saba. Calling this a political exile misstates the circumstances of his departure.",
+            "suggestedCorrection": "Replace the phrase with wording that describes John's voluntary withdrawal rather than an imposed exile.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "St. John Damascene resigned his post to become a monk, making 'voluntary withdrawal' factually more accurate than 'political exile'.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "Cursed by an Empire He Was Safe From",
+            "sentence": "1",
+            "text": "John's writings against iconoclasm angered the Byzantine authorities so deeply that, in 754, a council convened at imperial command in Constantinople.",
+            "concern": "This presents a chronological impossibility given the article's stated death year of c. 749 in the Legacy section and Quick Facts. St. John Damascene died around 749 and therefore could not be condemned by the Council of Hieria in 754 while alive, or the timeline contains a contradiction regarding his death year versus the council date.",
+            "suggestedCorrection": "Adjust the year of the council or clarify that the condemnation occurred posthumously at the iconoclast council of 754.",
+            "source": "Not externally verified",
+            "kind": "article",
+            "before": "in 754, a council convened at imperial command in Constantinople",
+            "after": "at the iconoclast Council of Hieria in 754, convened posthumously at imperial command in Constantinople",
+            "winner": "revised",
+            "comment": "The revision resolves the apparent contradiction by making clear that John was condemned posthumously at the 754 Council of Hieria.",
+            "proposedBy": "gemini-3.5-flash-lite",
+            "arbitratedBy": "gpt-5.6-luna"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-16T04:37:40.917Z",
-      "updatedAt": "2026-09-16T04:42:51.391Z",
+      "updatedAt": "2026-09-16T04:49:42.251Z",
       "error": null
     },
     {
