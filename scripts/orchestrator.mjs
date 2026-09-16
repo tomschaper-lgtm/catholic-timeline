@@ -77,6 +77,32 @@
 // most-recently-updated finished tasks and drops the rest — permanently, no archive file. This
 // runs on every invocation (including a no-op run that found nothing queued) so the file can't
 // quietly grow past the point where a phone on a flaky connection can fetch it in one piece.
+//
+// DATA.JSON BATCH COMMITS: a handler returning `dataDirty: true` (instead of `filesToCommit`) is
+// saying "I already mutated dataJson in place, but don't commit it just yet — batch me." Right
+// now that's only sentence-reword's autoApprove branch (see its own file), which used to have no
+// server-side apply path at all; every other content-writing handler (image-generate, audio-
+// generate) still uses filesToCommit and still commits immediately after its own task, exactly as
+// the COMMITTING CONTENT FILES note above describes — this is a second, narrower mechanism
+// alongside that one, not a replacement for it. pendingDataCommits counts how many dataDirty
+// tasks have landed since the last actual commit; once it reaches DATA_COMMIT_BATCH_SIZE, the
+// very next task to finish (or the run's own final flush, see the bottom of main()) commits
+// data.json for the whole accumulated group in one push instead of one commit per entity. workLog
+// entries for each task still commit individually, immediately, same as always — this only
+// batches the data.json side, not the log. The final flush exists for exactly the reason
+// tkFlushDeferredPublish does client-side (v398): a run can end with a partial group still
+// pending (7 of 10, say), and without an unconditional flush after the loop, those 7 entities'
+// changes would sit correctly applied in memory but never actually reach GitHub before the
+// process exits — silently lost, not even an error.
+//
+// A task in the pending group is marked 'done' OPTIMISTICALLY, as soon as its own patches apply
+// to dataJson in memory — it does not wait for the eventual batch commit, so the app sees
+// progress immediately rather than in lumps of 10. If that batch's commit then fails (git push
+// rejected, network error, whatever commitFiles' own one retry couldn't recover from),
+// flushDataCommitBatch() retroactively corrects every task in the failed group — except whichever
+// one's own turn actually triggered the attempt, which the shared `if(!published)` handling right
+// after it already covers — from 'done' back to an honest 'error', rather than leaving a stale
+// task claiming success for content that never actually reached GitHub.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
@@ -93,6 +119,9 @@ const DATA_PATH = process.env.DATA_PATH || 'data.json';
 const SUMMARY_PATH = process.env.SUMMARY_PATH || 'scripts/work-summary.txt';
 const MAX_TASKS = parseInt(process.env.MAX_TASKS_PER_RUN || '5', 10);
 const TASK_TYPE = (process.env.TASK_TYPE || '').trim(); // '' = any service
+// How many dataDirty-flagged entities to accumulate before actually committing data.json — see
+// the DATA.JSON BATCH COMMITS note above. Tom asked for "every 10 articles" specifically.
+const DATA_COMMIT_BATCH_SIZE = parseInt(process.env.DATA_COMMIT_BATCH_SIZE || '10', 10);
 
 // How many finished tasks to keep, and which statuses count as "finished" for that purpose.
 // awaiting_review is deliberately excluded — it's still waiting on a human decision, not history.
@@ -256,6 +285,41 @@ async function main(){
   if(reclaimNote) summaryLines.push(reclaimNote, '');
   let deferredCount = 0;
   let deferredReason = '';
+  // See DATA.JSON BATCH COMMITS above. Tracks live references into workLog.tasks, not just
+  // names/ids — a failed batch commit needs to retroactively correct tasks this same loop
+  // already marked 'done' in earlier iterations, before the commit that was supposed to cover
+  // them was even attempted (see the dataDirty branch below).
+  let pendingDataCommits = 0;
+  let pendingDataCommitTasks = [];
+  // Commits the accumulated batch and, on failure, retroactively corrects every task in it
+  // (except `triggeringTask`, which the caller's own shared `if(!published)` handling covers)
+  // from their optimistic 'done' back to an honest 'error' — their content was applied to
+  // dataJson in memory, but the commit meant to publish it didn't land, so the change is gone
+  // the moment this process exits. Always clears the pending group afterward either way: a
+  // successful commit needs no further tracking, and a failed one needs re-queuing by hand, not
+  // silent retrying — see the error message itself.
+  function flushDataCommitBatch(triggeringTask, label){
+    if(!pendingDataCommits) return true;
+    const names = pendingDataCommitTasks.map(t => (t.result && t.result.name) || t.entityId || t.id);
+    const msg = 'Auto-approved sentence-reword: ' + pendingDataCommits + ' entit' +
+      (pendingDataCommits === 1 ? 'y' : 'ies') + ' \u2014 ' + names.join(', ');
+    const ok = commitFiles(dataJson, [DATA_PATH], msg);
+    if(ok){
+      summaryLines.push('  \u2192 ' + label + ': published batch of ' + pendingDataCommits + ' auto-approved entit' + (pendingDataCommits === 1 ? 'y' : 'ies'));
+    }else{
+      const others = pendingDataCommitTasks.filter(t => t !== triggeringTask);
+      others.forEach(t => {
+        t.status = 'error';
+        t.error = 'Applied to data.json in memory, but the batched commit covering it failed \u2014 the change was lost when this run ended. Re-queue this entity to redo it.';
+        t.updatedAt = nowIso();
+      });
+      if(others.length) commitWorkLog(workLog, 'Batch publish failed \u2014 correcting ' + others.length + ' previously-marked-done task(s)');
+      summaryLines.push('  \u2717 ' + label + ': batch publish FAILED \u2014 corrected ' + others.length + ' previously-\u201cdone\u201d task(s) to error (work not lost if re-queued, just needs redoing)');
+    }
+    pendingDataCommits = 0;
+    pendingDataCommitTasks = [];
+    return ok;
+  }
 
   // Claim the whole batch as in_progress in one commit, before any handler runs — see BATCH
   // CLAIMING in the file-header comment. Tasks whose type has no registered handler are claimed
@@ -315,6 +379,14 @@ async function main(){
       if(out.filesToCommit && out.filesToCommit.length){
         const msg = (out.awaitingReview ? 'Generate candidates' : 'Apply') + ' — ' + task.id;
         published = commitFiles(dataJson, out.filesToCommit, msg);
+      }else if(out.dataDirty){
+        // Batched path — see DATA.JSON BATCH COMMITS at the top of this file. dataJson was
+        // already mutated in place by the handler; this just decides WHEN to actually push it.
+        pendingDataCommits++;
+        pendingDataCommitTasks.push(task);
+        if(pendingDataCommits >= DATA_COMMIT_BATCH_SIZE){
+          published = flushDataCommitBatch(task, 'Finish ' + task.id);
+        }
       }
 
       if(!published){
@@ -363,6 +435,18 @@ async function main(){
       ' left queued: ' + deferredReason + '. Nothing failed \u2014 run again later to pick up where this stopped.';
     summaryLines.push('', workLog.notice);
   }
+
+  // Final flush for a partial data-commit batch (fewer than DATA_COMMIT_BATCH_SIZE when the loop
+  // above ran out of tasks) — the server-side equivalent of tkFlushDeferredPublish() in index.html
+  // (v398). Without this, a run that auto-approves, say, 7 entities and then has nothing left
+  // queued would leave those 7 changes sitting correctly applied in dataJson (in memory) with no
+  // commit ever made for them — not an error, just silently gone the moment this process exits.
+  // Runs regardless of how the loop above ended (completed normally, ran out of budget mid-batch,
+  // or hit MAX_TASKS) — any of those can leave a partial group pending. No single task "triggers"
+  // this the way the mid-run threshold check does, so passing null as the triggering task to the
+  // shared helper is deliberate: every task in the pending group gets corrected on failure, not
+  // all-but-one.
+  flushDataCommitBatch(null, 'Final flush');
 
   const prunedCount = pruneCompletedTasks(workLog);
   if(prunedCount > 0){
