@@ -11670,14 +11670,25 @@
       "type": "sentence-reword",
       "entityId": "sts-andrew-dung-lac-companions-1839",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Sts. Andrew Dung-Lac & Companions",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "sts-andrew-dung-lac-companions-1839",
+        "name": "Sts. Andrew Dung-Lac & Companions",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:44:38.103Z",
-      "updatedAt": "2026-09-16T03:47:24.920Z",
+      "updatedAt": "2026-09-16T03:51:08.510Z",
       "error": null
     },
     {
@@ -13010,6 +13021,47 @@
       "error": null,
       "createdAt": "2026-09-16T03:51:01.780Z",
       "updatedAt": "2026-09-16T03:51:01.780Z"
+    },
+    {
+      "id": "task-sentence-reword-sts-andrew-dung-lac-companions-1839-1789530668510-9442",
+      "type": "sentence-reword",
+      "entityId": "sts-andrew-dung-lac-companions-1839",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Sts. Andrew Dung-Lac & Companions",
+      "payload": {},
+      "result": {
+        "name": "Sts. Andrew Dung-Lac & Companions",
+        "patches": [
+          [
+            "article",
+            "His death was one of countless martyrdoms during this era of persecution, in which the Catholic Encyclopedia's later accounts record victims being burned alive in bamboo cages, dismembered joint by joint, or branded on the face with the words 'false religion.'",
+            "U",
+            "His death was one of countless martyrdoms during this era of persecution. The Catholic Encyclopedia's later accounts record victims being burned alive in bamboo cages, dismembered joint by joint, or branded on the face with the words 'false religion.'"
+          ],
+          [
+            "article",
+            "These 117 canonized martyrs are understood by the Church to represent a far larger, largely unnamed multitude — estimated at anywhere between 100,000 and 300,000 Vietnamese Christians who died for their faith across nearly three centuries of intermittent, often savage persecution, one of the longest sustained periods of Christian martyrdom in any single nation's history.",
+            "U",
+            "These 117 canonized martyrs are understood by the Church to represent a far larger, largely unnamed multitude, estimated at anywhere between 100,000 and 300,000 Vietnamese Christians. They died for their faith across nearly three centuries of intermittent, often savage persecution, one of the longest sustained periods of Christian martyrdom in any single nation's history."
+          ],
+          [
+            "article",
+            "Despite centuries of suppression, the Church in Vietnam took deep and lasting root — by the close of the twentieth century, Catholics constituted roughly ten percent of the Vietnamese population, a growth the Church attributes directly to the enduring witness of martyrs like Andrew Dung-Lac and his companions.",
+            "U",
+            "Despite centuries of suppression, the Church in Vietnam took deep and lasting root. By the close of the twentieth century, Catholics constituted roughly ten percent of the Vietnamese population, a growth the Church attributes directly to the enduring witness of martyrs like Andrew Dung-Lac and his companions."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:51:08.510Z",
+      "updatedAt": "2026-09-16T03:51:08.510Z"
     }
   ]
 }
