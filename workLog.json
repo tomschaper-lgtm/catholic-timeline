@@ -14971,14 +14971,25 @@
       "type": "sentence-reword",
       "entityId": "st-andr-bessette-1937",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. André Bessette",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-andr-bessette-1937",
+        "name": "St. André Bessette",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:26:28.532Z",
       "error": null
     },
     {
@@ -16061,6 +16072,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:26:25.431Z",
       "updatedAt": "2026-09-16T04:26:25.431Z"
+    },
+    {
+      "id": "task-sentence-reword-st-andr-bessette-1937-1789532788532-8157",
+      "type": "sentence-reword",
+      "entityId": "st-andr-bessette-1937",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. André Bessette",
+      "payload": {},
+      "result": {
+        "name": "St. André Bessette",
+        "patches": [
+          [
+            "article",
+            "He asked to join the Congregation of Holy Cross in Montreal, carrying only a note from his old pastor that read, 'I am sending you a saint.' Assigned the lowly post of doorkeeper at a college for more than forty years, Brother André spent his days praying with the sick and desperate who came to him, attributing every healing that followed not to himself but to St. Joseph, to whom he had a lifelong devotion.",
+            "U",
+            "He asked to join the Congregation of Holy Cross in Montreal, carrying only a note from his old pastor that read, 'I am sending you a saint.' Assigned the lowly post of doorkeeper at a college for more than forty years, Brother André spent his days praying with the sick and desperate who came to him. He attributed every healing that followed not to himself but to St. Joseph, to whom he had a lifelong devotion."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:26:28.532Z",
+      "updatedAt": "2026-09-16T04:26:28.532Z"
     }
   ]
 }
