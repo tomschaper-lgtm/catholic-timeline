@@ -10834,14 +10834,25 @@
       "type": "sentence-reword",
       "entityId": "baptism-of-clovis-496",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Baptism of Clovis",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "baptism-of-clovis-496",
+        "name": "Baptism of Clovis",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:27:17.448Z",
       "error": null
     },
     {
@@ -11699,6 +11710,41 @@
       "error": null,
       "createdAt": "2026-09-16T07:27:13.671Z",
       "updatedAt": "2026-09-16T07:27:13.671Z"
+    },
+    {
+      "id": "task-sentence-reword-baptism-of-clovis-496-1789543637448-5403",
+      "type": "sentence-reword",
+      "entityId": "baptism-of-clovis-496",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Baptism of Clovis",
+      "payload": {},
+      "result": {
+        "name": "Baptism of Clovis",
+        "patches": [
+          [
+            "article",
+            "It aligned the Franks with the Gallo-Roman Catholic bishops and population already living under his rule, rather than setting him against them as an Arian overlord — a crucial advantage his Arian rivals in Visigothic Spain and Ostrogothic Italy never enjoyed.",
+            "U",
+            "It aligned the Franks with the Gallo-Roman Catholic bishops and population already living under his rule. This spared him from becoming an Arian overlord opposed to them, a crucial advantage his Arian rivals in Visigothic Spain and Ostrogothic Italy never enjoyed."
+          ],
+          [
+            "article",
+            "The baptism of Clovis is traditionally regarded as the founding moment of Catholic France, later honored with the title <i>fille aînée de l'Église</i> — the 'eldest daughter of the Church.' It secured the conversion of the Frankish people as a whole and set Gaul, soon to become the heartland of medieval Christendom, on a Catholic rather than Arian trajectory.",
+            "U",
+            "The baptism of Clovis is traditionally regarded as the founding moment of Catholic France, later honored with the title <i>fille aînée de l'Église</i>—the 'eldest daughter of the Church.' It secured the conversion of the Frankish people as a whole. Gaul, soon to become the heartland of medieval Christendom, followed a Catholic rather than Arian trajectory."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:27:17.448Z",
+      "updatedAt": "2026-09-16T07:27:17.448Z"
     }
   ]
 }
