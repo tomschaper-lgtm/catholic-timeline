@@ -4748,14 +4748,27 @@
       "type": "sentence-reword",
       "entityId": "first-lateran-council-1123",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — First Lateran Council",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "first-lateran-council-1123",
+        "name": "First Lateran Council",
+        "sentencesFound": 6,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 1,
+        "apiErrorSamples": [
+          "GPT-5.6 Luna response looks cut off (doesn’t end in sentence-ending punctuation): \"t simony, the buying and selling of church offices</li></ul>\""
+        ],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:40:50.778Z",
-      "updatedAt": "2026-09-16T04:56:32.262Z",
+      "updatedAt": "2026-09-16T05:01:36.133Z",
       "error": null
     },
     {
@@ -6283,6 +6296,61 @@
       "error": null,
       "createdAt": "2026-09-16T05:01:13.367Z",
       "updatedAt": "2026-09-16T05:01:13.367Z"
+    },
+    {
+      "id": "task-sentence-reword-first-lateran-council-1123-1789534896133-4968",
+      "type": "sentence-reword",
+      "entityId": "first-lateran-council-1123",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — First Lateran Council",
+      "payload": {},
+      "result": {
+        "name": "First Lateran Council",
+        "patches": [
+          [
+            "article",
+            "For half a century, popes and Holy Roman Emperors had contested who held the right to invest bishops and abbots with the ring and staff symbolizing their office — a struggle that pitted spiritual and temporal authority against one another at the highest level and had already produced the dramatic penance of Emperor Henry IV before Pope Gregory VII at Canossa in 1077, when the excommunicated emperor reportedly stood barefoot in the snow for three days seeking absolution.",
+            "U",
+            "For half a century, popes and Holy Roman Emperors had contested who held the right to invest bishops and abbots with the ring and staff symbolizing their office. The struggle pitted spiritual and temporal authority against one another at the highest level and had already produced Emperor Henry IV’s dramatic penance before Pope Gregory VII at Canossa in 1077. There, the excommunicated emperor reportedly stood barefoot in the snow for three days seeking absolution."
+          ],
+          [
+            "article",
+            "He opened direct talks with Henry V, and the two sides met at Worms in September 1122 and produced the <b>Concordat of Worms</b>, the first formal treaty ever signed between pope and emperor, which distinguished the spiritual investiture of a bishop (reserved to the Church) from the grant of his temporal fiefs and regalia (retained by the emperor).",
+            "U",
+            "He opened direct talks with Henry V. The two sides met at Worms in September 1122 and produced the <b>Concordat of Worms</b>, the first formal treaty ever signed between pope and emperor.\n\nIt distinguished a bishop’s spiritual investiture, reserved to the Church, from the grant of his temporal fiefs and regalia, retained by the emperor."
+          ],
+          [
+            "article",
+            "Beyond its immediate disciplinary content, the council's deeper achievement was constitutional: it tacitly ended the emperors' long-claimed right to interfere directly in papal elections, reestablished the freedom of episcopal and abbatial elections from lay control, and firmly separated spiritual authority, which the council insisted could emanate only from the Church, from purely temporal grants of land and office.",
+            "U",
+            "Beyond its immediate disciplinary content, the council's deeper achievement was constitutional: it tacitly ended the emperors' long-claimed right to interfere directly in papal elections. It reestablished the freedom of episcopal and abbatial elections from lay control, and firmly separated spiritual authority from purely temporal grants of land and office. The council insisted that spiritual authority could emanate only from the Church."
+          ],
+          [
+            "article",
+            "As the first ecumenical council held in the West and the first since the definitive break between Rome and Constantinople in 1054, First Lateran also marked a turning point in the character of general councils themselves: from this point on, the ecumenical councils recognized by the Catholic Church would be Western, papally convoked assemblies rather than the emperor-summoned gatherings of the patristic era.",
+            "U",
+            "First Lateran was the first ecumenical council held in the West and the first since the definitive break between Rome and Constantinople in 1054. It also marked a turning point in the character of general councils themselves: from this point on, the ecumenical councils recognized by the Catholic Church would be Western, papally convoked assemblies rather than the emperor-summoned gatherings of the patristic era."
+          ],
+          [
+            "article",
+            "Its settlement of the investiture question established a template — the careful separation of spiritual and temporal authority — that would shape Church-state relations across Europe for centuries afterward, even as fresh disputes between popes and emperors, and later between popes and national monarchs, would continue to erupt in new forms for the rest of the medieval period.",
+            "U",
+            "Its settlement of the investiture question established a template — the careful separation of spiritual and temporal authority. This template would shape Church-state relations across Europe for centuries afterward. Fresh disputes between popes and emperors, and later between popes and national monarchs, would continue to erupt in new forms for the rest of the medieval period."
+          ]
+        ],
+        "apiErrors": 1,
+        "apiErrorSamples": [
+          "GPT-5.6 Luna response looks cut off (doesn’t end in sentence-ending punctuation): \"t simony, the buying and selling of church offices</li></ul>\""
+        ],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T05:01:36.133Z",
+      "updatedAt": "2026-09-16T05:01:36.133Z"
     }
   ]
 }
