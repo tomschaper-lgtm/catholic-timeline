@@ -7948,14 +7948,25 @@
       "type": "sentence-reword",
       "entityId": "council-of-clermont-1095",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Council of Clermont",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "council-of-clermont-1095",
+        "name": "Council of Clermont",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:12:54.789Z",
-      "updatedAt": "2026-09-16T06:17:43.391Z",
+      "updatedAt": "2026-09-16T06:18:23.063Z",
       "error": null
     },
     {
@@ -8177,6 +8188,35 @@
       "error": null,
       "createdAt": "2026-09-16T06:18:20.528Z",
       "updatedAt": "2026-09-16T06:18:20.528Z"
+    },
+    {
+      "id": "task-sentence-reword-council-of-clermont-1095-1789539503063-9531",
+      "type": "sentence-reword",
+      "entityId": "council-of-clermont-1095",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Council of Clermont",
+      "payload": {},
+      "result": {
+        "name": "Council of Clermont",
+        "patches": [
+          [
+            "article",
+            "Its ordinary business of disciplinary reform has been almost entirely eclipsed, in historical memory, by the four words a crowd of French bishops, knights, and pilgrims is said to have shouted back at their pope in an open field on a November afternoon.",
+            "U",
+            "Its ordinary business of disciplinary reform has been almost entirely eclipsed in historical memory. A crowd of French bishops, knights, and pilgrims is said to have shouted four words back at their pope in an open field on a November afternoon."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:18:23.063Z",
+      "updatedAt": "2026-09-16T06:18:23.063Z"
     }
   ]
 }
