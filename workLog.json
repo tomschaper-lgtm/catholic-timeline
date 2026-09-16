@@ -2460,12 +2460,70 @@
       "type": "arbitrate",
       "entityId": "st-catherine-labour-1876",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Catherine Labouré",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Catherine Labouré",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "VERIFY",
+            "category": "FACT",
+            "section": "A Mother Chosen Twice",
+            "sentence": "1",
+            "kind": "article",
+            "before": "the ninth of eleven surviving children",
+            "after": "the ninth of eleven children",
+            "concern": "Standard biographies describe Catherine as the ninth of eleven children, but the qualification that all eleven were surviving children is not reliably established and may be incorrect.",
+            "suggestedCorrection": "Remove \"surviving\" unless the intended child-survival count is verified from a reliable biographical source.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Removing the unverified 'surviving' qualification avoids potential historical inaccuracy.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "VERIFY",
+            "category": "FACT",
+            "section": "Legacy",
+            "sentence": "2",
+            "kind": "article",
+            "before": "When her body was exhumed in 1933 during her cause for canonization, it was found remarkably incorrupt.",
+            "after": "When her body was exhumed in 1933 during preparations for her beatification, it was reported to be remarkably incorrupt.",
+            "concern": "The wording presents incorruptibility as an unqualified historical fact and associates the exhumation with the cause for canonization, whereas the exhumation was part of the process leading to beatification and the condition of the body should be attributed as a reported finding.",
+            "suggestedCorrection": "Use the more precise procedural context and attribute the incorruptibility claim as a reported finding.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Attributing the incorruptibility as a reported finding and correctly identifying the beatification stage is more precise and appropriate.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "Legacy",
+            "sentence": "5",
+            "text": "Beatified in 1933 and canonized in 1947 by Pope Pius XII",
+            "concern": "The sentence attributes both beatification and canonization to Pope Pius XII, but Quick Facts correctly notes that she was beatified by Pope Pius XI in 1933 (and canonized by Pius XII in 1947).",
+            "suggestedCorrection": "Correct the beatifying pope to Pius XI.",
+            "source": "Not externally verified",
+            "kind": "article",
+            "before": "Beatified in 1933 and canonized in 1947 by Pope Pius XII",
+            "after": "Beatified in 1933 by Pope Pius XI and canonized in 1947 by Pope Pius XII",
+            "winner": "revised",
+            "comment": "",
+            "proposedBy": "gemini-3.5-flash-lite",
+            "arbitratedBy": "gpt-5.6-luna"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-16T04:35:15.815Z",
-      "updatedAt": "2026-09-16T04:42:51.391Z",
+      "updatedAt": "2026-09-16T04:44:13.379Z",
       "error": null
     },
     {
