@@ -8054,14 +8054,25 @@
       "type": "sentence-reword",
       "entityId": "council-of-vienne-1311",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Council of Vienne",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "council-of-vienne-1311",
+        "name": "Council of Vienne",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:12:54.789Z",
-      "updatedAt": "2026-09-16T06:17:43.391Z",
+      "updatedAt": "2026-09-16T06:18:42.506Z",
       "error": null
     },
     {
@@ -8310,6 +8321,35 @@
       "error": null,
       "createdAt": "2026-09-16T06:18:39.216Z",
       "updatedAt": "2026-09-16T06:18:39.216Z"
+    },
+    {
+      "id": "task-sentence-reword-council-of-vienne-1311-1789539522506-346",
+      "type": "sentence-reword",
+      "entityId": "council-of-vienne-1311",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Council of Vienne",
+      "payload": {},
+      "result": {
+        "name": "Council of Vienne",
+        "patches": [
+          [
+            "article",
+            "The Templars faced charges of heresy, idolatry, and immorality, while confessions extracted under torture were later retracted by the order's own members. <b>Pope Clement V</b>, the first of the popes to reside at Avignon and heavily dependent on French royal favor, faced enormous pressure to endorse Philip's actions against an order answering, in principle, directly to the papacy rather than any king.",
+            "U",
+            "The Templars faced charges of heresy, idolatry, and immorality. Confessions extracted under torture were later retracted by the order's own members. <b>Pope Clement V</b>, the first pope to reside at Avignon and heavily dependent on French royal favor, faced enormous pressure to endorse Philip's actions against an order answering, in principle, directly to the papacy rather than any king."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:18:42.506Z",
+      "updatedAt": "2026-09-16T06:18:42.506Z"
     }
   ]
 }
