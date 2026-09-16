@@ -2916,14 +2916,25 @@
       "type": "sentence-reword",
       "entityId": "st-anthony-of-egypt-356",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Anthony of Egypt",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-anthony-of-egypt-356",
+        "name": "St. Anthony of Egypt",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:36:31.034Z",
-      "updatedAt": "2026-09-16T02:37:52.851Z",
+      "updatedAt": "2026-09-16T02:38:39.097Z",
       "error": null
     },
     {
@@ -3784,6 +3795,47 @@
       "error": null,
       "createdAt": "2026-09-16T02:38:32.132Z",
       "updatedAt": "2026-09-16T02:38:32.132Z"
+    },
+    {
+      "id": "task-sentence-reword-st-anthony-of-egypt-356-1789526319097-3079",
+      "type": "sentence-reword",
+      "entityId": "st-anthony-of-egypt-356",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — St. Anthony of Egypt",
+      "payload": {},
+      "result": {
+        "name": "St. Anthony of Egypt",
+        "patches": [
+          [
+            "article",
+            "Instead, Athanasius tells us, they found him in sound health of body and, more strikingly still, entirely at peace and balanced in soul — a man, in the biographer's own words, guided by reason and abiding in a perfectly natural state.",
+            "U",
+            "Instead, Athanasius tells us, they found him in sound health of body and, more strikingly still, entirely at peace and balanced in soul. In the biographer's own words, he was a man guided by reason and abiding in a perfectly natural state."
+          ],
+          [
+            "article",
+            "Near the very end of his long life, he traveled to Alexandria at Athanasius's request to preach publicly against the Arian heresy—a life of the deepest withdrawal from the world remained, when the Church's need was great enough, entirely at the world's service.",
+            "U",
+            "Near the very end of his long life, he traveled to Alexandria at Athanasius's request to preach publicly against the Arian heresy. A life of the deepest withdrawal from the world remained, when the Church's need was great enough, entirely at the world's service."
+          ],
+          [
+            "article",
+            "Its account of one man's total, undivided surrender to God helped ignite the monastic movement that would soon reshape both the Eastern and Western Church. <a href=\"entry:st-augustine-430\">St. Augustine</a> himself later recorded how reading this very book moved two imperial officials in Trier to abandon worldly ambition altogether — a chain of grace running directly from one Egyptian hermit's fidelity to the conversion of hearts he would never meet, a chain that, in truth, has never stopped extending, generation after generation, down to our own day.",
+            "U",
+            "Its account of one man's total, undivided surrender to God helped ignite the monastic movement that would soon reshape both the Eastern and Western Church. <a href=\"entry:st-augustine-430\">St. Augustine</a> himself later recorded how reading this very book moved two imperial officials in Trier to abandon worldly ambition altogether. It was a chain of grace running directly from one Egyptian hermit's fidelity to the conversion of hearts he would never meet, a chain that, in truth, has never stopped extending, generation after generation, down to our own day."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:38:39.097Z",
+      "updatedAt": "2026-09-16T02:38:39.097Z"
     }
   ]
 }
