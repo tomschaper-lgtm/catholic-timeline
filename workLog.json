@@ -14634,14 +14634,25 @@
       "type": "sentence-reword",
       "entityId": "em-turin-1453",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Turin I",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-turin-1453",
+        "name": "Turin I",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:37:11.191Z",
       "error": null
     },
     {
@@ -17618,6 +17629,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:37:04.111Z",
       "updatedAt": "2026-09-16T18:37:04.111Z"
+    },
+    {
+      "id": "task-sentence-reword-em-turin-1453-1789583831191-1881",
+      "type": "sentence-reword",
+      "entityId": "em-turin-1453",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Turin I",
+      "payload": {},
+      "result": {
+        "name": "Turin I",
+        "patches": [
+          [
+            "article",
+            "Soldiers plundering the town broke into its church and, among other valuables, one man forced open the tabernacle and made off with a monstrance still holding a consecrated Host, wrapping it into a sack he loaded onto a mule bound for Turin.",
+            "U",
+            "Soldiers plundering the town broke into its church and seized among other valuables a monstrance still holding a consecrated Host. One man had forced open the tabernacle, wrapped the monstrance in a sack, and loaded it onto a mule bound for Turin."
+          ],
+          [
+            "article",
+            "Popes Pius II, Benedict XIV, Clement XIII, Gregory XVI, St. Pius X, and Pius XI all recognized the Turin account across the centuries and granted indulgences to its pilgrims, and in 1928 Pius XI raised its church to the rank of minor basilica.",
+            "U",
+            "Popes Pius II, Benedict XIV, Clement XIII, Gregory XVI, St. Pius X, and Pius XI all recognized the Turin account across the centuries. They granted indulgences to its pilgrims, and in 1928, Pius XI raised its church to the rank of minor basilica."
+          ],
+          [
+            "article",
+            "In 1853, marking the fourth centenary, Blessed Pius IX celebrated the anniversary with St. John Bosco himself in attendance — a five-century thread of continuous devotion, in a city that would later become known worldwide for another sacred relic entirely, the Holy Shroud.",
+            "U",
+            "In 1853, marking the fourth centenary, Blessed Pius IX celebrated the anniversary with St. John Bosco himself in attendance. This continued a five-century thread of devotion in a city later known worldwide for another sacred relic, the Holy Shroud."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:37:11.191Z",
+      "updatedAt": "2026-09-16T18:37:11.191Z"
     }
   ]
 }
