@@ -840,14 +840,25 @@
       "type": "sentence-reword",
       "entityId": "st-josaphat-1623",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Josaphat",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-josaphat-1623",
+        "name": "St. Josaphat",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:30:39.114Z",
-      "updatedAt": "2026-09-16T04:31:39.369Z",
+      "updatedAt": "2026-09-16T04:33:25.880Z",
       "error": null
     },
     {
@@ -1826,6 +1837,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:33:22.446Z",
       "updatedAt": "2026-09-16T04:33:22.446Z"
+    },
+    {
+      "id": "task-sentence-reword-st-josaphat-1623-1789533205880-4158",
+      "type": "sentence-reword",
+      "entityId": "st-josaphat-1623",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Josaphat",
+      "payload": {},
+      "result": {
+        "name": "St. Josaphat",
+        "patches": [
+          [
+            "article",
+            "He remains profoundly significant for Eastern Catholic Christians, particularly Ukrainians and Belarusians, honored as a martyr whose death, however tragic, testified to a conviction that unity with Rome need not come at the cost of a Church's own authentic liturgical and spiritual heritage.",
+            "U",
+            "He remains profoundly significant for Eastern Catholic Christians, particularly Ukrainians and Belarusians. They honor him as a martyr whose death, however tragic, testified to a conviction that unity with Rome need not come at the cost of a Church's own authentic liturgical and spiritual heritage."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:33:25.880Z",
+      "updatedAt": "2026-09-16T04:33:25.880Z"
     }
   ]
 }
