@@ -14763,14 +14763,25 @@
       "type": "sentence-reword",
       "entityId": "st-paul-miki-companions-1597",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Paul Miki & Companions",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-paul-miki-companions-1597",
+        "name": "St. Paul Miki & Companions",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:26:04.041Z",
       "error": null
     },
     {
@@ -15729,6 +15740,41 @@
       "error": null,
       "createdAt": "2026-09-16T04:25:51.240Z",
       "updatedAt": "2026-09-16T04:25:51.240Z"
+    },
+    {
+      "id": "task-sentence-reword-st-paul-miki-companions-1597-1789532764041-618",
+      "type": "sentence-reword",
+      "entityId": "st-paul-miki-companions-1597",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Paul Miki & Companions",
+      "payload": {},
+      "result": {
+        "name": "St. Paul Miki & Companions",
+        "patches": [
+          [
+            "article",
+            "From his cross, Paul Miki preached a final sermon to the assembled crowd, declaring himself \"a true Japanese.\" He was dying not for any foreign cause but for the Christian doctrine he had freely embraced and taught, forgiving his executioners in imitation of Christ.",
+            "U",
+            "From his cross, Paul Miki preached a final sermon to the assembled crowd, declaring himself \"a true Japanese.\" He was dying not for any foreign cause, but for the Christian doctrine he had freely embraced and taught. He forgave his executioners in imitation of Christ."
+          ],
+          [
+            "article",
+            "The martyrs’ story remains a touchstone for modern Japan’s small but resilient Catholic community, a country that would, three and a half centuries later, become forever associated in world memory with the atomic destruction of the very city where they died for their faith.",
+            "U",
+            "The martyrs’ story remains a touchstone for modern Japan’s small but resilient Catholic community. Three and a half centuries later, the country would become forever associated in world memory with the atomic destruction of the very city where they died for their faith."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:26:04.041Z",
+      "updatedAt": "2026-09-16T04:26:04.041Z"
     }
   ]
 }
