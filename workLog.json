@@ -6959,13 +6959,13 @@
       "type": "arbitrate",
       "entityId": "council-of-hippo-393",
       "batchId": null,
-      "status": "in_progress",
+      "status": "error",
       "description": "Proofread articles — Council of Hippo",
       "payload": {},
       "result": null,
       "createdAt": "2026-09-16T05:25:55.711Z",
-      "updatedAt": "2026-09-16T17:42:17.458Z",
-      "error": null
+      "updatedAt": "2026-09-16T17:51:58.102Z",
+      "error": "Error: google response failed validation: Finding 0: bad category \"GRAMMAR/SYNTAX\"\n\nRaw response:\n{\n  \"verdict\": \"findings\",\n  \"findings\": [\n    {\n      \"severity\": \"ERROR\",\n      \"category\": \"GRAMMAR/SYNTAX\",\n      \"section\": \"Legacy\",\n      \"sentence\": \"1\",\n      \"text\": \"Though Hippo's own acts survive today largely at second hand, referenced and summarized in later Carthage council records rather than preserved complete in their own right.\",\n      \"concern\": \"This sentence is a sentence fragment starting with 'Though' and ending with a period, disconnecting the dependent clause from its main clause.\",\n      \"suggestedCorrection\": \"Join the fragment to the following sentence or revise so it forms a complete grammatical sentence.\",\n      \"source\": \"Not externally verified\",\n      \"kind\": \"article\",\n      \"before\": \"Though Hippo's own acts survive today largely at second hand, referenced and summarized in later Carthage council records rather than preserved complete in their own right.\",\n      \"after\": \"Though Hippo's own acts survive today largely at second hand—referenced and summarized in later Carthage council records rather than preserved complete in their own right—its formal settlement of the New Testament canon marks one of the genuinely pivotal moments in the Bible's formation.\"\n    }\n  ]\n}\n    at runDebatePass (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/arbitrate.mjs:347:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async Promise.all (index 1)\n    at async runArbitrate (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/arbitrate.mjs:396:26)\n    at async main (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/orchestrator.mjs:299:20)"
     },
     {
       "id": "task-arbitrate-council-of-rome-382-1789536361654-621",
