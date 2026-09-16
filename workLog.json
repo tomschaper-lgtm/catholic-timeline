@@ -8461,14 +8461,25 @@
       "type": "sentence-reword",
       "entityId": "st-cajetan-1547",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Cajetan",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-cajetan-1547",
+        "name": "St. Cajetan",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:10:34.083Z",
-      "updatedAt": "2026-09-16T03:12:04.374Z",
+      "updatedAt": "2026-09-16T03:20:04.117Z",
       "error": null
     },
     {
@@ -10689,6 +10700,53 @@
       "error": null,
       "createdAt": "2026-09-16T03:19:52.858Z",
       "updatedAt": "2026-09-16T03:19:52.858Z"
+    },
+    {
+      "id": "task-sentence-reword-st-cajetan-1547-1789528804117-6404",
+      "type": "sentence-reword",
+      "entityId": "st-cajetan-1547",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — St. Cajetan",
+      "payload": {},
+      "result": {
+        "name": "St. Cajetan",
+        "patches": [
+          [
+            "article",
+            "Born in October 1480 at Vicenza, <b>Cajetan</b> earned a doctorate in both civil and canon law at Padua by twenty-four, and by 1506 had become a prothonotary apostolic at the court of Pope Julius II in Rome, where he played a notable role in reconciling the Republic of Venice with the papacy during a period of political tension.",
+            "U",
+            "Born in October 1480 at Vicenza, <b>Cajetan</b> earned a doctorate in both civil and canon law at Padua by twenty-four. By 1506, he had become a prothonotary apostolic at Pope Julius II’s court in Rome, where he played a notable role reconciling the Republic of Venice with the papacy during political tension."
+          ],
+          [
+            "article",
+            "After Julius II's death, Cajetan withdrew from papal court life and, though not yet ordained, is credited with founding the <b>Oratory of Divine Love</b>, an association of pious priests and prelates dedicated to personal sanctification and charitable works that soon spread to other Italian cities.",
+            "U",
+            "After Julius II's death, Cajetan withdrew from papal court life. Though not yet ordained, he is credited with founding the <b>Oratory of Divine Love</b>, an association of pious priests and prelates dedicated to personal sanctification and charitable works that soon spread to other Italian cities."
+          ],
+          [
+            "article",
+            "In Naples, Cajetan confronted the widespread practice of usury directly by founding a charitable pawnshop, a <i>monte di pietà</i>, offering the poor loans without exploitative interest — an institution that grew over time into what became the Bank of Naples, a lasting practical legacy of his concern for the economically vulnerable alongside his spiritual reforms.",
+            "U",
+            "In Naples, Cajetan confronted the widespread practice of usury directly by founding a charitable pawnshop, a <i>monte di pietà</i>. It offered the poor loans without exploitative interest and grew over time into what became the Bank of Naples, a lasting practical legacy of his concern for the economically vulnerable alongside his spiritual reforms."
+          ],
+          [
+            "article",
+            "Though the Theatines never grew into a large order, restricted by their vow against begging alms to members who possessed independent means, Cajetan's model of combining rigorous personal holiness with active reforming engagement in the Church's public life placed him among the most influential figures preparing the ground for the broader Catholic Reformation that followed at the <a href=\"entry:council-of-trent-1545\">Council of Trent</a>.",
+            "U",
+            "Though the Theatines never grew into a large order, their vow against begging alms restricted membership to those with independent means. Cajetan's model combined rigorous personal holiness with active reforming engagement in the Church's public life, placing him among the most influential figures preparing the ground for the broader Catholic Reformation that followed at the <a href=\"entry:council-of-trent-1545\">Council of Trent</a>."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:20:04.117Z",
+      "updatedAt": "2026-09-16T03:20:04.117Z"
     }
   ]
 }
