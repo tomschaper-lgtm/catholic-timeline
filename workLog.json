@@ -14709,14 +14709,25 @@
       "type": "sentence-reword",
       "entityId": "st-john-of-god-1550",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. John of God",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-john-of-god-1550",
+        "name": "St. John of God",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:25:51.240Z",
       "error": null
     },
     {
@@ -15676,6 +15687,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:25:48.745Z",
       "updatedAt": "2026-09-16T04:25:48.745Z"
+    },
+    {
+      "id": "task-sentence-reword-st-john-of-god-1550-1789532751240-9360",
+      "type": "sentence-reword",
+      "entityId": "st-john-of-god-1550",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. John of God",
+      "payload": {},
+      "result": {
+        "name": "St. John of God",
+        "patches": [
+          [
+            "article",
+            "Tradition holds that Christ himself appeared to John, expressing pleasure with his work and telling him he wished him to be known as <b>'John of God.'</b> The Bishop of Tuy wished to curb John's habit of giving away his own cloak to any beggar he encountered.",
+            "U",
+            "Tradition holds that Christ himself appeared to John, expressing pleasure with his work. He told John he wished him to be known as <b>'John of God.'</b> The Bishop of Tuy wished to curb John's habit of giving away his own cloak to any beggar he encountered."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:25:51.240Z",
+      "updatedAt": "2026-09-16T04:25:51.240Z"
     }
   ]
 }
