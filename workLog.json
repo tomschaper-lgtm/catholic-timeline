@@ -7941,14 +7941,25 @@
       "type": "sentence-reword",
       "entityId": "st-raymond-of-penyafort-1275",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Raymond of Penyafort",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-raymond-of-penyafort-1275",
+        "name": "St. Raymond of Penyafort",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:10:34.083Z",
-      "updatedAt": "2026-09-16T03:12:04.374Z",
+      "updatedAt": "2026-09-16T03:15:23.963Z",
       "error": null
     },
     {
@@ -9271,6 +9282,53 @@
       "error": null,
       "createdAt": "2026-09-16T03:15:14.858Z",
       "updatedAt": "2026-09-16T03:15:14.858Z"
+    },
+    {
+      "id": "task-sentence-reword-st-raymond-of-penyafort-1275-1789528523963-9761",
+      "type": "sentence-reword",
+      "entityId": "st-raymond-of-penyafort-1275",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — St. Raymond of Penyafort",
+      "payload": {},
+      "result": {
+        "name": "St. Raymond of Penyafort",
+        "patches": [
+          [
+            "article",
+            "Born around 1175 near <b>Barcelona</b>, <b>Raymond</b> displayed exceptional intellectual gifts from a young age, teaching philosophy by twenty and eventually earning doctorates in both civil and canon law at the renowned University of <b>Bologna</b>, where he taught for several years and published a treatise on ecclesiastical legislation still preserved in the Vatican Library.",
+            "U",
+            "Born around 1175 near <b>Barcelona</b>, <b>Raymond</b> displayed exceptional intellectual gifts from a young age, teaching philosophy by twenty. He eventually earned doctorates in both civil and canon law at the renowned University of <b>Bologna</b>. There, he taught for several years and published a treatise on ecclesiastical legislation still preserved in the Vatican Library."
+          ],
+          [
+            "article",
+            "The resulting five books of <b>Decretals</b>, completed in 1234, were declared by Gregory the sole authoritative text for canon law study at Paris and Bologna, and remained foundational to Church law for nearly seven centuries, until the 1917 Code of Canon Law.",
+            "U",
+            "The resulting five books of <b>Decretals</b>, completed in 1234, were declared by Gregory the sole authoritative text for canon law study at Paris and Bologna. They remained foundational to Church law for nearly seven centuries, until the 1917 Code of Canon Law."
+          ],
+          [
+            "article",
+            "So pleased was Gregory IX with Raymond's work that he appointed him Archbishop of Tarragona, an honor Raymond declined, preferring to remain a humble friar; providence, in the account of his biographers, intervened further when a sudden illness helped persuade the pope to release him from the appointment altogether.",
+            "U",
+            "Gregory IX was so pleased with Raymond's work that he appointed him Archbishop of Tarragona. Raymond declined the honor, preferring to remain a humble friar. In his biographers' account, providence intervened further when a sudden illness helped persuade the pope to release him from the appointment altogether."
+          ],
+          [
+            "article",
+            "His <i>Summa de Poenitentia et Matrimonio</i> is considered one of the first true manuals of moral theology for confessors, and he remains honored today as the patron saint of canon lawyers, a scholar whose careful, systematic work gave the medieval Church its first truly organized body of law.",
+            "U",
+            "His <i>Summa de Poenitentia et Matrimonio</i> is considered one of the first true manuals of moral theology for confessors. He remains honored today as the patron saint of canon lawyers, a scholar whose careful, systematic work gave the medieval Church its first truly organized body of law."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:15:23.963Z",
+      "updatedAt": "2026-09-16T03:15:23.963Z"
     }
   ]
 }
