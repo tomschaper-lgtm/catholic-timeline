@@ -2596,14 +2596,25 @@
       "type": "sentence-reword",
       "entityId": "st-philip-the-apostle-80",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Philip the Apostle",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-philip-the-apostle-80",
+        "name": "St. Philip the Apostle",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:21:08.888Z",
-      "updatedAt": "2026-09-16T02:22:39.084Z",
+      "updatedAt": "2026-09-16T02:22:57.344Z",
       "error": null
     },
     {
@@ -2684,6 +2695,41 @@
       "error": null,
       "createdAt": "2026-09-16T02:22:52.247Z",
       "updatedAt": "2026-09-16T02:22:52.247Z"
+    },
+    {
+      "id": "task-sentence-reword-st-philip-the-apostle-80-1789525377344-5952",
+      "type": "sentence-reword",
+      "entityId": "st-philip-the-apostle-80",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Philip the Apostle",
+      "payload": {},
+      "result": {
+        "name": "St. Philip the Apostle",
+        "patches": [
+          [
+            "article",
+            "He was summoned with the same brief, direct invitation extended to <a href=\"entry:st-matthew-70\">Matthew</a>: \"follow me.\" Like theirs, Philip's response was immediate — and immediately generous, for Scripture next records him finding his friend <b><a href=\"entry:st-bartholomew-68\">Nathanael</a></b> to share the news he could not keep to himself.",
+            "U",
+            "He was summoned with the same brief, direct invitation extended to <a href=\"entry:st-matthew-70\">Matthew</a>: \"follow me.\" Like theirs, Philip's response was immediate — and immediately generous.\n\nScripture next records him finding his friend <b><a href=\"entry:st-bartholomew-68\">Nathanael</a></b> to share the news he could not keep to himself."
+          ],
+          [
+            "article",
+            "Philip's announcement to Nathanael carries the unfiltered enthusiasm of a man who has discovered something too large to hold alone: \"we have found him of whom Moses in the Law and also the prophets wrote, Jesus of Nazareth, the son of Joseph.\" When Nathanael responded skeptically — \"can anything good come out of Nazareth?\" — Philip did not argue theology or press an elaborate case.",
+            "U",
+            "Philip's announcement to Nathanael carries the unfiltered enthusiasm of a man who has discovered something too large to hold alone: \"we have found him of whom Moses in the Law and also the prophets wrote, Jesus of Nazareth, the son of Joseph.\"\n\nWhen Nathanael responded skeptically — \"can anything good come out of Nazareth?\" — Philip did not argue theology or press an elaborate case."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:22:57.344Z",
+      "updatedAt": "2026-09-16T02:22:57.344Z"
     }
   ]
 }
