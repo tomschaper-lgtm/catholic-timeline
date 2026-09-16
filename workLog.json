@@ -8844,14 +8844,25 @@
       "type": "sentence-reword",
       "entityId": "our-lady-of-lourdes-1858",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Our Lady of Lourdes",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "our-lady-of-lourdes-1858",
+        "name": "Our Lady of Lourdes",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:24:48.721Z",
-      "updatedAt": "2026-09-16T06:26:03.127Z",
+      "updatedAt": "2026-09-16T06:32:30.746Z",
       "error": null
     },
     {
@@ -10352,6 +10363,53 @@
       "error": null,
       "createdAt": "2026-09-16T06:32:20.907Z",
       "updatedAt": "2026-09-16T06:32:20.907Z"
+    },
+    {
+      "id": "task-sentence-reword-our-lady-of-lourdes-1858-1789540350746-7896",
+      "type": "sentence-reword",
+      "entityId": "our-lady-of-lourdes-1858",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Our Lady of Lourdes",
+      "payload": {},
+      "result": {
+        "name": "Our Lady of Lourdes",
+        "patches": [
+          [
+            "article",
+            "Hearing a sound like a gust of wind, she looked up to see a young woman, no older than sixteen or seventeen, standing in a niche in the rock, dressed in white with a blue sash and a golden rose at each foot, holding a rosary of pearls.",
+            "U",
+            "Hearing a sound like a gust of wind, she looked up and saw a young woman, no older than sixteen or seventeen, standing in a niche in the rock. She was dressed in white with a blue sash and a golden rose at each foot, holding a rosary of pearls."
+          ],
+          [
+            "article",
+            "On <b>February 25</b>, the Lady directed her to a dry patch of ground and told her to drink and wash there; scraping at the earth with her own hands, Bernadette uncovered a spring that had never before flowed from that rock, and which flows still.",
+            "U",
+            "On <b>February 25</b>, the Lady directed her to a dry patch of ground and told her to drink and wash there. Scraping at the earth with her own hands, Bernadette uncovered a spring that had never before flowed from that rock, and which flows still."
+          ],
+          [
+            "article",
+            "Bernadette, who had almost certainly never heard the phrase and could not have understood its theological weight, ran to tell the parish priest exactly what she had heard, repeating the words to herself over and over along the way so as not to forget them.",
+            "U",
+            "Bernadette had almost certainly never heard the phrase and could not have understood its theological weight. She ran to tell the parish priest exactly what she had heard, repeating the words to herself over and over along the way so as not to forget them."
+          ],
+          [
+            "article",
+            "Lourdes still says to every believer what it said to a poor, unlettered shepherd girl in 1858: that God's tenderness needs no credentials, and that the world's poorest and most overlooked remain, in the eyes of Heaven, exactly the ones worth searching out.",
+            "U",
+            "Lourdes still says to every believer what it said to a poor, unlettered shepherd girl in 1858: God's tenderness needs no credentials. The world's poorest and most overlooked remain, in the eyes of Heaven, exactly the ones worth searching out."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:32:30.746Z",
+      "updatedAt": "2026-09-16T06:32:30.746Z"
     }
   ]
 }
