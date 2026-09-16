@@ -4324,14 +4324,27 @@
       "type": "sentence-reword",
       "entityId": "council-of-jerusalem-49",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Council of Jerusalem",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "council-of-jerusalem-49",
+        "name": "Council of Jerusalem",
+        "sentencesFound": 4,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 1,
+        "apiErrorSamples": [
+          "GPT-5.6 Luna response looks cut off (doesn’t end in sentence-ending punctuation): \"s</li><li>avoiding unlawful marriage or unchastity</li></ul>\""
+        ],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:40:50.778Z",
-      "updatedAt": "2026-09-16T04:42:51.391Z",
+      "updatedAt": "2026-09-16T04:52:48.633Z",
       "error": null
     },
     {
@@ -4843,6 +4856,49 @@
       "createdAt": "2026-09-16T04:40:50.778Z",
       "updatedAt": "2026-09-16T04:40:50.778Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-council-of-jerusalem-49-1789534368633-3261",
+      "type": "sentence-reword",
+      "entityId": "council-of-jerusalem-49",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Council of Jerusalem",
+      "payload": {},
+      "result": {
+        "name": "Council of Jerusalem",
+        "patches": [
+          [
+            "article",
+            "Peter reminded the assembly that God himself had already shown, through the household of Cornelius, that the Holy Spirit was given to Gentiles without the demand of circumcision, and he warned against placing on new disciples \"a yoke\" that the Jewish people themselves had not been able to bear. <b>James</b>, presiding as head of the Jerusalem church, then proposed the council's judgment.",
+            "U",
+            "Peter reminded the assembly that God himself had already shown, through the household of Cornelius, that the Holy Spirit was given to Gentiles without circumcision. He warned against placing on new disciples \"a yoke\" that the Jewish people themselves had not been able to bear. <b>James</b>, presiding as head of the Jerusalem church, then proposed the council's judgment."
+          ],
+          [
+            "article",
+            "The Council of Jerusalem established, in the Church's own founding generation, the pattern that would govern every ecumenical council afterward: a disputed question is brought before the Church's shepherds, debated openly, and settled by a binding decision guided, as the letter itself states, by the Holy Spirit and the Apostles together.",
+            "U",
+            "The Council of Jerusalem established, in the Church's own founding generation, the pattern that would govern every ecumenical council afterward. A disputed question is brought before the Church's shepherds, debated openly, and settled by a binding decision guided, as the letter itself states, by the Holy Spirit and the Apostles together."
+          ],
+          [
+            "article",
+            "The council also secured the universal, multi-ethnic character of the Church from its earliest days, allowing the Gospel to spread among Gentile peoples without the burden of the Mosaic ceremonial law — a decision Paul would later defend at length in his Letter to the Galatians.",
+            "U",
+            "The council also secured the Church’s universal, multi-ethnic character from its earliest days. This allowed the Gospel to spread among Gentile peoples without the burden of the Mosaic ceremonial law. Paul would later defend this decision at length in his Letter to the Galatians."
+          ]
+        ],
+        "apiErrors": 1,
+        "apiErrorSamples": [
+          "GPT-5.6 Luna response looks cut off (doesn’t end in sentence-ending punctuation): \"s</li><li>avoiding unlawful marriage or unchastity</li></ul>\""
+        ],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:52:48.633Z",
+      "updatedAt": "2026-09-16T04:52:48.633Z"
     }
   ]
 }
