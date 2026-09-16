@@ -14553,14 +14553,25 @@
       "type": "sentence-reword",
       "entityId": "st-albert-the-great-1280",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Albert the Great",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-albert-the-great-1280",
+        "name": "St. Albert the Great",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:25:35.145Z",
       "error": null
     },
     {
@@ -15436,6 +15447,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:25:32.366Z",
       "updatedAt": "2026-09-16T04:25:32.366Z"
+    },
+    {
+      "id": "task-sentence-reword-st-albert-the-great-1280-1789532735145-9280",
+      "type": "sentence-reword",
+      "entityId": "st-albert-the-great-1280",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Albert the Great",
+      "payload": {},
+      "result": {
+        "name": "St. Albert the Great",
+        "patches": [
+          [
+            "article",
+            "He remained active in Church affairs into advanced old age, traveling personally to Paris in his own final years to defend the orthodoxy of his former student's teaching after Aquinas's death, when certain of Thomas's positions came under posthumous theological attack.",
+            "U",
+            "He remained active in Church affairs into advanced old age. In his own final years, he traveled personally to Paris to defend the orthodoxy of his former student's teaching after Aquinas's death, when certain of Thomas's positions came under posthumous theological attack."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:25:35.145Z",
+      "updatedAt": "2026-09-16T04:25:35.145Z"
     }
   ]
 }
