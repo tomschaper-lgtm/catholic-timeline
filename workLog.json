@@ -13415,14 +13415,27 @@
       "type": "sentence-reword",
       "entityId": "em-douai-1254",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Douai",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-douai-1254",
+        "name": "Douai",
+        "sentencesFound": 4,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 1,
+        "apiErrorSamples": [
+          "GPT-5.6 Luna response looks cut off (doesn’t end in sentence-ending punctuation): \" crowned with thorns, with two drops of Blood.\"</blockquote>\""
+        ],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:45:09.091Z",
       "error": null
     },
     {
@@ -15021,6 +15034,49 @@
       "error": null,
       "createdAt": "2026-09-16T12:44:51.642Z",
       "updatedAt": "2026-09-16T12:44:51.642Z"
+    },
+    {
+      "id": "task-sentence-reword-em-douai-1254-1789562709091-9067",
+      "type": "sentence-reword",
+      "entityId": "em-douai-1254",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Douai",
+      "payload": {},
+      "result": {
+        "name": "Douai",
+        "patches": [
+          [
+            "article",
+            "By 1356, just a century after the event, the church of St. Amatus was already keeping a regular weekly devotion to the relic; the church itself was destroyed during the <a href=\"entry:french-revolution-1793\">French Revolution</a>, but not before a canon of the collegiate church of St. Peter, sensing the danger, removed the Host, placed it in a small wooden box, and hid it beneath the Altar of the Dead, leaving with it a note in Latin identifying the relic for whoever might one day find it.",
+            "U",
+            "By 1356, just a century after the event, the church of St. Amatus was already keeping a regular weekly devotion to the relic. The church itself was destroyed during the <a href=\"entry:french-revolution-1793\">French Revolution</a>, but not before a canon of the collegiate church of St. Peter, sensing the danger, removed the Host. He placed it in a small wooden box and hid it beneath the Altar of the Dead, leaving with it a note in Latin identifying the relic for whoever might one day find it."
+          ],
+          [
+            "article",
+            "The box remained hidden for over sixty years, until 1854, when the pastor of St. Peter's discovered it during work beneath the altar; inside was a small Host, still white, together with the canon's original note dated 5 January 1793, asking that the relic be preserved for the faithful of the future.",
+            "U",
+            "The box remained hidden for over sixty years, until 1854, when the pastor of St. Peter's discovered it during work beneath the altar. Inside was a small Host, still white, together with the canon's original note dated 5 January 1793, asking that the relic be preserved for the faithful of the future."
+          ],
+          [
+            "article",
+            "The Host remains venerated today at the Collegiate Church of St. Peter in Douai, where the faithful still gather every Thursday of the month in prayer before it — a devotion that has now survived, by the town's own reckoning, a medieval accident, a revolution, and sixty years of quiet concealment beneath an altar built for the dead.",
+            "U",
+            "The Host remains venerated today at the Collegiate Church of St. Peter in Douai. The faithful still gather there every Thursday of the month in prayer before it. By the town's own reckoning, this devotion has survived a medieval accident, a revolution, and sixty years of quiet concealment beneath an altar built for the dead."
+          ]
+        ],
+        "apiErrors": 1,
+        "apiErrorSamples": [
+          "GPT-5.6 Luna response looks cut off (doesn’t end in sentence-ending punctuation): \" crowned with thorns, with two drops of Blood.\"</blockquote>\""
+        ],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:45:09.091Z",
+      "updatedAt": "2026-09-16T12:45:09.091Z"
     }
   ]
 }
