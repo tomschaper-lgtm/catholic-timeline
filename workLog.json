@@ -14556,14 +14556,25 @@
       "type": "sentence-reword",
       "entityId": "em-avignon-1433",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Avignon",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-avignon-1433",
+        "name": "Avignon",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:36:34.114Z",
       "error": null
     },
     {
@@ -17432,6 +17443,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:36:27.555Z",
       "updatedAt": "2026-09-16T18:36:27.555Z"
+    },
+    {
+      "id": "task-sentence-reword-em-avignon-1433-1789583794114-6267",
+      "type": "sentence-reword",
+      "entityId": "em-avignon-1433",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Avignon",
+      "payload": {},
+      "result": {
+        "name": "Avignon",
+        "patches": [
+          [
+            "article",
+            "The Chapel of the Holy Cross in Avignon, France, home to a Franciscan confraternity known as the Gray Penitents, had maintained perpetual adoration of the Blessed Sacrament for some two hundred years by the time of the events of 1433 — a devotion tracing back to a solemn act of reparation organized by King Louis VIII after his victory over the Albigensian heretics, who had denied the Real Presence.",
+            "U",
+            "The Chapel of the Holy Cross in Avignon, France, was home to a Franciscan confraternity known as the Gray Penitents.  \nBy the events of 1433, it had maintained perpetual adoration of the Blessed Sacrament for some two hundred years.  \nThis devotion traced back to a solemn act of reparation organized by King Louis VIII after his victory over the Albigensian heretics, who had denied the Real Presence."
+          ],
+          [
+            "article",
+            "Reaching the chapel proved difficult through the floodwaters, but when the two friars finally arrived and made their way inside, they found the water risen to a height of some four feet throughout the building — except around the altar itself, where the floodwater had parted to either side, leaving the altar and the monstrance holding the Host completely dry.",
+            "U",
+            "Reaching the chapel proved difficult through the floodwaters. When the two friars finally arrived and made their way inside, they found water risen some four feet throughout the building. Around the altar itself, however, the floodwater had parted to either side, leaving the altar and the monstrance holding the Host completely dry."
+          ],
+          [
+            "article",
+            "The Avignon account belongs to a small category of Eucharistic tradition built not around blood or transformation but around simple, physical preservation — the Host and the ground immediately around it spared from a flood that reached everything else in the building.",
+            "U",
+            "The Avignon account belongs to a small category of Eucharistic tradition built not around blood or transformation, but around simple, physical preservation. The Host and the ground immediately around it were spared from a flood that reached everything else in the building."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:36:34.114Z",
+      "updatedAt": "2026-09-16T18:36:34.114Z"
     }
   ]
 }
