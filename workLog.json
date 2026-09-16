@@ -11202,14 +11202,25 @@
       "type": "sentence-reword",
       "entityId": "st-rose-of-lima-1617",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Rose of Lima",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-rose-of-lima-1617",
+        "name": "St. Rose of Lima",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:44:38.103Z",
-      "updatedAt": "2026-09-16T03:47:24.920Z",
+      "updatedAt": "2026-09-16T03:47:32.552Z",
       "error": null
     },
     {
@@ -11840,6 +11851,35 @@
       "error": null,
       "createdAt": "2026-09-16T03:47:29.090Z",
       "updatedAt": "2026-09-16T03:47:29.090Z"
+    },
+    {
+      "id": "task-sentence-reword-st-rose-of-lima-1617-1789530452552-2852",
+      "type": "sentence-reword",
+      "entityId": "st-rose-of-lima-1617",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Rose of Lima",
+      "payload": {},
+      "result": {
+        "name": "St. Rose of Lima",
+        "patches": [
+          [
+            "article",
+            "It included practices that even her own confessors at times urged her to moderate: a crown of thorns worn hidden beneath a wreath of roses, a metal spiked chain worn as a hidden penitential band, self-imposed fasting reduced at times to only bread and water, and nights spent largely in vigil and prayer rather than sleep.",
+            "U",
+            "It included practices that even her own confessors at times urged her to moderate: a crown of thorns hidden beneath a wreath of roses.  \nThese practices also included a metal spiked chain worn as a hidden penitential band, self-imposed fasting reduced at times to only bread and water, and nights spent largely in vigil and prayer rather than sleep."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:47:32.551Z",
+      "updatedAt": "2026-09-16T03:47:32.551Z"
     }
   ]
 }
