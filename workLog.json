@@ -734,14 +734,25 @@
       "type": "sentence-reword",
       "entityId": "st-juan-diego-1548",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Juan Diego",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-juan-diego-1548",
+        "name": "St. Juan Diego",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:30:39.114Z",
-      "updatedAt": "2026-09-16T04:31:39.369Z",
+      "updatedAt": "2026-09-16T04:33:06.498Z",
       "error": null
     },
     {
@@ -1687,6 +1698,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:33:03.295Z",
       "updatedAt": "2026-09-16T04:33:03.295Z"
+    },
+    {
+      "id": "task-sentence-reword-st-juan-diego-1548-1789533186498-7692",
+      "type": "sentence-reword",
+      "entityId": "st-juan-diego-1548",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Juan Diego",
+      "payload": {},
+      "result": {
+        "name": "St. Juan Diego",
+        "patches": [
+          [
+            "article",
+            "There, he encountered a young woman of radiant appearance who identified herself as the Mother of the true God and asked him to go to the bishop of Mexico City, Fray Juan de Zumárraga, requesting that a temple be built on that very spot in her honor.",
+            "U",
+            "There, he encountered a young woman of radiant appearance who identified herself as the Mother of the true God. She asked him to go to the bishop of Mexico City, Fray Juan de Zumárraga, requesting a temple be built on that very spot in her honor."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:33:06.498Z",
+      "updatedAt": "2026-09-16T04:33:06.498Z"
     }
   ]
 }
