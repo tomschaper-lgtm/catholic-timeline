@@ -16336,14 +16336,25 @@
       "type": "sentence-reword",
       "entityId": "em-moncada-1392",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Moncada",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-moncada-1392",
+        "name": "Moncada",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:13:11.322Z",
       "error": null
     },
     {
@@ -18812,6 +18823,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:13:04.714Z",
       "updatedAt": "2026-09-16T18:13:04.714Z"
+    },
+    {
+      "id": "task-sentence-reword-em-moncada-1392-1789582391322-9062",
+      "type": "sentence-reword",
+      "entityId": "em-moncada-1392",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Moncada",
+      "payload": {},
+      "result": {
+        "name": "Moncada",
+        "patches": [
+          [
+            "article",
+            "In 1378, amid the confusion of the Western Schism, French cardinals elected the antipope Clement VII in opposition to the Rome-recognized Pope Urban VI, and the resulting uncertainty over which bishops held valid authority left many priests across Western Europe unsure whether their own ordinations were canonically sound.",
+            "U",
+            "In 1378, amid the confusion of the Western Schism, French cardinals elected the antipope Clement VII in opposition to the Rome-recognized Pope Urban VI. The resulting uncertainty over which bishops held valid authority left many priests across Western Europe unsure whether their own ordinations were canonically sound."
+          ],
+          [
+            "article",
+            "Father Mosen Jaime Carros, a parish priest in Moncada, near Valencia, had been ordained by a bishop appointed under Clement VII's obedience, and lived for years in genuine anguish that every Mass he offered and every sacrament he administered might be invalid.",
+            "U",
+            "Father Mosen Jaime Carros was a parish priest in Moncada, near Valencia, and had been ordained by a bishop appointed under Clement VII's obedience. He lived for years in genuine anguish that every Mass he offered and every sacrament he administered might be invalid."
+          ],
+          [
+            "article",
+            "Whatever one makes of the precise historicity of a five-year-old's testimony six centuries removed, the story has endured in Moncada as a reminder that the schism-era Church's deepest anxieties about sacramental validity were, in the popular imagination at least, answered not by a council or a theologian but by a child's unguarded honesty.",
+            "U",
+            "Whatever one makes of the precise historicity of a five-year-old's testimony six centuries removed, the story has endured in Moncada. It serves as a reminder that the schism-era Church's deepest anxieties about sacramental validity were, in the popular imagination at least, answered not by a council or a theologian but by a child's unguarded honesty."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:13:11.322Z",
+      "updatedAt": "2026-09-16T18:13:11.322Z"
     }
   ]
 }
