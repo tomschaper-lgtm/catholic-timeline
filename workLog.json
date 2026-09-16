@@ -13129,14 +13129,25 @@
       "type": "sentence-reword",
       "entityId": "em-bruges-1203",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Bruges",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-bruges-1203",
+        "name": "Bruges",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:43:17.062Z",
       "error": null
     },
     {
@@ -14383,6 +14394,59 @@
       "error": null,
       "createdAt": "2026-09-16T12:43:05.172Z",
       "updatedAt": "2026-09-16T12:43:05.172Z"
+    },
+    {
+      "id": "task-sentence-reword-em-bruges-1203-1789562597062-5935",
+      "type": "sentence-reword",
+      "entityId": "em-bruges-1203",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — Bruges",
+      "payload": {},
+      "result": {
+        "name": "Bruges",
+        "patches": [
+          [
+            "article",
+            "The Basilica of the Holy Blood in Bruges, Belgium, houses one of medieval Europe's most venerated relics: a small rock-crystal vial said to contain a cloth stained with the Blood of Christ, traditionally attributed to Joseph of Arimathea, who according to the Gospels prepared Christ's body for burial.",
+            "U",
+            "The Basilica of the Holy Blood in Bruges, Belgium, houses one of medieval Europe's most venerated relics. It is a small rock-crystal vial said to contain a cloth stained with the Blood of Christ, traditionally attributed to Joseph of Arimathea. According to the Gospels, Joseph prepared Christ's body for burial."
+          ],
+          [
+            "article",
+            "Most scholars today believe the relic more likely reached Bruges after the sack of Constantinople in 1204, during the Fourth Crusade, brought back among a great wave of relics looted from the Byzantine imperial collection by Crusaders including Baldwin IX, Count of Flanders.",
+            "U",
+            "Most scholars today believe the relic more likely reached Bruges after the sack of Constantinople in 1204, during the Fourth Crusade. Crusaders including Baldwin IX, Count of Flanders, brought it back among a great wave of relics looted from the Byzantine imperial collection."
+          ],
+          [
+            "article",
+            "The city's guilds are recorded processing with it as early as 1291, and the Procession of the Holy Blood, still held every year on Ascension Day, when the relic is carried through the streets by bishops and prelates before thousands of participants, is counted among the oldest continuously observed religious processions in Europe.",
+            "U",
+            "The city's guilds are recorded processing with it as early as 1291. The Procession of the Holy Blood is still held every year on Ascension Day. The relic is carried through the streets by bishops and prelates before thousands of participants, and the procession is counted among Europe's oldest continuously observed religious processions."
+          ],
+          [
+            "article",
+            "We find in Bruges's Holy Blood something common to several of the Precious Blood relics venerated across medieval Europe: a devotion whose antiquity and sincerity are not in question, even where the precise legend explaining its arrival has not withstood historical scrutiny.",
+            "U",
+            "We find in Bruges's Holy Blood something common to several of the Precious Blood relics venerated across medieval Europe. Its antiquity and sincerity are not in question, even where the precise legend explaining its arrival has not withstood historical scrutiny."
+          ],
+          [
+            "article",
+            "Rather than choosing between skepticism and credulity, the fair-minded response is to hold both truths together — a community's eight centuries of genuine reverence, and a documentary record that asks us to receive the relic's traditional origin story as pious legend rather than settled fact.",
+            "U",
+            "Rather than choosing between skepticism and credulity, the fair-minded response is to hold both truths together. A community's eight centuries of genuine reverence stand alongside a documentary record asking us to receive the relic's traditional origin story as pious legend rather than settled fact."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:43:17.062Z",
+      "updatedAt": "2026-09-16T12:43:17.062Z"
     }
   ]
 }
