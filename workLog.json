@@ -14998,14 +14998,25 @@
       "type": "sentence-reword",
       "entityId": "em-rome-1610",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Rome (1610)",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-rome-1610",
+        "name": "Rome (1610)",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:39:17.607Z",
       "error": null
     },
     {
@@ -18424,6 +18435,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:39:11.440Z",
       "updatedAt": "2026-09-16T18:39:11.440Z"
+    },
+    {
+      "id": "task-sentence-reword-em-rome-1610-1789583957607-5005",
+      "type": "sentence-reword",
+      "entityId": "em-rome-1610",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Rome (1610)",
+      "payload": {},
+      "result": {
+        "name": "Rome (1610)",
+        "patches": [
+          [
+            "article",
+            "The imprint left in the stone step of the Caetani Chapel has remained visible ever since, preserved as physical testimony to the moment, in a church already centuries old by the time the event occurred and already carrying its own long history of association with the earliest days of the Roman church.",
+            "U",
+            "The imprint left in the stone step of the Caetani Chapel has remained visible ever since, preserved as physical testimony to the moment. The church was already centuries old when the event occurred, with its own long history of association with the earliest days of the Roman church."
+          ],
+          [
+            "article",
+            "Unlike many Eucharistic accounts built around blood, transformation, or dramatic recovery from theft or fire, the Rome 1610 account rests on something quieter — a single mark in stone, left at the exact spot where a priest's momentary uncertainty met the object of his doubt directly underfoot.",
+            "U",
+            "Unlike many Eucharistic accounts built around blood, transformation, or dramatic recovery from theft or fire, the Rome 1610 account rests on something quieter. It is a single mark in stone, left exactly where a priest's momentary uncertainty met the object of his doubt directly underfoot."
+          ],
+          [
+            "article",
+            "The imprint in the Caetani Chapel remains a point of quiet devotion within a church whose own foundations reach back to the apostolic age, a small and specific sign layered onto ground already carrying nearly sixteen centuries of Christian memory by the time it was made.",
+            "U",
+            "The imprint in the Caetani Chapel remains a point of quiet devotion within a church whose foundations reach back to the apostolic age. It is a small, specific sign layered onto ground already carrying nearly sixteen centuries of Christian memory by the time it was made."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:39:17.607Z",
+      "updatedAt": "2026-09-16T18:39:17.607Z"
     }
   ]
 }
