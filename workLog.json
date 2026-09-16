@@ -10728,14 +10728,27 @@
       "type": "sentence-reword",
       "entityId": "edict-of-milan-313",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Edict of Milan",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "edict-of-milan-313",
+        "name": "Edict of Milan",
+        "sentencesFound": 4,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 1,
+        "apiErrorSamples": [
+          "GPT-5.6 Luna response looks cut off (doesn’t end in sentence-ending punctuation): \"ch he personally feels best suited to himself.\"</blockquote>\""
+        ],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:26:44.875Z",
       "error": null
     },
     {
@@ -11463,6 +11476,49 @@
       "error": null,
       "createdAt": "2026-09-16T07:26:30.502Z",
       "updatedAt": "2026-09-16T07:26:30.502Z"
+    },
+    {
+      "id": "task-sentence-reword-edict-of-milan-313-1789543604875-1933",
+      "type": "sentence-reword",
+      "entityId": "edict-of-milan-313",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Edict of Milan",
+      "payload": {},
+      "result": {
+        "name": "Edict of Milan",
+        "patches": [
+          [
+            "article",
+            "In early 313, the Western emperor <b>Constantine</b>, fresh from his victory over Maxentius at the Milvian Bridge, met his Eastern counterpart <b>Licinius</b> at Mediolanum (modern <b>Milan</b>) to cement their alliance, sealed by the marriage of Licinius to Constantine's sister.",
+            "U",
+            "In early 313, the Western emperor <b>Constantine</b>, fresh from victory over Maxentius at the Milvian Bridge, met his Eastern counterpart <b>Licinius</b>. They met at Mediolanum (modern <b>Milan</b>) to cement their alliance, sealed by Licinius's marriage to Constantine's sister."
+          ],
+          [
+            "article",
+            "The text does not survive as a single formal 'edict' in the technical sense; it is preserved through the writings of the Christian author Lactantius and the historian Eusebius of Caesarea, who each transmit versions of the letter sent out in Constantine and Licinius's names.",
+            "U",
+            "The text does not survive as a single formal 'edict' in the technical sense. It is preserved through the writings of the Christian author Lactantius and the historian Eusebius of Caesarea. They each transmit versions of the letter sent out in Constantine and Licinius's names."
+          ],
+          [
+            "article",
+            "Modern commemorations, including a major 1,700th-anniversary observance in 2013, have continued to mark 313 as a foundational date for religious liberty in the West, even as historians debate how much genuine 'toleration' — as opposed to eventual establishment — Constantine himself intended.",
+            "U",
+            "Modern commemorations have continued to mark 313 as a foundational date for religious liberty in the West. These include a major 1,700th-anniversary observance in 2013, even as historians debate how much genuine 'toleration' — as opposed to eventual establishment — Constantine himself intended."
+          ]
+        ],
+        "apiErrors": 1,
+        "apiErrorSamples": [
+          "GPT-5.6 Luna response looks cut off (doesn’t end in sentence-ending punctuation): \"ch he personally feels best suited to himself.\"</blockquote>\""
+        ],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:26:44.875Z",
+      "updatedAt": "2026-09-16T07:26:44.875Z"
     }
   ]
 }
