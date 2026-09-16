@@ -2786,14 +2786,25 @@
       "type": "sentence-reword",
       "entityId": "st-pancras-304",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Pancras",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-pancras-304",
+        "name": "St. Pancras",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T02:36:31.034Z",
-      "updatedAt": "2026-09-16T02:37:52.851Z",
+      "updatedAt": "2026-09-16T02:37:56.427Z",
       "error": null
     },
     {
@@ -3530,6 +3541,35 @@
       "createdAt": "2026-09-16T02:36:31.034Z",
       "updatedAt": "2026-09-16T02:36:31.034Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-st-pancras-304-1789526276427-5911",
+      "type": "sentence-reword",
+      "entityId": "st-pancras-304",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Pancras",
+      "payload": {},
+      "result": {
+        "name": "St. Pancras",
+        "patches": [
+          [
+            "article",
+            "Pancras remains venerated to this day as one of the youngest named martyrs of the early Church, his memory carried by his ancient Roman church, his English dedication at Canterbury, and the wider devotion that grew from Pope Gregory's missionary relics.",
+            "U",
+            "Pancras remains venerated to this day as one of the youngest named martyrs of the early Church. His memory is carried by his ancient Roman church, his English dedication at Canterbury, and the wider devotion that grew from Pope Gregory's missionary relics."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:37:56.427Z",
+      "updatedAt": "2026-09-16T02:37:56.427Z"
     }
   ]
 }
