@@ -14478,14 +14478,25 @@
       "type": "sentence-reword",
       "entityId": "em-zaragoza-1427",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Zaragoza",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-zaragoza-1427",
+        "name": "Zaragoza",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:36:15.227Z",
       "error": null
     },
     {
@@ -17276,6 +17287,53 @@
       "error": null,
       "createdAt": "2026-09-16T18:36:06.044Z",
       "updatedAt": "2026-09-16T18:36:06.044Z"
+    },
+    {
+      "id": "task-sentence-reword-em-zaragoza-1427-1789583775227-1971",
+      "type": "sentence-reword",
+      "entityId": "em-zaragoza-1427",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Zaragoza",
+      "payload": {},
+      "result": {
+        "name": "Zaragoza",
+        "patches": [
+          [
+            "article",
+            "Overcome with fear and remorse, the woman brought the coffer and its contents to Bishop Alonso de Arguello, who had the child placed under guard on the altar of St. Valerius in the cathedral, where the people of Zaragoza came throughout the following day to see and venerate what they had been told was a visible sign of Christ's presence.",
+            "U",
+            "Overcome with fear and remorse, the woman brought the coffer and its contents to Bishop Alonso de Arguello. He had the child placed under guard on St. Valerius’s altar in the cathedral. Throughout the following day, the people of Zaragoza came to see and venerate what they had been told was a visible sign of Christ’s presence."
+          ],
+          [
+            "article",
+            "The next morning, as the bishop celebrated the Votive Mass of the Blessed Sacrament at that same altar, the figure of the child vanished at the moment of the offertory, and in its place the congregation saw an already-consecrated Host — which the bishop, recognizing no further consecration was needed, distributed and himself received at Communion.",
+            "U",
+            "The next morning, as the bishop celebrated the Votive Mass of the Blessed Sacrament at that same altar, the figure of the child vanished at the offertory. In its place, the congregation saw an already-consecrated Host, which the bishop recognized needed no further consecration, distributed and himself received at Communion."
+          ],
+          [
+            "article",
+            "The event is recorded in a written account left by the city's archdeacon, Don Dorner, and preserved in the archives of the Zaragoza town hall, and a painting depicting the episode still hangs in the cathedral beside the chapel of San Dominguito del Val.",
+            "U",
+            "The event is recorded in a written account left by the city's archdeacon, Don Dorner, and preserved in the archives of the Zaragoza town hall. A painting depicting the episode still hangs in the cathedral beside the chapel of San Dominguito del Val."
+          ],
+          [
+            "article",
+            "According to the tradition, the woman was reconciled with her husband afterward and lived the rest of her life in evident devotion — a detail that, whatever one makes of the story's more dramatic elements, frames the whole account less as a tale of punishment than of a troubled marriage transformed by an encounter neither spouse could have anticipated.",
+            "U",
+            "According to the tradition, the woman was reconciled with her husband afterward and lived the rest of her life in evident devotion. Whatever one makes of the story's more dramatic elements, this detail frames the whole account less as a tale of punishment than of a troubled marriage transformed by an encounter neither spouse could have anticipated."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:36:15.227Z",
+      "updatedAt": "2026-09-16T18:36:15.227Z"
     }
   ]
 }
