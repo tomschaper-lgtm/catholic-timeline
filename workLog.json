@@ -13285,14 +13285,25 @@
       "type": "sentence-reword",
       "entityId": "em-caravaca-1231",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Caravaca de la Cruz",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-caravaca-1231",
+        "name": "Caravaca de la Cruz",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:44:06.656Z",
       "error": null
     },
     {
@@ -14713,6 +14724,59 @@
       "error": null,
       "createdAt": "2026-09-16T12:43:54.658Z",
       "updatedAt": "2026-09-16T12:43:54.658Z"
+    },
+    {
+      "id": "task-sentence-reword-em-caravaca-1231-1789562646656-8973",
+      "type": "sentence-reword",
+      "entityId": "em-caravaca-1231",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — Caravaca de la Cruz",
+      "payload": {},
+      "result": {
+        "name": "Caravaca de la Cruz",
+        "patches": [
+          [
+            "article",
+            "Chirinos began the ceremony on a hastily improvised altar, only to realize partway through that nothing stood upon it representing the crucified Christ — a serious problem for a priest determined to celebrate the Mass properly even under the eyes of a captor testing him.",
+            "U",
+            "Chirinos began the ceremony on a hastily improvised altar. Partway through, he realized that nothing stood upon it representing the crucified Christ—a serious problem for a priest determined to celebrate the Mass properly, even under the eyes of a captor testing him."
+          ],
+          [
+            "article",
+            "The earliest written witness to the story, the Franciscan chronicler <b>Gil de Zamora</b>, historian to King St. Ferdinand III of Castile, recorded it within a generation of the event, giving the tradition an unusually early source for a medieval account of this kind.",
+            "U",
+            "The earliest written witness to the story was the Franciscan chronicler <b>Gil de Zamora</b>, historian to King St. Ferdinand III of Castile. He recorded it within a generation of the event, giving the tradition an unusually early source for a medieval account of this kind."
+          ],
+          [
+            "article",
+            "Moved by what he had seen, Abuzeyt and members of his household are said to have sought baptism soon afterward — a conversion later Christian writers took as a genuine turning point in Caravaca's own passage from Muslim to Christian rule during these same decades of the Reconquista.",
+            "U",
+            "Moved by what he had seen, Abuzeyt and members of his household are said to have sought baptism soon afterward. Later Christian writers took this conversion as a genuine turning point in Caravaca's own passage from Muslim to Christian rule during these same decades of the Reconquista."
+          ],
+          [
+            "article",
+            "The cross containing its fragment of the True Cross was stolen from its sanctuary on the night of 13–14 February 1934, amid the rising anticlerical unrest that preceded Spain's Civil War, and has never been recovered; Pope Pius XII later provided a fresh relic of the True Cross, still housed today in a faithful replica of the original reliquary.",
+            "U",
+            "The cross containing its fragment of the True Cross was stolen from its sanctuary on the night of 13–14 February 1934, amid rising anticlerical unrest.  \nThat unrest preceded Spain's Civil War, and the cross has never been recovered. Pope Pius XII later provided a fresh relic of the True Cross, still housed today in a faithful replica of the original reliquary."
+          ],
+          [
+            "article",
+            "In 1998, Pope <a href=\"entry:st-john-paul-ii-2005\">St. John Paul II</a> designated Caravaca de la Cruz the fifth Holy City permitted to celebrate a perpetual jubilee, alongside Jerusalem, Rome, and Santiago de Compostela — a lasting recognition for the small Murcian town where a captive priest once found himself, of all things, short a crucifix for his altar.",
+            "U",
+            "In 1998, Pope <a href=\"entry:st-john-paul-ii-2005\">St. John Paul II</a> designated Caravaca de la Cruz the fifth Holy City permitted to celebrate a perpetual jubilee. It joined Jerusalem, Rome, and Santiago de Compostela — a lasting recognition for the small Murcian town where a captive priest once found himself, of all things, short a crucifix for his altar."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:44:06.656Z",
+      "updatedAt": "2026-09-16T12:44:06.656Z"
     }
   ]
 }
