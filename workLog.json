@@ -14946,14 +14946,25 @@
       "type": "sentence-reword",
       "entityId": "em-mogoro-1604",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Mogoro",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-mogoro-1604",
+        "name": "Mogoro",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:39:00.726Z",
       "error": null
     },
     {
@@ -18314,6 +18325,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:38:52.826Z",
       "updatedAt": "2026-09-16T18:38:52.826Z"
+    },
+    {
+      "id": "task-sentence-reword-em-mogoro-1604-1789583940726-9348",
+      "type": "sentence-reword",
+      "entityId": "em-mogoro-1604",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Mogoro",
+      "payload": {},
+      "result": {
+        "name": "Mogoro",
+        "patches": [
+          [
+            "article",
+            "On the Monday after Easter in 1604, Father Salvatore Spiga, pastor of the church of St. Bernard in Mogoro, on the Italian island of Sardinia, was distributing Communion when two men well known in the town for their dissolute lives came forward to receive it.",
+            "U",
+            "On the Monday after Easter in 1604, Father Salvatore Spiga was distributing Communion. He was pastor of St. Bernard’s church in Mogoro, on the Italian island of Sardinia. Two men, well known in town for their dissolute lives, came forward to receive it."
+          ],
+          [
+            "article",
+            "The event is confirmed in a notarized public act drawn up by the notary Pedro Antonio Escano on 25 May 1686, recording a contract for a wooden tabernacle to be built over the main altar, with an opening left specifically so the marked 'Stone of the Miracle' could remain visible to the faithful behind glass.",
+            "U",
+            "The event is confirmed in a notarized public act drawn up by the notary Pedro Antonio Escano on 25 May 1686. It records a contract for a wooden tabernacle to be built over the main altar, with an opening left specifically so the marked 'Stone of the Miracle' could remain visible to the faithful behind glass."
+          ],
+          [
+            "article",
+            "The Mogoro account belongs to a distinct, smaller category of Eucharistic tradition centered not on preservation or transformation but on visible consequence — an imprint left in stone, deliberately kept in view, as a permanent physical reminder of a single Communion given without proper preparation.",
+            "U",
+            "The Mogoro account belongs to a distinct, smaller category of Eucharistic tradition. It centers not on preservation or transformation but on visible consequence—an imprint left in stone. Deliberately kept in view, it serves as a permanent physical reminder of a single Communion given without proper preparation."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:39:00.726Z",
+      "updatedAt": "2026-09-16T18:39:00.726Z"
     }
   ]
 }
