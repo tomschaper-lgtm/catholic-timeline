@@ -14449,14 +14449,25 @@
       "type": "sentence-reword",
       "entityId": "st-clare-of-assisi-1253",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Clare of Assisi",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-clare-of-assisi-1253",
+        "name": "St. Clare of Assisi",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:25:25.781Z",
       "error": null
     },
     {
@@ -15305,6 +15316,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:25:22.351Z",
       "updatedAt": "2026-09-16T04:25:22.351Z"
+    },
+    {
+      "id": "task-sentence-reword-st-clare-of-assisi-1253-1789532725781-6271",
+      "type": "sentence-reword",
+      "entityId": "st-clare-of-assisi-1253",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Clare of Assisi",
+      "payload": {},
+      "result": {
+        "name": "St. Clare of Assisi",
+        "patches": [
+          [
+            "article",
+            "They remain today one of the most rigorously contemplative and materially poor religious orders in the entire Catholic Church—a living testimony to Clare's own lifelong, uncompromising insistence that the poverty Francis had embraced belonged, in its fullest and most radical form, to women no less than to men.",
+            "U",
+            "They remain today one of the most rigorously contemplative and materially poor religious orders in the entire Catholic Church. They are a living testimony to Clare's own lifelong, uncompromising insistence that the poverty Francis had embraced belonged, in its fullest and most radical form, to women no less than to men."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:25:25.781Z",
+      "updatedAt": "2026-09-16T04:25:25.781Z"
     }
   ]
 }
