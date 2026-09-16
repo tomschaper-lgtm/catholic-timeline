@@ -1,9 +1,21 @@
 <!--
-VERSION: 399
-DATE: 2026-09-16T08:10:00-05:00
+VERSION: 400
+DATE: 2026-09-16T08:45:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Extended v398's deferred-publish pattern to the proofread (arbitrate) review — Tom asked for the
+  same treatment reword got. tkResolveArbitrateDebate('approve') and tkSaveArbitrateEdit() both
+  used to publish on every single sentence decision; proofread review is per-SENTENCE rather than
+  per-entity, so one article with several open debates meant several ~30s round-trips before even
+  moving to the next task. Both now look ahead — other open debates in THIS article (open.length-1,
+  since `open` still includes the current one at that point), then other tasks still queued behind
+  it — and set the same tkDeferredPublish flag wlResolveTasks uses if anything remains, publishing
+  for real only on the last decision. Reuses tkFlushDeferredPublish() as-is: tkGoList() and
+  closeTaskPanel() already flush it on the way out, so no new wiring needed for leaving the queue
+  early — one shared mechanism now covers both review flows.
+  Verified by simulation: 2 articles with 3 and 1 open debates respectively (4 decisions total)
+  now produce exactly 1 publish instead of 4.
 - Found the actual mechanism behind "they keep going through and getting back in line, done but
   not marked as being done" — confirmed in wlApplyTaskToDb's own prior comment: "the task counts
   as applied as long as at least one patch actually landed." A sentence-reword task usually bundles
@@ -4838,7 +4850,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v399';
+const APP_VERSION = 'v400';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -9174,6 +9186,23 @@ async function tkResolveArbitrateDebate(decision){
   const btns = ['tkArbApprove', 'tkArbOverride', 'tkArbEdit'].map(id => document.getElementById(id));
   btns.forEach(b => { if(b) b.disabled = true; });
 
+  // Look ahead BEFORE resolving — same reasoning as tkResolveCurrent's own look-ahead for
+  // sentence-reword (see there), extended to two levels since proofread review is per-SENTENCE,
+  // not per-entity: an article can carry several open debates, and there can be several articles
+  // queued behind this one. 'open' still includes `cur` at this point (not yet resolved), so
+  // open.length-1 is how many OTHER debates in this same task are still pending. Without this,
+  // every single sentence decision was its own ~30s GitHub round-trip — worse than the reword
+  // case that prompted it, since one article can hold many debates.
+  let moreAhead = (open.length - 1) > 0;
+  if(!moreAhead){
+    let scan = tkReviewIdx + 1;
+    while(scan < tkReviewIds.length){
+      const nt = tkTask(tkReviewIds[scan]);
+      if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review' || nt.status === 'error')){ moreAhead = true; break; }
+      scan++;
+    }
+  }
+
   if(decision === 'approve'){
     const applied = tkApplyDebateText(entry, cur.debate);
     if(!applied){
@@ -9183,11 +9212,21 @@ async function tkResolveArbitrateDebate(decision){
     }
     if(entry.audio){ entry.audio = ''; entry.audioTiming = ''; } // stale narration \u2014 same rationale as sentence-reword's approve
     dirtyEntryIds.add(t.entityId);
-    const published = await publishToGitHub();
-    if(!published){
-      btns.forEach(b => { if(b) b.disabled = false; });
-      wlSetLog('Could not publish the change \u2014 check your GitHub token and try again.', true);
-      return;
+    // deferPublish mirrors wlResolveTasks' own flag/flush pair (tkDeferredPublish /
+    // tkFlushDeferredPublish) — same mechanism, shared across both review flows. tkGoList() and
+    // closeTaskPanel() already flush it on the way out, so leaving this queue early (finishing
+    // normally, backing out, or closing the panel) still can't strand an unpublished approval.
+    if(moreAhead){
+      tkDeferredPublish = true;
+      wlSetLog('Saved \u2014 publishing once you finish the queue.');
+    }else{
+      const published = await publishToGitHub();
+      if(!published){
+        btns.forEach(b => { if(b) b.disabled = false; });
+        wlSetLog('Could not publish the change \u2014 check your GitHub token and try again.', true);
+        return;
+      }
+      tkDeferredPublish = false;
     }
     cur.debate.resolved = true; cur.debate.resolution = 'approved';
     const audioChk = document.getElementById('tkArbAudioChk');
@@ -9244,6 +9283,17 @@ async function tkSaveArbitrateEdit(){
   const btn = document.getElementById('tkArbSaveEdit');
   if(btn) btn.disabled = true;
 
+  // Same look-ahead as tkResolveArbitrateDebate's approve path — see its comment.
+  let moreAhead = (open.length - 1) > 0;
+  if(!moreAhead){
+    let scan = tkReviewIdx + 1;
+    while(scan < tkReviewIds.length){
+      const nt = tkTask(tkReviewIds[scan]);
+      if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review' || nt.status === 'error')){ moreAhead = true; break; }
+      scan++;
+    }
+  }
+
   const d = cur.debate;
   if(d.kind === 'facts'){
     const f = (entry.facts || [])[parseInt(d.sentence, 10) - 1];
@@ -9258,11 +9308,17 @@ async function tkSaveArbitrateEdit(){
   }
   if(entry.audio){ entry.audio = ''; entry.audioTiming = ''; }
   dirtyEntryIds.add(t.entityId);
-  const published = await publishToGitHub();
-  if(!published){
-    if(btn) btn.disabled = false;
-    wlSetLog('Could not publish the edit \u2014 check your GitHub token and try again.', true);
-    return;
+  if(moreAhead){
+    tkDeferredPublish = true;
+    wlSetLog('Saved \u2014 publishing once you finish the queue.');
+  }else{
+    const published = await publishToGitHub();
+    if(!published){
+      if(btn) btn.disabled = false;
+      wlSetLog('Could not publish the edit \u2014 check your GitHub token and try again.', true);
+      return;
+    }
+    tkDeferredPublish = false;
   }
   d.resolved = true; d.resolution = 'edited';
   const stillOpen = tkArbitrateOpenDebates(debates);
