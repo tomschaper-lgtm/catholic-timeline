@@ -14605,14 +14605,25 @@
       "type": "sentence-reword",
       "entityId": "st-bernardine-of-siena-1444",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Bernardine of Siena",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-bernardine-of-siena-1444",
+        "name": "St. Bernardine of Siena",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:25:40.603Z",
       "error": null
     },
     {
@@ -15516,6 +15527,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:25:37.795Z",
       "updatedAt": "2026-09-16T04:25:37.795Z"
+    },
+    {
+      "id": "task-sentence-reword-st-bernardine-of-siena-1444-1789532740603-8455",
+      "type": "sentence-reword",
+      "entityId": "st-bernardine-of-siena-1444",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Bernardine of Siena",
+      "payload": {},
+      "result": {
+        "name": "St. Bernardine of Siena",
+        "patches": [
+          [
+            "article",
+            "He encouraged its display in homes and public buildings across Italy as a devotional replacement for the superstitious symbols and divisive factional emblems, such as those of the warring Guelph and Ghibelline parties, that still marked much of Italian public life.",
+            "U",
+            "He encouraged its display in homes and public buildings across Italy as a devotional replacement for superstitious symbols. These included divisive factional emblems, such as those of the warring Guelph and Ghibelline parties, that still marked much of Italian public life."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:25:40.603Z",
+      "updatedAt": "2026-09-16T04:25:40.603Z"
     }
   ]
 }
