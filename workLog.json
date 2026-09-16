@@ -8002,14 +8002,25 @@
       "type": "sentence-reword",
       "entityId": "council-of-sens-1141",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Council of Sens",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "council-of-sens-1141",
+        "name": "Council of Sens",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:12:54.789Z",
-      "updatedAt": "2026-09-16T06:17:43.391Z",
+      "updatedAt": "2026-09-16T06:18:36.264Z",
       "error": null
     },
     {
@@ -8230,6 +8241,35 @@
       "error": null,
       "createdAt": "2026-09-16T06:18:23.063Z",
       "updatedAt": "2026-09-16T06:18:23.063Z"
+    },
+    {
+      "id": "task-sentence-reword-council-of-sens-1141-1789539516264-68",
+      "type": "sentence-reword",
+      "entityId": "council-of-sens-1141",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Council of Sens",
+      "payload": {},
+      "result": {
+        "name": "Council of Sens",
+        "patches": [
+          [
+            "article",
+            "A real and serious theological concern about the limits of rationalist method met with a process that, in the eyes of most later historians, allowed personal conviction and institutional pressure to substitute for the fair, open hearing Abelard had originally sought.",
+            "U",
+            "A real and serious theological concern about the limits of rationalist method met with a process that, in the eyes of most later historians, allowed personal conviction and institutional pressure to substitute. This replaced the fair, open hearing Abelard had originally sought."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:18:36.264Z",
+      "updatedAt": "2026-09-16T06:18:36.264Z"
     }
   ]
 }
