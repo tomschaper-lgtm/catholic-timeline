@@ -370,14 +370,25 @@
       "type": "sentence-reword",
       "entityId": "st-john-damascene-749",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. John Damascene",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-john-damascene-749",
+        "name": "St. John Damascene",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:30:39.114Z",
-      "updatedAt": "2026-09-16T04:31:39.369Z",
+      "updatedAt": "2026-09-16T04:32:28.011Z",
       "error": null
     },
     {
@@ -1150,6 +1161,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:32:24.949Z",
       "updatedAt": "2026-09-16T04:32:24.949Z"
+    },
+    {
+      "id": "task-sentence-reword-st-john-damascene-749-1789533148011-6509",
+      "type": "sentence-reword",
+      "entityId": "st-john-damascene-749",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. John Damascene",
+      "payload": {},
+      "result": {
+        "name": "St. John Damascene",
+        "patches": [
+          [
+            "article",
+            "A faithful voice raised from the margins — safely distant from the centers of power that might otherwise silence it — can sometimes preserve, for the whole Church, a doctrine that those closer to worldly authority found too dangerous to defend.",
+            "U",
+            "A faithful voice raised from the margins — safely distant from the centers of power that might otherwise silence it — can sometimes preserve a doctrine. That doctrine can endure for the whole Church, even when those closer to worldly authority found it too dangerous to defend."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:32:28.011Z",
+      "updatedAt": "2026-09-16T04:32:28.011Z"
     }
   ]
 }
