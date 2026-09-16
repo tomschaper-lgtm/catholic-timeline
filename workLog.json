@@ -8244,14 +8244,25 @@
       "type": "sentence-reword",
       "entityId": "nicaea-ii-787",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Nicaea II",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "nicaea-ii-787",
+        "name": "Nicaea II",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:24:14.061Z",
-      "updatedAt": "2026-09-16T06:26:03.127Z",
+      "updatedAt": "2026-09-16T06:26:27.156Z",
       "error": null
     },
     {
@@ -8673,6 +8684,35 @@
       "createdAt": "2026-09-16T06:24:48.721Z",
       "updatedAt": "2026-09-16T06:26:03.127Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-nicaea-ii-787-1789539987156-8686",
+      "type": "sentence-reword",
+      "entityId": "nicaea-ii-787",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Nicaea II",
+      "payload": {},
+      "result": {
+        "name": "Nicaea II",
+        "patches": [
+          [
+            "article",
+            "A first attempt to open the council at Constantinople in 786 was broken up by iconoclast soldiers loyal to the memory of Constantine V. Irene replaced the mutinous garrison and reconvened the council the following year at the safer location of <b>Nicaea</b>.",
+            "U",
+            "A first attempt to open the council at Constantinople in 786 was broken up by iconoclast soldiers loyal to the memory of Constantine V. Irene replaced the mutinous garrison. The following year, she reconvened the council at the safer location of <b>Nicaea</b>."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:26:27.156Z",
+      "updatedAt": "2026-09-16T06:26:27.156Z"
     }
   ]
 }
