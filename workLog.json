@@ -8766,14 +8766,25 @@
       "type": "sentence-reword",
       "entityId": "our-lady-of-guadalupe-1531",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Our Lady of Guadalupe",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "our-lady-of-guadalupe-1531",
+        "name": "Our Lady of Guadalupe",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:24:48.721Z",
-      "updatedAt": "2026-09-16T06:26:03.127Z",
+      "updatedAt": "2026-09-16T06:31:41.328Z",
       "error": null
     },
     {
@@ -10124,6 +10135,47 @@
       "error": null,
       "createdAt": "2026-09-16T06:31:34.578Z",
       "updatedAt": "2026-09-16T06:31:34.578Z"
+    },
+    {
+      "id": "task-sentence-reword-our-lady-of-guadalupe-1531-1789540301328-6000",
+      "type": "sentence-reword",
+      "entityId": "our-lady-of-guadalupe-1531",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Our Lady of Guadalupe",
+      "payload": {},
+      "result": {
+        "name": "Our Lady of Guadalupe",
+        "patches": [
+          [
+            "article",
+            "Climbing to investigate, he found a young woman glowing with light, dressed as an Aztec princess, who called him tenderly by name and asked him to tell the Bishop of Mexico, <b>Juan de Zumárraga</b>, to build a temple on that spot where she could show her love and compassion to his people.",
+            "U",
+            "Climbing to investigate, he found a young woman glowing with light and dressed as an Aztec princess. She called him tenderly by name and asked him to tell the Bishop of Mexico, <b>Juan de Zumárraga</b>, to build a temple on that spot. There, she could show her love and compassion to his people."
+          ],
+          [
+            "article",
+            "The Lady met him on the path anyway, with a question that has echoed through five centuries of devotion: <i>\"What road is this thou takest, son?\"</i> She reassured him that his uncle was already healed, and sent him to gather Castilian roses from the rocky, frost-covered hilltop where no flowers should have grown.",
+            "U",
+            "The Lady met him on the path anyway, with a question that has echoed through five centuries of devotion: <i>\"What road is this thou takest, son?\"</i> She reassured him that his uncle was already healed. Then she sent him to gather Castilian roses from the rocky, frost-covered hilltop where no flowers should have grown."
+          ],
+          [
+            "article",
+            "Juan Bernardino, meanwhile, testified that the same Lady had appeared at his own bedside on the morning of the miracle and cured him instantly of his fever, confirming to him that she wished to be known as <b>Holy Mary of Guadalupe</b>.",
+            "U",
+            "Juan Bernardino, meanwhile, testified that the same Lady had appeared at his own bedside on the morning of the miracle. She cured him instantly of his fever, confirming to him that she wished to be known as <b>Holy Mary of Guadalupe</b>."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:31:41.328Z",
+      "updatedAt": "2026-09-16T06:31:41.328Z"
     }
   ]
 }
