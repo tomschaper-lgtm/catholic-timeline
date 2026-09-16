@@ -5741,12 +5741,53 @@
       "type": "arbitrate",
       "entityId": "council-of-constance-1414",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — Council of Constance",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "Council of Constance",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "MEANING/CLARITY",
+            "section": "The Condemnation of Jan Hus",
+            "sentence": "3",
+            "kind": "article",
+            "before": "6 July 1415",
+            "after": "6 July 1415.",
+            "concern": "The sentence contains a stray closing HTML tag instead of normal punctuation. If displayed literally, this produces malformed visible text and obscures the end of the sentence.",
+            "suggestedCorrection": "Remove the stray closing tag and restore the period.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Fixes punctuation and potential rendering issues.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "The Condemnation of Jan Hus",
+            "sentence": "3",
+            "kind": "article",
+            "before": "They burned him at the stake on 6 July 1415</b.",
+            "after": "They burned him at the stake on 6 July 1415.",
+            "concern": "An orphaned closing HTML tag (</b.) appears inside the running text, which is a formatting error.",
+            "suggestedCorrection": "Remove the stray '</b.' tag.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "",
+            "proposedBy": "gemini-3.5-flash-lite",
+            "arbitratedBy": "gpt-5.6-luna"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-16T05:23:12.711Z",
-      "updatedAt": "2026-09-16T17:42:17.458Z",
+      "updatedAt": "2026-09-16T17:44:50.800Z",
       "error": null
     },
     {
