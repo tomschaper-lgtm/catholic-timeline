@@ -16388,14 +16388,25 @@
       "type": "sentence-reword",
       "entityId": "em-boxmeer-1400",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Boxmeer",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-boxmeer-1400",
+        "name": "Boxmeer",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:13:30.027Z",
       "error": null
     },
     {
@@ -18916,6 +18927,53 @@
       "error": null,
       "createdAt": "2026-09-16T18:13:21.250Z",
       "updatedAt": "2026-09-16T18:13:21.250Z"
+    },
+    {
+      "id": "task-sentence-reword-em-boxmeer-1400-1789582410027-3734",
+      "type": "sentence-reword",
+      "entityId": "em-boxmeer-1400",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Boxmeer",
+      "payload": {},
+      "result": {
+        "name": "Boxmeer",
+        "patches": [
+          [
+            "article",
+            "Around the year 1400, in the church of Sts. Peter and Paul at Boxmeer, in the Netherlands, Father Arnoldus Groen was celebrating Mass when, immediately after pronouncing the words of consecration, he was overtaken by a sudden and unwelcome doubt about the Real Presence of Christ in the bread and wine he had just consecrated.",
+            "U",
+            "Around the year 1400, Father Arnoldus Groen was celebrating Mass in the church of Sts. Peter and Paul at Boxmeer, in the Netherlands. Immediately after pronouncing the words of consecration, he was overtaken by a sudden and unwelcome doubt about the Real Presence of Christ in the bread and wine he had just consecrated."
+          ],
+          [
+            "article",
+            "It was later fitted into a cylindrical reliquary in 1482, and a protective container built for that reliquary in 1650 — evidence of continuous, deliberate veneration across nearly three centuries before either object survives into the modern historical record with any real documentary detail.",
+            "U",
+            "It was later fitted into a cylindrical reliquary in 1482, and a protective container was built for that reliquary in 1650. This evidence indicates continuous, deliberate veneration across nearly three centuries before either object survives into the modern historical record with any real documentary detail."
+          ],
+          [
+            "article",
+            "The relic drew the personal devotion of a succession of later popes, including Clement XI, Benedict XIV, Pius IX, and Leo XIII, and in 2000 Pope John Paul II elevated the church at Boxmeer to the rank of basilica, in part in recognition of the shrine it had become.",
+            "U",
+            "The relic drew the personal devotion of later popes, including Clement XI, Benedict XIV, Pius IX, and Leo XIII. In 2000, Pope John Paul II elevated the church at Boxmeer to basilica rank, partly in recognition of the shrine it had become."
+          ],
+          [
+            "article",
+            "What has kept the devotion alive for over six centuries is less the drama of the moment itself than the plain physical relic it left behind, still shown today exactly where the corporal first caught the wine that would not stay ordinary.",
+            "U",
+            "What has kept the devotion alive for over six centuries is less the drama of the moment itself than the plain physical relic it left behind. It is still shown today exactly where the corporal first caught the wine that would not stay ordinary."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:13:30.027Z",
+      "updatedAt": "2026-09-16T18:13:30.027Z"
     }
   ]
 }
