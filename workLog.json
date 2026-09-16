@@ -11176,14 +11176,25 @@
       "type": "sentence-reword",
       "entityId": "st-camillus-de-lellis-1614",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Camillus de Lellis",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-camillus-de-lellis-1614",
+        "name": "St. Camillus de Lellis",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:44:38.103Z",
-      "updatedAt": "2026-09-16T03:47:24.920Z",
+      "updatedAt": "2026-09-16T03:47:29.090Z",
       "error": null
     },
     {
@@ -11800,6 +11811,35 @@
       "createdAt": "2026-09-16T03:44:38.103Z",
       "updatedAt": "2026-09-16T03:47:24.920Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-st-camillus-de-lellis-1614-1789530449090-1403",
+      "type": "sentence-reword",
+      "entityId": "st-camillus-de-lellis-1614",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Camillus de Lellis",
+      "payload": {},
+      "result": {
+        "name": "St. Camillus de Lellis",
+        "patches": [
+          [
+            "article",
+            "In 1595 and 1601, he sent members of his order to tend wounded soldiers on active battlefields in Hungary and Croatia—among the earliest organized efforts at what would later be recognized as military field medicine, work later historians have compared to the origins of the Red Cross.",
+            "U",
+            "In 1595 and 1601, he sent members of his order to tend wounded soldiers on active battlefields in Hungary and Croatia. This was among the earliest organized efforts at what would later be recognized as military field medicine, work later historians have compared to the origins of the Red Cross."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:47:29.090Z",
+      "updatedAt": "2026-09-16T03:47:29.090Z"
     }
   ]
 }
