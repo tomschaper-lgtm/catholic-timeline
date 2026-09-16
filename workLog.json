@@ -5088,14 +5088,25 @@
       "type": "sentence-reword",
       "entityId": "first-vatican-council-1869",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — First Vatican Council",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "first-vatican-council-1869",
+        "name": "First Vatican Council",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:40:50.778Z",
-      "updatedAt": "2026-09-16T04:56:32.262Z",
+      "updatedAt": "2026-09-16T05:04:40.419Z",
       "error": null
     },
     {
@@ -7245,6 +7256,59 @@
       "error": null,
       "createdAt": "2026-09-16T05:04:30.023Z",
       "updatedAt": "2026-09-16T05:04:30.023Z"
+    },
+    {
+      "id": "task-sentence-reword-first-vatican-council-1869-1789535080419-5524",
+      "type": "sentence-reword",
+      "entityId": "first-vatican-council-1869",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — First Vatican Council",
+      "payload": {},
+      "result": {
+        "name": "First Vatican Council",
+        "patches": [
+          [
+            "article",
+            "Three centuries after Trent, <b>Pope Pius IX</b> confronted a Church challenged on multiple fronts: the rise of rationalism, materialism, and religious liberalism in European intellectual life, and, more immediately, the steady dismantling of the <b>Papal States</b> by Italian nationalist forces, which by the late 1860s had reduced papal temporal territory to Rome and its immediate surroundings.",
+            "U",
+            "Three centuries after Trent, <b>Pope Pius IX</b> confronted a Church challenged on multiple fronts. Rationalism, materialism, and religious liberalism rose in European intellectual life.\n\nMore immediately, Italian nationalist forces steadily dismantled the <b>Papal States</b>, reducing papal temporal territory by the late 1860s to Rome and its immediate surroundings."
+          ],
+          [
+            "article",
+            "The council's first major achievement, the dogmatic constitution <b>Dei Filius</b>, addressed the relationship between faith and reason, affirming that God's existence can be known with certainty through natural reason from the created world, while also insisting that revealed truths accessible only through faith do not contradict, but rather complement, sound reasoning.",
+            "U",
+            "The council's first major achievement, the dogmatic constitution <b>Dei Filius</b>, addressed the relationship between faith and reason. It affirmed that God's existence can be known with certainty through natural reason from the created world, while insisting that revealed truths accessible only through faith do not contradict, but rather complement, sound reasoning."
+          ],
+          [
+            "article",
+            "The council's best-known and most contested achievement was the constitution <b>Pastor Aeternus</b>, defining the dogma of <b>papal infallibility</b>: that when the pope speaks <i>ex cathedra</i> — formally, as shepherd and teacher of all Christians, defining a doctrine of faith or morals to be held by the whole Church — he possesses, through the assistance promised to Peter, the same infallibility Christ willed his Church to enjoy in matters of doctrine.",
+            "U",
+            "The council's best-known and most contested achievement was the constitution <b>Pastor Aeternus</b>, defining the dogma of <b>papal infallibility</b>. When the pope speaks <i>ex cathedra</i> — formally, as shepherd and teacher of all Christians, defining a doctrine of faith or morals to be held by the whole Church — he possesses, through the assistance promised to Peter, the same infallibility Christ willed his Church to enjoy in matters of doctrine."
+          ],
+          [
+            "article",
+            "Vatican I's definition of papal infallibility remains one of the most consequential and, among some Christians, most controversial dogmatic statements of the modern Catholic Church, sharpening the distinction between Catholic and other Christian understandings of doctrinal authority and prompting a small but lasting Old Catholic schism among those who rejected the definition.",
+            "U",
+            "Vatican I's definition of papal infallibility remains one of the most consequential dogmatic statements of the modern Catholic Church. Among some Christians, it remains one of the Church's most controversial, sharpening distinctions between Catholic and other Christian understandings of doctrinal authority. It also prompted a small but lasting Old Catholic schism among those who rejected the definition."
+          ],
+          [
+            "article",
+            "The council's abrupt, unresolved suspension — rather than a formal close — left it uniquely incomplete among the twenty-one councils, its interrupted agenda serving as an explicit point of reference for Pope St. John XXIII when he convened the Second Vatican Council in 1962.",
+            "U",
+            "The council's abrupt, unresolved suspension — rather than a formal close — left it uniquely incomplete among the twenty-one councils. Its interrupted agenda served as an explicit point of reference for Pope St. John XXIII when he convened the Second Vatican Council in 1962."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T05:04:40.419Z",
+      "updatedAt": "2026-09-16T05:04:40.419Z"
     }
   ]
 }
