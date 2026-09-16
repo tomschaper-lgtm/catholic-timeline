@@ -14237,14 +14237,25 @@
       "type": "sentence-reword",
       "entityId": "em-offida-1273",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Offida",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-offida-1273",
+        "name": "Offida",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:07:25.934Z",
       "error": null
     },
     {
@@ -16944,6 +16955,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:07:18.792Z",
       "updatedAt": "2026-09-16T18:07:18.792Z"
+    },
+    {
+      "id": "task-sentence-reword-em-offida-1273-1789582045934-9637",
+      "type": "sentence-reword",
+      "entityId": "em-offida-1273",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Offida",
+      "payload": {},
+      "result": {
+        "name": "Offida",
+        "patches": [
+          [
+            "article",
+            "Strange events followed: every time Giacomo's donkey entered the stable, it stopped and knelt toward the very spot where the relic lay hidden, a behavior so consistent that Giacomo began to suspect his own wife had cast a spell on the animal — unaware of the far stranger truth buried beneath his own floor.",
+            "U",
+            "Strange events followed: every time Giacomo's donkey entered the stable, it stopped and knelt toward the very spot where the relic lay hidden. The behavior was so consistent that Giacomo began to suspect his own wife had cast a spell on the animal—unaware of the far stranger truth buried beneath his own floor."
+          ],
+          [
+            "article",
+            "Rather than leave the relic in Lanciano, he carried it back with him to Offida and later traveled to Venice to have a fitting reliquary made — a removal historians have long read as motivated at least partly by Offida's own interest in the prestige a Eucharistic miracle would bring the town.",
+            "U",
+            "Rather than leave the relic in Lanciano, he carried it back with him to Offida. He later traveled to Venice to have a fitting reliquary made—a removal historians have long read as motivated at least partly by Offida's own interest in the prestige a Eucharistic miracle would bring the town."
+          ],
+          [
+            "article",
+            "Ricciarella's own house in Lanciano was later transformed into a small chapel, and Offida still keeps the anniversary of the miracle each year on 3 May — the two towns' shared, centuries-long devotion to the same small relic having long outlasted whatever rivalry once separated them.",
+            "U",
+            "Ricciarella's own house in Lanciano was later transformed into a small chapel. Offida still keeps the anniversary of the miracle each year on 3 May. The two towns' shared, centuries-long devotion to the same small relic has long outlasted whatever rivalry once separated them."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:07:25.934Z",
+      "updatedAt": "2026-09-16T18:07:25.934Z"
     }
   ]
 }
