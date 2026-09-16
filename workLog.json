@@ -500,14 +500,25 @@
       "type": "sentence-reword",
       "entityId": "st-hilary-of-poitiers-368",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Hilary of Poitiers",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-hilary-of-poitiers-368",
+        "name": "St. Hilary of Poitiers",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-15T18:53:31.898Z",
-      "updatedAt": "2026-09-16T02:01:26.652Z",
+      "updatedAt": "2026-09-16T02:01:33.959Z",
       "error": null
     },
     {
@@ -1529,6 +1540,47 @@
       "error": null,
       "createdAt": "2026-09-16T01:59:48.484Z",
       "updatedAt": "2026-09-16T01:59:59.379Z"
+    },
+    {
+      "id": "task-sentence-reword-st-hilary-of-poitiers-368-1789524093959-1295",
+      "type": "sentence-reword",
+      "entityId": "st-hilary-of-poitiers-368",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — St. Hilary of Poitiers",
+      "payload": {},
+      "result": {
+        "name": "St. Hilary of Poitiers",
+        "patches": [
+          [
+            "article",
+            "Born around 310 into a pagan noble family at <b>Poitiers</b>, in Roman Gaul, <b>Hilary</b> converted to Christianity as an adult through his own philosophical searching, already married with a daughter, Abra, by the time he was chosen bishop of his native city around 353 — a promotion common enough for married men in that era, provided they lived thereafter in continence.",
+            "U",
+            "Born around 310 into a pagan noble family at <b>Poitiers</b>, in Roman Gaul, <b>Hilary</b> converted to Christianity as an adult through his own philosophical searching. He was already married, with a daughter, Abra, when chosen bishop of his native city around 353. This promotion was common enough for married men in that era, provided they thereafter lived in continence."
+          ],
+          [
+            "article",
+            "Rather than let exile silence him, he used the years abroad productively, mastering Greek theological sources unfamiliar to most Latin churchmen and composing major works, including the beginnings of his monumental treatise <i>On the Trinity</i>, earning him, by tradition, the title 'Athanasius of the West' for his tireless defense of Nicene doctrine.",
+            "U",
+            "Rather than let exile silence him, he used the years abroad productively, mastering Greek theological sources unfamiliar to most Latin churchmen. He composed major works, including the beginnings of his monumental treatise <i>On the Trinity</i>, earning him, by tradition, the title 'Athanasius of the West' for his tireless defense of Nicene doctrine."
+          ],
+          [
+            "article",
+            "During these years Hilary became mentor to a young soldier-turned-monk named <b><a href=\"entry:st-martin-of-tours-397\">Martin</a></b>, later bishop of Tours, encouraging him to found a monastery at Ligugé near Poitiers around 360 — among the earliest monastic foundations in Gaul, and a formative link between Hilary's theological rigor and the growth of Western monasticism.",
+            "U",
+            "During these years Hilary became mentor to a young soldier-turned-monk named <b><a href=\"entry:st-martin-of-tours-397\">Martin</a></b>, later bishop of Tours. He encouraged Martin to found a monastery at Ligugé near Poitiers around 360, among the earliest monastic foundations in Gaul. It formed a link between Hilary's theological rigor and the growth of Western monasticism."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T02:01:33.959Z",
+      "updatedAt": "2026-09-16T02:01:33.959Z"
     }
   ]
 }
