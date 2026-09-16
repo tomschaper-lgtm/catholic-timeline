@@ -866,14 +866,25 @@
       "type": "sentence-reword",
       "entityId": "north-american-martyrs-1649",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — North American Martyrs",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "north-american-martyrs-1649",
+        "name": "North American Martyrs",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:30:39.114Z",
-      "updatedAt": "2026-09-16T04:31:39.369Z",
+      "updatedAt": "2026-09-16T04:33:29.107Z",
       "error": null
     },
     {
@@ -1866,6 +1877,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:33:25.880Z",
       "updatedAt": "2026-09-16T04:33:25.880Z"
+    },
+    {
+      "id": "task-sentence-reword-north-american-martyrs-1649-1789533209107-6437",
+      "type": "sentence-reword",
+      "entityId": "north-american-martyrs-1649",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — North American Martyrs",
+      "payload": {},
+      "result": {
+        "name": "North American Martyrs",
+        "patches": [
+          [
+            "article",
+            "The wider Iroquois campaign against Huronia claimed the rest of the group across these same years: <b>Anthony Daniel</b>, killed defending his mission chapel at Teanaustaye in 1648; and <b>Charles Garnier</b>, shot while ministering to the dying amid a burning village in 1649. <b>Noël Chabanel</b> was killed the same year while attempting to reach a place of safety; and the lay missionary <b>Jean de Lalande</b> was killed alongside Isaac Jogues in 1646 while attempting to defend him.",
+            "U",
+            "The wider Iroquois campaign against Huronia claimed the rest of the group across these same years. <b>Anthony Daniel</b> was killed defending his mission chapel at Teanaustaye in 1648. <b>Charles Garnier</b> was shot while ministering to the dying amid a burning village in 1649. <b>Noël Chabanel</b> was killed the same year while attempting to reach a place of safety. The lay missionary <b>Jean de Lalande</b> was killed alongside Isaac Jogues in 1646 while attempting to defend him."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:33:29.107Z",
+      "updatedAt": "2026-09-16T04:33:29.107Z"
     }
   ]
 }
