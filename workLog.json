@@ -13547,14 +13547,25 @@
       "type": "sentence-reword",
       "entityId": "em-kranenburg-1280",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Kranenburg",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-kranenburg-1280",
+        "name": "Kranenburg",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T12:33:50.092Z",
-      "updatedAt": "2026-09-16T12:40:12.974Z",
+      "updatedAt": "2026-09-16T12:46:03.259Z",
       "error": null
     },
     {
@@ -15309,6 +15320,53 @@
       "error": null,
       "createdAt": "2026-09-16T12:45:53.648Z",
       "updatedAt": "2026-09-16T12:45:53.648Z"
+    },
+    {
+      "id": "task-sentence-reword-em-kranenburg-1280-1789562763259-9844",
+      "type": "sentence-reword",
+      "entityId": "em-kranenburg-1280",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Kranenburg",
+      "payload": {},
+      "result": {
+        "name": "Kranenburg",
+        "patches": [
+          [
+            "article",
+            "Local tradition holds that around 1280, a shepherd of <b>Kranenburg</b>, in the Lower Rhine district of Kleve near the modern German-Dutch border, received Holy Communion but, taken suddenly ill, found himself unable to swallow the Host — and, rather than carry it back to the church, threw it in frustration against a tree in his own garden.",
+            "U",
+            "Local tradition holds that around 1280, a shepherd of <b>Kranenburg</b>, in the Lower Rhine district of Kleve near the modern German-Dutch border, received Holy Communion. Taken suddenly ill, he found himself unable to swallow the Host and, rather than carry it back to the church, threw it in frustration against a tree in his own garden."
+          ],
+          [
+            "article",
+            "Years passed, and the shepherd eventually decided to cut down the same tree; as it split in two under his axe, a small, perfectly carved wooden crucifix fell to the ground from within the trunk — a sign witnesses took as proof that the Host, though never recovered from the soil, had never truly been lost at all.",
+            "U",
+            "Years passed, and the shepherd eventually decided to cut down the same tree. As it split in two under his axe, a small, perfectly carved wooden crucifix fell from within the trunk. Witnesses took this as proof that the Host, though never recovered from the soil, had never truly been lost at all."
+          ],
+          [
+            "article",
+            "Word of the crucifix that had \"grown from a sacred Host\" spread quickly from town to town, drawing the attention of the Bishops of Cologne, and in 1408 the citizens of Kranenburg began construction of a church in its honor, completed in 1444 — a Gothic building still counted among the most significant examples of that style anywhere along the Lower Rhine.",
+            "U",
+            "Word of the crucifix that had \"grown from a sacred Host\" spread quickly from town to town, drawing the attention of the Bishops of Cologne. In 1408, the citizens of Kranenburg began construction of a church in its honor, completed in 1444. It remains a Gothic building, still counted among the most significant examples of that style anywhere along the Lower Rhine."
+          ],
+          [
+            "article",
+            "What began as a moment of ordinary human frustration — a sick shepherd unable to complete a simple act of reverence — became, in the memory of the Church, a sign that even a Host mishandled and lost to sight could still, in its own time, make itself known again.",
+            "U",
+            "What began as ordinary human frustration involved a sick shepherd unable to complete a simple act of reverence. In the memory of the Church, it became a sign that even a Host mishandled and lost to sight could still, in its own time, make itself known again."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T12:46:03.259Z",
+      "updatedAt": "2026-09-16T12:46:03.259Z"
     }
   ]
 }
