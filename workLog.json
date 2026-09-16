@@ -14371,14 +14371,25 @@
       "type": "sentence-reword",
       "entityId": "st-edmund-the-martyr-869",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Edmund the Martyr",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-edmund-the-martyr-869",
+        "name": "St. Edmund the Martyr",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:25:14.863Z",
       "error": null
     },
     {
@@ -15179,6 +15190,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:25:12.471Z",
       "updatedAt": "2026-09-16T04:25:12.471Z"
+    },
+    {
+      "id": "task-sentence-reword-st-edmund-the-martyr-869-1789532714863-4981",
+      "type": "sentence-reword",
+      "entityId": "st-edmund-the-martyr-869",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Edmund the Martyr",
+      "payload": {},
+      "result": {
+        "name": "St. Edmund the Martyr",
+        "patches": [
+          [
+            "article",
+            "Instead, it took root in Viking-ruled East Anglia itself, where within twenty years of his death, Danish rulers who had succeeded him began minting coins bearing the legend 'O Saint Edmund the King'—an extraordinary posthumous honor from the very political order his death had, in a sense, made possible.",
+            "U",
+            "Instead, it took root in Viking-ruled East Anglia itself. Within twenty years of his death, Danish rulers who had succeeded him began minting coins bearing the legend 'O Saint Edmund the King'. This was an extraordinary posthumous honor from the very political order his death had, in a sense, made possible."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:25:14.863Z",
+      "updatedAt": "2026-09-16T04:25:14.863Z"
     }
   ]
 }
