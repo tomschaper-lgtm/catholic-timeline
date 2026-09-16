@@ -16440,14 +16440,25 @@
       "type": "sentence-reword",
       "entityId": "em-weiten-raxendorf-1411",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Weiten-Raxendorf",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-weiten-raxendorf-1411",
+        "name": "Weiten-Raxendorf",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:05:12.322Z",
+      "updatedAt": "2026-09-16T18:13:49.128Z",
       "error": null
     },
     {
@@ -19026,6 +19037,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:13:42.933Z",
       "updatedAt": "2026-09-16T18:13:42.933Z"
+    },
+    {
+      "id": "task-sentence-reword-em-weiten-raxendorf-1411-1789582429128-7623",
+      "type": "sentence-reword",
+      "entityId": "em-weiten-raxendorf-1411",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Weiten-Raxendorf",
+      "payload": {},
+      "result": {
+        "name": "Weiten-Raxendorf",
+        "patches": [
+          [
+            "article",
+            "At a certain point along that side road — a spot later marked by a chapel built in memory of the event — the thief's horse abruptly stopped and refused to go any further, no matter how hard he struck it.",
+            "U",
+            "At a certain point along that side road, the thief's horse abruptly stopped and refused to go any further. The spot was later marked by a chapel built in memory of the event, no matter how hard he struck it."
+          ],
+          [
+            "article",
+            "Approaching in wonder, she found the consecrated Host itself, broken into two pieces that nonetheless remained joined together by fine threads of what appeared to be bleeding flesh — she recovered it with reverence and word of the discovery spread quickly through the surrounding villages.",
+            "U",
+            "Approaching in wonder, she found the consecrated Host itself, broken into two pieces that nonetheless remained joined together by fine threads. These appeared to be bleeding flesh; she recovered it with reverence, and word of the discovery spread quickly through the surrounding villages."
+          ],
+          [
+            "article",
+            "The Weiten-Raxendorf account, like many medieval Eucharistic traditions built around theft, centers less on punishment of the thief — whose ultimate fate the surviving sources do not record — than on the Host's own resistance to being carried away for ordinary or profane purposes, first through the strange behavior of the horse and then through the light that led an ordinary passerby to its recovery.",
+            "U",
+            "The Weiten-Raxendorf account, like many medieval Eucharistic traditions built around theft, centers less on punishment of the thief, whose ultimate fate the surviving sources do not record. Instead, it centers on the Host's resistance to being carried away for ordinary or profane purposes, first through the strange behavior of the horse and then through the light that led an ordinary passerby to its recovery."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:13:49.128Z",
+      "updatedAt": "2026-09-16T18:13:49.128Z"
     }
   ]
 }
