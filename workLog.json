@@ -14085,14 +14085,25 @@
       "type": "sentence-reword",
       "entityId": "st-catherine-of-alexandria-305",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Catherine of Alexandria",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-catherine-of-alexandria-305",
+        "name": "St. Catherine of Alexandria",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:24:38.760Z",
       "error": null
     },
     {
@@ -14721,6 +14732,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:24:33.130Z",
       "updatedAt": "2026-09-16T04:24:33.130Z"
+    },
+    {
+      "id": "task-sentence-reword-st-catherine-of-alexandria-305-1789532678760-8581",
+      "type": "sentence-reword",
+      "entityId": "st-catherine-of-alexandria-305",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Catherine of Alexandria",
+      "payload": {},
+      "result": {
+        "name": "St. Catherine of Alexandria",
+        "patches": [
+          [
+            "article",
+            "Undeterred by her continued success at winning converts even from prison, the emperor condemned Catherine to be torn apart on a spiked breaking wheel — the device that has ever since carried her name, the 'Catherine wheel.' According to the legend, the instrument itself shattered miraculously the moment she touched it.",
+            "U",
+            "Undeterred by her continued success at winning converts even from prison, the emperor condemned Catherine to be torn apart on a spiked breaking wheel. The device has ever since carried her name, the 'Catherine wheel.' According to the legend, the instrument itself shattered miraculously the moment she touched it."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:24:38.760Z",
+      "updatedAt": "2026-09-16T04:24:38.760Z"
     }
   ]
 }
