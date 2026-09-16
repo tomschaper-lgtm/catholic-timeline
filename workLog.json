@@ -11120,14 +11120,25 @@
       "type": "sentence-reword",
       "entityId": "fall-of-constantinople-1453",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Fall of Constantinople",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "fall-of-constantinople-1453",
+        "name": "Fall of Constantinople",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:46:16.544Z",
-      "updatedAt": "2026-09-16T07:25:09.027Z",
+      "updatedAt": "2026-09-16T07:28:39.643Z",
       "error": null
     },
     {
@@ -12301,6 +12312,35 @@
       "error": null,
       "createdAt": "2026-09-16T07:28:36.796Z",
       "updatedAt": "2026-09-16T07:28:36.796Z"
+    },
+    {
+      "id": "task-sentence-reword-fall-of-constantinople-1453-1789543719643-2127",
+      "type": "sentence-reword",
+      "entityId": "fall-of-constantinople-1453",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Fall of Constantinople",
+      "payload": {},
+      "result": {
+        "name": "Fall of Constantinople",
+        "patches": [
+          [
+            "article",
+            "The young Ottoman Sultan <b>Mehmed II</b>, only twenty-one, laid siege to Constantinople in April 1453 with an army vastly outnumbering the roughly seven thousand defenders under Emperor <b>Constantine XI Palaiologos</b>, deploying massive siege cannons that battered the ancient Theodosian Walls for weeks.",
+            "U",
+            "The young Ottoman Sultan <b>Mehmed II</b>, only twenty-one, laid siege to Constantinople in April 1453. His army vastly outnumbered roughly seven thousand defenders under Emperor <b>Constantine XI Palaiologos</b>, while massive siege cannons battered the ancient Theodosian Walls for weeks."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T07:28:39.643Z",
+      "updatedAt": "2026-09-16T07:28:39.643Z"
     }
   ]
 }
