@@ -14267,14 +14267,25 @@
       "type": "sentence-reword",
       "entityId": "st-cronan-of-roscrea-640",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Cronan of Roscrea",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-cronan-of-roscrea-640",
+        "name": "St. Cronan of Roscrea",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:23:29.800Z",
-      "updatedAt": "2026-09-16T04:24:23.219Z",
+      "updatedAt": "2026-09-16T04:25:02.198Z",
       "error": null
     },
     {
@@ -15013,6 +15024,35 @@
       "error": null,
       "createdAt": "2026-09-16T04:24:59.383Z",
       "updatedAt": "2026-09-16T04:24:59.383Z"
+    },
+    {
+      "id": "task-sentence-reword-st-cronan-of-roscrea-640-1789532702198-2416",
+      "type": "sentence-reword",
+      "entityId": "st-cronan-of-roscrea-640",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Cronan of Roscrea",
+      "payload": {},
+      "result": {
+        "name": "St. Cronan of Roscrea",
+        "patches": [
+          [
+            "article",
+            "He is said to have founded and then given away as many as fifty dwellings, one after another, handing each to a needier hermit before moving on to build the next—a pattern less of instability than deliberate refusal to let any single possession, even a modest hermit's cell, take root in him.",
+            "U",
+            "He is said to have founded and then given away as many as fifty dwellings, one after another. He handed each to a needier hermit before moving on to build the next—a pattern less of instability than deliberate refusal to let any single possession, even a modest hermit's cell, take root in him."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:25:02.198Z",
+      "updatedAt": "2026-09-16T04:25:02.198Z"
     }
   ]
 }
