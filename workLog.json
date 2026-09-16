@@ -4252,14 +4252,25 @@
       "type": "sentence-reword",
       "entityId": "council-of-arles-314",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Council of Arles",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "council-of-arles-314",
+        "name": "Council of Arles",
+        "sentencesFound": 6,
+        "sentencesReworded": 6,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T04:40:50.778Z",
-      "updatedAt": "2026-09-16T04:56:32.262Z",
+      "updatedAt": "2026-09-16T04:57:02.022Z",
       "error": null
     },
     {
@@ -4901,6 +4912,65 @@
       "error": null,
       "createdAt": "2026-09-16T04:56:49.558Z",
       "updatedAt": "2026-09-16T04:56:49.558Z"
+    },
+    {
+      "id": "task-sentence-reword-council-of-arles-314-1789534622022-4812",
+      "type": "sentence-reword",
+      "entityId": "council-of-arles-314",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 6 long sentences — Council of Arles",
+      "payload": {},
+      "result": {
+        "name": "Council of Arles",
+        "patches": [
+          [
+            "article",
+            "Barely a year after the <b>Edict of Milan</b> had granted Christianity legal toleration, Emperor <b>Constantine</b> summoned bishops from across the Western Empire — from Africa to Britain — to gather at <b>Arles</b> in southern Gaul in August 314, the first general council of the Western Church and the first ever convened at an emperor's own initiative.",
+            "U",
+            "Barely a year after the <b>Edict of Milan</b> had granted Christianity legal toleration, Emperor <b>Constantine</b> summoned bishops from across the Western Empire. They came from Africa to Britain and gathered at <b>Arles</b> in southern Gaul in August 314, the first general council of the Western Church and the first ever convened at an emperor's own initiative."
+          ],
+          [
+            "article",
+            "The council's immediate purpose was to resolve the bitter <b>Donatist controversy</b> then dividing the North African Church: Donatist Christians had rejected the election of Caecilian as Bishop of Carthage in 311, arguing that one of the bishops who had ordained him was a traditor — a Christian who had handed over sacred texts to be burned during the recent persecution — and that his ordination was therefore invalid.",
+            "U",
+            "The council's immediate purpose was to resolve the bitter <b>Donatist controversy</b> then dividing the North African Church. Donatist Christians had rejected Caecilian's election as Bishop of Carthage in 311, arguing that one ordaining bishop was a traditor — a Christian who had handed over sacred texts to be burned during the recent persecution — and that his ordination was therefore invalid."
+          ],
+          [
+            "article",
+            "The bishops at Arles upheld Caecilian's election, ruling that ordination performed by three bishops was canonically valid regardless of the personal worthiness of any one of them, and that the mere presence of a traditor among the consecrating bishops did not, by itself, invalidate the sacrament — a position rejecting the Donatist claim that the moral state of a minister could nullify the validity of what he confected.",
+            "U",
+            "The bishops at Arles upheld Caecilian's election, ruling that ordination performed by three bishops was canonically valid regardless of any one's personal worthiness. They ruled that the mere presence of a traditor among the consecrating bishops did not, by itself, invalidate the sacrament. This position rejected the Donatist claim that a minister's moral state could nullify the validity of what he confected."
+          ],
+          [
+            "article",
+            "Beyond the Donatist question, Arles issued twenty-two disciplinary canons addressing the practical needs of a Church suddenly emerging into public legal existence: it fixed a single, universal date for the celebration of Easter, forbade clergy from abandoning the churches to which they were ordained, and excluded from communion both Christian soldiers who deserted their post in peacetime and Christian charioteers who continued competing in the public games — evidence of a Church working out, canon by canon, what ordinary Christian life should look like now that persecution had ended.",
+            "U",
+            "Beyond the Donatist question, Arles issued twenty-two disciplinary canons addressing the practical needs of a Church suddenly emerging into public legal existence. It fixed a single, universal date for Easter, forbade clergy from abandoning their ordained churches, and excluded from communion Christian soldiers who deserted their post in peacetime and Christian charioteers who continued competing in the public games. These measures showed a Church working out, canon by canon, what ordinary Christian life should look like now that persecution had ended."
+          ],
+          [
+            "article",
+            "The Donatists rejected the council's ruling and appealed once more to Constantine personally, who upheld Arles's judgment, though the Donatist schism itself persisted in North Africa for centuries afterward, eventually requiring the sustained theological and pastoral engagement of St. Augustine of Hippo two generations later to fully confront it.",
+            "U",
+            "The Donatists rejected the council's ruling and appealed once more to Constantine personally, who upheld Arles's judgment. The Donatist schism itself persisted in North Africa for centuries afterward, eventually requiring St. Augustine of Hippo's sustained theological and pastoral engagement two generations later to fully confront it."
+          ],
+          [
+            "article",
+            "St. Augustine himself later described Arles in terms suggesting something close to universal authority, and the council is remembered as the crucial dress rehearsal, in both form and imperial initiative, for the far larger ecumenical council Constantine would convene at Nicaea barely a decade afterward.",
+            "U",
+            "St. Augustine himself later described Arles in terms suggesting something close to universal authority. The council is remembered as the crucial dress rehearsal, in both form and imperial initiative, for the far larger ecumenical council Constantine would convene at Nicaea barely a decade afterward."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T04:57:02.022Z",
+      "updatedAt": "2026-09-16T04:57:02.022Z"
     }
   ]
 }
