@@ -11696,14 +11696,25 @@
       "type": "sentence-reword",
       "entityId": "st-peter-chanel-1841",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Peter Chanel",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "st-peter-chanel-1841",
+        "name": "St. Peter Chanel",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T03:44:38.103Z",
-      "updatedAt": "2026-09-16T03:47:24.920Z",
+      "updatedAt": "2026-09-16T03:51:13.088Z",
       "error": null
     },
     {
@@ -13062,6 +13073,41 @@
       "error": null,
       "createdAt": "2026-09-16T03:51:08.510Z",
       "updatedAt": "2026-09-16T03:51:08.510Z"
+    },
+    {
+      "id": "task-sentence-reword-st-peter-chanel-1841-1789530673088-1395",
+      "type": "sentence-reword",
+      "entityId": "st-peter-chanel-1841",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. Peter Chanel",
+      "payload": {},
+      "result": {
+        "name": "St. Peter Chanel",
+        "patches": [
+          [
+            "article",
+            "Because reliable eyewitness testimony was difficult to establish, the Church took decades to be satisfied that Peter had died specifically out of hatred for the Catholic faith rather than some other motive, delaying his formal recognition as a martyr; he was beatified only in 1889.",
+            "U",
+            "Because reliable eyewitness testimony was difficult to establish, the Church took decades to be satisfied that Peter had died specifically out of hatred for the Catholic faith. His formal recognition as a martyr was delayed; he was beatified only in 1889."
+          ],
+          [
+            "article",
+            "His relics were returned to Futuna at the islanders' own request in 1977 and rest today in a basilica built at his place of martyrdom, a modest missionary's quiet, largely unrewarded labor having become, after his death, the seed of a lasting Catholic presence across the islands he served.",
+            "U",
+            "His relics were returned to Futuna at the islanders' own request in 1977 and rest today in a basilica built at his place of martyrdom. After his death, a modest missionary's quiet, largely unrewarded labor became the seed of a lasting Catholic presence across the islands he served."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T03:51:13.088Z",
+      "updatedAt": "2026-09-16T03:51:13.088Z"
     }
   ]
 }
