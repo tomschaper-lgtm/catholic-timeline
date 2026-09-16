@@ -15076,14 +15076,25 @@
       "type": "sentence-reword",
       "entityId": "em-turin-1640",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Turin II",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-turin-1640",
+        "name": "Turin II",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:39:41.330Z",
       "error": null
     },
     {
@@ -18586,6 +18597,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:39:34.714Z",
       "updatedAt": "2026-09-16T18:39:34.714Z"
+    },
+    {
+      "id": "task-sentence-reword-em-turin-1640-1789583981330-2772",
+      "type": "sentence-reword",
+      "entityId": "em-turin-1640",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Turin II",
+      "payload": {},
+      "result": {
+        "name": "Turin II",
+        "patches": [
+          [
+            "article",
+            "The soldier, badly burned, dropped what he had taken; the second episode in Turin's history to bear the name Eucharistic miracle, following the far more celebrated 1453 event at Corpus Domini, became known locally simply as the miracle of the Monte, tied to the church that still stands above the city and the river.",
+            "U",
+            "The soldier, badly burned, dropped what he had taken. The second episode in Turin's history to bear the name Eucharistic miracle followed the far more celebrated 1453 event at Corpus Domini. It became known locally simply as the miracle of the Monte, tied to the church that still stands above the city and the river."
+          ],
+          [
+            "article",
+            "Together, the events of 1453 and 1640 came to form what local tradition calls Turin's Eucharistic itinerary — two episodes, nearly two centuries apart, both centered on consecrated Hosts resisting improper or violent handling in the city's own streets and churches, and both still marked by their respective sanctuaries today.",
+            "U",
+            "Together, the events of 1453 and 1640 came to form what local tradition calls Turin's Eucharistic itinerary. These two episodes, nearly two centuries apart, both centered on consecrated Hosts resisting improper or violent handling in the city's own streets and churches. Both remain marked by their respective sanctuaries today."
+          ],
+          [
+            "article",
+            "Where the 1453 miracle turned on a mule's collapse in a public square, the 1640 account turns on a wartime desecration met, in the telling, by fire answering fire — a soldier's violence turned back on the hand that offered it.",
+            "U",
+            "The 1453 miracle turned on a mule's collapse in a public square. The 1640 account turns on a wartime desecration met, in the telling, by fire answering fire—a soldier's violence turned back on the hand that offered it."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:39:41.330Z",
+      "updatedAt": "2026-09-16T18:39:41.330Z"
     }
   ]
 }
