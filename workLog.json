@@ -7922,14 +7922,25 @@
       "type": "sentence-reword",
       "entityId": "synod-of-worms-1076",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Synod of Worms",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "synod-of-worms-1076",
+        "name": "Synod of Worms",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T06:12:54.789Z",
-      "updatedAt": "2026-09-16T06:17:43.391Z",
+      "updatedAt": "2026-09-16T06:18:20.528Z",
       "error": null
     },
     {
@@ -8137,6 +8148,35 @@
       "error": null,
       "createdAt": "2026-09-16T06:18:17.930Z",
       "updatedAt": "2026-09-16T06:18:17.930Z"
+    },
+    {
+      "id": "task-sentence-reword-synod-of-worms-1076-1789539500528-3365",
+      "type": "sentence-reword",
+      "entityId": "synod-of-worms-1076",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Synod of Worms",
+      "payload": {},
+      "result": {
+        "name": "Synod of Worms",
+        "patches": [
+          [
+            "article",
+            "There, according to tradition, he stood barefoot in the snow for three days as a penitent before the pope would receive him back into communion — one of the most vivid and enduring images of the whole medieval struggle between royal and papal authority.",
+            "U",
+            "There, according to tradition, he stood barefoot in the snow for three days as a penitent. The pope would then receive him back into communion — one of the most vivid and enduring images of the medieval struggle between royal and papal authority."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T06:18:20.528Z",
+      "updatedAt": "2026-09-16T06:18:20.528Z"
     }
   ]
 }
