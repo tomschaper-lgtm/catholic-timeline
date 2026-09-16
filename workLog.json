@@ -14920,14 +14920,25 @@
       "type": "sentence-reword",
       "entityId": "em-alcala-1597",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Alcala",
       "payload": {
         "provider": "openai"
       },
-      "result": null,
+      "result": {
+        "entityId": "em-alcala-1597",
+        "name": "Alcala",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T17:39:52.459Z",
-      "updatedAt": "2026-09-16T18:35:30.393Z",
+      "updatedAt": "2026-09-16T18:38:52.826Z",
       "error": null
     },
     {
@@ -18262,6 +18273,47 @@
       "error": null,
       "createdAt": "2026-09-16T18:38:46.081Z",
       "updatedAt": "2026-09-16T18:38:46.081Z"
+    },
+    {
+      "id": "task-sentence-reword-em-alcala-1597-1789583932826-8622",
+      "type": "sentence-reword",
+      "entityId": "em-alcala-1597",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Alcala",
+      "payload": {},
+      "result": {
+        "name": "Alcala",
+        "patches": [
+          [
+            "article",
+            "Rather than have the returned Hosts consumed immediately, the confessor grew cautious: priests in nearby Murcia and Segovia had recently been poisoned through contaminated Hosts, and he wanted to rule out any similar danger before allowing them near the altar again.",
+            "U",
+            "Rather than have the returned Hosts consumed immediately, the confessor grew cautious. Priests in nearby Murcia and Segovia had recently been poisoned through contaminated Hosts. He wanted to rule out any similar danger before allowing them near the altar again."
+          ],
+          [
+            "article",
+            "The consecrated Hosts remained under observation for roughly a decade, and sources differ on the precise number recovered and the exact span of years involved, but agree that they were found still perfectly intact well after any ordinary bread would have decayed.",
+            "U",
+            "The consecrated Hosts remained under observation for roughly a decade. Sources differ on the precise number recovered and the exact span of years involved, but agree they remained perfectly intact well after ordinary bread would have decayed."
+          ],
+          [
+            "article",
+            "What survives is the documented method behind the finding — a deliberate, controlled comparison against ordinary bread, undertaken specifically to rule out a natural explanation before anyone called it miraculous — a degree of investigative caution unusual among Eucharistic accounts of this era.",
+            "U",
+            "What survives is the documented method behind the finding: a deliberate, controlled comparison against ordinary bread. It was undertaken specifically to rule out a natural explanation before anyone called it miraculous, showing investigative caution unusual among Eucharistic accounts of this era."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-16T18:38:52.826Z",
+      "updatedAt": "2026-09-16T18:38:52.826Z"
     }
   ]
 }
