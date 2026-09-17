@@ -280,15 +280,26 @@
       "type": "sentence-reword",
       "entityId": "em-regensburg-1255",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Regensburg",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "em-regensburg-1255",
+        "name": "Regensburg",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T06:47:40.913Z",
+      "updatedAt": "2026-09-17T06:48:24.493Z",
       "error": null
     },
     {
@@ -1130,7 +1141,7 @@
       "type": "sentence-reword",
       "entityId": "em-florence-1230",
       "batchId": null,
-      "status": "approved",
+      "status": "proposed",
       "description": "Reword 4 long sentences — Florence",
       "payload": {},
       "result": {
@@ -1170,7 +1181,48 @@
       },
       "error": null,
       "createdAt": "2026-09-17T06:47:54.561Z",
-      "updatedAt": "2026-09-17T06:47:59.348Z"
+      "updatedAt": "2026-09-17T06:47:54.561Z"
+    },
+    {
+      "id": "task-sentence-reword-em-regensburg-1255-1789627704493-8998",
+      "type": "sentence-reword",
+      "entityId": "em-regensburg-1255",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Regensburg",
+      "payload": {},
+      "result": {
+        "name": "Regensburg",
+        "patches": [
+          [
+            "article",
+            "On Holy Thursday, 25 March 1255, a priest of <b>Regensburg</b> (then known as Ratisbon), carrying the Blessed Sacrament to a dying parishioner, came upon a stream swollen by an unexpected storm; crossing the narrow plank laid across it as a makeshift bridge, he slipped and dropped the ciborium, spilling the consecrated Hosts onto the bank.",
+            "U",
+            "On Holy Thursday, 25 March 1255, a priest of <b>Regensburg</b> (then known as Ratisbon) carried the Blessed Sacrament to a dying parishioner. He came upon a stream swollen by an unexpected storm; crossing its narrow plank bridge, he slipped and dropped the ciborium, spilling the consecrated Hosts onto the bank."
+          ],
+          [
+            "article",
+            "At that moment, the account relates, the wooden figure of Christ on the altar crucifix stirred: one arm detached from the cross, reached forward, and gently drew the chalice from the doubting priest's hands, holding the Eucharist aloft for the whole congregation to see before the priest, in tears, begged forgiveness and the chalice was returned to him.",
+            "U",
+            "At that moment, the account relates, the wooden figure of Christ on the altar crucifix stirred: one arm detached from the cross and reached forward. It gently drew the chalice from the doubting priest's hands, holding the Eucharist aloft for the whole congregation to see. Before the chalice was returned to him, the priest, in tears, begged forgiveness."
+          ],
+          [
+            "article",
+            "The crucifix tradition credits with this sign remains preserved in Regensburg today, drawing pilgrims who come to venerate a wooden figure said to have steadied, twice over, the wavering hands of a servant of the altar — first a priest who merely stumbled on a flooded plank, and then one who doubted outright — both met, in the account handed down, not with rebuke but with a sign gentle enough to restore rather than shame.",
+            "U",
+            "The crucifix tradition credits with this sign remains preserved in Regensburg today, drawing pilgrims who come to venerate a wooden figure. It is said to have steadied, twice over, the wavering hands of a servant of the altar—first a priest who merely stumbled on a flooded plank, and then one who doubted outright. Both met, in the account handed down, not with rebuke but with a sign gentle enough to restore rather than shame."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T06:48:24.493Z",
+      "updatedAt": "2026-09-17T06:48:24.493Z"
     }
   ]
 }
