@@ -143,15 +143,26 @@
       "type": "sentence-reword",
       "entityId": "em-benningen-1216",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Benningen",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "em-benningen-1216",
+        "name": "Benningen",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T06:12:42.742Z",
+      "updatedAt": "2026-09-17T06:12:47.282Z",
       "error": null
     },
     {
@@ -944,6 +955,35 @@
       "error": null,
       "createdAt": "2026-09-17T06:11:21.021Z",
       "updatedAt": "2026-09-17T06:11:27.266Z"
+    },
+    {
+      "id": "task-sentence-reword-em-benningen-1216-1789625567282-4722",
+      "type": "sentence-reword",
+      "entityId": "em-benningen-1216",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Benningen",
+      "payload": {},
+      "result": {
+        "name": "Benningen",
+        "patches": [
+          [
+            "article",
+            "There, it commemorates a sign that, however long ago its physical trace was lost, drew a whole community's memory around a single truth: malice aimed at a neighbor found itself, in the account tradition preserves, turned back upon the one who intended it.",
+            "U",
+            "There, it commemorates a sign whose physical trace was lost long ago. Yet it drew a whole community's memory around a single truth: malice aimed at a neighbor found itself, in the account tradition preserves, turned back upon the one who intended it."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T06:12:47.282Z",
+      "updatedAt": "2026-09-17T06:12:47.282Z"
     }
   ]
 }
