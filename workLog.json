@@ -197,15 +197,26 @@
       "type": "sentence-reword",
       "entityId": "em-alatri-1228",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Alatri",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "em-alatri-1228",
+        "name": "Alatri",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T06:20:23.757Z",
+      "updatedAt": "2026-09-17T06:20:44.683Z",
       "error": null
     },
     {
@@ -1054,6 +1065,41 @@
       "error": null,
       "createdAt": "2026-09-17T06:20:38.570Z",
       "updatedAt": "2026-09-17T06:20:38.570Z"
+    },
+    {
+      "id": "task-sentence-reword-em-alatri-1228-1789626044683-9306",
+      "type": "sentence-reword",
+      "entityId": "em-alatri-1228",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — Alatri",
+      "payload": {},
+      "result": {
+        "name": "Alatri",
+        "patches": [
+          [
+            "article",
+            "On March 13, 1228, Pope Gregory IX wrote to Bishop Giovanni in a bull known as <i>Fraternitas tuae</i>, addressing him directly as \"venerable brother.\" The pope went on to note that after three days the young woman found the Body she had received in the form of bread transformed into flesh, <i>\"as everyone has been able to verify with their own eyes,\"</i> and instructed the bishop to treat both women with mercy, judging that they had acted more from weakness than malice.",
+            "U",
+            "On March 13, 1228, Pope Gregory IX wrote to Bishop Giovanni in a bull known as <i>Fraternitas tuae</i>, addressing him directly as \"venerable brother.\" The pope noted that after three days, the young woman found the Body she had received in the form of bread transformed into flesh, <i>\"as everyone has been able to verify with their own eyes,\"</i>. He instructed the bishop to treat both women with mercy, judging that they had acted more from weakness than malice."
+          ],
+          [
+            "article",
+            "Alatri's tradition reminds us that even sacrilege born of very human desperation, heartbreak, in this case, rather than hatred, was met, in the Church's own oldest surviving account of the episode, with compassion rather than only judgment, alongside a sign the pope himself read as strengthening faith rather than merely punishing its absence.",
+            "U",
+            "Alatri's tradition reminds us that sacrilege was born of very human desperation—heartbreak, in this case—rather than hatred. In the Church's own oldest surviving account, it was met with compassion rather than only judgment, alongside a sign the pope himself read as strengthening faith rather than merely punishing its absence."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T06:20:44.683Z",
+      "updatedAt": "2026-09-17T06:20:44.683Z"
     }
   ]
 }
