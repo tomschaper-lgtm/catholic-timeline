@@ -1,9 +1,23 @@
 <!--
-VERSION: 403
-DATE: 2026-09-17T10:15:00-05:00
+VERSION: 404
+DATE: 2026-09-17T11:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Added the center-year readout on the timeline axis — Review Mode only (body.review-on;
+  invisible to regular visitors), so it's an owner navigation aid, not a public feature. Shows
+  whatever year sits at the true horizontal center of the screen and ticks through it live as
+  the timeline is dragged/flung, via the existing centerYear()/scroll-driven update pattern
+  (same rAF-throttled approach as the band-icon fade just above it in the code). Redesigned away
+  from a pill-outline look: a solid dark plaque across the center 50% of the badge's own width,
+  fading to fully transparent over the outer 25% on each side — no border/outline at all. Sits
+  above the ordinary "400"/"500" century tick labels (z-index + DOM order), so one sliding
+  underneath fades as it nears the gradient zone and disappears once it's under the solid center,
+  purely from that stacking + gradient — no separate per-label fade logic needed. Stays centered
+  on screen throughout the whole horizontal scroll range via `position:sticky; left:0; right:0`
+  on a full-width child of .axis (the standard "sticky marker inside a horizontally-scrolling
+  strip" trick), not JS-computed positioning, so it tracks scroll smoothly even during a fast
+  fling. Font bumped slightly (13px → 15.5px) and bolded to stand out from the plain tick labels.
 - Timeline viewport no longer rubber-bands vertically. Dragging past the top (or bottom) of the
   era band/axis/lanes stretched the whole canvas downward, revealing blank navy background above
   the era band before it snapped back — the classic iOS elastic-overscroll bounce, playing out on
@@ -2432,6 +2446,32 @@ v332 CHANGES (unchanged from the version this build started from):
   .ticklbl.minor{font-size:11px; color:var(--muted); opacity:.85;}
   .grid{position:absolute; top:58px; bottom:0; width:1px; background:rgba(201,165,66,.08);}
   .grid.minor{background:rgba(201,165,66,.045);}
+  /* Review-mode-only "center year" readout — always shows whatever year sits at the true
+     horizontal center of the screen, ticking through as Tom drags/flings the timeline. Owner
+     debug aid, not a visitor-facing feature, so it's gated on body.review-on (the same class
+     setReviewMode() already toggles) rather than its own state.
+     Positioning: .centerYearWrap is a child of .axis (which is exactly as wide as the whole
+     scrollable canvas), given `position:sticky; left:0; right:0` with no top/bottom — the classic
+     "sticky marker inside a horizontally-scrolling strip" trick. With both horizontal insets
+     pinned it never leaves the currently-visible slice of the axis, regardless of scrollLeft,
+     while staying in normal flow vertically so it simply fills .axis's own 28px band; no JS
+     position math needed, so it stays perfectly smooth during a fast fling (same reasoning as
+     the sticky band-icon comment above). z-index lifts it above the plain tick labels beneath.
+     Badge look: no pill/outline. A solid plaque across the center 50% of its own width, gradient
+     to fully transparent over the outer 25% on each side — so a "400"/"500" tick label sliding
+     underneath fades as it nears the gradient zone and is fully hidden once under the solid
+     center, with no separate per-label opacity logic needed. */
+  .centerYearWrap{
+    display:none; position:sticky; left:0; right:0; height:100%;
+    align-items:center; justify-content:center;
+    pointer-events:none; z-index:5;
+  }
+  body.review-on .centerYearWrap{display:flex;}
+  .centerYearBadge{
+    font-family:'Cinzel',serif; font-weight:700; font-size:15.5px; letter-spacing:.06em;
+    color:var(--gold-bright); padding:0 30px; line-height:28px; text-align:center; white-space:nowrap;
+    background:linear-gradient(90deg, transparent 0%, rgba(7,15,34,.92) 25%, rgba(7,15,34,.92) 75%, transparent 100%);
+  }
   /* Sticky header (eras + year axis) */
   .timehead{
     position:sticky; top:0; z-index:20; height:58px;
@@ -4917,7 +4957,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v403';
+const APP_VERSION = 'v404';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5473,8 +5513,13 @@ function render(){
     l.textContent = fmtAxisYear(START);
     axis.appendChild(l);
   }
+  const cyWrap = document.createElement('div');
+  cyWrap.className = 'centerYearWrap';
+  cyWrap.innerHTML = '<div class="centerYearBadge" id="centerYearBadge"></div>';
+  axis.appendChild(cyWrap);
   head.appendChild(axis);
   canvas.insertBefore(head, canvas.firstChild);
+  updateCenterYearBadge();
 
   // One muted horizontal band per visible category — entries stay in their lane.
   // (Crowding in the AD 1-100 stretch is handled by widening that stretch itself —
@@ -5588,6 +5633,20 @@ function scheduleBandIconFade(){
   iconFadeRAF = requestAnimationFrame(() => { iconFadeRAF = null; updateBandIconFade(); });
 }
 viewport.addEventListener('scroll', scheduleBandIconFade, {passive:true});
+
+// Review-mode-only center-year readout (see .centerYearWrap CSS for the sticky/masking design).
+// Cheap enough to just always keep current — the element itself is display:none outside review
+// mode via CSS, so this is a no-op paint-wise when Tom isn't looking at it.
+let centerYearRAF = null;
+function updateCenterYearBadge(){
+  const el = document.getElementById('centerYearBadge');
+  if(el) el.textContent = fmtAxisYear(Math.round(centerYear()));
+}
+function scheduleCenterYearBadge(){
+  if(centerYearRAF) return;
+  centerYearRAF = requestAnimationFrame(() => { centerYearRAF = null; updateCenterYearBadge(); });
+}
+viewport.addEventListener('scroll', scheduleCenterYearBadge, {passive:true});
 
 // The old separate teaser card is retired — this now just opens the one unified card in
 // its peek state. Kept as a thin wrapper (rather than rewriting every call site) since
