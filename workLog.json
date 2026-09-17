@@ -631,15 +631,26 @@
       "type": "sentence-reword",
       "entityId": "em-cascia-1330",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Cascia",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "em-cascia-1330",
+        "name": "Cascia",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T07:32:00.337Z",
+      "updatedAt": "2026-09-17T07:35:55.990Z",
       "error": null
     },
     {
@@ -1985,6 +1996,53 @@
       "error": null,
       "createdAt": "2026-09-17T07:35:45.994Z",
       "updatedAt": "2026-09-17T07:35:45.994Z"
+    },
+    {
+      "id": "task-sentence-reword-em-cascia-1330-1789630555990-5754",
+      "type": "sentence-reword",
+      "entityId": "em-cascia-1330",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Cascia",
+      "payload": {},
+      "result": {
+        "name": "Cascia",
+        "patches": [
+          [
+            "article",
+            "In 1330, near <b>Siena</b>, a priest was summoned to bring Holy Communion to a gravely ill peasant; rather than carry the consecrated Host properly in a pyx, he slipped it irreverently between the pages of his breviary and set out for the sick man's home.",
+            "U",
+            "In 1330, near <b>Siena</b>, a priest was summoned to bring Holy Communion to a gravely ill peasant. Rather than carry the consecrated Host properly in a pyx, he slipped it irreverently between his breviary’s pages. He then set out for the sick man’s home."
+          ],
+          [
+            "article",
+            "Arriving at the peasant's bedside and hearing his confession, the priest opened his breviary to retrieve the Host for Communion — and found it gone, replaced by two round stains of living blood that had soaked through both facing pages exactly where it had been placed.",
+            "U",
+            "Arriving at the peasant's bedside and hearing his confession, the priest opened his breviary to retrieve the Host for Communion. He found it gone, replaced by two round stains of living blood that had soaked through both facing pages exactly where it had been placed."
+          ],
+          [
+            "article",
+            "Shaken and repentant, the priest went at once to the Augustinian priory in Siena to seek the guidance of <b>Fr. Simone Fidati of Cascia</b>, a respected holy man, who heard his confession, granted absolution, and kept the two stained pages of the breviary — placing one in a tabernacle at Perugia and carrying the other to the Augustinian monastery of his own hometown, <b>Cascia</b>.",
+            "U",
+            "Shaken and repentant, the priest went at once to the Augustinian priory in Siena to seek guidance from <b>Fr. Simone Fidati of Cascia</b>, a respected holy man.  \nFr. Simone heard his confession, granted absolution, and kept the two stained pages of the breviary.  \nHe placed one in a tabernacle at Perugia and carried the other to the Augustinian monastery in his own hometown, <b>Cascia</b>."
+          ],
+          [
+            "article",
+            "The relic remains preserved today in the lower chapel of the Basilica of St. Rita in Cascia, a town now more widely known as the home of the fourteenth-century saint <a href=\"entry:st-rita-of-cascia-1457\">St. Rita</a>, whose own shrine draws far larger crowds than the small stained page kept beneath it.",
+            "U",
+            "The relic remains preserved today in the lower chapel of the Basilica of St. Rita in Cascia. The town is now more widely known as the home of the fourteenth-century saint <a href=\"entry:st-rita-of-cascia-1457\">St. Rita</a>, whose own shrine draws far larger crowds than the small stained page kept beneath it."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T07:35:55.990Z",
+      "updatedAt": "2026-09-17T07:35:55.990Z"
     }
   ]
 }
