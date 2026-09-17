@@ -874,15 +874,26 @@
       "type": "sentence-reword",
       "entityId": "em-brussels-1370",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Brussels (Sacrament of Miracle)",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "em-brussels-1370",
+        "name": "Brussels (Sacrament of Miracle)",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T07:52:44.856Z",
+      "updatedAt": "2026-09-17T07:53:05.450Z",
       "error": null
     },
     {
@@ -2525,6 +2536,35 @@
       "error": null,
       "createdAt": "2026-09-17T07:53:00.860Z",
       "updatedAt": "2026-09-17T07:53:00.860Z"
+    },
+    {
+      "id": "task-sentence-reword-em-brussels-1370-1789631585450-3281",
+      "type": "sentence-reword",
+      "entityId": "em-brussels-1370",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Brussels (Sacrament of Miracle)",
+      "payload": {},
+      "result": {
+        "name": "Brussels (Sacrament of Miracle)",
+        "patches": [
+          [
+            "article",
+            "A host-desecration narrative from 1370 gave rise to a long-venerated Brussels devotion known as the 'Sacrament of Miracle.' ⚠ Note for editor: this account is historically tied to anti-Jewish persecution, and the Archdiocese of Mechelen-Brussels formally distanced itself from the traditional narrative in 1968 — handle with particular historical care in the full article.",
+            "U",
+            "A host-desecration narrative from 1370 gave rise to a long-venerated Brussels devotion known as the 'Sacrament of Miracle.' ⚠ Note for editor: this account is historically tied to anti-Jewish persecution. The Archdiocese of Mechelen-Brussels formally distanced itself from the traditional narrative in 1968 — handle with particular historical care in the full article."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T07:53:05.450Z",
+      "updatedAt": "2026-09-17T07:53:05.450Z"
     }
   ]
 }
