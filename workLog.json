@@ -224,15 +224,26 @@
       "type": "sentence-reword",
       "entityId": "em-florence-1230",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Florence",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "em-florence-1230",
+        "name": "Florence",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T06:47:40.913Z",
+      "updatedAt": "2026-09-17T06:47:54.561Z",
       "error": null
     },
     {
@@ -1100,6 +1111,53 @@
       "error": null,
       "createdAt": "2026-09-17T06:20:44.683Z",
       "updatedAt": "2026-09-17T06:20:48.297Z"
+    },
+    {
+      "id": "task-sentence-reword-em-florence-1230-1789627674561-8828",
+      "type": "sentence-reword",
+      "entityId": "em-florence-1230",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Florence",
+      "payload": {},
+      "result": {
+        "name": "Florence",
+        "patches": [
+          [
+            "article",
+            "On 30 December 1230, an elderly priest named <b>Uguccione</b>, serving the church of <b>Sant'Ambrogio</b> in Florence, celebrated Mass as he had for years and, by every surviving account, simply forgot to purify the chalice afterward — an ordinary lapse of carelessness rather than any deliberate irreverence.",
+            "U",
+            "On 30 December 1230, an elderly priest named <b>Uguccione</b> served the church of <b>Sant'Ambrogio</b> in Florence. He celebrated Mass as he had for years and, by every surviving account, simply forgot to purify the chalice afterward — an ordinary lapse of carelessness rather than any deliberate irreverence."
+          ],
+          [
+            "article",
+            "Tradition holds that the relic was exposed publicly again in 1340, during an outbreak of plague that would return with even greater ferocity eight years later, as a terrified city turned once more to the small vial of blood it had venerated for over a century.",
+            "U",
+            "Tradition holds that the relic was exposed publicly again in 1340, during an outbreak of plague. That plague would return with even greater ferocity eight years later, as a terrified city turned once more to the small vial of blood it had venerated for over a century."
+          ],
+          [
+            "article",
+            "Devotion to the relic grew steadily across the centuries that followed: a marble tabernacle carved by <b>Mino da Fiesole</b> in 1484 was raised to enshrine it within a chapel of its own inside Sant'Ambrogio, and the Florentine master <b>Cosimo Rosselli</b> covered its walls with frescoes depicting the original procession of the miraculous chalice alongside the great doctors of the Church.",
+            "U",
+            "Devotion to the relic grew steadily across the centuries that followed. A marble tabernacle carved by <b>Mino da Fiesole</b> in 1484 was raised to enshrine it within a chapel of its own inside Sant'Ambrogio. The Florentine master <b>Cosimo Rosselli</b> covered its walls with frescoes depicting the original procession of the miraculous chalice alongside the great doctors of the Church."
+          ],
+          [
+            "article",
+            "The relic remains at Sant'Ambrogio today, exposed each May during the parish's observance of the Forty Hours devotion, not far from a second and later Eucharistic sign also venerated there — a fragment of a consecrated host said to have survived a fire in the same church unburned in 1595.",
+            "U",
+            "The relic remains at Sant'Ambrogio today, exposed each May during the parish's observance of the Forty Hours devotion. It lies not far from a second and later Eucharistic sign also venerated there — a fragment of a consecrated host said to have survived a fire in the same church unburned in 1595."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T06:47:54.561Z",
+      "updatedAt": "2026-09-17T06:47:54.561Z"
     }
   ]
 }
