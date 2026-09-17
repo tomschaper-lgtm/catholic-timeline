@@ -1252,15 +1252,26 @@
       "type": "sentence-reword",
       "entityId": "em-erding-1417",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Erding",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "em-erding-1417",
+        "name": "Erding",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T07:52:44.856Z",
+      "updatedAt": "2026-09-17T07:56:26.251Z",
       "error": null
     },
     {
@@ -3295,6 +3306,53 @@
       "error": null,
       "createdAt": "2026-09-17T07:56:11.589Z",
       "updatedAt": "2026-09-17T07:56:11.589Z"
+    },
+    {
+      "id": "task-sentence-reword-em-erding-1417-1789631786251-4795",
+      "type": "sentence-reword",
+      "entityId": "em-erding-1417",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Erding",
+      "payload": {},
+      "result": {
+        "name": "Erding",
+        "patches": [
+          [
+            "article",
+            "Word of the strange event reached the local bishop, and it was only through his direct intervention — the precise nature of which the surviving accounts do not detail — that the Host was finally recovered safely, resolving the extraordinary episode that had by then drawn considerable local attention.",
+            "U",
+            "Word of the strange event reached the local bishop, whose direct intervention finally ensured that the Host was recovered safely. The surviving accounts do not detail its precise nature, resolving the extraordinary episode that had by then drawn considerable local attention."
+          ],
+          [
+            "article",
+            "A chapel was built without delay on the spot where the Host had finally come to rest, and in the years that followed, numerous cures and other favors were attributed to those who came to venerate it there — the kind of accumulating local testimony that, in this period, often turned a single strange event into a lasting regional shrine.",
+            "U",
+            "A chapel was built without delay on the spot where the Host had finally come to rest. In the years that followed, numerous cures and other favors were attributed to those who came to venerate it there—the kind of accumulating local testimony that, in this period, often turned a single strange event into a lasting regional shrine."
+          ],
+          [
+            "article",
+            "The Erding account belongs to a distinct pattern among medieval Eucharistic traditions in which the Host itself appears to resist improper handling — rising out of reach, refusing to be carried off, or otherwise eluding whoever would treat it as an ordinary object rather than a sacred one.",
+            "U",
+            "The Erding account belongs to a distinct pattern among medieval Eucharistic traditions in which the Host itself appears to resist improper handling. It rises out of reach, refuses to be carried off, or otherwise eludes whoever would treat it as an ordinary object rather than a sacred one."
+          ],
+          [
+            "article",
+            "Whatever weight a modern reader gives to the specific details, the chapel raised on the spot, and the devotion that gathered around it for generations afterward, testify to how seriously the people of fifteenth-century Erding took what they believed had happened in their own town square.",
+            "U",
+            "Whatever weight a modern reader gives to the specific details, the chapel raised on the spot testifies to how seriously the people of fifteenth-century Erding took what they believed had happened. The devotion that gathered around it for generations afterward likewise reflects that seriousness in their own town square."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T07:56:26.251Z",
+      "updatedAt": "2026-09-17T07:56:26.251Z"
     }
   ]
 }
