@@ -1,9 +1,25 @@
 <!--
-VERSION: 406
-DATE: 2026-09-17T12:10:00-05:00
+VERSION: 407
+DATE: 2026-09-17T13:15:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Center-year badge, four tweaks:
+  1. Background color-matched to .timehead's own background at that row (rgba(11,22,48,.97),
+     the exact value its gradient lands on near its bottom edge) instead of a separately-guessed
+     shade — the badge now reads as part of the surface rather than a pasted-on rectangle.
+  2. Widened ~30% via an explicit min-width (130px, was implicit padding+text sizing only), so
+     the transparent-to-solid fade begins further out from center.
+  3. Replaced the plain vertical tick mark with a small downward-pointing notch that reads as
+     the axis's own gold line bending down to a point — two stacked CSS border-triangles from
+     one shared top-center origin (outer solid gold, inner solid navy matching the badge's own
+     fill, sized/positioned so only a thin constant-width gold rim shows along the two slanted
+     sides before converging to a solid gold tip). Positioned right at y:58, .axis's own
+     border-bottom row, so it visually interrupts and bends that line rather than floating near it.
+  4. Scroll-room padding at both ends of the whole timeline widened from 40/60 years to 250 years
+     each side (START -60→-250, END 2070→2260, ERAS's first/last entries synced to match per the
+     existing hand-sync note) — the old buffer wasn't enough for centerAndFocus() to truly center
+     an entry near either edge at typical viewing zoom; scrollLeft would just clamp instead.
 - Fixed the center-year badge (v405) not showing at all. It was placed AFTER #canvas in the
   markup, and #canvas is very tall — the whole vertical stack of every category lane. Sticky
   positioning only pins an element once scrolling has carried it PAST its natural, pre-stick flow
@@ -2485,12 +2501,29 @@ v332 CHANGES (unchanged from the version this build started from):
      lifts the whole thing above .canvas's contents (anything with a positive z-index outranks a
      plain z-index:auto sibling, regardless of z-indexes used *inside* that sibling, like .timehead's
      own 20 — see .timehead below).
-     Badge look: no pill/outline. A solid plaque across the center 50% of its own width, gradient
-     to fully transparent over the outer 25% on each side — so a "400"/"500" tick label sliding
-     underneath fades as it nears the gradient zone and is fully hidden once under the solid
-     center, with no separate per-label opacity logic needed. Vertically inset 2px from both the
-     era band above and .axis's own gold border-bottom below, so that border is never painted
-     over by the badge's background and stays bright the full width, even directly beneath it. */
+     Badge look: no pill/outline. A solid plaque, color-matched to .timehead's own background at
+     that row (var(--navy) at .97 alpha — the exact value .timehead's gradient lands on near its
+     bottom edge, where this row sits) so it reads as part of the surface rather than a pasted-on
+     rectangle. Gradient to fully transparent over the outer 25% on each side — so a "400"/"500"
+     tick label sliding underneath fades as it nears the gradient zone and is fully hidden once
+     under the solid center, with no separate per-label opacity logic needed. min-width (rather
+     than leaving the box sized by padding+text alone) makes the total reach explicit and holds
+     steady across the badge's ~2-4 digit range; sized to ~30% wider than the plain padding+text
+     size this started at, so the fade begins further out from center. Vertically inset 2px from
+     both the era band above and .axis's own gold border-bottom below, so that border is never
+     painted over by the badge's background and stays bright the full width, even directly
+     beneath it. #centerYearNotch sits right where .axis's own gold border-bottom line runs
+     (top:58px, same row), so it locally covers a short stretch of that line rather than floating
+     near it — that's what sells the "the line itself bends down" illusion. It's two stacked
+     CSS border-triangles sharing one top-center origin point: the element itself is the OUTER
+     triangle (solid gold, via the classic zero-size-box + transparent-left/right + solid-top
+     trick), and its ::after is a smaller INNER triangle in the same navy as the badge's own fill,
+     anchored to that identical origin so both start flush at the same top edge. Because the inner
+     one is both narrower and shorter (same width:height ratio, so its edges run parallel to the
+     outer's), it covers the outer's top and middle, leaving only a thin constant-width gold rim
+     exposed along the two slanted sides — until the inner triangle's point ends first, letting
+     the outer's own point finish alone as a small solid-gold tip. Reads exactly as a thin gold
+     line bending down to a point with a navy interior, not two separate shapes. */
   .centerYearWrap{
     display:none; position:sticky; top:0; left:0; right:0; height:0; overflow:visible;
     pointer-events:none; z-index:30;
@@ -2498,11 +2531,23 @@ v332 CHANGES (unchanged from the version this build started from):
   body.review-on .centerYearWrap{display:block;}
   .centerYearBadge{
     position:absolute; top:32px; left:50%; transform:translateX(-50%);
-    height:24px; padding:0 30px;
+    height:24px; min-width:130px; padding:0 14px;
     display:flex; align-items:center; justify-content:center;
     font-family:'Cinzel',serif; font-weight:700; font-size:15.5px; letter-spacing:.06em;
     color:var(--gold-bright); white-space:nowrap;
-    background:linear-gradient(90deg, transparent 0%, rgba(7,15,34,.92) 25%, rgba(7,15,34,.92) 75%, transparent 100%);
+    background:linear-gradient(90deg, transparent 0%, rgba(11,22,48,.97) 25%, rgba(11,22,48,.97) 75%, transparent 100%);
+  }
+  .centerYearNotch{
+    position:absolute; top:58px; left:50%; transform:translateX(-50%);
+    width:0; height:0;
+    border-left:9px solid transparent; border-right:9px solid transparent;
+    border-top:12px solid var(--gold);
+  }
+  .centerYearNotch::after{
+    content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:0; height:0;
+    border-left:6px solid transparent; border-right:6px solid transparent;
+    border-top:8px solid rgba(11,22,48,.97);
   }
   /* Sticky header (eras + year axis) */
   .timehead{
@@ -4263,7 +4308,7 @@ v332 CHANGES (unchanged from the version this build started from):
 </div>
 
 <div class="viewport" id="viewport">
-  <div class="centerYearWrap" id="centerYearWrap"><div class="centerYearBadge" id="centerYearBadge"></div></div>
+  <div class="centerYearWrap" id="centerYearWrap"><div class="centerYearNotch"></div><div class="centerYearBadge" id="centerYearBadge"></div></div>
   <div class="canvas" id="canvas"><div style="padding:40px 20px; font-style:italic; color:var(--muted);">Loading timeline&hellip;</div></div>
 </div>
 
@@ -4963,12 +5008,12 @@ const ERAS = [
   // hand since ERAS is defined before START/END exist as consts (used at file-parse time, not
   // runtime, so it can't just reference them). If START changes, update this first entry's
   // start year to match.
-  [-60,0,"B.C."],
+  [-250,0,"B.C."],
   [0,100,"Apostolic Age"],[100,313,"Age of Martyrs"],[313,604,"Age of the Fathers"],
   [604,1054,"Early Middle Ages"],[1054,1300,"High Middle Ages"],[1300,1517,"Late Middle Ages"],
   [1517,1650,"Reformation"],[1650,1900,"Age of Revolutions"],
   // Same sync note as the B.C. entry above — this end year must match END below.
-  [1900,2070,"Modern Era"]
+  [1900,2260,"Modern Era"]
 ];
 const TYPE_NAMES = {s:"Saint", c:"Council", p:"Persecution", e:"Event", m:"Marian Apparition", u:"Eucharistic Miracle", i:"Info"};
 const REGION_NAMES = {rome:"Rome & Italy", west:"Western Europe", brit:"Britain & Ireland", east:"Byzantium & E. Europe", holy:"Holy Land & Mid-East", africa:"Africa", americas:"Americas", asia:"Asia & Oceania"};
@@ -4990,7 +5035,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v406';
+const APP_VERSION = 'v407';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5108,12 +5153,16 @@ function carloDisplayName(name){
 
 // ================= TIMELINE =================
 // Extra scroll room at both ends beyond actual content, so the timeline doesn't feel like it
-// stops dead exactly where entries do. Right side: 40 years past the last-covered stretch.
-// Left side: 60 years before Pentecost (AD 1) — originally 40, widened another 20 per Tom's
-// follow-up request for more room on the left specifically. If these change, update ERAS's
-// first/last entries above to match (they can't reference these consts directly — see note
-// there).
-const START = -60, END = 2070, SPAN = END - START;
+// stops dead exactly where entries do — AND so centerAndFocus() can actually center any entry,
+// even one right at the edge of the covered span. Centering works by setting
+// scrollLeft = yearToX(entry's year) - viewport.clientWidth/2, which the browser silently clamps
+// to 0 (or to max scroll) if there isn't at least half a screen's worth of blank scroll room past
+// the entry — at that point the entry just lands wherever the clamp allows, not at true center.
+// The old 40/60-year buffer only covered that down to a fairly zoomed-in ppy; widened to 250
+// years each side, comfortably covering true centering at typical viewing zoom (ppy down to
+// roughly 1) on top-of-the-range phone widths too. If these change, update ERAS's first/last
+// entries above to match (they can't reference these consts directly — see note there).
+const START = -250, END = 2260, SPAN = END - START;
 let ppy = 1.8;
 let activeTypes = {s:true, c:true, p:true, e:true, m:true, u:true};
 let activeRegion = "all";
