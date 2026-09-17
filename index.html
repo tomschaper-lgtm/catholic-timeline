@@ -1,9 +1,18 @@
 <!--
-VERSION: 407
-DATE: 2026-09-17T13:15:00-05:00
+VERSION: 408
+DATE: 2026-09-17T13:45:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed the center-year badge sometimes showing a "400"/"500" tick label half-faded/half-sharp
+  as it scrolled past. Cause: the old background gradient masked whatever pixels happened to sit
+  under its fade zone, with no guarantee that lined up with a label's actual boundaries — a label
+  straddling the zone showed partly clear, partly faded. Removed the gradient (badge background
+  is now a flat solid fill) and replaced the masking with a per-label check instead: each
+  .ticklbl now fades to fully hidden, as one atomic unit, once its own center comes within 30px
+  of true screen-center (CENTER_YEAR_SAFE_ZONE), and fades back in once it clears that zone —
+  .ticklbl's new `transition:opacity` is what turns that plain threshold snap into an actual fade
+  rather than a hard pop. Still gated on Review Mode; ordinary visitors never run this check.
 - Center-year badge, four tweaks:
   1. Background color-matched to .timehead's own background at that row (rgba(11,22,48,.97),
      the exact value its gradient lands on near its bottom edge) instead of a separately-guessed
@@ -2479,7 +2488,7 @@ v332 CHANGES (unchanged from the version this build started from):
   .axis{position:absolute; top:30px; height:28px; left:0; right:0; border-bottom:1px solid var(--gold); box-shadow:0 1px 0 rgba(232,205,126,.25);}
   .tick{position:absolute; bottom:0; height:8px; width:1px; background:var(--gold);}
   .tick.minor{height:5px; background:rgba(201,165,66,.5);}
-  .ticklbl{position:absolute; bottom:9px; transform:translateX(-50%); font-family:'Cinzel',serif; font-size:13px; color:var(--gold-bright); letter-spacing:.05em; white-space:nowrap;}
+  .ticklbl{position:absolute; bottom:9px; transform:translateX(-50%); font-family:'Cinzel',serif; font-size:13px; color:var(--gold-bright); letter-spacing:.05em; white-space:nowrap; transition:opacity .15s ease;}
   .ticklbl.minor{font-size:11px; color:var(--muted); opacity:.85;}
   .grid{position:absolute; top:58px; bottom:0; width:1px; background:rgba(201,165,66,.08);}
   .grid.minor{background:rgba(201,165,66,.045);}
@@ -2504,15 +2513,20 @@ v332 CHANGES (unchanged from the version this build started from):
      Badge look: no pill/outline. A solid plaque, color-matched to .timehead's own background at
      that row (var(--navy) at .97 alpha — the exact value .timehead's gradient lands on near its
      bottom edge, where this row sits) so it reads as part of the surface rather than a pasted-on
-     rectangle. Gradient to fully transparent over the outer 25% on each side — so a "400"/"500"
-     tick label sliding underneath fades as it nears the gradient zone and is fully hidden once
-     under the solid center, with no separate per-label opacity logic needed. min-width (rather
-     than leaving the box sized by padding+text alone) makes the total reach explicit and holds
-     steady across the badge's ~2-4 digit range; sized to ~30% wider than the plain padding+text
-     size this started at, so the fade begins further out from center. Vertically inset 2px from
-     both the era band above and .axis's own gold border-bottom below, so that border is never
-     painted over by the badge's background and stays bright the full width, even directly
-     beneath it. #centerYearNotch sits right where .axis's own gold border-bottom line runs
+     rectangle. Flat solid fill, not a gradient — a gradient edge could catch a "400"/"500" label
+     mid-digit as it scrolled past (half sharp, half faded, looking broken) since the fade and the
+     label's own position were two independent things with no guarantee of lining up cleanly.
+     Masking a nearby label is instead handled at the label level: updateCenterYearBadge() (see
+     the JS) also walks every rendered .ticklbl and snaps its opacity to 0, as one atomic unit,
+     once its own center comes within CENTER_YEAR_SAFE_ZONE px of true screen-center — .ticklbl's
+     own `transition:opacity` (above) is what turns that snap into an actual fade in each
+     direction, so it still reads as smooth despite being a plain threshold check underneath.
+     min-width (rather than leaving the box sized by padding+text alone) makes the total reach
+     explicit and holds steady across the badge's ~2-4 digit range; sized to ~30% wider than the
+     plain padding+text size this started at. Vertically inset 2px from both the era band above
+     and .axis's own gold border-bottom below, so that border is never painted over by the
+     badge's background and stays bright the full width, even directly beneath it. #centerYearNotch
+     sits right where .axis's own gold border-bottom line runs
      (top:58px, same row), so it locally covers a short stretch of that line rather than floating
      near it — that's what sells the "the line itself bends down" illusion. It's two stacked
      CSS border-triangles sharing one top-center origin point: the element itself is the OUTER
@@ -2535,7 +2549,7 @@ v332 CHANGES (unchanged from the version this build started from):
     display:flex; align-items:center; justify-content:center;
     font-family:'Cinzel',serif; font-weight:700; font-size:15.5px; letter-spacing:.06em;
     color:var(--gold-bright); white-space:nowrap;
-    background:linear-gradient(90deg, transparent 0%, rgba(11,22,48,.97) 25%, rgba(11,22,48,.97) 75%, transparent 100%);
+    background:rgba(11,22,48,.97);
   }
   .centerYearNotch{
     position:absolute; top:58px; left:50%; transform:translateX(-50%);
@@ -5035,7 +5049,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v407';
+const APP_VERSION = 'v408';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5715,10 +5729,20 @@ viewport.addEventListener('scroll', scheduleBandIconFade, {passive:true});
 // Review-mode-only center-year readout (see .centerYearWrap CSS for the sticky/masking design).
 // Cheap enough to just always keep current — the element itself is display:none outside review
 // mode via CSS, so this is a no-op paint-wise when Tom isn't looking at it.
+const CENTER_YEAR_SAFE_ZONE = 30; // px — a .ticklbl whose center is closer than this to true
+// screen-center is fully hidden, as one atomic unit (not gradient-masked, which could catch a
+// label mid-digit — half sharp, half faded). .ticklbl's own CSS transition turns this plain
+// threshold snap into an actual fade in both directions.
 let centerYearRAF = null;
 function updateCenterYearBadge(){
+  if(!document.body.classList.contains('review-on')) return;
   const el = document.getElementById('centerYearBadge');
   if(el) el.textContent = fmtAxisYear(Math.round(centerYear()));
+  const mid = viewport.scrollLeft + viewport.clientWidth / 2;
+  canvas.querySelectorAll('.ticklbl').forEach(l => {
+    const x = parseFloat(l.style.left);
+    l.style.opacity = Math.abs(x - mid) <= CENTER_YEAR_SAFE_ZONE ? '0' : '';
+  });
 }
 function scheduleCenterYearBadge(){
   if(centerYearRAF) return;
