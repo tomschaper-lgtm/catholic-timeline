@@ -415,15 +415,26 @@
       "type": "sentence-reword",
       "entityId": "em-paris-1290",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Paris (Billettes)",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "em-paris-1290",
+        "name": "Paris (Billettes)",
+        "sentencesFound": 6,
+        "sentencesReworded": 6,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T07:32:00.337Z",
+      "updatedAt": "2026-09-17T07:33:25.480Z",
       "error": null
     },
     {
@@ -1273,7 +1284,7 @@
       "type": "sentence-reword",
       "entityId": "em-neuvy-1257",
       "batchId": null,
-      "status": "approved",
+      "status": "proposed",
       "description": "Reword 5 long sentences — Neuvy-Saint-Sépulcre",
       "payload": {},
       "result": {
@@ -1319,14 +1330,14 @@
       },
       "error": null,
       "createdAt": "2026-09-17T07:32:19.391Z",
-      "updatedAt": "2026-09-17T07:33:10.747Z"
+      "updatedAt": "2026-09-17T07:32:19.391Z"
     },
     {
       "id": "task-sentence-reword-miracle-of-bolsena-1263-1789630359005-9110",
       "type": "sentence-reword",
       "entityId": "miracle-of-bolsena-1263",
       "batchId": null,
-      "status": "approved",
+      "status": "proposed",
       "description": "Reword 5 long sentences — Bolsena",
       "payload": {},
       "result": {
@@ -1372,14 +1383,14 @@
       },
       "error": null,
       "createdAt": "2026-09-17T07:32:39.005Z",
-      "updatedAt": "2026-09-17T07:33:10.747Z"
+      "updatedAt": "2026-09-17T07:32:39.005Z"
     },
     {
       "id": "task-sentence-reword-em-offida-1273-1789630369189-620",
       "type": "sentence-reword",
       "entityId": "em-offida-1273",
       "batchId": null,
-      "status": "approved",
+      "status": "proposed",
       "description": "Reword 3 long sentences — Offida",
       "payload": {},
       "result": {
@@ -1413,14 +1424,14 @@
       },
       "error": null,
       "createdAt": "2026-09-17T07:32:49.189Z",
-      "updatedAt": "2026-09-17T07:33:10.747Z"
+      "updatedAt": "2026-09-17T07:32:49.189Z"
     },
     {
       "id": "task-sentence-reword-em-kranenburg-1280-1789630382716-9358",
       "type": "sentence-reword",
       "entityId": "em-kranenburg-1280",
       "batchId": null,
-      "status": "approved",
+      "status": "proposed",
       "description": "Reword 4 long sentences — Kranenburg",
       "payload": {},
       "result": {
@@ -1460,7 +1471,66 @@
       },
       "error": null,
       "createdAt": "2026-09-17T07:33:02.716Z",
-      "updatedAt": "2026-09-17T07:33:10.747Z"
+      "updatedAt": "2026-09-17T07:33:02.716Z"
+    },
+    {
+      "id": "task-sentence-reword-em-paris-1290-1789630405480-6065",
+      "type": "sentence-reword",
+      "entityId": "em-paris-1290",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 6 long sentences — Paris (Billettes)",
+      "payload": {},
+      "result": {
+        "name": "Paris (Billettes)",
+        "patches": [
+          [
+            "article",
+            "According to a French chronicle written some decades after the fact, on Easter Sunday, 2 April 1290, a Christian woman of Paris pawned a consecrated Host, along with some of her own clothing, to a Jewish moneylender named <b>Jonathas</b> in exchange for a loan.",
+            "U",
+            "According to a French chronicle written some decades after the fact, a Christian woman of Paris pawned a consecrated Host on Easter Sunday, 2 April 1290. She also pawned some of her own clothing to a Jewish moneylender named <b>Jonathas</b> in exchange for a loan."
+          ],
+          [
+            "article",
+            "The chronicle holds that Jonathas then subjected the Host to a series of violent tests — piercing it, throwing it into a fire from which it is said to have risen unburned, and finally plunging it into boiling water, from which it is said to have emerged in the shape of a small crucifix.",
+            "U",
+            "The chronicle holds that Jonathas then subjected the Host to a series of violent tests: piercing it and throwing it into a fire. From that fire, it is said to have risen unburned before he finally plunged it into boiling water, from which it is said to have emerged in the shape of a small crucifix."
+          ],
+          [
+            "article",
+            "The specific miraculous elements of the story, however, appear only in hagiographic accounts written decades afterward, and historians studying the episode have long noted that it stands among the earliest fully documented instances of a host-desecration accusation leveled against a Jewish community in medieval Europe — a charge that would recur, with tragic consequences, across the continent for the following two centuries.",
+            "U",
+            "The specific miraculous elements of the story, however, appear only in hagiographic accounts written decades afterward. Historians studying the episode have long noted that it stands among medieval Europe’s earliest fully documented instances of a host-desecration accusation against a Jewish community. The charge would recur, with tragic consequences, across the continent for the following two centuries."
+          ],
+          [
+            "article",
+            "King Philip IV recorded the confiscation of Jonathas's house in a deed of sale in 1291 and granted the site to a Paris burgher, who built a chapel there; Pope Boniface VIII issued a bull on 17 July 1295 authorizing its foundation, and the chapel, consecrated in 1299, became known popularly as the House of Miracles, with the street itself taking on the nickname <i>Rue du Dieu bouilli</i> — \"the Street of the Boiled God.\"",
+            "U",
+            "King Philip IV recorded the confiscation of Jonathas's house in a deed of sale in 1291 and granted the site to a Paris burgher, who built a chapel there. Pope Boniface VIII issued a bull on 17 July 1295 authorizing its foundation. Consecrated in 1299, the chapel became known popularly as the House of Miracles, with the street itself taking on the nickname <i>Rue du Dieu bouilli</i> — \"the Street of the Boiled God.\""
+          ],
+          [
+            "article",
+            "The chapel passed through several religious communities over the following centuries and became known as the Church of the Billettes, the name it still carries in the Marais district of Paris; the relic itself, kept for generations in a small reliquary at the nearby church of Saint-Jean, was lost during the French Revolution and has never been recovered.",
+            "U",
+            "The chapel passed through several religious communities over the following centuries and became known as the Church of the Billettes. It still carries that name in the Marais district of Paris; the relic itself, kept for generations in a small reliquary at the nearby church of Saint-Jean, was lost during the French Revolution and has never been recovered."
+          ],
+          [
+            "article",
+            "This entry, in keeping with the Church's own obligation of honesty about a difficult history, does not treat the medieval identification of Jonathas's guilt, or the miraculous details later attached to his trial, as settled historical fact — and asks that the account be received as part of a genuinely painful chapter of Christian-Jewish history, inseparable from the violence such accusations helped to justify across medieval Europe, rather than as an uncomplicated devotional celebration.",
+            "U",
+            "This entry, in keeping with the Church's own obligation of honesty about a difficult history, does not treat the medieval identification of Jonathas's guilt as settled historical fact. Nor does it treat the miraculous details later attached to his trial as settled historical fact. It asks that the account be received as part of a genuinely painful chapter of Christian-Jewish history, inseparable from the violence such accusations helped to justify across medieval Europe, rather than as an uncomplicated devotional celebration."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T07:33:25.480Z",
+      "updatedAt": "2026-09-17T07:33:25.480Z"
     }
   ]
 }
