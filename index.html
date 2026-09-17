@@ -1,9 +1,22 @@
 <!--
-VERSION: 404
-DATE: 2026-09-17T11:00:00-05:00
+VERSION: 405
+DATE: 2026-09-17T11:45:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed the center-year badge (v404) drifting instead of staying locked to the center of the
+  screen. Root cause: it was nested inside .axis, and .axis's width is set in JS to match the
+  ENTIRE scrollable canvas (thousands of px for a 2000-year span) — so the sticky left:0/right:0
+  centering trick was resolving against that huge width instead of the actual screen width, and
+  only appeared to work near wherever its "natural" flow position happened to fall. Moved it to a
+  persistent sibling of #canvas (a direct child of #viewport) instead, so its containing block is
+  the true visible viewport at all times — now genuinely locked to the center regardless of
+  scroll position. Also no longer recreated on every render() call (it used to be torn down and
+  rebuilt inside .axis's DOM on every re-render); it's static markup now, just its text updates.
+- Fixed the axis's gold border-bottom line reading as dimmed directly under the badge. The badge's
+  solid background previously extended the full 28px axis height, painting straight over that
+  1px gold line where the two overlapped. Inset the badge 2px top and bottom so it never reaches
+  that row — the line now stays fully bright the entire width, including behind the badge.
 - Added the center-year readout on the timeline axis — Review Mode only (body.review-on;
   invisible to regular visitors), so it's an owner navigation aid, not a public feature. Shows
   whatever year sits at the true horizontal center of the screen and ticks through it live as
@@ -2450,26 +2463,37 @@ v332 CHANGES (unchanged from the version this build started from):
      horizontal center of the screen, ticking through as Tom drags/flings the timeline. Owner
      debug aid, not a visitor-facing feature, so it's gated on body.review-on (the same class
      setReviewMode() already toggles) rather than its own state.
-     Positioning: .centerYearWrap is a child of .axis (which is exactly as wide as the whole
-     scrollable canvas), given `position:sticky; left:0; right:0` with no top/bottom — the classic
-     "sticky marker inside a horizontally-scrolling strip" trick. With both horizontal insets
-     pinned it never leaves the currently-visible slice of the axis, regardless of scrollLeft,
-     while staying in normal flow vertically so it simply fills .axis's own 28px band; no JS
-     position math needed, so it stays perfectly smooth during a fast fling (same reasoning as
-     the sticky band-icon comment above). z-index lifts it above the plain tick labels beneath.
+     Positioning: #centerYearWrap is a PERSISTENT sibling of #canvas (see the markup, a direct
+     child of #viewport), not nested inside .axis — .axis's own width is set in JS to match the
+     entire scrollable canvas (thousands of px for a 2000-year span), so anything nested inside
+     it resolves percentage/sticky math against that huge width instead of the screen, which is
+     what made v1 of this drift instead of staying centered. As a direct child of #viewport
+     instead, its containing block is the true visible viewport, so `position:sticky; left:0;
+     right:0` (no top/bottom) reliably spans exactly the current screen width at any scrollLeft —
+     the classic "sticky marker inside a horizontally-scrolling strip" trick, just anchored at
+     the right level this time. height:0 so it takes no layout space of its own; the badge inside
+     is positioned absolutely off that now-correctly-sized box. No JS position math, so it stays
+     smooth during a fast fling (same reasoning as the sticky band-icon comment above). z-index
+     lifts the whole thing above .canvas's contents (anything with a positive z-index outranks a
+     plain z-index:auto sibling, regardless of z-indexes used *inside* that sibling, like .timehead's
+     own 20 — see .timehead below).
      Badge look: no pill/outline. A solid plaque across the center 50% of its own width, gradient
      to fully transparent over the outer 25% on each side — so a "400"/"500" tick label sliding
      underneath fades as it nears the gradient zone and is fully hidden once under the solid
-     center, with no separate per-label opacity logic needed. */
+     center, with no separate per-label opacity logic needed. Vertically inset 2px from both the
+     era band above and .axis's own gold border-bottom below, so that border is never painted
+     over by the badge's background and stays bright the full width, even directly beneath it. */
   .centerYearWrap{
-    display:none; position:sticky; left:0; right:0; height:100%;
-    align-items:center; justify-content:center;
-    pointer-events:none; z-index:5;
+    display:none; position:sticky; top:0; left:0; right:0; height:0; overflow:visible;
+    pointer-events:none; z-index:30;
   }
-  body.review-on .centerYearWrap{display:flex;}
+  body.review-on .centerYearWrap{display:block;}
   .centerYearBadge{
+    position:absolute; top:32px; left:50%; transform:translateX(-50%);
+    height:24px; padding:0 30px;
+    display:flex; align-items:center; justify-content:center;
     font-family:'Cinzel',serif; font-weight:700; font-size:15.5px; letter-spacing:.06em;
-    color:var(--gold-bright); padding:0 30px; line-height:28px; text-align:center; white-space:nowrap;
+    color:var(--gold-bright); white-space:nowrap;
     background:linear-gradient(90deg, transparent 0%, rgba(7,15,34,.92) 25%, rgba(7,15,34,.92) 75%, transparent 100%);
   }
   /* Sticky header (eras + year axis) */
@@ -4232,6 +4256,7 @@ v332 CHANGES (unchanged from the version this build started from):
 
 <div class="viewport" id="viewport">
   <div class="canvas" id="canvas"><div style="padding:40px 20px; font-style:italic; color:var(--muted);">Loading timeline&hellip;</div></div>
+  <div class="centerYearWrap" id="centerYearWrap"><div class="centerYearBadge" id="centerYearBadge"></div></div>
 </div>
 
 <div class="detail" id="detail">
@@ -4957,7 +4982,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v404';
+const APP_VERSION = 'v405';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5513,10 +5538,6 @@ function render(){
     l.textContent = fmtAxisYear(START);
     axis.appendChild(l);
   }
-  const cyWrap = document.createElement('div');
-  cyWrap.className = 'centerYearWrap';
-  cyWrap.innerHTML = '<div class="centerYearBadge" id="centerYearBadge"></div>';
-  axis.appendChild(cyWrap);
   head.appendChild(axis);
   canvas.insertBefore(head, canvas.firstChild);
   updateCenterYearBadge();
