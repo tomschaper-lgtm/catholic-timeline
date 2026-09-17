@@ -739,15 +739,26 @@
       "type": "sentence-reword",
       "entityId": "miracle-of-amsterdam-1345",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Amsterdam",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "miracle-of-amsterdam-1345",
+        "name": "Amsterdam",
+        "sentencesFound": 4,
+        "sentencesReworded": 4,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T07:32:00.337Z",
+      "updatedAt": "2026-09-17T07:36:48.286Z",
       "error": null
     },
     {
@@ -2229,6 +2240,53 @@
       "error": null,
       "createdAt": "2026-09-17T07:36:35.323Z",
       "updatedAt": "2026-09-17T07:36:35.323Z"
+    },
+    {
+      "id": "task-sentence-reword-miracle-of-amsterdam-1345-1789630608286-3612",
+      "type": "sentence-reword",
+      "entityId": "miracle-of-amsterdam-1345",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 4 long sentences — Amsterdam",
+      "payload": {},
+      "result": {
+        "name": "Amsterdam",
+        "patches": [
+          [
+            "article",
+            "Following the ordinary practice for disposing of soiled linens, the maid attending Dommer gathered the cloths, including the one that had received the vomited Host, and threw them into the lit fireplace before retiring for the night, giving the matter no further thought.",
+            "U",
+            "Following the ordinary practice for disposing of soiled linens, the maid attending Dommer gathered the cloths, including the one that had received the vomited Host. She threw them into the lit fireplace before retiring for the night, giving the matter no further thought."
+          ],
+          [
+            "article",
+            "The following morning, as she raked through the ashes of the fire that had burned through the night, the maid found the Host resting atop a still-glowing coal, entirely unburned and unchanged in color, as fresh as it had been at the moment of consecration; she recovered it carefully, wrapped it in a clean cloth, and sent for the priest.",
+            "U",
+            "The following morning, as she raked through the ashes of the fire that had burned through the night, the maid found the Host resting atop a still-glowing coal. It was entirely unburned and unchanged in color, as fresh as it had been at the moment of consecration. She recovered it carefully, wrapped it in a clean cloth, and sent for the priest."
+          ],
+          [
+            "article",
+            "The priest carried the Host to the parish church of St. Nicholas, and word of the extraordinary preservation reached <b>Jan van Arkel</b>, Bishop of Utrecht, who examined the many witness accounts and authorized devotion to the relic almost immediately — a rare instance of official ecclesiastical recognition following so quickly after the event itself.",
+            "U",
+            "The priest carried the Host to the parish church of St. Nicholas. Word of the extraordinary preservation reached <b>Jan van Arkel</b>, Bishop of Utrecht. He examined the many witness accounts and authorized devotion to the relic almost immediately—a rare instance of official ecclesiastical recognition following so quickly after the event itself."
+          ],
+          [
+            "article",
+            "Though the original monstrance was later stolen and the relic's physical trace lost to time, the city of Amsterdam still keeps the <b>Stille Omgang</b> — the Silent Procession — each March, an unbroken tradition of walking, without speaking, the same streets a housemaid once walked between a fireplace and a church nearly seven centuries ago.",
+            "U",
+            "Though the original monstrance was later stolen and the relic's physical trace lost to time, the city of Amsterdam still keeps the <b>Stille Omgang</b> — the Silent Procession — each March. It remains an unbroken tradition of walking, without speaking, the same streets a housemaid once walked between a fireplace and a church nearly seven centuries ago."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T07:36:48.286Z",
+      "updatedAt": "2026-09-17T07:36:48.286Z"
     }
   ]
 }
