@@ -442,15 +442,26 @@
       "type": "sentence-reword",
       "entityId": "em-glotowo-1290",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Głotowo",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "em-glotowo-1290",
+        "name": "Głotowo",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T07:32:00.337Z",
+      "updatedAt": "2026-09-17T07:33:49.196Z",
       "error": null
     },
     {
@@ -1284,7 +1295,7 @@
       "type": "sentence-reword",
       "entityId": "em-neuvy-1257",
       "batchId": null,
-      "status": "approved",
+      "status": "proposed",
       "description": "Reword 5 long sentences — Neuvy-Saint-Sépulcre",
       "payload": {},
       "result": {
@@ -1330,14 +1341,14 @@
       },
       "error": null,
       "createdAt": "2026-09-17T07:32:19.391Z",
-      "updatedAt": "2026-09-17T07:33:30.850Z"
+      "updatedAt": "2026-09-17T07:32:19.391Z"
     },
     {
       "id": "task-sentence-reword-miracle-of-bolsena-1263-1789630359005-9110",
       "type": "sentence-reword",
       "entityId": "miracle-of-bolsena-1263",
       "batchId": null,
-      "status": "approved",
+      "status": "proposed",
       "description": "Reword 5 long sentences — Bolsena",
       "payload": {},
       "result": {
@@ -1383,14 +1394,14 @@
       },
       "error": null,
       "createdAt": "2026-09-17T07:32:39.005Z",
-      "updatedAt": "2026-09-17T07:33:30.850Z"
+      "updatedAt": "2026-09-17T07:32:39.005Z"
     },
     {
       "id": "task-sentence-reword-em-offida-1273-1789630369189-620",
       "type": "sentence-reword",
       "entityId": "em-offida-1273",
       "batchId": null,
-      "status": "approved",
+      "status": "proposed",
       "description": "Reword 3 long sentences — Offida",
       "payload": {},
       "result": {
@@ -1424,14 +1435,14 @@
       },
       "error": null,
       "createdAt": "2026-09-17T07:32:49.189Z",
-      "updatedAt": "2026-09-17T07:33:30.850Z"
+      "updatedAt": "2026-09-17T07:32:49.189Z"
     },
     {
       "id": "task-sentence-reword-em-kranenburg-1280-1789630382716-9358",
       "type": "sentence-reword",
       "entityId": "em-kranenburg-1280",
       "batchId": null,
-      "status": "approved",
+      "status": "proposed",
       "description": "Reword 4 long sentences — Kranenburg",
       "payload": {},
       "result": {
@@ -1471,14 +1482,14 @@
       },
       "error": null,
       "createdAt": "2026-09-17T07:33:02.716Z",
-      "updatedAt": "2026-09-17T07:33:30.850Z"
+      "updatedAt": "2026-09-17T07:33:02.716Z"
     },
     {
       "id": "task-sentence-reword-em-paris-1290-1789630405480-6065",
       "type": "sentence-reword",
       "entityId": "em-paris-1290",
       "batchId": null,
-      "status": "approved",
+      "status": "proposed",
       "description": "Reword 6 long sentences — Paris (Billettes)",
       "payload": {},
       "result": {
@@ -1530,7 +1541,60 @@
       },
       "error": null,
       "createdAt": "2026-09-17T07:33:25.480Z",
-      "updatedAt": "2026-09-17T07:33:30.850Z"
+      "updatedAt": "2026-09-17T07:33:25.480Z"
+    },
+    {
+      "id": "task-sentence-reword-em-glotowo-1290-1789630429196-7360",
+      "type": "sentence-reword",
+      "entityId": "em-glotowo-1290",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — Głotowo",
+      "payload": {},
+      "result": {
+        "name": "Głotowo",
+        "patches": [
+          [
+            "article",
+            "In 1290, as Lithuanian forces invaded the region around the small Prussian village of <b>Głotowo</b>, the parish priest, with no time to consume or otherwise properly dispose of the Blessed Sacrament, buried a gold-plated silver ciborium containing a consecrated Host in a nearby field before fleeing the advancing troops.",
+            "U",
+            "In 1290, Lithuanian forces invaded the region around the small Prussian village of <b>Głotowo</b>. With no time to consume or otherwise properly dispose of the Blessed Sacrament, the parish priest buried a gold-plated silver ciborium containing a consecrated Host in a nearby field before fleeing the advancing troops."
+          ],
+          [
+            "article",
+            "The Lithuanians destroyed both the village and its church completely, and none of the few survivors knew where, or even that, the priest had hidden the ciborium before the attack — the location, and the very fact of its burial, seemed lost along with everything else the raid had taken.",
+            "U",
+            "The Lithuanians destroyed both the village and its church completely. None of the few survivors knew where, or even that, the priest had hidden the ciborium before the attack. The location, and the very fact of its burial, seemed lost along with everything else the raid had taken."
+          ],
+          [
+            "article",
+            "Some years later, a farmer plowing the same field found his oxen suddenly stop and bow to the ground as though in adoration, refusing to be driven further; noticing a strange, bright light rising from the spot where they knelt, he began to dig and uncovered the ciborium, its Host inside still white and apparently untouched by the years it had spent buried in open ground.",
+            "U",
+            "Some years later, a farmer plowing the same field found his oxen suddenly stop and bow to the ground as though in adoration. Refusing to be driven further, they knelt as he noticed a strange, bright light rising from the spot. He began to dig and uncovered the ciborium, its Host inside still white and apparently untouched by the years it had spent buried in open ground."
+          ],
+          [
+            "article",
+            "Local authorities arranged a solemn procession to carry the recovered Host to the larger church at nearby Dobre Miasto, but tradition holds that it inexplicably vanished from its new home and was found again at the very spot in the field where the farmer's oxen had first knelt — a sign the community read as God's own preference for the place, and a small church dedicated to Corpus Christi was built there instead.",
+            "U",
+            "Local authorities arranged a solemn procession to carry the recovered Host to the larger church at nearby Dobre Miasto. But tradition holds that it inexplicably vanished from its new home and was found again at the very spot in the field where the farmer's oxen had first knelt. The community read this as God's own preference for the place, and a small church dedicated to Corpus Christi was built there instead."
+          ],
+          [
+            "article",
+            "That original church was enlarged in the eighteenth century and consecrated by Bishop Krzysztof Potocki in 1726, and the sanctuary of Głotowo still draws pilgrims each year to venerate the same relic tradition holds has remained intact since 1290 — a Host once buried in secrecy against an invading army, found again only because the animals plowing over it, unlike the people who had once known where it lay, never forgot.",
+            "U",
+            "That original church was enlarged in the eighteenth century and consecrated by Bishop Krzysztof Potocki in 1726. The sanctuary of Głotowo still draws pilgrims each year to venerate the same relic tradition holds has remained intact since 1290—a Host once buried in secrecy against an invading army. It was found again only because the animals plowing over it, unlike the people who had once known where it lay, never forgot."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T07:33:49.196Z",
+      "updatedAt": "2026-09-17T07:33:49.196Z"
     }
   ]
 }
