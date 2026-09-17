@@ -982,15 +982,26 @@
       "type": "sentence-reword",
       "entityId": "em-wilsnack-1383",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Wilsnack",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "em-wilsnack-1383",
+        "name": "Wilsnack",
+        "sentencesFound": 5,
+        "sentencesReworded": 5,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T07:52:44.856Z",
+      "updatedAt": "2026-09-17T07:54:17.469Z",
       "error": null
     },
     {
@@ -2727,6 +2738,59 @@
       "error": null,
       "createdAt": "2026-09-17T07:54:05.268Z",
       "updatedAt": "2026-09-17T07:54:05.268Z"
+    },
+    {
+      "id": "task-sentence-reword-em-wilsnack-1383-1789631657469-5936",
+      "type": "sentence-reword",
+      "entityId": "em-wilsnack-1383",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 5 long sentences — Wilsnack",
+      "payload": {},
+      "result": {
+        "name": "Wilsnack",
+        "patches": [
+          [
+            "article",
+            "In August 1383, a knight of the Prignitz region named <b>Heinrich von Bülow</b>, locked in a dispute with <b>Dietrich Man</b>, Bishop of Havelberg, raided the small village of <b>Wilsnack</b>, one of the bishopric's own holdings, and burned it entirely to the ground, church included.",
+            "U",
+            "In August 1383, a knight of the Prignitz region named <b>Heinrich von Bülow</b> raided the small village of <b>Wilsnack</b>. Locked in a dispute with <b>Dietrich Man</b>, Bishop of Havelberg, he burned the bishopric's holding entirely to the ground, church included."
+          ],
+          [
+            "article",
+            "Bishop Dietrich himself came to examine the recovered Hosts and moved to formally reconsecrate them, out of caution against accidental idolatry — but before he could finish pronouncing the words, tradition holds, the central Host began to overflow with blood on its own.",
+            "U",
+            "Bishop Dietrich himself came to examine the recovered Hosts and moved to formally reconsecrate them, out of caution against accidental idolatry. But before he could finish pronouncing the words, tradition holds, the central Host began to overflow with blood on its own."
+          ],
+          [
+            "article",
+            "News of the sign spread rapidly, and Wilsnack quickly became one of the most significant pilgrimage destinations in medieval Europe, rivaled in the region only by Rome and Santiago de Compostela at the height of its popularity; the revenue from pilgrims funded the construction of the large Church of St. Nicholas, still standing today, to house the relics.",
+            "U",
+            "News of the sign spread rapidly, and Wilsnack quickly became one of medieval Europe’s most significant pilgrimage destinations. At the height of its popularity, only Rome and Santiago de Compostela rivaled it in the region. Pilgrim revenue funded construction of the large Church of St. Nicholas, still standing today, to house the relics."
+          ],
+          [
+            "article",
+            "The devotion drew sustained theological controversy in later centuries — Martin Luther himself would attack it as fraudulent during the Reformation — and the three Hosts were ultimately destroyed during the religious upheavals of the sixteenth century, their monstrance lost by 1558.",
+            "U",
+            "The devotion drew sustained theological controversy in later centuries, and Martin Luther himself would attack it as fraudulent during the Reformation. The three Hosts were ultimately destroyed during the religious upheavals of the sixteenth century, their monstrance lost by 1558."
+          ],
+          [
+            "article",
+            "What remains today is the Church of St. Nicholas itself, one of the finest examples of Gothic brick architecture in northern Germany, built entirely from the devotion of pilgrims drawn by three small Hosts a burning village once left, against all expectation, untouched.",
+            "U",
+            "What remains today is the Church of St. Nicholas itself, one of the finest examples of Gothic brick architecture in northern Germany. It was built entirely from the devotion of pilgrims drawn by three small Hosts a burning village once left, against all expectation, untouched."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T07:54:17.469Z",
+      "updatedAt": "2026-09-17T07:54:17.469Z"
     }
   ]
 }
