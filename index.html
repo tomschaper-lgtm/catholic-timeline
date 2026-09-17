@@ -1,9 +1,17 @@
 <!--
-VERSION: 405
-DATE: 2026-09-17T11:45:00-05:00
+VERSION: 406
+DATE: 2026-09-17T12:10:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed the center-year badge (v405) not showing at all. It was placed AFTER #canvas in the
+  markup, and #canvas is very tall — the whole vertical stack of every category lane. Sticky
+  positioning only pins an element once scrolling has carried it PAST its natural, pre-stick flow
+  position; with that natural position sitting below the entire tall canvas, the badge would only
+  ever appear if scrolled all the way to the bottom of the timeline, which reads as "never shows"
+  under normal use. Moved it to be #canvas's PRECEDING sibling instead (still zero-height, so no
+  layout shift) — its natural position is now already at the very top, so it's pinned from the
+  first frame regardless of vertical scroll. z-index:30 keeps it painting above #canvas either way.
 - Fixed the center-year badge (v404) drifting instead of staying locked to the center of the
   screen. Root cause: it was nested inside .axis, and .axis's width is set in JS to match the
   ENTIRE scrollable canvas (thousands of px for a 2000-year span) — so the sticky left:0/right:0
@@ -4255,8 +4263,8 @@ v332 CHANGES (unchanged from the version this build started from):
 </div>
 
 <div class="viewport" id="viewport">
-  <div class="canvas" id="canvas"><div style="padding:40px 20px; font-style:italic; color:var(--muted);">Loading timeline&hellip;</div></div>
   <div class="centerYearWrap" id="centerYearWrap"><div class="centerYearBadge" id="centerYearBadge"></div></div>
+  <div class="canvas" id="canvas"><div style="padding:40px 20px; font-style:italic; color:var(--muted);">Loading timeline&hellip;</div></div>
 </div>
 
 <div class="detail" id="detail">
@@ -4982,7 +4990,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v405';
+const APP_VERSION = 'v406';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
