@@ -1,9 +1,17 @@
 <!--
-VERSION: 402
-DATE: 2026-09-17T09:30:00-05:00
+VERSION: 403
+DATE: 2026-09-17T10:15:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Timeline viewport no longer rubber-bands vertically. Dragging past the top (or bottom) of the
+  era band/axis/lanes stretched the whole canvas downward, revealing blank navy background above
+  the era band before it snapped back — the classic iOS elastic-overscroll bounce, playing out on
+  the .viewport div itself, not the page. `overscroll-behavior-y:contain` only stops that bounce
+  from also chaining up to scroll the page (which can't scroll anyway, body is overflow:hidden) —
+  it doesn't suppress the local bounce. Switched to `overscroll-behavior-y:none`, which suppresses
+  the bounce itself. Normal vertical scrolling between category lanes (Saints/Councils/etc.) is
+  untouched — this only removes the ability to drag past the actual top/bottom boundary.
 - Auto-approve moved server-side for real this time. Tom: "I'm not going to do approvals" — v401's
   batching still depended on his phone's browser being open to do the actual approving and
   publishing; he doesn't want that dependency at all going forward, not just for the current
@@ -2396,7 +2404,7 @@ v332 CHANGES (unchanged from the version this build started from):
   .count{margin-left:auto; font-size:12.5px; color:var(--muted); font-style:italic; white-space:nowrap; flex:0 0 auto; padding-left:6px;}
   .lbl{font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-family:'Cinzel',serif; flex:0 0 auto; padding-right:2px;}
   .viewport{
-    flex:1 1 auto; overflow:auto; overscroll-behavior-y:contain; position:relative; cursor:grab;
+    flex:1 1 auto; overflow:auto; overscroll-behavior-y:none; position:relative; cursor:grab;
     background:radial-gradient(ellipse 900px 400px at 30% -10%, rgba(201,165,66,.06), transparent), var(--navy);
   }
   .canvas{position:relative; min-height:100%;}
@@ -4909,7 +4917,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v402';
+const APP_VERSION = 'v403';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
