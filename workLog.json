@@ -62,15 +62,26 @@
       "type": "sentence-reword",
       "entityId": "em-ivorra-1010",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Ivorra",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "em-ivorra-1010",
+        "name": "Ivorra",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T06:10:57.953Z",
+      "updatedAt": "2026-09-17T06:11:15.295Z",
       "error": null
     },
     {
@@ -824,6 +835,35 @@
       "createdAt": "2026-09-16T19:57:14.154Z",
       "updatedAt": "2026-09-16T19:57:14.154Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-em-ivorra-1010-1789625475294-8411",
+      "type": "sentence-reword",
+      "entityId": "em-ivorra-1010",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Ivorra",
+      "payload": {},
+      "result": {
+        "name": "Ivorra",
+        "patches": [
+          [
+            "article",
+            "Instead, a thousand years later, a diocese of the universal Church still gathers each anniversary to give thanks for the same \"Holy Doubt.\" It once troubled one obscure village priest—a reminder that the smallest and most private struggles of faith are never beneath God's notice.",
+            "U",
+            "Instead, a thousand years later, a diocese of the universal Church still gathers each anniversary to give thanks for the same \"Holy Doubt.\" It once troubled one obscure village priest. This reminds us that the smallest and most private struggles of faith are never beneath God's notice."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T06:11:15.294Z",
+      "updatedAt": "2026-09-17T06:11:15.294Z"
     }
   ]
 }
