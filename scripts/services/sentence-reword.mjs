@@ -298,8 +298,23 @@ function looksRepetitive(text){
 // trailing closing quote/paren after it). Anything else means the text was cut off before it
 // finished, whatever the cause — this is a backstop that catches truncation even if stop_reason
 // somehow doesn't flag it, not a replacement for that check.
+//
+// FIXED 2026-09-17: trailing HTML tags are stripped before the punctuation test. A sentence whose
+// paragraph ends inside a quotation legitimately comes back as `…two drops of Blood."</blockquote>`
+// — finished punctuation, then a closing tag that buildPrompt() above EXPLICITLY tells the model
+// to preserve. The old test demanded punctuation as the literal last character, so every such
+// reply was rejected as "cut off", then retried twice more at escalating token budgets (700 →
+// 1200 → 2000), each retry producing an equally good answer and failing identically — three billed
+// calls, one sentence permanently unfixed, and an error message blaming truncation that never
+// happened. Closing tags (</blockquote>, </b>, </i>, </a>…) and void tags (<br>) are both allowed
+// to trail; an opening tag at the very end really would signal something unfinished, so those are
+// deliberately not stripped. Closing tags and closing quotes/parens can interleave in either order
+// (`.</i>"` and `."</i>` are both legitimate), so all of them are stripped together before the
+// punctuation test rather than each being handled in a fixed position.
+const TRAILING_CLOSERS_RE = /(?:<\s*(?:\/\s*[a-zA-Z][^>]*|br\s*\/?)\s*>|[)\]"'\u201D\u2019\s])+$/;
 function looksComplete(text){
-  return /[.!?][)"'\u201D]*$/.test(text.trim());
+  const stripped = String(text).trim().replace(TRAILING_CLOSERS_RE, '');
+  return /[.!?]$/.test(stripped);
 }
 
 // One "single attempt" function per provider — same signature (sentence, paragraph, links,
