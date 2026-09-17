@@ -766,15 +766,26 @@
       "type": "sentence-reword",
       "entityId": "em-krakow-1345",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Kraków (Corpus Christi)",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "em-krakow-1345",
+        "name": "Kraków (Corpus Christi)",
+        "sentencesFound": 3,
+        "sentencesReworded": 3,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-16T19:57:14.154Z",
-      "updatedAt": "2026-09-17T07:32:00.337Z",
+      "updatedAt": "2026-09-17T07:36:55.298Z",
       "error": null
     },
     {
@@ -2287,6 +2298,47 @@
       "error": null,
       "createdAt": "2026-09-17T07:36:48.286Z",
       "updatedAt": "2026-09-17T07:36:48.286Z"
+    },
+    {
+      "id": "task-sentence-reword-em-krakow-1345-1789630615298-925",
+      "type": "sentence-reword",
+      "entityId": "em-krakow-1345",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 3 long sentences — Kraków (Corpus Christi)",
+      "payload": {},
+      "result": {
+        "name": "Kraków (Corpus Christi)",
+        "patches": [
+          [
+            "article",
+            "Once safely away from the church, the thieves examined their prize more closely and realized the monstrance was not the valuable gold they had assumed; disappointed, they discarded it, along with the several consecrated Hosts it still held, into a nearby marsh and fled.",
+            "U",
+            "Once safely away from the church, the thieves examined their prize more closely and realized the monstrance was not the valuable gold they had assumed. Disappointed, they discarded it, along with the several consecrated Hosts it still held, into a nearby marsh and fled."
+          ],
+          [
+            "article",
+            "That night, a mysterious light began rising from the spot in the marsh where the monstrance had been thrown, bright enough to be seen for several kilometers; frightened villagers who investigated could find nothing, but reported the strange flashes to the Bishop of Kraków, who called for three days of fasting and prayer among the faithful before acting.",
+            "U",
+            "That night, a mysterious light began rising from the spot in the marsh where the monstrance had been thrown, bright enough to be seen for several kilometers. Frightened villagers who investigated could find nothing, but reported the strange flashes to the Bishop of Kraków. He called for three days of fasting and prayer among the faithful before acting."
+          ],
+          [
+            "article",
+            "On the third day, the bishop led a procession out to the section of marsh where the lights had appeared, and there the monstrance was recovered, the consecrated Hosts inside found clean and undamaged despite their time buried in the mud; the lights were never seen again after that day.",
+            "U",
+            "On the third day, the bishop led a procession to the section of marsh where the lights had appeared. There, the monstrance was recovered, with the consecrated Hosts inside clean and undamaged despite being buried in mud. The lights were never seen again after that day."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-17T07:36:55.298Z",
+      "updatedAt": "2026-09-17T07:36:55.298Z"
     }
   ]
 }
