@@ -32,9 +32,10 @@
 // more likely someone else (another run, or a person publishing from the CMS) has moved the repo
 // underneath it by the time it finally commits. Per-task commits shrink that window from "the
 // whole run" to "one task." If a push is rejected because the repo moved since this task started,
-// one `git pull --rebase` is attempted; if that still fails, the task is marked `error` (not
-// silently retried and not silently dropped) with a message telling you to just rerun the
-// orchestrator — the underlying work already happened, only the publish step needs redoing.
+// the publish is resynced to the remote tip and re-applied, several times with backoff (see the
+// PUBLISHING note below); only if every attempt fails is the task marked `error` (not silently
+// retried and not silently dropped) with a message telling you to just rerun the orchestrator —
+// the underlying work already happened, only the publish step needs redoing.
 //
 // workLog.json itself is committed the same way now, not once at the end of the run — twice per
 // batch at minimum (once the moment the whole batch is claimed, before any handler runs, and once
@@ -95,6 +96,29 @@
 // changes would sit correctly applied in memory but never actually reach GitHub before the
 // process exits — silently lost, not even an error.
 //
+// PUBLISHING (revised 2026-09-17, rev 2) — WHY THERE IS NO `git pull --rebase` HERE ANYMORE:
+// Both commit paths below used to recover from a rejected push with a single `git pull --rebase`.
+// That could never work for these two files. workLog.json and data.json are rewritten WHOLESALE
+// on every write (JSON.stringify of the entire object), so replaying a local commit on top of a
+// remote that also touched the file overlaps on the same lines every time — a content conflict is
+// structurally guaranteed, not bad luck. The old code then called `git rebase --abort`, which
+// returns the branch to exactly the diverged state it started in: nothing resolved, local still
+// ahead. Every subsequent task committed on top of that broken history, hit the identical conflict
+// on the identical commit, and aborted again — the "Rebasing (1/9) … (1/17)" ladder seen in the
+// 2026-09-17 run, where one early divergence meant NOTHING pushed for the remaining ~16 tasks and
+// every one of those commits died with the runner.
+//
+// The replacement never rebases. On a rejected push it resyncs to the remote tip and RE-APPLIES
+// this run's changes on top of fresh state:
+//   1. git fetch origin <branch>
+//   2. git reset --mixed origin/<branch>   (drops our unpushed commits, leaves the working tree)
+//   3. re-merge our changes into the remote's current version of each JSON file, by id — not by
+//      git's line diff, which is the wrong tool for a whole-file JSON rewrite
+//   4. stage, commit, push — and retry the whole cycle up to GIT_PUSH_RETRIES times with backoff
+// A conflict becomes impossible by construction, because we are always writing against whatever
+// is on the remote right now. This also means an outside push mid-run (the CMS publishing, a
+// Cloudflare/Pages integration, a person) costs one retry instead of killing the rest of the run.
+//
 // A task in the pending group is marked 'done' OPTIMISTICALLY, as soon as its own patches apply
 // to dataJson in memory — it does not wait for the eventual batch commit, so the app sees
 // progress immediately rather than in lumps of 10. If that batch's commit then fails (git push
@@ -127,6 +151,17 @@ const DATA_COMMIT_BATCH_SIZE = parseInt(process.env.DATA_COMMIT_BATCH_SIZE || '1
 // awaiting_review is deliberately excluded — it's still waiting on a human decision, not history.
 const MAX_COMPLETED_KEPT = parseInt(process.env.MAX_COMPLETED_KEPT || '75', 10);
 const FINISHED_STATUSES = new Set(['done', 'rejected', 'error']);
+
+// How many times to resync-and-retry a rejected push before giving up on it. Each retry costs one
+// fetch plus a short backoff, so this is cheap; the old code effectively used 1 and gave up.
+const GIT_PUSH_RETRIES = parseInt(process.env.GIT_PUSH_RETRIES || '4', 10);
+const GIT_RETRY_BASE_MS = parseInt(process.env.GIT_RETRY_BASE_MS || '1200', 10);
+
+// Serialization of every id-bearing item in data.json as it looked when this run STARTED. This is
+// what lets a retry tell "our run changed this entry" apart from "this entry is just sitting in
+// the copy we happened to read at startup" — without it, re-applying our in-memory data.json onto
+// a fresher remote would silently clobber anyone else's concurrent edits. Set once in main().
+let DATA_BASELINE = null;
 
 // Register each service's task type -> handler function here. A handler may be async.
 const SERVICE_HANDLERS = {
@@ -166,69 +201,183 @@ function pruneCompletedTasks(workLog){
   return before - workLog.tasks.length;
 }
 
-// Writes the in-memory dataJson to disk (if it changed) and commits exactly the given file
-// paths — never a blanket `git add -A`, so a handler can only ever affect the files it actually
-// named. Returns true on success, false if the push couldn't be reconciled and the caller should
-// treat this task as needing a rerun rather than as done.
+// ---------------------------------------------------------------------------------------------
+// Git plumbing. See the PUBLISHING note in the file header for why none of this rebases.
+// ---------------------------------------------------------------------------------------------
+
+function shOut(cmd){
+  return execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+function currentBranch(){
+  try{
+    const b = shOut('git rev-parse --abbrev-ref HEAD').trim();
+    return (b && b !== 'HEAD') ? b : 'main';
+  }catch(_e){ return 'main'; }
+}
+
+// execSync-based sleep — every caller here is synchronous, so a promise-based delay would need
+// this whole chain to become async for no real benefit.
+function sleepMs(ms){
+  try{ execSync('sleep ' + (Math.max(ms, 0) / 1000).toFixed(2), { stdio: 'ignore' }); }catch(_e){}
+}
+
+// The remote's current copy of a JSON file, or null if it isn't there / isn't parseable.
+function readRemoteJson(branch, path){
+  try{ return JSON.parse(shOut('git show origin/' + branch + ':' + path)); }
+  catch(_e){ return null; }
+}
+
+// Snapshot of every id-bearing item in each top-level array, keyed by array name then id. Used to
+// work out which items THIS run actually changed — see DATA_BASELINE.
+function snapshotData(dataJson){
+  const snap = {};
+  for(const [key, val] of Object.entries(dataJson || {})){
+    if(!Array.isArray(val)) continue;
+    const m = new Map();
+    for(const item of val){
+      if(item && item.id != null) m.set(String(item.id), JSON.stringify(item));
+    }
+    snap[key] = m;
+  }
+  return snap;
+}
+
+// Three-way merge of data.json: start from the REMOTE's current version, then lay only the items
+// this run actually changed (compared against DATA_BASELINE) on top, by id. An item we never
+// touched keeps the remote's version, so a concurrent edit from the CMS or another process
+// survives instead of being overwritten by the stale copy we read at startup. Deletions are
+// deliberately not propagated — this runner never removes entries, so a missing item means "the
+// remote knows about something we don't," not "we deleted it."
+function mergeDataOntoRemote(remote, dataJson, baseline){
+  if(!remote || typeof remote !== 'object' || Array.isArray(remote)) return dataJson;
+  const out = { ...remote };
+  for(const [key, ourVal] of Object.entries(dataJson || {})){
+    if(!Array.isArray(ourVal)){
+      if(!(key in out)) out[key] = ourVal;
+      continue;
+    }
+    if(!Array.isArray(remote[key])){ out[key] = ourVal; continue; }
+
+    const base = (baseline && baseline[key]) || new Map();
+    const byId = new Map();
+    const order = [];
+    for(const item of remote[key]){
+      const id = item && item.id != null ? String(item.id) : null;
+      if(id === null){ continue; }
+      if(!byId.has(id)) order.push(id);
+      byId.set(id, item);
+    }
+    for(const item of ourVal){
+      if(!item || item.id == null) continue;
+      const id = String(item.id);
+      const changedByThisRun = base.get(id) !== JSON.stringify(item);
+      if(!changedByThisRun) continue;
+      if(!byId.has(id)) order.push(id);
+      byId.set(id, item);
+    }
+    out[key] = order.map(id => byId.get(id)).filter(Boolean);
+  }
+  return out;
+}
+
+// Merge of workLog.json, done IN PLACE so that live references held by main() (the `batch` array,
+// pendingDataCommitTasks) keep pointing at the same task objects. Our own task objects win for any
+// id we already know about — this run is the authority on the tasks it is currently executing —
+// and anything the remote has that we don't (a task queued from the app mid-run, say) is appended
+// rather than dropped.
+function mergeWorkLogFromRemote(workLog, remote){
+  if(!remote || !Array.isArray(remote.tasks)) return;
+  const ourIds = new Set(workLog.tasks.map(t => t && t.id).filter(Boolean));
+  const incoming = remote.tasks.filter(t => t && t.id && !ourIds.has(t.id));
+  if(incoming.length) workLog.tasks.push(...incoming);
+  for(const [key, val] of Object.entries(remote)){
+    if(key === 'tasks') continue;
+    if(!(key in workLog)) workLog[key] = val;
+  }
+}
+
+// Stage `filePaths`, commit, push — and on rejection, resync to the remote tip, re-apply this
+// run's changes on top of it, and try again (GIT_PUSH_RETRIES times, with backoff). `ctx` carries
+// whatever in-memory state the re-apply step needs: { workLog?, dataJson? }. Returns true if the
+// change actually reached GitHub, false if it never did.
+function pushWithResync(filePaths, message, ctx){
+  if(!filePaths || !filePaths.length) return true;
+  const branch = currentBranch();
+  const addArgs = filePaths.map(p => JSON.stringify(p)).join(' ');
+  const wantsWorkLog = filePaths.includes(WORKLOG_PATH);
+  const wantsData = filePaths.includes(DATA_PATH);
+
+  for(let attempt = 0; attempt <= GIT_PUSH_RETRIES; attempt++){
+    try{
+      execSync('git add ' + addArgs, { stdio: 'inherit' });
+      // Nothing staged is not an error — a handler can legitimately report success without having
+      // changed a tracked file's bytes, and after a resync the remote may already hold our change.
+      try{ execSync('git diff --cached --quiet'); return true; }
+      catch(_e){ /* there IS a staged diff — fall through and commit it */ }
+      execSync('git commit -m ' + JSON.stringify(message), { stdio: 'inherit' });
+      execSync('git push', { stdio: 'inherit' });
+      return true;
+    }catch(err){
+      if(attempt >= GIT_PUSH_RETRIES){
+        console.warn('Push failed after ' + (GIT_PUSH_RETRIES + 1) + ' attempts, giving up on: ' +
+          message + ' — ' + err.message);
+        return false;
+      }
+      console.warn('Push rejected (attempt ' + (attempt + 1) + ' of ' + (GIT_PUSH_RETRIES + 1) +
+        '); resyncing to origin/' + branch + ' and re-applying: ' + err.message);
+      try{
+        // Drop our unpushed commits and re-point at the remote tip. --mixed leaves the working
+        // tree alone, so generated files (images, audio) written by this run are still on disk;
+        // only the index and HEAD move. Nothing is rebased, so nothing can conflict.
+        execSync('git fetch origin ' + branch, { stdio: 'inherit' });
+        execSync('git reset --mixed origin/' + branch, { stdio: 'inherit' });
+
+        if(wantsWorkLog && ctx && ctx.workLog){
+          mergeWorkLogFromRemote(ctx.workLog, readRemoteJson(branch, WORKLOG_PATH));
+          writeFileSync(WORKLOG_PATH, JSON.stringify(ctx.workLog, null, 2) + '\n');
+        }
+        if(wantsData && ctx && ctx.dataJson){
+          const merged = mergeDataOntoRemote(readRemoteJson(branch, DATA_PATH), ctx.dataJson, DATA_BASELINE);
+          writeFileSync(DATA_PATH, JSON.stringify(merged, null, 1) + '\n');
+        }
+      }catch(resyncErr){
+        console.warn('Resync itself failed: ' + resyncErr.message);
+      }
+      sleepMs(GIT_RETRY_BASE_MS * Math.pow(2, attempt));
+    }
+  }
+  return false;
+}
+
+// Writes the in-memory dataJson to disk (if it's one of the paths) and commits exactly the given
+// file paths — never a blanket `git add -A`, so a handler can only ever affect the files it
+// actually named. Returns true on success, false if the change couldn't be published and the
+// caller should treat this task as needing a rerun rather than as done.
 function commitFiles(dataJson, filePaths, message){
   if(!filePaths || !filePaths.length) return true;
   if(filePaths.includes(DATA_PATH)){
     writeFileSync(DATA_PATH, JSON.stringify(dataJson, null, 1) + '\n');
   }
-  const addArgs = filePaths.map(p => '"' + p + '"').join(' ');
-  try{
-    execSync('git add ' + addArgs, { stdio: 'inherit' });
-    // Nothing to commit is not an error — a handler can legitimately report success without
-    // having changed a tracked file's bytes (rare, but shouldn't crash the run).
-    try{ execSync('git diff --cached --quiet'); return true; }catch(_e){ /* there IS a staged diff, fall through to commit */ }
-    execSync('git commit -m ' + JSON.stringify(message), { stdio: 'inherit' });
-    execSync('git push', { stdio: 'inherit' });
-    return true;
-  }catch(err){
-    console.warn('Push failed, attempting one rebase-and-retry: ' + err.message);
-    try{
-      execSync('git pull --rebase --autostash', { stdio: 'inherit' });
-      execSync('git push', { stdio: 'inherit' });
-      return true;
-    }catch(err2){
-      try{ execSync('git rebase --abort', { stdio: 'ignore' }); }catch(_e){}
-      console.error('Could not publish after rebase retry: ' + err2.message);
-      return false;
-    }
-  }
+  return pushWithResync(filePaths, message, { dataJson });
 }
 
-// Same git safety pattern as commitFiles, but always for the one file, and best-effort rather
-// than fatal: a failed workLog.json push here is a lost visibility update, not lost work — the
-// task's real outcome already lives in the return value the caller has in hand, and the final
-// write at the end of the whole run (see bottom of main()) still captures it either way. Logging
-// a warning and moving on is the right response, not aborting an otherwise-healthy run over a
-// status update that will get written again in a few seconds anyway.
+// Same publishing path as commitFiles, but always for the one file, and best-effort rather than
+// fatal: a failed workLog.json push is a lost visibility update, not lost work — the task's real
+// outcome already lives in the return value the caller has in hand, and the final write at the end
+// of the run (plus orchestrator.yml's trailing commit step) still captures it either way.
 function commitWorkLog(workLog, message){
   writeFileSync(WORKLOG_PATH, JSON.stringify(workLog, null, 2) + '\n');
-  try{
-    execSync('git add "' + WORKLOG_PATH + '"', { stdio: 'inherit' });
-    try{ execSync('git diff --cached --quiet'); return true; }catch(_e){ /* there IS a staged diff, fall through to commit */ }
-    execSync('git commit -m ' + JSON.stringify(message), { stdio: 'inherit' });
-    execSync('git push', { stdio: 'inherit' });
-    return true;
-  }catch(err){
-    console.warn('workLog.json push failed, attempting one rebase-and-retry: ' + err.message);
-    try{
-      execSync('git pull --rebase --autostash', { stdio: 'inherit' });
-      execSync('git push', { stdio: 'inherit' });
-      return true;
-    }catch(err2){
-      try{ execSync('git rebase --abort', { stdio: 'ignore' }); }catch(_e){}
-      console.warn('Could not publish workLog.json update after rebase retry (continuing anyway): ' + err2.message);
-      return false;
-    }
-  }
+  return pushWithResync([WORKLOG_PATH], message, { workLog });
 }
 
 async function main(){
   const workLog = JSON.parse(readFileSync(WORKLOG_PATH, 'utf8'));
   let dataJson = JSON.parse(readFileSync(DATA_PATH, 'utf8'));
+
+  // Taken BEFORE any handler runs, so a later resync-and-retry can tell which entries this run
+  // actually modified and merge only those onto the remote's current copy — see DATA_BASELINE.
+  DATA_BASELINE = snapshotData(dataJson);
 
   if(!Array.isArray(workLog.tasks)){
     throw new Error('workLog.json is missing a "tasks" array.');
