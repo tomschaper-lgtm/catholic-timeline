@@ -1,9 +1,12 @@
 <!--
-VERSION: 413
-DATE: 2026-09-17T15:45:00-05:00
+VERSION: 414
+DATE: 2026-09-17T16:05:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Two features opened up from Review Mode only to everyone: the center-year readout on the
+  timeline axis, and the Ken Burns slow zoom/drift on article hero photos (the latter had been
+  sitting behind Review Mode since v213 while it was being evaluated).
 - Landscape mode: church dome image hidden, title shrunk, and the search box pulled up out of
   its own row (fixed-positioned to the header's left edge, since it lives in a separate DOM block
   below header) so search, "Catholic Timeline", and the hamburger/gear button all share one
@@ -2532,10 +2535,9 @@ v332 CHANGES (unchanged from the version this build started from):
   .ticklbl.minor{font-size:11px; color:var(--muted); opacity:.85;}
   .grid{position:absolute; top:58px; bottom:0; width:1px; background:rgba(201,165,66,.08);}
   .grid.minor{background:rgba(201,165,66,.045);}
-  /* Review-mode-only "center year" readout — always shows whatever year sits at the true
-     horizontal center of the screen, ticking through as Tom drags/flings the timeline. Owner
-     debug aid, not a visitor-facing feature, so it's gated on body.review-on (the same class
-     setReviewMode() already toggles) rather than its own state.
+  /* "Center year" readout — always shows whatever year sits at the true horizontal center of
+     the screen, ticking through as the timeline is dragged/flung. Started as an owner-only debug
+     aid gated on body.review-on; opened to every visitor in v414.
      Positioning: #centerYearWrap is a PERSISTENT sibling of #canvas (see the markup, a direct
      child of #viewport), not nested inside .axis — .axis's own width is set in JS to match the
      entire scrollable canvas (thousands of px for a 2000-year span), so anything nested inside
@@ -2583,10 +2585,9 @@ v332 CHANGES (unchanged from the version this build started from):
      the outer's own point finish alone as a small solid-gold tip. Reads exactly as a thin gold
      line bending down to a point with a navy interior, not two separate shapes. */
   .centerYearWrap{
-    display:none; position:sticky; top:0; left:0; right:0; height:0; overflow:visible;
+    display:block; position:sticky; top:0; left:0; right:0; height:0; overflow:visible;
     pointer-events:none; z-index:30;
   }
-  body.review-on .centerYearWrap{display:block;}
   .centerYearBadge{
     position:absolute; top:32px; left:50%; transform:translateX(-50%);
     height:24px; padding:0 6px;
@@ -3184,8 +3185,8 @@ v332 CHANGES (unchanged from the version this build started from):
   /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
      so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
   .artimg{width:100%; border-radius:14px; border:1.5px solid var(--gold); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
-  /* Ken Burns (v213) - Review Mode only for now, while the effect is being evaluated before
-     deciding whether to show it to visitors.
+  /* Ken Burns (v213, opened to everyone in v414 — was Review Mode only while the effect was
+     being evaluated before deciding whether to show it to visitors).
      IMPORTANT, and the reason v209-v212 appeared to do nothing: the inline .artimg is NOT the
      photo the reader sees. measureFly() sets hero.style.opacity = '0' and hands the picture to
      the body-level #flyPortrait copy, which is what is actually on screen at every scroll
@@ -3198,7 +3199,7 @@ v332 CHANGES (unchanged from the version this build started from):
      scroll-driven transform (updateFly) is untouched - that lives on .flyPortrait, this lives
      on the img inside it, so the flight and the drift compose instead of fighting. */
   @media (prefers-reduced-motion: no-preference){
-    body.review-on .flyPortrait img{animation:kenBurnsHero 8s ease-in-out infinite alternate;}
+    .flyPortrait img{animation:kenBurnsHero 8s ease-in-out infinite alternate;}
   }
   @keyframes kenBurnsHero{
     from{transform:scale(1) translate(0,0);}
@@ -5128,7 +5129,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v413';
+const APP_VERSION = 'v414';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5805,16 +5806,14 @@ function scheduleBandIconFade(){
 }
 viewport.addEventListener('scroll', scheduleBandIconFade, {passive:true});
 
-// Review-mode-only center-year readout (see .centerYearWrap CSS for the sticky/masking design).
-// Cheap enough to just always keep current — the element itself is display:none outside review
-// mode via CSS, so this is a no-op paint-wise when Tom isn't looking at it.
+// Center-year readout (see .centerYearWrap CSS for the sticky/masking design) — live for every
+// visitor as of v414, was Review Mode only before that.
 const CENTER_YEAR_SAFE_ZONE = 40; // px — a .ticklbl whose center is closer than this to true
 // screen-center is fully hidden, as one atomic unit (not gradient-masked, which could catch a
 // label mid-digit — half sharp, half faded). .ticklbl's own CSS transition turns this plain
 // threshold snap into an actual fade in both directions.
 let centerYearRAF = null;
 function updateCenterYearBadge(){
-  if(!document.body.classList.contains('review-on')) return;
   const el = document.getElementById('centerYearBadge');
   if(el) el.textContent = fmtAxisYear(Math.round(centerYear()));
   const mid = viewport.scrollLeft + viewport.clientWidth / 2;
