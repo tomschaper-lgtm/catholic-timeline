@@ -1,9 +1,20 @@
 <!--
-VERSION: 414
-DATE: 2026-09-17T16:05:00-05:00
+VERSION: 416
+DATE: 2026-09-17T17:10:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed an image that failed to load while offline staying broken even after the connection came
+  back. A browser never retries a failed <img> on its own — added retryBrokenImages(), which
+  resets `src` on anything currently broken, triggered on the 'online' event and, as a defensive
+  second trigger since iOS Safari doesn't always fire connectivity events reliably, on
+  visibilitychange too.
+- Offline access: added sw.js (a new file — must be uploaded to the repo alongside this one, same
+  folder as data.json) and registered it here. Caches the page and data.json so losing the
+  connection shows the last-synced version instead of the site being unavailable. Deliberately
+  network-first, not cache-first, so the existing reload-driven update check is unaffected — see
+  sw.js's own comments, and the updated comment above checkVersion() below. Only registers on a
+  real web host, never inside the Claude artifact sandbox.
 - Two features opened up from Review Mode only to everyone: the center-year readout on the
   timeline axis, and the Ken Burns slow zoom/drift on article hero photos (the latter had been
   sitting behind Review Mode since v213 while it was being evaluated).
@@ -5129,7 +5140,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v414';
+const APP_VERSION = 'v416';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5167,6 +5178,33 @@ function seedDb(){
 // Detect whether we're running inside a Claude artifact (persistent window.storage present)
 // or on a normal web host such as GitHub Pages (where we fetch data.json instead).
 const IS_ARTIFACT = (typeof window !== 'undefined' && window.storage && typeof window.storage.get === 'function');
+// Offline access (v415): sw.js caches the page and data.json so losing the connection shows the
+// last-synced version instead of the site simply being unavailable. Only registered on a real
+// web host — inside the Claude artifact sandbox there's no separate sw.js file for the browser
+// to fetch, and window.storage already gives that environment its own persistence anyway.
+// See sw.js's own comments for the caching strategy (network-first, never cache-first — chosen
+// specifically so it can't interfere with the reload-driven update flow just above/below this).
+if(!IS_ARTIFACT && 'serviceWorker' in navigator){
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
+// Broken-image self-heal. A browser never retries a failed <img> load on its own — once one
+// has failed (most likely because it wasn't cached, and the connection was down at the time —
+// see sw.js's own comments on which requests it does and doesn't cache), it just stays broken
+// until something explicitly resets its `src`, even after the connection comes back. This finds
+// anything currently broken and gives it one fresh attempt. `online` is the main trigger;
+// visibilitychange is a second, defensive one, since iOS Safari doesn't always fire connectivity
+// events reliably (same reasoning as this file's other visibilitychange fallbacks elsewhere).
+function retryBrokenImages(){
+  document.querySelectorAll('img').forEach(img => {
+    if(img.complete && img.naturalWidth === 0 && img.src){
+      const src = img.src;
+      img.src = '';
+      img.src = src;
+    }
+  });
+}
+window.addEventListener('online', retryBrokenImages);
+document.addEventListener('visibilitychange', () => { if(!document.hidden) retryBrokenImages(); });
 // One-time carry-over for the retired `d` short description (v318). The Learn More pages
 // (t:"i" info entries) used to render `d` as the line under the title; that text is now
 // `subtitle`. This copies it across in memory on load so nothing written by hand is lost,
@@ -16510,11 +16548,14 @@ refreshInstallUI();
 // weeks. A page cannot close or restart its own app, but location.reload() re-requests the file,
 // and since Pages serves must-revalidate the request goes to the network.
 //
-// This app has no service worker (nothing intercepts or caches the fetch below), so the usual
-// PWA lore about a reload alone "not being enough" mostly doesn't apply here — confirmed by
-// Tom testing it directly in the installed home-screen app: a plain reload picked up the new
-// version with no need to swipe the app away first. The swipe-away instruction below is now a
-// fallback offered only if a reload doesn't seem to have taken, not the leading advice.
+// As of v415 this app DOES have a service worker (sw.js, for offline access — see its own
+// comments), which is exactly the kind of thing that usually breaks "a plain reload is enough."
+// It doesn't here: sw.js deliberately uses a network-first strategy for the page and data.json
+// (fetch the network, fall back to cache only if the network fails), never cache-first, so an
+// online reload still always hits the network and gets whatever is actually latest — confirmed
+// by Tom testing a plain reload directly in the installed home-screen app, both before sw.js
+// existed and unchanged since. The swipe-away instruction below is offered only as a fallback if
+// a reload doesn't seem to have taken, not the leading advice.
 //
 // The check runs by itself whenever the panel is opened, so the row already reads "Up to Date"
 // or "New Version Available" before anything is pressed; pressing is only ever needed to act on
