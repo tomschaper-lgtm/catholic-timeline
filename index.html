@@ -1,9 +1,12 @@
 <!--
-VERSION: 411
-DATE: 2026-09-17T15:00:00-05:00
+VERSION: 412
+DATE: 2026-09-17T15:15:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Center-year badge font bumped one more point (16.5px → 17.5px).
+- Tick label fade (the "400"/"500" hide-near-center effect) slowed and softened: .ticklbl's
+  opacity transition went from .15s ease to .5s ease-in-out.
 - Center-year badge: fade-safe-zone widened from 30px to 40px (CENTER_YEAR_SAFE_ZONE), and the
   number's own font size bumped one point (15.5px → 16.5px).
 - Fixed the center-year badge sometimes showing a nearby "900"/"1000" tick label half cut off.
@@ -2521,7 +2524,7 @@ v332 CHANGES (unchanged from the version this build started from):
   .axis{position:absolute; top:30px; height:28px; left:0; right:0; border-bottom:1px solid var(--gold); box-shadow:0 1px 0 rgba(232,205,126,.25);}
   .tick{position:absolute; bottom:0; height:8px; width:1px; background:var(--gold);}
   .tick.minor{height:5px; background:rgba(201,165,66,.5);}
-  .ticklbl{position:absolute; bottom:9px; transform:translateX(-50%); font-family:'Cinzel',serif; font-size:13px; color:var(--gold-bright); letter-spacing:.05em; white-space:nowrap; transition:opacity .15s ease;}
+  .ticklbl{position:absolute; bottom:9px; transform:translateX(-50%); font-family:'Cinzel',serif; font-size:13px; color:var(--gold-bright); letter-spacing:.05em; white-space:nowrap; transition:opacity .5s ease-in-out;}
   .ticklbl.minor{font-size:11px; color:var(--muted); opacity:.85;}
   .grid{position:absolute; top:58px; bottom:0; width:1px; background:rgba(201,165,66,.08);}
   .grid.minor{background:rgba(201,165,66,.045);}
@@ -2584,7 +2587,7 @@ v332 CHANGES (unchanged from the version this build started from):
     position:absolute; top:32px; left:50%; transform:translateX(-50%);
     height:24px; padding:0 6px;
     display:flex; align-items:center; justify-content:center;
-    font-family:'Cinzel',serif; font-weight:700; font-size:16.5px; letter-spacing:.06em;
+    font-family:'Cinzel',serif; font-weight:700; font-size:17.5px; letter-spacing:.06em;
     color:var(--gold-bright); white-space:nowrap;
     background:rgba(11,22,48,.97);
   }
@@ -5086,7 +5089,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v411';
+const APP_VERSION = 'v412';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
