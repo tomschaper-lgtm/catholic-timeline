@@ -1,14 +1,14 @@
 <!--
-VERSION: 418
-DATE: 2026-09-18T09:00:00-05:00
-NOTE: Full changelog moved to CHANGELOG.md (repo root) as of this version — see it for history
-and the current entry format (a short "Ask" separated from technical "Implementation" notes).
-Kept in this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action
-that logs each build to changelog.json for Manage → Logs reads this comment on every push to
-main — collapsing it further risks silently breaking that (untested here; I can't see the
-Action's own parsing logic from inside this file, so verify Logs still populates after the
-next push). A version bump now touches exactly two places: `const APP_VERSION` below, and a
-new entry at the top of CHANGELOG.md.
+VERSION: 419
+DATE: 2026-09-18T11:00:00-05:00
+NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
+current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
+this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
+logs each build to changelog.json for Manage → Logs reads this comment on every push to main —
+collapsing it further risks silently breaking that (untested here; I can't see the Action's own
+parsing logic from inside this file, so verify Logs still populates after the next push). A
+version bump now touches exactly two places: `const APP_VERSION` below, and a new entry at the
+top of CHANGELOG.md.
 CHANGES:
 - See CHANGELOG.md.
 -->
@@ -1134,6 +1134,13 @@ CHANGES:
     font-size:13.5px; line-height:1.55; color:#7C8598;
   }
   .pNote:empty{display:none;}
+  .pUpdateAction{
+    display:none; margin:0 22px 14px 76px; padding:10px 18px;
+    background:var(--panelBlue); color:#fff; border:none; border-radius:10px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:15px; font-weight:600; text-align:center; cursor:pointer;
+  }
+  .pUpdateAction:active{opacity:.85;}
   .pNote:has(.pSteps){padding:0;}
   /* Instruction steps. The icons are drawn inline at text size so the reader is looking for
      the same shape they will see in Safari, rather than a description of it. */
@@ -2848,7 +2855,14 @@ CHANGES:
       <span class="pMeta" id="updateCur"></span>
       <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
     </button>
-    <p class="pNote" id="updateNote"></p>
+    <button type="button" class="pUpdateAction" id="updateActionBtn" style="display:none;">Update</button>
+
+    <label class="pRow pSwitch" id="offlineRow">
+      <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 18h16"/></svg></span>
+      <span class="pName">Offline Access</span>
+      <input type="checkbox" id="offlineToggle" autocomplete="off"><i class="sw"></i>
+    </label>
+    <p class="pNote">Stores the whole app on this phone so it still works without a connection. Downloads happen over Wi-Fi only, where this device can tell the difference.</p>
 
     <div id="ownerGroup" style="display:none;">
       <label class="pRow pSwitch" id="cmsRow">
@@ -3862,7 +3876,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v418';
+const APP_VERSION = 'v419';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3900,19 +3914,67 @@ function seedDb(){
 // Detect whether we're running inside a Claude artifact (persistent window.storage present)
 // or on a normal web host such as GitHub Pages (where we fetch data.json instead).
 const IS_ARTIFACT = (typeof window !== 'undefined' && window.storage && typeof window.storage.get === 'function');
-// Offline access (v415, media caching added v417): sw.js caches the page, data.json, and every
-// entry's image/audio so losing the connection shows the last-synced version instead of the
-// site simply being unavailable. Only registered on a real web host — inside the Claude artifact
-// sandbox there's no separate sw.js file for the browser to fetch, and window.storage already
-// gives that environment its own persistence anyway.
+// Offline access (v415, media caching v417, opt-in toggle + Wi-Fi-only bulk pull v419): sw.js
+// caches the page, data.json, and every entry's image/audio so losing the connection shows the
+// last-synced version instead of the site simply being unavailable. As of v419 this is off by
+// default and only starts up if the visitor turns on Settings → Offline Access — downloading
+// the whole app onto someone's phone isn't something to do to them without asking. Never
+// available inside the Claude artifact sandbox regardless — there's no separate sw.js file for
+// the browser to fetch there, and window.storage already gives that environment its own
+// persistence anyway.
 // See sw.js's own comments for the caching strategy — network-first for the page/data.json
 // (chosen specifically so it can't interfere with the reload-driven update flow just above/below
 // this), stale-while-revalidate for images/audio.
-if(!IS_ARTIFACT && 'serviceWorker' in navigator){
-  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+let offlineAccessEnabled = false;
+try{ offlineAccessEnabled = localStorage.getItem('offline-access') === '1'; }catch(e){}
+
+async function enableOfflineAccess(){
+  if(IS_ARTIFACT || !('serviceWorker' in navigator)) return;
+  try{ await navigator.serviceWorker.register('sw.js'); }catch(e){}
   // Best-effort only — a browser can still evict storage under real pressure regardless, this
   // just makes it less likely now that the media cache can genuinely run to some size.
   if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  warmMediaCache();
+}
+async function disableOfflineAccess(){
+  // Turning the switch off actually gives the storage back, rather than just hiding the
+  // setting while everything already pulled stays cached regardless.
+  if('serviceWorker' in navigator){
+    try{
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }catch(e){}
+  }
+  try{
+    const names = await caches.keys();
+    await Promise.all(names.map(n => caches.delete(n)));
+  }catch(e){}
+  try{ localStorage.removeItem('media-warm-last'); }catch(e){}
+}
+if(!IS_ARTIFACT && 'serviceWorker' in navigator && offlineAccessEnabled){
+  window.addEventListener('load', enableOfflineAccess);
+}
+const offlineToggle = document.getElementById('offlineToggle');
+if(offlineToggle){
+  offlineToggle.checked = offlineAccessEnabled;
+  offlineToggle.addEventListener('change', (e) => {
+    offlineAccessEnabled = e.target.checked;
+    try{ localStorage.setItem('offline-access', offlineAccessEnabled ? '1' : '0'); }catch(err){}
+    if(offlineAccessEnabled) enableOfflineAccess(); else disableOfflineAccess();
+  });
+}
+// Wi-Fi-only for the bulk pull below. navigator.connection (the Network Information API) is the
+// only way a web page can ask this, and Safari/iOS has never implemented it at all — Apple's own
+// choice, for privacy reasons — so in practice this can tell Wi-Fi from cellular on Android
+// Chrome and effectively nowhere else, including Tom's own iPhone. Where it's missing, this
+// returns true rather than block the feature entirely on a platform that could never pass a
+// stricter check; where it exists, .type is the only property that actually distinguishes
+// connection kind ('wifi', 'cellular', etc.) — .effectiveType is a speed class (4g, 3g...), not
+// a network type, and does NOT tell wifi from cellular despite sounding like it might.
+function isOnWifi(){
+  const c = navigator.connection;
+  if(!c || typeof c.type === 'undefined') return true; // can't detect — see note above
+  return c.type === 'wifi' || c.type === 'ethernet';
 }
 // Proactively pulls every entry's image and audio (+ its sentence-timing .json, if any) through
 // the service worker, so they're cached for offline use even for entries Tom hasn't personally
@@ -3922,7 +3984,9 @@ if(!IS_ARTIFACT && 'serviceWorker' in navigator){
 // Concurrency-limited so it doesn't fire 100+ requests at once, and only runs once every 24h
 // (tracked in localStorage) so a routine return visit doesn't re-revalidate the entire library
 // every single time — it's still due again the next day, so new or changed entries do get
-// picked up, just not on every app open.
+// picked up, just not on every app open. Skips entirely off Wi-Fi (see isOnWifi()) WITHOUT
+// recording a run, so it's simply retried next time this is called rather than sitting out a
+// full 24h for a check that never actually got to run.
 function collectMediaUrls(){
   const urls = new Set();
   const imageBase = db.settings && db.settings.imageBase;
@@ -3938,7 +4002,8 @@ function collectMediaUrls(){
   return Array.from(urls).filter(Boolean);
 }
 async function warmMediaCache(){
-  if(IS_ARTIFACT || !('serviceWorker' in navigator) || !navigator.onLine) return;
+  if(IS_ARTIFACT || !('serviceWorker' in navigator) || !navigator.onLine || !offlineAccessEnabled) return;
+  if(!isOnWifi()) return;
   try{
     const last = Number(localStorage.getItem('media-warm-last') || 0);
     if(Date.now() - last < 24 * 60 * 60 * 1000) return; // already pulled everything recently
@@ -3948,7 +4013,7 @@ async function warmMediaCache(){
   const CONCURRENCY = 4;
   let next = 0;
   async function worker(){
-    while(next < urls.length && navigator.onLine){
+    while(next < urls.length && navigator.onLine && isOnWifi()){
       const url = urls[next++];
       try{ await fetch(url); }catch(e){ /* offline mid-run, or a genuinely missing file — skip it, not fatal */ }
     }
@@ -3972,7 +4037,7 @@ function retryBrokenImages(){
     }
   });
 }
-window.addEventListener('online', retryBrokenImages);
+window.addEventListener('online', () => { retryBrokenImages(); warmMediaCache(); });
 document.addEventListener('visibilitychange', () => { if(!document.hidden) retryBrokenImages(); });
 // One-time carry-over for the retired `d` short description (v318). The Learn More pages
 // (t:"i" info entries) used to render `d` as the line under the title; that text is now
@@ -15323,21 +15388,24 @@ refreshInstallUI();
 // (fetch the network, fall back to cache only if the network fails), never cache-first, so an
 // online reload still always hits the network and gets whatever is actually latest — confirmed
 // by Tom testing a plain reload directly in the installed home-screen app, both before sw.js
-// existed and unchanged since. The swipe-away instruction below is offered only as a fallback if
-// a reload doesn't seem to have taken, not the leading advice.
+// existed and unchanged since.
 //
 // The check runs by itself whenever the panel is opened, so the row already reads "Up to Date"
-// or "New Version Available" before anything is pressed; pressing is only ever needed to act on
-// the answer. The fetch is no-store so it cannot be answered from the very cache we are trying
-// to see past.
+// or "New Version Available" before anything is pressed. As of v419 acting on that is a
+// dedicated Update button (#updateActionBtn) rather than an explanatory paragraph below the
+// row — shown only while a reload is actually pending, hidden otherwise. The fetch is no-store
+// so it cannot be answered from the very cache we are trying to see past.
 const updateBtn = document.getElementById('updateBtn');
-const updateNote = document.getElementById('updateNote');
+const updateActionBtn = document.getElementById('updateActionBtn');
 const updateCur = document.getElementById('updateCur');
 const updateLabel = updateBtn.querySelector('.pName');
 if(updateCur) updateCur.textContent = APP_VERSION;
 let pendingReload = false, checking = false, lastCheckAt = 0;
 let announcedVersion = null; // the version string we've already glowed for, so a repeat check on the same pending version doesn't re-trigger it
-function setUpdateNote(html){ updateNote.innerHTML = html || ''; }
+function setPendingReload(on){
+  pendingReload = on;
+  updateActionBtn.style.display = on ? 'block' : 'none';
+}
 
 async function checkVersion(auto){
   if(checking) return;
@@ -15352,37 +15420,33 @@ async function checkVersion(auto){
     if(!m){
       // Served something unexpected — offer the reload rather than claiming to know.
       updateLabel.textContent = 'Reload Anyway';
-      setUpdateNote(auto ? '' : 'Version unreadable. Reload to be certain.');
-      pendingReload = true;
+      setPendingReload(true);
     } else if(m[1] === APP_VERSION){
       updateLabel.textContent = 'Up to Date';
-      pendingReload = false;
-      setUpdateNote('');
+      setPendingReload(false);
     } else {
       updateLabel.textContent = 'New Version Available';
       if(updateCur) updateCur.textContent = m[1];
-      pendingReload = true;
+      setPendingReload(true);
       if(announcedVersion !== m[1]){
         announcedVersion = m[1];
         hamPulseDue = true;
         rowGlowDue = true;
       }
-      // Leads with a plain reload for everyone, including the installed iOS app — confirmed
-      // to work without a full swipe-away close (see comment above this function). The
-      // swipe-away steps are offered as a fallback line, not the primary instruction.
-      setUpdateNote('Tap to reload. Unsaved Manage edits will be lost.' +
-        (isStandalone() && isIOS()
-          ? ' If it still shows the old version after reloading, swipe up and swipe this app away, then reopen it.'
-          : ''));
     }
   }catch(err){
-    // A silent background check should not shout about a flaky network; a requested one should.
-    if(!auto) setUpdateNote('Could not reach the server. You may be offline.');
+    // A silent background check should not shout about a flaky network; a requested one should
+    // still leave whatever pending-reload state (and button) was already showing untouched.
     updateLabel.textContent = pendingReload ? updateLabel.textContent : 'Check for Updates';
   }
   checking = false;
   updateBtn.disabled = false;
 }
+
+updateActionBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  location.reload();
+});
 
 updateBtn.addEventListener('click', (e) => {
   e.stopPropagation();
