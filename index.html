@@ -1,9 +1,26 @@
 <!--
-VERSION: 408
-DATE: 2026-09-17T13:45:00-05:00
+VERSION: 410
+DATE: 2026-09-17T14:35:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Fixed the center-year badge sometimes showing a nearby "900"/"1000" tick label half cut off.
+  The badge had a 130px min-width left over from the old gradient design, but the JS fade that
+  replaced that gradient only hides a label within 30px of center — so a label sitting 30-65px
+  out (still under the now-wider-than-that solid box, just outside the zone that fades it) was
+  visually clipped by the box's edge instead of cleanly hidden. Removed the min-width; the badge
+  now hugs its own text (padding only), which keeps it well inside the zone that already fades
+  labels to invisible, so nothing can be partially covered again.
+- Fixed era band titles ("EARLY MIDDLE AGES" etc.) sometimes not showing on screen at all, or
+  showing off to one side instead of where expected. Root cause: .era had overflow:hidden, which
+  made IT (rather than #viewport) the reference frame for its own label's position:sticky —
+  since .era never actually scrolls on its own, the label just sat at its plain flex-centered
+  position (the midpoint of that era's entire date range, which spans centuries and can be
+  thousands of px wide), landing wherever that happened to fall relative to the current scroll
+  position — often far off to one side. .era span's sticky rule (left:8px/right:8px) was already
+  exactly the intended "slide freely, catch 8px from the screen edge, release once the era's own
+  right boundary pushes it back into motion" behavior — it just couldn't reach its real scrolling
+  ancestor. Removed .era's overflow:hidden and it now works as designed.
 - Fixed the center-year badge sometimes showing a "400"/"500" tick label half-faded/half-sharp
   as it scrolled past. Cause: the old background gradient masked whatever pixels happened to sit
   under its fade zone, with no guarantee that lined up with a label's actual boundaries — a label
@@ -2482,8 +2499,22 @@ v332 CHANGES (unchanged from the version this build started from):
     background:linear-gradient(180deg, #F6E8BC 0%, #E8CD7E 16%, #C9A542 52%, #9C7B32 82%, #7A611F 100%);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -3px 5px rgba(0,0,0,.35);
     border-right:3px solid var(--navy-deep);
-    overflow:hidden; white-space:nowrap;
+    white-space:nowrap;
   }
+  /* .era intentionally does NOT set overflow:hidden (it used to). Any ancestor with an overflow
+     value other than visible becomes a position:sticky descendant's reference frame — with it
+     set here, .era span below was sticking relative to .era's OWN box (which spans that era's
+     entire date range, often thousands of px wide at normal zoom) instead of the real scrolling
+     ancestor, #viewport. Since .era never actually scrolls on its own, the label just sat at its
+     plain flex-centered position — the midpoint of the whole era's date range — which could be
+     far to the right of, or entirely outside, whatever's currently on screen. Removing it lets
+     .era span's sticky (below) reach #viewport properly: the label now slides freely with the
+     era band, catches at 8px from the screen edge once it would scroll further, and holds there
+     until the era's own right boundary pushes it back into motion. Tradeoff: a genuinely long
+     era name could now spill past its own band's edge into the next era's if that era is
+     ever compressed narrower than the label at some zoom level — acceptable next to how visibly
+     broken the label's position was before this fix.
+  */
   .era span{position:sticky; left:8px; right:8px; padding:0 8px;}
   .axis{position:absolute; top:30px; height:28px; left:0; right:0; border-bottom:1px solid var(--gold); box-shadow:0 1px 0 rgba(232,205,126,.25);}
   .tick{position:absolute; bottom:0; height:8px; width:1px; background:var(--gold);}
@@ -2521,9 +2552,13 @@ v332 CHANGES (unchanged from the version this build started from):
      once its own center comes within CENTER_YEAR_SAFE_ZONE px of true screen-center — .ticklbl's
      own `transition:opacity` (above) is what turns that snap into an actual fade in each
      direction, so it still reads as smooth despite being a plain threshold check underneath.
-     min-width (rather than leaving the box sized by padding+text alone) makes the total reach
-     explicit and holds steady across the badge's ~2-4 digit range; sized to ~30% wider than the
-     plain padding+text size this started at. Vertically inset 2px from both the era band above
+     No min-width — the box hugs the number itself (padding only), same as Tom asked. It used to
+     carry a 130px min-width to widen the old gradient's reach, but that's gone now; keeping the
+     min-width after removing the gradient left the solid box wider (65px each side of center)
+     than CENTER_YEAR_SAFE_ZONE (30px) protected, so a label between those two distances sat
+     visually under the opaque box without being faded — a "half cut" numeral. Hugging the text
+     keeps the visible box well inside the zone that already fades labels to invisible, so nothing
+     can be partially covered again. Vertically inset 2px from both the era band above
      and .axis's own gold border-bottom below, so that border is never painted over by the
      badge's background and stays bright the full width, even directly beneath it. #centerYearNotch
      sits right where .axis's own gold border-bottom line runs
@@ -2545,7 +2580,7 @@ v332 CHANGES (unchanged from the version this build started from):
   body.review-on .centerYearWrap{display:block;}
   .centerYearBadge{
     position:absolute; top:32px; left:50%; transform:translateX(-50%);
-    height:24px; min-width:130px; padding:0 14px;
+    height:24px; padding:0 6px;
     display:flex; align-items:center; justify-content:center;
     font-family:'Cinzel',serif; font-weight:700; font-size:15.5px; letter-spacing:.06em;
     color:var(--gold-bright); white-space:nowrap;
@@ -5049,7 +5084,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v408';
+const APP_VERSION = 'v410';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
