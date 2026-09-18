@@ -1,9 +1,11 @@
 <!--
-VERSION: 410
-DATE: 2026-09-17T14:35:00-05:00
+VERSION: 411
+DATE: 2026-09-17T15:00:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Center-year badge: fade-safe-zone widened from 30px to 40px (CENTER_YEAR_SAFE_ZONE), and the
+  number's own font size bumped one point (15.5px → 16.5px).
 - Fixed the center-year badge sometimes showing a nearby "900"/"1000" tick label half cut off.
   The badge had a 130px min-width left over from the old gradient design, but the JS fade that
   replaced that gradient only hides a label within 30px of center — so a label sitting 30-65px
@@ -2555,7 +2557,7 @@ v332 CHANGES (unchanged from the version this build started from):
      No min-width — the box hugs the number itself (padding only), same as Tom asked. It used to
      carry a 130px min-width to widen the old gradient's reach, but that's gone now; keeping the
      min-width after removing the gradient left the solid box wider (65px each side of center)
-     than CENTER_YEAR_SAFE_ZONE (30px) protected, so a label between those two distances sat
+     than CENTER_YEAR_SAFE_ZONE (now 40px) protected, so a label between those two distances sat
      visually under the opaque box without being faded — a "half cut" numeral. Hugging the text
      keeps the visible box well inside the zone that already fades labels to invisible, so nothing
      can be partially covered again. Vertically inset 2px from both the era band above
@@ -2582,7 +2584,7 @@ v332 CHANGES (unchanged from the version this build started from):
     position:absolute; top:32px; left:50%; transform:translateX(-50%);
     height:24px; padding:0 6px;
     display:flex; align-items:center; justify-content:center;
-    font-family:'Cinzel',serif; font-weight:700; font-size:15.5px; letter-spacing:.06em;
+    font-family:'Cinzel',serif; font-weight:700; font-size:16.5px; letter-spacing:.06em;
     color:var(--gold-bright); white-space:nowrap;
     background:rgba(11,22,48,.97);
   }
@@ -5084,7 +5086,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v410';
+const APP_VERSION = 'v411';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5764,7 +5766,7 @@ viewport.addEventListener('scroll', scheduleBandIconFade, {passive:true});
 // Review-mode-only center-year readout (see .centerYearWrap CSS for the sticky/masking design).
 // Cheap enough to just always keep current — the element itself is display:none outside review
 // mode via CSS, so this is a no-op paint-wise when Tom isn't looking at it.
-const CENTER_YEAR_SAFE_ZONE = 30; // px — a .ticklbl whose center is closer than this to true
+const CENTER_YEAR_SAFE_ZONE = 40; // px — a .ticklbl whose center is closer than this to true
 // screen-center is fully hidden, as one atomic unit (not gradient-masked, which could catch a
 // label mid-digit — half sharp, half faded). .ticklbl's own CSS transition turns this plain
 // threshold snap into an actual fade in both directions.
