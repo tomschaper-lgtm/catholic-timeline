@@ -1,9 +1,13 @@
 <!--
-VERSION: 412
-DATE: 2026-09-17T15:15:00-05:00
+VERSION: 413
+DATE: 2026-09-17T15:45:00-05:00
 NOTE: this file has TWO version numbers and BOTH must be bumped every build — this comment, and
 `const APP_VERSION`, which is what the app displays and what update-detection compares.
 CHANGES:
+- Landscape mode: church dome image hidden, title shrunk, and the search box pulled up out of
+  its own row (fixed-positioned to the header's left edge, since it lives in a separate DOM block
+  below header) so search, "Catholic Timeline", and the hamburger/gear button all share one
+  compact header row — giving the timeline the vertical room that used to go to a second row.
 - Center-year badge font bumped one more point (16.5px → 17.5px).
 - Tick label fade (the "400"/"500" hide-near-center effect) slowed and softened: .ticklbl's
   opacity transition went from .15s ease to .5s ease-in-out.
@@ -4000,6 +4004,41 @@ v332 CHANGES (unchanged from the version this build started from):
   .mgmtExitBtns .mbtn:hover{background:#E3E1D8;}
   .mgmtExitBtns .mbtn.danger{color:#96291A; background:#FDEDEA; border-color:#F0C9C0;}
   .mgmtExitBtns .mbtn.danger:hover{background:#F8D9D2;}
+
+  /* ================= LANDSCAPE MODE ================= */
+  /* Search, title and the hamburger/gear button on one compact row, with the church dome hidden,
+     so the header gives back as much height as possible to the actual timeline — landscape on a
+     phone is short on vertical room, not horizontal. #heroLogo has no flow height of its own (it's
+     position:fixed, laid over the header rather than pushing it taller), so hiding it is purely
+     about decluttering this now-tight row, not reclaiming space directly.
+     .controls (the search box's row) lives in the DOM as its own block AFTER </header>, not
+     inside it — moving it into the header visually rather than in the DOM (position:fixed instead
+     of reparenting the element) means every existing handler, the #sResults dropdown's own
+     position:relative anchor to .searchwrap, and every z-index assumption elsewhere in the file
+     keep working untouched; only where it paints changes. It no longer takes up flow height at
+     all in this mode, which is what actually gives the row back to the timeline — hiding the dome
+     image alone wouldn't have, since that was never in flow to begin with. */
+  @media (orientation:landscape){
+    #heroLogo{ display:none; }
+    header{
+      padding:8px 14px;
+    }
+    h1{ font-size:clamp(15px, 2.6vw, 21px); }
+    h1 .t2{ margin-left:6px; }
+    .hamBtn{
+      top:6px; right:calc(10px + env(safe-area-inset-right));
+      width:40px; height:40px; font-size:24px;
+    }
+    .controls{
+      position:fixed; top:6px; left:calc(14px + env(safe-area-inset-left)); z-index:140;
+      width:auto; height:40px; padding:0; margin:0;
+      background:none; border:none;
+      display:flex; align-items:center;
+    }
+    #searchRow{ padding:0; }
+    .searchwrap{ flex:0 0 190px; width:190px; }
+    #tlSearch{ padding:7px 30px 7px 13px; font-size:calc(16px * var(--txtMed)); }
+  }
 </style>
 </head>
 <body>
@@ -5089,7 +5128,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v412';
+const APP_VERSION = 'v413';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
