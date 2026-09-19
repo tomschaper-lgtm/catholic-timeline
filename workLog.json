@@ -2348,15 +2348,26 @@
       "type": "sentence-reword",
       "entityId": "council-of-jerusalem-49",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Council of Jerusalem",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "council-of-jerusalem-49",
+        "name": "Council of Jerusalem",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-19T10:35:28.265Z",
-      "updatedAt": "2026-09-19T10:36:27.363Z",
+      "updatedAt": "2026-09-19T10:36:31.051Z",
       "error": null
     },
     {
@@ -2646,6 +2657,35 @@
       "createdAt": "2026-09-19T10:35:28.265Z",
       "updatedAt": "2026-09-19T10:36:27.363Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-council-of-jerusalem-49-1789814191050-3278",
+      "type": "sentence-reword",
+      "entityId": "council-of-jerusalem-49",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Council of Jerusalem",
+      "payload": {},
+      "result": {
+        "name": "Council of Jerusalem",
+        "patches": [
+          [
+            "article",
+            "It asked of them only a small number of practical requirements meant to preserve fellowship at table between Jewish and Gentile believers: <ul><li>abstaining from food sacrificed to idols</li><li>abstaining from blood</li><li>abstaining from the meat of strangled animals</li><li>avoiding unlawful marriage or unchastity</li></ul>",
+            "U",
+            "It asked of them only a small number of practical requirements meant to preserve fellowship at table between Jewish and Gentile believers:\n<ul><li>abstaining from food sacrificed to idols</li><li>abstaining from blood</li><li>abstaining from the meat of strangled animals</li><li>avoiding unlawful marriage or unchastity</li></ul>"
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-19T10:36:31.050Z",
+      "updatedAt": "2026-09-19T10:36:31.050Z"
     }
   ]
 }
