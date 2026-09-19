@@ -1,6 +1,6 @@
 <!--
-VERSION: 428
-DATE: 2026-09-19T10:20:00-05:00
+VERSION: 429
+DATE: 2026-09-19T11:05:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,33 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v429 — 2026-09-19
+
+**Ask:**
+- When the Saints panel is short on space (ten rows or fewer), buy back room: drop the subtitle
+  and move the search box up beside the title, ending before the close ×.
+- Turn the chip bar into a sheet that slides up from the bottom and retires once a selection is
+  made. The bottom quarter-inch becomes a gold band naming the selection in white with an arrow
+  hinting at the sheet; the band disappears while the sheet is up, and the sheet reaches the
+  very bottom.
+
+**Implementation:**
+- The Saints search box now lives inside `.panelHead` rather than as a sibling below it. At full
+  height `.saintsPanel .panelHead` wraps it to its own full-width line (`order:3; flex:0 0 100%`)
+  so nothing looks different; the compact layout re-orders it between title and × instead. Only
+  this panel's markup moved — Browse and Task keep theirs as siblings.
+- Compact layout is gated on `@media (max-height:760px)`, roughly where the fixed chrome stops
+  leaving ten rows. Phones in portrait and tablets stay on the full layout; landscape phones and
+  short desktop windows get the compact one.
+- `.spChips` becomes `position:absolute; bottom:0` in compact mode, so the list keeps the height
+  the bar used to take, and rides in on a transform under `.saintsPanel.chipsOpen`. New
+  `#spChipBand` takes its place in flow.
+- `setSpChipsOpen()`/`syncSpChipBand()` handle raise/dismiss and the label. The sheet closes on a
+  chip pick, on Learn More, and on any pointerdown in the list. Both look their elements up by id
+  rather than closing over consts — they are called from `renderSaintsPanel()`/
+  `openSaintsPanel()`, defined earlier in the file, so a const declared at their own definition
+  point would sit in its temporal dead zone for any call that ran first.
+
 ## v428 — 2026-09-19
 
 **Ask:**
@@ -683,6 +710,61 @@ CHANGELOG:END
     display:flex; align-items:center; justify-content:center;
   }
   .panelClose svg{width:22px; height:22px;}
+
+  /* ---- Saints panel: compact (short-viewport) layout --------------------------------------
+     v429. In landscape, or on any short window, the panel's fixed chrome (title line, its own
+     search row, the column header, the chip bar) eats most of the height and only a handful of
+     rows survive. Everything below buys rows back for the list, which is the reason the panel
+     is open at all.
+
+     The breakpoint is height, not orientation: 760px is roughly where the chrome stops leaving
+     ten rows. Phones in portrait (844px+) and tablets stay on the full layout; landscape phones
+     and short desktop windows get this one. */
+  .saintsPanel .panelHead{flex-wrap:wrap;}
+  .saintsPanel .spTitleWrap{flex:1 1 auto;}
+  .saintsPanel .panelClose{order:2;}
+  /* Full height: the search box still wraps to its own full-width line under the title, which
+     is what it has always looked like — being inside .panelHead now changes nothing here. */
+  .saintsPanel .panelHead .spSearchWrap{order:3; flex:0 0 100%; margin:14px 0 0;}
+  .spChipBand{display:none;}
+
+  @media (max-height: 760px){
+    /* Subtitle out, search up onto the title row between the title and the × (order 0/1/2),
+       with its own left gap standing in for the padding the wrapped line used to have. */
+    .saintsPanel .spTitleSecond{display:none;}
+    .saintsPanel .spTitleWrap{flex:0 0 auto;}
+    .saintsPanel .panelHead .spSearchWrap{order:1; flex:1 1 auto; margin:0 0 0 14px; min-width:0;}
+    .saintsPanel .panelHead{padding-bottom:12px; flex-wrap:nowrap;}
+    .saintsPanel{padding-bottom:0;}
+
+    /* The chip bar becomes a sheet that rises from the very bottom edge of the panel. It is
+       taken out of flow so the list keeps the height the bar used to occupy; the gold band
+       takes its place in flow instead, at a fraction of the cost. */
+    .saintsPanel .spChips{
+      position:absolute; left:0; right:0; bottom:0; z-index:3;
+      margin:0; border-radius:22px 22px 0 0;
+      padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+      box-shadow:0 -6px 26px rgba(20,25,40,.22);
+      transform:translateY(110%);
+      transition:transform .3s cubic-bezier(.32,.72,.28,1);
+    }
+    .saintsPanel.chipsOpen .spChips{transform:translateY(0);}
+    .saintsPanel .spChipBand{display:flex;}
+    .saintsPanel.chipsOpen .spChipBand{display:none;}
+    @media (prefers-reduced-motion: reduce){
+      .saintsPanel .spChips{transition:none;}
+    }
+  }
+  /* Roughly a quarter-inch of gold across the foot of the panel, naming the live filter. */
+  .spChipBand{
+    flex:0 0 auto; width:100%; align-items:center; justify-content:center; gap:7px;
+    min-height:26px; padding:5px 16px calc(5px + env(safe-area-inset-bottom));
+    border:none; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    background:linear-gradient(180deg, var(--gold, #C9A542), #AD8C30);
+    color:#fff; font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  }
+  .spChipBandArrow{width:14px; height:14px; flex:0 0 auto; opacity:.9;}
 
   /* ---- Generic Browse panel: Persecutions / Eucharistic Miracles / Events -----------------
      Same left-slide-panel mechanics as .saintsPanel/.spScrim (mirrored, same z-index band,
@@ -3083,15 +3165,18 @@ CHANGELOG:END
       <div class="spTitleWrap">
         <span class="panelTitle"><span id="spTitleFirst">Saints</span><em class="spTitleSecond" id="spTitleSecond"></em></span>
       </div>
+      <!-- v429: the search box lives INSIDE .panelHead on this panel only, so the compact
+           layout can pull it up onto the title row between the title and the ×. At full height
+           it still wraps to its own full-width line below the title and looks unchanged. -->
+      <div class="spSearchWrap">
+        <svg class="spSearchIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></svg>
+        <input type="text" class="spSearch" id="spSearch" placeholder="Search saints" autocomplete="off">
+        <button class="spSearchClear" id="spSearchClear" aria-label="Clear search" type="button">×</button>
+        <div class="spRecentBox" id="spRecentBox"></div>
+      </div>
       <button class="panelClose" id="spClose" aria-label="Close saints list">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
       </button>
-    </div>
-    <div class="spSearchWrap">
-      <svg class="spSearchIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></svg>
-      <input type="text" class="spSearch" id="spSearch" placeholder="Search saints" autocomplete="off">
-      <button class="spSearchClear" id="spSearchClear" aria-label="Clear search" type="button">×</button>
-      <div class="spRecentBox" id="spRecentBox"></div>
     </div>
     <div class="spHead">
       <button class="spCol active" id="spSortFeast" data-sort="feast"><span class="spColLabel">Feast</span> <span class="arrow">▲</span></button>
@@ -3128,6 +3213,14 @@ CHANGELOG:END
         <span>Learn More</span>
       </button>
     </div>
+    <!-- v429: only ever visible in the compact (short-viewport) layout, where the chip bar
+         costs more rows than it's worth. It names the current filter and lifts the bar into
+         view on tap; while the bar is up this band is hidden, since the bar itself is then the
+         thing showing the selection. Hidden entirely at full height — see .spChipBand's CSS. -->
+    <button class="spChipBand" id="spChipBand" type="button" aria-expanded="false" aria-controls="spChips">
+      <span id="spChipBandLabel">All</span>
+      <svg class="spChipBandArrow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 8l7 8H5z"/></svg>
+    </button>
   </div>
 
   <!-- About panel: full-screen explainer overlay reached from a category's own "Learn More"
@@ -4066,7 +4159,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v428';
+const APP_VERSION = 'v429';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -14703,6 +14796,7 @@ function renderSaintsPanel(){
   // regardless of sort; for All, it further varies by which of the three sorts is active.
   // "Saints" alone is the only fallback, never left blank.
   let titlePhrase = 'Saints';
+  syncSpChipBand(); // the compact layout's band names the same filter this title describes
   if(spFilter === 'doctors') titlePhrase = "Saints Doctors of the Church";
   else if(spFilter === 'martyrs') titlePhrase = "Saints Martyrs of the Faith";
   else if(spFilter === 'patron') titlePhrase = "Saints Patrons of Intercession";
@@ -14851,6 +14945,8 @@ function openSaintsPanel(){
   });
   saintsPanel.classList.add('open');
   spScrim.classList.add('open');
+  setSpChipsOpen(false); // never inherit a raised sheet from the previous open
+  syncSpChipBand();
   renderSaintsPanel();
   if(spLastState && typeof spLastState.scrollTop === 'number'){
     spListEl.scrollTop = spLastState.scrollTop; // overrides renderSaintsPanel()'s own default positioning
@@ -15038,7 +15134,7 @@ spSearchClearBtn.addEventListener('click', () => {
 document.getElementById('spChips').addEventListener('click', (e) => {
   const btn = e.target.closest('.spChip');
   if(!btn) return;
-  if(btn.dataset.action === 'about'){ openAboutPanel('s'); return; }
+  if(btn.dataset.action === 'about'){ setSpChipsOpen(false); openAboutPanel('s'); return; }
   // The search box must be cleared before a filter chip is applied — otherwise a leftover
   // typed term keeps narrowing the newly-selected filter's list in a way that looks like the
   // chip "did nothing" (e.g. searching "Aug" then tapping Martyrs shows zero rows instead of
@@ -15060,8 +15156,34 @@ document.getElementById('spChips').addEventListener('click', (e) => {
   if(spFilter === 'all') spSort = 'feast';
   else if(spFilter === 'doctors' || spFilter === 'martyrs') spSort = 'year';
   else if(spFilter === 'patron') spSort = 'patron';
+  setSpChipsOpen(false); // a selection is the whole point of the sheet — it retires on use
   renderSaintsPanel();
 });
+// ---- Compact-layout chip sheet (v429) ----
+// Only reachable in the short-viewport layout, where .spChipBand is the only visible control
+// (see its CSS). The class lives on the panel so the CSS can hide the band and raise the sheet
+// together; at full height the band is display:none and none of this is ever triggered.
+const spChipBand = document.getElementById('spChipBand');
+function setSpChipsOpen(on){
+  const panel = document.getElementById('saintsPanel');
+  if(!panel) return;
+  panel.classList.toggle('chipsOpen', !!on);
+  const band = document.getElementById('spChipBand');
+  if(band) band.setAttribute('aria-expanded', on ? 'true' : 'false');
+}
+// Elements are looked up here rather than closed over from consts above: both of these are
+// called from renderSaintsPanel()/openSaintsPanel(), which are defined earlier in the file, so
+// a const declared down here would sit in its temporal dead zone for any call that ran first.
+function syncSpChipBand(){
+  const label = document.getElementById('spChipBandLabel');
+  if(!label) return;
+  const active = document.querySelector('#spChips .spChip.active span:last-child');
+  label.textContent = active ? active.textContent : 'All';
+}
+if(spChipBand) spChipBand.addEventListener('click', () => setSpChipsOpen(true));
+// Touching the list while the sheet is up dismisses it, the same way tapping outside any other
+// sheet in the app does — without this the sheet would sit over the rows it's meant to filter.
+spListEl.addEventListener('pointerdown', () => setSpChipsOpen(false), {passive:true});
 document.querySelectorAll('.spCol').forEach(btn => {
   btn.addEventListener('click', () => { spSort = btn.dataset.sort; renderSaintsPanel(); });
 });
