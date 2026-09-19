@@ -1,6 +1,6 @@
 <!--
-VERSION: 430
-DATE: 2026-09-19T11:40:00-05:00
+VERSION: 431
+DATE: 2026-09-19T12:10:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,27 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v431 — 2026-09-19
+
+**Ask:**
+- Center the pill under the category word itself, tightly spaced.
+- Bring the search box down so it is vertically centered against the category/pill pair.
+- Take the panel all the way to the top, and move "Catholic Timeline" right so it stays visible
+  while the panel is open.
+
+**Implementation:**
+- `.spChipPillRow` moved inside `.spTitleWrap`, which becomes a centered flex column in compact
+  mode (`gap:3px`) — so the pill centers on the category word rather than on the panel, and the
+  two read as one unit.
+- `.panelHead` gets an explicit `align-items:center`, which puts the search box and the × on the
+  vertical midline of the title+pill stack instead of level with the title alone.
+- Compact `.saintsPanel` top `46px + safe-area` -> 0 and max-height -> `100vh`; rounded right
+  corners unchanged.
+- The panel now covers the header's left end, so `body.saintsPanelOpen h1` translates the app
+  title right by half the panel's width, on the same easing curve and duration as the panel's own
+  slide so the two move together. The class is toggled unconditionally in `openSaintsPanel()`/
+  `closeSaintsPanel()`; only the compact media query has a rule for it, so it is inert elsewhere.
+
 ## v430 — 2026-09-19
 
 **Ask:**
@@ -757,20 +778,34 @@ CHANGELOG:END
     /* Subtitle out, search up onto the title row between the title and the × (order 0/1/2),
        with its own left gap standing in for the padding the wrapped line used to have. */
     .saintsPanel .spTitleSecond{display:none;}
-    .saintsPanel .spTitleWrap{flex:0 0 auto;}
+    .saintsPanel .spTitleWrap{
+      flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px;
+    }
     .saintsPanel .panelHead .spSearchWrap{order:1; flex:1 1 auto; margin:0 0 0 14px; min-width:0;}
-    .saintsPanel .panelHead{padding-bottom:0; flex-wrap:nowrap;}
-    /* v430: the panel ran from a 22px inset to 78px short of the viewport foot, both of which
-       were dead space here. It now starts tight under the app header and runs to the very
-       bottom of the window, keeping its rounded right corners. */
+    /* align-items:center on .panelHead puts the search box and the × on the vertical midline of
+       the title+pill stack rather than level with the title alone. */
+    .saintsPanel .panelHead{padding-bottom:0; flex-wrap:nowrap; align-items:center;}
+    /* v431: the panel started 46px down and stopped 78px short of the foot, both dead space in
+       a short window. It now covers the full height of the screen, keeping its rounded right
+       corners. The app's own title is moved clear of it below so it stays readable. */
     .saintsPanel{
-      padding:10px 0 0;
-      max-height:calc(100vh - 46px - env(safe-area-inset-top));
+      top:0; padding:10px 0 0;
+      max-height:100vh;
     }
     .saintsPanel .panelTitle{font-size:22px;}
+    .spChipPillRow{display:flex; justify-content:center; flex:0 0 auto;}
 
-    /* The filter pill, centered under the title and tight to it. */
-    .spChipPillRow{display:flex; justify-content:center; flex:0 0 auto; padding:6px 22px 8px;}
+    /* The panel now starts at y=0 and covers the header's left end, so "Catholic Timeline"
+       slides right of the panel's edge while it is open rather than sitting underneath it.
+       Transition matches the panel's own slide so the two move together. */
+    body.saintsPanelOpen h1{
+      transform:translateX(calc(min(410px, 95vw) / 2));
+      transition:transform .48s cubic-bezier(.32,.72,.28,1);
+    }
+    h1{transition:transform .48s cubic-bezier(.32,.72,.28,1);}
+    @media (prefers-reduced-motion: reduce){
+      h1, body.saintsPanelOpen h1{transition:none;}
+    }
 
     /* The chip bar becomes a sheet that rises from the very bottom edge of the panel. It is
        taken out of flow so the list keeps the height the bar used to occupy; the pill above
@@ -3205,6 +3240,17 @@ CHANGELOG:END
     <div class="panelHead">
       <div class="spTitleWrap">
         <span class="panelTitle"><span id="spTitleFirst">Saints</span><em class="spTitleSecond" id="spTitleSecond"></em></span>
+        <!-- v430: only ever visible in the compact (short-viewport) layout, where the chip bar
+             costs more rows than it's worth. Nested inside .spTitleWrap so it centers under the
+             category word itself, not the panel. It names the current filter and raises the bar
+             on tap; while the bar is up this is hidden, since the bar is then what shows the
+             selection. Hidden entirely at full height. -->
+        <div class="spChipPillRow">
+          <button class="spChipBand" id="spChipBand" type="button" aria-expanded="false" aria-controls="spChips">
+            <span id="spChipBandLabel">All</span>
+            <svg class="spChipBandArrow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 8l7 8H5z"/></svg>
+          </button>
+        </div>
       </div>
       <!-- v429: the search box lives INSIDE .panelHead on this panel only, so the compact
            layout can pull it up onto the title row between the title and the ×. At full height
@@ -3217,16 +3263,6 @@ CHANGELOG:END
       </div>
       <button class="panelClose" id="spClose" aria-label="Close saints list">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
-      </button>
-    </div>
-    <!-- v430: only ever visible in the compact (short-viewport) layout, where the chip bar
-         costs more rows than it's worth. Sits directly under the title, naming the current
-         filter and raising the bar on tap; while the bar is up this is hidden, since the bar
-         itself is then what shows the selection. Hidden entirely at full height. -->
-    <div class="spChipPillRow">
-      <button class="spChipBand" id="spChipBand" type="button" aria-expanded="false" aria-controls="spChips">
-        <span id="spChipBandLabel">All</span>
-        <svg class="spChipBandArrow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 8l7 8H5z"/></svg>
       </button>
     </div>
     <div class="spHead">
@@ -4202,7 +4238,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v430';
+const APP_VERSION = 'v431';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -14988,6 +15024,7 @@ function openSaintsPanel(){
   });
   saintsPanel.classList.add('open');
   spScrim.classList.add('open');
+  document.body.classList.add('saintsPanelOpen'); // see closeSaintsPanel for what reads this
   setSpChipsOpen(false); // never inherit a raised sheet from the previous open
   syncSpChipBand();
   renderSaintsPanel();
@@ -14999,6 +15036,10 @@ function closeSaintsPanel(){
   spLastState = {sort: spSort, filter: spFilter, scrollTop: spListEl.scrollTop};
   saintsPanel.classList.remove('open');
   spScrim.classList.remove('open');
+  // v431: only the compact layout's CSS acts on this class (it slides the app title clear of a
+  // panel that now reaches y=0); setting it unconditionally keeps the two states in step at any
+  // height, and costs nothing where no rule matches it.
+  document.body.classList.remove('saintsPanelOpen');
 }
 // ---- About panel: reads db.entries just like everything else (see #aboutPanel markup above) ----
 // "About" articles are ordinary entries with a new type, t:"i" (info) — not a separate table,
