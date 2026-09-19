@@ -2591,15 +2591,26 @@
       "type": "sentence-reword",
       "entityId": "coronation-of-charlemagne-800",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Coronation of Charlemagne",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "coronation-of-charlemagne-800",
+        "name": "Coronation of Charlemagne",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-19T10:35:28.265Z",
-      "updatedAt": "2026-09-19T10:36:27.363Z",
+      "updatedAt": "2026-09-19T10:36:52.303Z",
       "error": null
     },
     {
@@ -2832,6 +2843,35 @@
       "error": null,
       "createdAt": "2026-09-19T10:36:47.288Z",
       "updatedAt": "2026-09-19T10:36:47.288Z"
+    },
+    {
+      "id": "task-sentence-reword-coronation-of-charlemagne-800-1789814212303-7751",
+      "type": "sentence-reword",
+      "entityId": "coronation-of-charlemagne-800",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Coronation of Charlemagne",
+      "payload": {},
+      "result": {
+        "name": "Coronation of Charlemagne",
+        "patches": [
+          [
+            "article",
+            "The assembled crowd is recorded as having acclaimed him at once:<blockquote>\"To Charles, the most pious Augustus, crowned by God, to our great and pacific emperor life and victory!\"</blockquote> By this act, in the Church's own understanding, the Roman Empire in the West was revived after more than three centuries.",
+            "U",
+            "The assembled crowd is recorded as having acclaimed him at once:<blockquote>\"To Charles, the most pious Augustus, crowned by God, to our great and pacific emperor life and victory!\"</blockquote> By this act, in the Church's own understanding, the Roman Empire in the West was revived. This followed more than three centuries."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-19T10:36:52.303Z",
+      "updatedAt": "2026-09-19T10:36:52.303Z"
     }
   ]
 }
