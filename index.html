@@ -1,6 +1,6 @@
 <!--
-VERSION: 431
-DATE: 2026-09-19T12:10:00-05:00
+VERSION: 432
+DATE: 2026-09-19T12:35:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,25 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v432 — 2026-09-19
+
+**Ask:**
+- The All/Feast view reads "Saint's" in the compact layout — drop the possessive.
+- Point the pill arrow down and make it slightly larger.
+- The article overlay runs the full width of the screen; make it 40% narrower, centered.
+
+**Implementation:**
+- Compact hides the italic second half of the title, which left "Saint's Feast Day" as a bare,
+  dangling "Saint's". `renderSaintsPanel()` now wraps only the apostrophe in a `.spPoss` span,
+  which the compact media query drops — so the word reads "Saints" there and the full-height
+  title is byte-identical to before. One string, no second copy to keep in step. Verified across
+  all five title variants.
+- `.spChipBandArrow` path flipped to a down triangle, 13px -> 16px.
+- `.artwrap` max-width `720px` -> `min(720px, max(60vw, 340px))`: 40% narrower and still centered,
+  with a 340px floor so it doesn't collapse to a column on a narrow portrait phone, and the old
+  720px still acting as the ceiling on a wide desktop window. `#manage .artwrap`'s 900px override
+  is untouched.
+
 ## v431 — 2026-09-19
 
 **Ask:**
@@ -793,6 +812,7 @@ CHANGELOG:END
       max-height:100vh;
     }
     .saintsPanel .panelTitle{font-size:22px;}
+    .saintsPanel .spPoss{display:none;} /* see renderSaintsPanel — turns "Saint's" into "Saints" */
     .spChipPillRow{display:flex; justify-content:center; flex:0 0 auto;}
 
     /* The panel now starts at y=0 and covers the header's left end, so "Catholic Timeline"
@@ -840,7 +860,7 @@ CHANGELOG:END
     font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
     box-shadow:0 2px 8px rgba(20,25,40,.18);
   }
-  .spChipBandArrow{width:13px; height:13px; flex:0 0 auto; opacity:.9;}
+  .spChipBandArrow{width:16px; height:16px; flex:0 0 auto; opacity:.9;}
 
   /* ---- Generic Browse panel: Persecutions / Eucharistic Miracles / Events -----------------
      Same left-slide-panel mechanics as .saintsPanel/.spScrim (mirrored, same z-index band,
@@ -2027,7 +2047,11 @@ CHANGELOG:END
   .overlay.expanding{transition:transform .78s cubic-bezier(.22,.61,.36,1);}
   /* Flick dismissal: fast, decelerating exit that matches the force of the gesture. */
   .overlay.flick{transition:transform var(--flickMs, 190ms) cubic-bezier(.3,.8,.4,1);}
-  .artwrap{max-width:720px; margin:0 auto; padding:18px 20px 70px; position:relative;}
+  /* v432: was a flat 720px cap, which on a phone meant the story ran the full width of the
+     screen. Now 60% of the viewport — 40% narrower, still centered — with a 340px floor so it
+     stays readable on a narrow portrait phone rather than collapsing to a column, and the old
+     720px still acting as the ceiling on a wide desktop window. */
+  .artwrap{max-width:min(720px, max(60vw, 340px)); margin:0 auto; padding:18px 20px 70px; position:relative;}
   .artBodyClone{position:absolute; top:0; left:0; width:100%; pointer-events:none;}
   .artBodyClone .artSticky, .artBodyClone .artPlayerWrap{position:static;}
   .artback{
@@ -3248,7 +3272,7 @@ CHANGELOG:END
         <div class="spChipPillRow">
           <button class="spChipBand" id="spChipBand" type="button" aria-expanded="false" aria-controls="spChips">
             <span id="spChipBandLabel">All</span>
-            <svg class="spChipBandArrow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 8l7 8H5z"/></svg>
+            <svg class="spChipBandArrow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 16 5 8h14z"/></svg>
           </button>
         </div>
       </div>
@@ -4238,7 +4262,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v431';
+const APP_VERSION = 'v432';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -14886,13 +14910,14 @@ function renderSaintsPanel(){
   // Split on the first space: the first word ("Saints"/"Saint's") stays plain bold black, the
   // rest becomes the italic gold second part.
   const spaceIdx = titlePhrase.indexOf(' ');
-  if(spaceIdx === -1){
-    spTitleFirstEl.textContent = titlePhrase;
-    spTitleSecondEl.textContent = '';
-  } else {
-    spTitleFirstEl.textContent = titlePhrase.slice(0, spaceIdx);
-    spTitleSecondEl.textContent = ' ' + titlePhrase.slice(spaceIdx + 1);
-  }
+  const firstWord = spaceIdx === -1 ? titlePhrase : titlePhrase.slice(0, spaceIdx);
+  spTitleSecondEl.textContent = spaceIdx === -1 ? '' : ' ' + titlePhrase.slice(spaceIdx + 1);
+  // v432: the compact layout hides the italic second half, which left "Saint's Feast Day"
+  // reading as a bare, dangling "Saint's". Only the apostrophe is wrapped, so compact CSS can
+  // drop that one character and the word reads "Saints" — no second copy of the string to keep
+  // in step, and the full-height title is byte-identical to before. Source strings are the
+  // fixed map above, never user data, so innerHTML is safe here.
+  spTitleFirstEl.innerHTML = firstWord.replace(/['\u2019](?=s$)/, '<span class="spPoss">$&</span>');
   // Feast order genuinely loops the calendar (Dec -> Jan) instead of stopping dead at
   // whatever happens to be first/last in the list — but only for the true, complete calendar:
   // the All filter with no search text typed. Any chip filter (Doctors/Martyrs) or Patron mode
