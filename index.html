@@ -1,6 +1,6 @@
 <!--
-VERSION: 433
-DATE: 2026-09-19T13:05:00-05:00
+VERSION: 435
+DATE: 2026-09-19T14:10:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,37 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v435 — 2026-09-19
+
+**Ask:**
+- Slow the timeline travel animation down a little more.
+
+**Implementation:**
+- `animateScroll()`'s duration multiplier 2 -> 2.5 (v420 had doubled it from the original; this
+  is a smaller further step, not another doubling). Range is now roughly 1050-2875ms by distance,
+  up from 840-2300ms.
+
+## v434 — 2026-09-19
+
+**Ask:**
+- Give every category a search box, with recent searches kept separate per category.
+
+**Implementation:**
+- Browse panel gains the same search shell as Saints (`#brSearch`/`#brSearchClear`/`#brRecentBox`),
+  inside `.panelHead` for the same reason — the compact layout pulls it onto the title row. The
+  `.listPanel .panelHead .spSearchWrap` layout rules were Saints-scoped and are now shared, so
+  Browse's compact header is title + pill + search + × like Saints', answering v433's open
+  question: no empty space and no Browse-only special case.
+- `brRows()` filters on the entry name OR the category's own last-column value (`cfg.lastValue`),
+  so "France" in Councils and "Poland" in Eucharistic Miracles match by the same text visible in
+  the list. Verified across name and region matching.
+- Recents are keyed per category — `ct-browse-recent-searches-c|p|u|m|e` — so Councils' history
+  never appears while browsing Persecutions, and none of them mix with the Saints list
+  (`ct-saints-recent-searches`) or the timeline's. Same promote-don't-duplicate and cap-at-5
+  behaviour, and the term is pushed on a row tap, matching Saints.
+- Placeholder is set per category on open ("Search councils", "Search persecutions", ...).
+  Search clears on open; sort/filter/scroll still carry over as before.
+
 ## v433 — 2026-09-19
 
 **Ask:**
@@ -812,12 +843,12 @@ CHANGELOG:END
      The breakpoint is height, not orientation: 760px is roughly where the chrome stops leaving
      ten rows. Phones in portrait (844px+) and tablets stay on the full layout; landscape phones
      and short desktop windows get this one. */
-  .saintsPanel .panelHead{flex-wrap:wrap;}
-  .saintsPanel .spTitleWrap{flex:1 1 auto;}
-  .saintsPanel .panelClose{order:2;}
+  .listPanel .panelHead{flex-wrap:wrap;}
+  .listPanel .spTitleWrap{flex:1 1 auto;}
+  .listPanel .panelClose{order:2;}
   /* Full height: the search box still wraps to its own full-width line under the title, which
      is what it has always looked like — being inside .panelHead now changes nothing here. */
-  .saintsPanel .panelHead .spSearchWrap{order:3; flex:0 0 100%; margin:14px 0 0;}
+  .listPanel .panelHead .spSearchWrap{order:3; flex:0 0 100%; margin:14px 0 0;}
   .spChipPillRow{display:none;} /* compact layouts turn this on — see the media block below */
 
 
@@ -3426,6 +3457,15 @@ CHANGELOG:END
           </button>
         </div>
       </div>
+      <!-- v434: same shell as the Saints box, inside .panelHead for the same reason — the
+           compact layout pulls it onto the title row. Placeholder is set per category by
+           renderBrowsePanel(). Its recents live under their own per-category storage key. -->
+      <div class="spSearchWrap">
+        <svg class="spSearchIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8"/></svg>
+        <input type="text" class="spSearch" id="brSearch" placeholder="Search" autocomplete="off">
+        <button class="spSearchClear" id="brSearchClear" aria-label="Clear search" type="button">×</button>
+        <div class="spRecentBox" id="brRecentBox"></div>
+      </div>
       <button class="panelClose" id="brClose" aria-label="Close list">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
       </button>
@@ -4309,7 +4349,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v433';
+const APP_VERSION = 'v435';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4821,7 +4861,9 @@ function animateScroll(toLeft, toTop, done, opts){
   // v420: doubled overall — the ease curve below was already a slow-start/slow-end cubic,
   // but at the old ~420-1150ms range that shape barely registered; twice the time makes the
   // easing actually visible instead of reading as a near-linear snap.
-  const dur = (Math.min(1150, Math.max(420, 300 + dist * 0.32)) * 2) * (opts.durationScale || 1);
+  // v435: another 25% on top of that, at Tom's request ("a little more" — a smaller nudge than
+  // v420's doubling, not another doubling). Range is now roughly 1050-2875ms by distance.
+  const dur = (Math.min(1150, Math.max(420, 300 + dist * 0.32)) * 2.5) * (opts.durationScale || 1);
   const t0 = (window.performance && performance.now) ? performance.now() : Date.now();
   const ease = p => (p < 0.5) ? 4*p*p*p : 1 - Math.pow(-2*p + 2, 3)/2;
   function step(now){
@@ -14704,6 +14746,62 @@ function spRenderRecent(){
   });
   spRecentBox.style.display = 'block';
 }
+// ---- Recent search terms for the Browse panel (v434) ----
+// Same shape as spGetRecent/spPushRecent/spRemoveRecent above, but the key carries the category
+// (`ct-browse-recent-searches-c`, `-p`, `-u`, `-m`, `-e`), so Councils' history never shows up
+// while browsing Persecutions, and none of them mix with the Saints list or the timeline's.
+const BR_RECENT_MAX = 5;
+function brRecentKey(){ return 'ct-browse-recent-searches-' + (brType || 'x'); }
+function brGetRecent(){
+  try{ const a = JSON.parse(localStorage.getItem(brRecentKey()) || '[]'); return Array.isArray(a) ? a.slice(0, BR_RECENT_MAX) : []; }
+  catch(e){ return []; }
+}
+function brPushRecent(term){
+  term = String(term || '').trim();
+  if(!term) return;
+  const list = brGetRecent().filter(t => fold(t) !== fold(term)); // re-picking promotes, never duplicates
+  list.unshift(term);
+  try{ localStorage.setItem(brRecentKey(), JSON.stringify(list.slice(0, BR_RECENT_MAX))); }catch(e){}
+}
+function brRemoveRecent(term){
+  const list = brGetRecent().filter(t => fold(t) !== fold(term));
+  try{ localStorage.setItem(brRecentKey(), JSON.stringify(list)); }catch(e){}
+}
+function brRenderRecent(){
+  const box = document.getElementById('brRecentBox');
+  const input = document.getElementById('brSearch');
+  const clearBtn = document.getElementById('brSearchClear');
+  if(!box) return;
+  const list = brGetRecent();
+  box.innerHTML = '';
+  if(!list.length){ box.style.display = 'none'; return; }
+  const head = document.createElement('div');
+  head.className = 'spRecentHead';
+  head.textContent = 'Recent searches';
+  box.appendChild(head);
+  list.forEach(term => {
+    const r = document.createElement('div');
+    r.className = 'spRecent';
+    r.innerHTML = '<span class="spRecentClock">\u21BA</span><span class="spRecentName">' + esc(term) + '</span>' +
+      '<button class="spRecentX" type="button" aria-label="Remove &quot;' + esc(term) + '&quot; from recent searches">\u00D7</button>';
+    r.addEventListener('click', () => {
+      brQuery = term;
+      input.value = term;
+      clearBtn.classList.add('show');
+      box.style.display = 'none';
+      renderBrowsePanel();
+    });
+    // Dropping a term must not also run it, so the button swallows the row's click.
+    r.querySelector('.spRecentX').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      brRemoveRecent(term);
+      brRenderRecent(); // redraw in place; hides itself once the last one goes
+      input.focus();
+    });
+    box.appendChild(r);
+  });
+  box.style.display = 'block';
+}
 function spRows(){
   const q = spNormalize(spQuery);
   const base = db.entries.filter(e => e.t === 's' && (reviewMode || !isReview(e)));
@@ -15531,7 +15629,7 @@ const brThumbTrack = document.getElementById('brThumbTrack');
 const brThumb = document.getElementById('brThumb');
 const brThumbLabel = document.getElementById('brThumbLabel');
 const brListWrapEl = document.getElementById('brListWrap');
-let brType = null, brSort = 'year', brFilter = 'all';
+let brType = null, brSort = 'year', brFilter = 'all', brQuery = '';
 // Remembers sort + filter + scroll position per type independently (same idea as Saints'
 // spLastState), so switching between, say, Persecutions and Events and back doesn't reset
 // either one — but only within BROWSE_STATE_TTL_MS of the last time that type's panel was
@@ -15544,9 +15642,14 @@ const BROWSE_STATE_TTL_MS = 30 * 60 * 1000;
 function brRows(){
   const cfg = BROWSE_CONFIGS[brType];
   const chip = cfg.chips ? cfg.chips.find(c => c.id === brFilter) : null;
+  // v434: matches the entry name and whatever the category's own last column shows (region,
+  // country, ecumenical rank...), so searching "France" in Councils or "Poland" in Eucharistic
+  // Miracles finds rows by the same text the reader can actually see in the list.
+  const q = spNormalize(brQuery);
   return db.entries
     .filter(e => e.t === brType && (reviewMode || !isReview(e)))
     .filter(e => !chip || chip.test(e))
+    .filter(e => !q || spNormalize(e.n).includes(q) || spNormalize(cfg.lastValue(e) || '').includes(q))
     .sort(brComparator(cfg, brSort));
 }
 function brThumbEligible(){
@@ -15751,6 +15854,12 @@ function openBrowsePanel(type){
   if(saved && !fresh) delete brLastState[type];
   brSort = fresh ? saved.sort : 'year';
   brFilter = fresh ? saved.filter : 'all';
+  // Search always starts cleared, same as the Saints panel; sort/filter/scroll still carry over.
+  brQuery = '';
+  brSearchInput.value = '';
+  brSearchClearBtn.classList.remove('show');
+  brRecentBoxEl.style.display = 'none';
+  brSearchInput.placeholder = 'Search ' + String(BROWSE_CONFIGS[type].title || '').toLowerCase();
   setChipsOpen('br', false); // never inherit a raised sheet from the previous open
   renderBrowsePanel();
   browsePanel.classList.add('open');
@@ -15782,6 +15891,32 @@ document.getElementById('brChips').addEventListener('click', (e) => {
   if(brFilter === 'scientific') brSort = 'year';
   renderBrowsePanel();
 });
+// ---- Browse search (v434), mirroring the Saints box's behaviour exactly ----
+const brSearchInput = document.getElementById('brSearch');
+const brSearchClearBtn = document.getElementById('brSearchClear');
+const brRecentBoxEl = document.getElementById('brRecentBox');
+brSearchInput.addEventListener('input', (e) => {
+  brQuery = e.target.value;
+  brSearchClearBtn.classList.toggle('show', brQuery.length > 0);
+  brRecentBoxEl.style.display = 'none'; // hide the recent list once typing starts
+  renderBrowsePanel();
+});
+brSearchInput.addEventListener('focus', () => {
+  if(!brSearchInput.value.trim()) brRenderRecent();
+});
+brSearchInput.addEventListener('blur', () => {
+  // Short delay so a tap on a recent-search row (or its ×) still registers before the dropdown
+  // disappears out from under it.
+  setTimeout(() => { brRecentBoxEl.style.display = 'none'; }, 150);
+});
+brSearchClearBtn.addEventListener('click', () => {
+  brQuery = '';
+  brSearchInput.value = '';
+  brSearchClearBtn.classList.remove('show');
+  renderBrowsePanel();
+  brSearchInput.focus();
+  brRenderRecent();
+});
 const brChipBandEl = document.getElementById('brChipBand');
 if(brChipBandEl) brChipBandEl.addEventListener('click', () => setChipsOpen('br', true));
 // Touching the list while the sheet is up dismisses it — otherwise it sits over the rows it
@@ -15800,6 +15935,9 @@ brListEl.addEventListener('click', (e) => {
   if(!row) return;
   const d = db.entries.find(x => x.id === row.dataset.id);
   if(!d) return;
+  // Tapping a row while a search is active is "picking a result" — same trigger point the
+  // Saints list uses, storing the raw typed term under this category's own recents key.
+  if(brQuery.trim()) brPushRecent(brQuery);
   closeBrowsePanel();
   centerAndFocus(d, {onDone: () => showDetail(d)});
 });
