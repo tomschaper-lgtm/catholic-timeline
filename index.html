@@ -1,6 +1,6 @@
 <!--
-VERSION: 435
-DATE: 2026-09-19T14:10:00-05:00
+VERSION: 438
+DATE: 2026-09-19T15:40:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,58 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v438 — 2026-09-19
+
+**Ask:**
+- Era label edge padding (the min gap from the screen edge before a label starts riding off, per
+  v425) should be 3x what it currently is — "Age of Martyrs" was reading flush against the edge.
+
+**Implementation:**
+- `ERA_LABEL_MARGIN` 8 -> 24. Single constant, used symmetrically on both edges in
+  `updateEraLabels()`, so both sides got wider at once.
+
+## v437 — 2026-09-19
+
+**Ask:**
+- Narrow the article box by 40% too, not just the fact box — the outer story container, still
+  landscape only.
+
+**Implementation:**
+- `.artwrap` gets its own landscape-only rule: `max-width:432px` (40% off its 720px base),
+  still centered by the `margin:0 auto` it already had. Portrait untouched.
+- `.factbox`'s separate 60%-of-parent cut from v433 was dropped in favor of filling 100% of the
+  now-narrower `.artwrap` — stacking both independent 40% cuts would have compounded to roughly
+  260px, too narrow to read a label and its value side by side.
+
+## v436 — 2026-09-19
+
+**Ask:**
+- Saints search box: ignore "st", "st.", "Saint", "Saints" as noise words.
+- "ro be" should find Robert Bellarmine — space-separated fragments, all required, each
+  matching anywhere (not as one contiguous substring).
+- Apply the fragment matching to all search boxes.
+
+**Implementation:**
+- New shared `SEARCH_STOPWORDS` ('st','saint','saints','sts' — 'sts' added alongside Tom's four
+  since `spDisplayName()` already treats it as the same honorific for display), `searchFragments()`
+  and `fragmentsMatchAny()`, used by both `spRows()` and `brRows()`. Replaces their old
+  `spNormalize(e.n).includes(q)` whole-string check, which required the ENTIRE query as one
+  contiguous substring — "ro be" never matched "Robert Bellarmine" there before this.
+- Real prior bug this fixes: entries store the name as "St. ___" literally, so a reader who
+  typed "Saint" (spelled out, as many naturally would) got zero results — "saint" never appears
+  as a substring of "st. ___". Verified: "saint augustine"/"st augustine" and "saints cosmas"
+  now both find their entries; "st"/"saint"/"st." typed alone now fall back to showing
+  everything (frags empty) rather than matching nothing.
+- The timeline's own `#tlSearch` already did per-fragment AND-substring matching (each parsed
+  term independently required, found anywhere in the field) — that part didn't need changing.
+  Only the stopword drop was missing: `parseSearchQuery()` now skips a plain (unquoted,
+  non-excluded) token via `isStopwordTerm()`, which tolerates the trailing period `fold()`
+  leaves on "St." that `spNormalize()` would otherwise strip. A quoted `"saint"` is a deliberate
+  whole-word search and is left alone.
+- Left out of this pass, pending confirmation: the Manage-side search boxes (`#mSearch`,
+  `#mfSearch`, `#logSearch`, `#lpSearch`) — CMS/owner tools rather than the three reader-facing
+  list searches this was actually about. Say if any of those should get the same treatment.
+
 ## v435 — 2026-09-19
 
 **Ask:**
@@ -2448,12 +2500,15 @@ CHANGELOG:END
   .lpBtnOk:disabled{opacity:.35; cursor:default;}
   /* Quick Facts panel */
   .factbox{border:1px solid rgba(201,165,66,.4); border-radius:10px; background:rgba(201,165,66,.05); padding:14px 18px; margin:22px 0;}
-  /* v433: in landscape the article column is wide enough that a full-width facts box leaves a
-     lot of space between a short label and its value. 40% narrower and centered there only —
-     portrait keeps the full width, where there is none to spare. The article column itself
-     (.artwrap) is unchanged. */
+  /* v437: v433 narrowed just the fact box, 40% off its 720px parent, landscape only. Tom then
+     asked for the outer article column ("the story") narrowed the same way too — so .artwrap
+     itself now also gets 40% off in landscape (720px -> 432px, still centered by its existing
+     margin:0 auto). With the PARENT now already 432px, the fact box goes back to filling 100% of
+     it rather than keeping its own separate 60% cut — stacking both would compound to roughly
+     260px, too narrow for label/value pairs to read comfortably side by side. Portrait is
+     untouched either way, where there is no width to spare. */
   @media (orientation: landscape){
-    .factbox{width:60%; margin-left:auto; margin-right:auto;}
+    .artwrap{max-width:432px;}
   }
   /* The amber theme here echoes the review-hold styling used on the timeline dashed-ring icon
      (.ev.review) and Manage list "Pending" tag, so a reviewer sees the same visual language
@@ -4349,7 +4404,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v435';
+const APP_VERSION = 'v438';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5201,7 +5256,7 @@ viewport.addEventListener('scroll', scheduleCenterYearBadge, {passive:true});
 // currently on screen (clamped to the era's own left/right edges via the intersection below),
 // rather than pinned to a flat offset from the screen edge — see .era span's CSS comment for
 // what this replaces and why.
-const ERA_LABEL_MARGIN = 8; // matches the old sticky left/right offset
+const ERA_LABEL_MARGIN = 24; // v438: 3x the original 8px, at Tom's request — "Age of Martyrs" was reading flush against the screen edge
 function updateEraLabels(){
   const viewLeft = viewport.scrollLeft + ERA_LABEL_MARGIN;
   const viewRight = viewport.scrollLeft + viewport.clientWidth - ERA_LABEL_MARGIN;
@@ -5685,6 +5740,33 @@ function shortName(n, t){
   return s;
 }
 function fold(s){ return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+// ---- Shared search-fragment matching (v436) ----
+// "St." prefixes most saint names literally in the data (see spDisplayName's comment) — so
+// typing it as a search word was either meaningless (matching nearly everything) or actively
+// wrong (excluding a real result whose name happens not to carry the prefix, or matching nothing
+// at all for a reader who typed out "Saint" in full, since that spelled-out word never appears
+// in the stored name). Dropped as noise wherever a search box tokenizes its query into fragments,
+// rather than required as a literal substring. 'sts' added alongside Tom's four (st/st./saint/
+// saints) since spDisplayName already treats it as the same honorific for display purposes.
+const SEARCH_STOPWORDS = new Set(['st', 'saint', 'saints', 'sts']);
+// spNormalize (defined further down, used here via forward reference — both are plain function
+// declarations in the same script, so hoisting makes the call order safe) lowercases and strips
+// punctuation, so "St." and "St" fold to the same token before the stopword check runs.
+function searchFragments(query){
+  return spNormalize(query).split(' ').filter(w => w && !SEARCH_STOPWORDS.has(w));
+}
+// Every fragment must appear as a substring in at least one of the given (already-normalized)
+// haystacks — not necessarily the same one, so a fragment matching a region and another matching
+// the name both count. An empty fragment list (nothing left after stopwords, or nothing typed)
+// matches everything, same as an empty query always has.
+function fragmentsMatchAny(fragments, haystacks){
+  if(!fragments.length) return true;
+  return fragments.every(f => haystacks.some(h => h.includes(f)));
+}
+// parseSearchQuery below works on fold()ed tokens, which — unlike spNormalize — keep punctuation
+// (fold("St.") is "st.", not "st"), so "St." needs its own trailing-period-tolerant check rather
+// than reusing SEARCH_STOPWORDS' bare-word membership test directly.
+function isStopwordTerm(q){ return SEARCH_STOPWORDS.has(String(q).replace(/\.+$/, '')); }
 // fold() is fine for yes/no matching but NOT for anything that maps a match position back onto
 // the original text: NFD decomposition turns "é" into two code units, so every index after an
 // accent is shifted. This variant folds character by character and keeps the result the same
@@ -5778,6 +5860,9 @@ function parseSearchQuery(text){
     }
     const q = fold(raw).trim().replace(/\s+/g, ' ');
     if(!q) continue;
+    // A quoted "saint" is a deliberate whole-word search and is left alone; only a bare, plain
+    // word gets dropped as noise — see SEARCH_STOPWORDS above.
+    if(!whole && !neg && isStopwordTerm(q)) continue;
     (neg ? excludes : terms).push({q: q, whole: whole});
   }
   return {terms: terms, excludes: excludes};
@@ -14803,16 +14888,16 @@ function brRenderRecent(){
   box.style.display = 'block';
 }
 function spRows(){
-  const q = spNormalize(spQuery);
+  const frags = searchFragments(spQuery);
   const base = db.entries.filter(e => e.t === 's' && (reviewMode || !isReview(e)));
   let out;
   if(spFilter === 'patron'){
     out = [];
     base.forEach(e => {
       spPatronsOf(e).forEach(p => {
-        const nameMatch = !q || spNormalize(e.n).includes(q);
-        const patronMatch = !q || spNormalize(p).includes(q);
-        if(q && !nameMatch && !patronMatch) return;
+        const nameMatch = fragmentsMatchAny(frags, [spNormalize(e.n)]);
+        const patronMatch = fragmentsMatchAny(frags, [spNormalize(p)]);
+        if(frags.length && !nameMatch && !patronMatch) return;
         // month/day are unused in Patron mode (no feast column shown) — 12/32 just keeps the
         // row shape consistent with the non-patron branch below.
         out.push({e: e, patron: p, month: 12, day: 32});
@@ -14822,7 +14907,7 @@ function spRows(){
     out = [];
     base
       .filter(spMatchesFilter)
-      .filter(e => !q || spNormalize(e.n).includes(q))
+      .filter(e => fragmentsMatchAny(frags, [spNormalize(e.n)]))
       .forEach(e => {
         const f = Array.isArray(e.facts) ? e.facts.find(x => x && x.label === 'Feast day') : null;
         const dates = f ? parseFeastDates(f.value) : [];
@@ -15645,11 +15730,13 @@ function brRows(){
   // v434: matches the entry name and whatever the category's own last column shows (region,
   // country, ecumenical rank...), so searching "France" in Councils or "Poland" in Eucharistic
   // Miracles finds rows by the same text the reader can actually see in the list.
-  const q = spNormalize(brQuery);
+  // v436: per-fragment AND matching with honorific stopwords dropped, same as Saints — see
+  // searchFragments()/fragmentsMatchAny() and SEARCH_STOPWORDS above.
+  const frags = searchFragments(brQuery);
   return db.entries
     .filter(e => e.t === brType && (reviewMode || !isReview(e)))
     .filter(e => !chip || chip.test(e))
-    .filter(e => !q || spNormalize(e.n).includes(q) || spNormalize(cfg.lastValue(e) || '').includes(q))
+    .filter(e => fragmentsMatchAny(frags, [spNormalize(e.n), spNormalize(cfg.lastValue(e) || '')]))
     .sort(brComparator(cfg, brSort));
 }
 function brThumbEligible(){
