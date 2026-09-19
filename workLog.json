@@ -2753,15 +2753,26 @@
       "type": "sentence-reword",
       "entityId": "our-lady-of-la-salette-1846",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Our Lady of La Salette",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "our-lady-of-la-salette-1846",
+        "name": "Our Lady of La Salette",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-19T10:35:28.265Z",
-      "updatedAt": "2026-09-19T10:36:27.363Z",
+      "updatedAt": "2026-09-19T10:37:06.282Z",
       "error": null
     },
     {
@@ -2985,6 +2996,35 @@
       "error": null,
       "createdAt": "2026-09-19T10:37:03.992Z",
       "updatedAt": "2026-09-19T10:37:03.992Z"
+    },
+    {
+      "id": "task-sentence-reword-our-lady-of-la-salette-1846-1789814226282-8802",
+      "type": "sentence-reword",
+      "entityId": "our-lady-of-la-salette-1846",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Our Lady of La Salette",
+      "payload": {},
+      "result": {
+        "name": "Our Lady of La Salette",
+        "patches": [
+          [
+            "article",
+            "She rose and spoke gently to them in French, urging them to come closer: \"Come, my children, do not be afraid, I am here to tell you great news.\" Throughout the long conversation that followed, tradition holds, the Lady wept continuously, even as she spoke.",
+            "U",
+            "She rose and spoke gently to them in French, urging them to come closer: “Come, my children, do not be afraid, I am here to tell you great news.” Throughout the long conversation that followed, tradition holds, the Lady wept continuously, even as she spoke."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-19T10:37:06.282Z",
+      "updatedAt": "2026-09-19T10:37:06.282Z"
     }
   ]
 }
