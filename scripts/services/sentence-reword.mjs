@@ -312,8 +312,21 @@ function looksRepetitive(text){
 // (`.</i>"` and `."</i>` are both legitimate), so all of them are stripped together before the
 // punctuation test rather than each being handled in a fixed position.
 const TRAILING_CLOSERS_RE = /(?:<\s*(?:\/\s*[a-zA-Z][^>]*|br\s*\/?)\s*>|[)\]"'\u201D\u2019\s])+$/;
+// FIXED 2026-09-19: a sentence/paragraph that legitimately ends partway through a bullet list
+// comes back as `…avoiding unlawful marriage or unchastity</li></ul>` — a properly, fully closed
+// list item, with no trailing period, because list items in this site's articles are never
+// punctuated like sentence prose. The punctuation test below has no way to know that, so every
+// such reply was rejected as "cut off" and retried three times at escalating token budgets, each
+// one failing identically for the same structural reason — a real, billed generation blamed on
+// truncation that never happened, permanently unfixable (same failure mode as the </blockquote>
+// case fixed above, different tag). A genuinely truncated response can't produce a balanced,
+// fully-closed </li> (optionally itself closed off by </ul>/</ol>) it never got to — so a trailing
+// one of those is accepted as complete on its own, independent of what precedes it.
+const TRAILING_LIST_CLOSE_RE = /<\/li>\s*(?:<\/(?:ul|ol)>\s*)*$/i;
 function looksComplete(text){
-  const stripped = String(text).trim().replace(TRAILING_CLOSERS_RE, '');
+  const trimmed = String(text).trim();
+  if(TRAILING_LIST_CLOSE_RE.test(trimmed)) return true;
+  const stripped = trimmed.replace(TRAILING_CLOSERS_RE, '');
   return /[.!?]$/.test(stripped);
 }
 
