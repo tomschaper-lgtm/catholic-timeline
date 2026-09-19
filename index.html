@@ -1,6 +1,6 @@
 <!--
-VERSION: 421
-DATE: 2026-09-19T06:06:13-05:00
+VERSION: 423
+DATE: 2026-09-19T07:05:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -102,7 +102,7 @@ CHANGES:
   }
   .hamBtn.glowPulse{ animation:hamGlowPulse 1.1s ease-in-out 4; }
   /* Once the reader actually opens the menu, the same idea is echoed on the row itself so
-     the eye lands right on "New Version Available" instead of having to hunt for it. */
+     the eye lands right on "New Version" instead of having to hunt for it. */
   @keyframes rowGlowPulse{
     0%,100%{ background:transparent; }
     50%{ background:rgba(232,205,126,.22); }
@@ -1134,13 +1134,16 @@ CHANGES:
     font-size:13.5px; line-height:1.55; color:#7C8598;
   }
   .pNote:empty{display:none;}
-  .pUpdateAction{
-    display:none; margin:0 22px 14px 76px; padding:10px 18px;
-    background:var(--panelBlue); color:#fff; border:none; border-radius:10px;
+  /* v422: was a full-width button on its own row below (.pUpdateAction) — moved inline, on the
+     same row as the label, in place of the version/chevron it replaces while pending (see
+     setPendingReload() below). Sized as a pill rather than the old full-row button since it
+     now only has to fill the trailing end of a row, not a whole line. */
+  .pUpdateInline{
+    display:none; flex:0 0 auto; padding:7px 16px;
+    background:var(--panelBlue); color:#fff; border-radius:8px;
     font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
-    font-size:15px; font-weight:600; text-align:center; cursor:pointer;
+    font-size:14px; font-weight:600; text-align:center; cursor:pointer;
   }
-  .pUpdateAction:active{opacity:.85;}
   .pNote:has(.pSteps){padding:0;}
   /* Instruction steps. The icons are drawn inline at text size so the reader is looking for
      the same shape they will see in Safari, rather than a description of it. */
@@ -1168,10 +1171,11 @@ CHANGES:
   .iconInline svg{width:100%; height:100%; display:block;}
 
 
-  /* The name is also the specimen: set in the article's face, scaling with the
-     chosen size, so the reader sees the size instead of reading a percentage. */
+  /* v422: font-family override removed at Tom's request so this label reads in the same
+     system-ui face as every other row (Offline Access, Owner Tools, etc.) instead of standing
+     out in the article's serif face. Still scales with the chosen size (font-size below), just
+     no longer in a different typeface while doing it. */
   .pSpecimen{
-    font-family:'EB Garamond',Georgia,serif;
     font-size:calc(17px * var(--txt)); line-height:1.2;
     transition:font-size .18s ease;
   }
@@ -1275,7 +1279,8 @@ CHANGES:
      version centers it directly in that visible slice, still bounded by the era's own edges
      (see updateEraLabels()), and gives up the center on its own as that slice narrows toward
      nothing near either edge — no separate "forced off screen" case needed for it. */
-  .era span{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:0 8px; white-space:nowrap;}
+  .era span{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:0 8px; white-space:nowrap; transition:opacity .22s ease;}
+  @media (prefers-reduced-motion: reduce){ .era span{transition:none;} }
   .axis{position:absolute; top:30px; height:28px; left:0; right:0; border-bottom:1px solid var(--gold); box-shadow:0 1px 0 rgba(232,205,126,.25);}
   .tick{position:absolute; bottom:0; height:8px; width:1px; background:var(--gold);}
   .tick.minor{height:5px; background:rgba(201,165,66,.5);}
@@ -2862,8 +2867,8 @@ CHANGES:
       <span class="pName">Check for Updates</span>
       <span class="pMeta" id="updateCur"></span>
       <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
+      <span class="pUpdateInline" id="updateActionBtn" style="display:none;">Update</span>
     </button>
-    <button type="button" class="pUpdateAction" id="updateActionBtn" style="display:none;">Update</button>
 
     <label class="pRow pSwitch" id="offlineRow">
       <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 18h16"/></svg></span>
@@ -3884,7 +3889,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v421';
+const APP_VERSION = 'v423';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -4732,6 +4737,17 @@ function updateEraLabels(){
     // currently-visible slice, and its center point tracks that slice as it scrolls.
     const visLeft = Math.max(eraLeft, viewLeft);
     const visRight = Math.min(eraRight, viewRight);
+    // v423: centering in the slice is only meaningful while the slice is actually wide enough to
+    // hold the label. An era entering from the left starts with a sliver of visible band, and
+    // centering a full-width name in a sliver put half of it off the screen edge — the name came
+    // in chopped mid-word ("GE OF THE FATHE") until the band grew past its own width. So the
+    // label only shows once its slice can hold it, and fades rather than popping (see .era span's
+    // opacity transition). Width is measured once per element and cached: offsetWidth forces
+    // layout, and this runs for every era on every scroll frame.
+    if(!span._lblW) span._lblW = span.offsetWidth;
+    const w = span._lblW;
+    const slice = visRight - visLeft;
+    span.style.opacity = slice >= w ? '' : '0';
     span.style.left = ((visLeft + visRight) / 2 - eraLeft) + 'px';
   });
 }
@@ -13992,7 +14008,7 @@ const hamBtn = document.getElementById('hamBtn');
 const hamMenu = document.getElementById('hamMenu');
 const hamScrim = document.getElementById('hamScrim');
 // Update-available glow: a few gold pulses on the hamburger once a new version is first seen,
-// and an echo on the "New Version Available" row the next time the panel is actually opened —
+// and an echo on the "New Version" row the next time the panel is actually opened —
 // each fires once per newly-detected version, never a standing glow. See checkVersion() and
 // testUpdateGlow() for where these get armed.
 let hamPulseDue = false, rowGlowDue = false;
@@ -15433,20 +15449,25 @@ refreshInstallUI();
 // existed and unchanged since.
 //
 // The check runs by itself whenever the panel is opened, so the row already reads "Up to Date"
-// or "New Version Available" before anything is pressed. As of v419 acting on that is a
-// dedicated Update button (#updateActionBtn) rather than an explanatory paragraph below the
-// row — shown only while a reload is actually pending, hidden otherwise. The fetch is no-store
-// so it cannot be answered from the very cache we are trying to see past.
+// or "New Version" before anything is pressed. As of v422 acting on that is a dedicated Update
+// pill inline on the same row (#updateActionBtn) rather than a separate row below it — shown
+// only while a reload is actually pending, hidden otherwise. The fetch is no-store so it cannot
+// be answered from the very cache we are trying to see past.
 const updateBtn = document.getElementById('updateBtn');
 const updateActionBtn = document.getElementById('updateActionBtn');
 const updateCur = document.getElementById('updateCur');
+const updateChev = updateBtn.querySelector('.pChev');
 const updateLabel = updateBtn.querySelector('.pName');
 if(updateCur) updateCur.textContent = APP_VERSION;
 let pendingReload = false, checking = false, lastCheckAt = 0;
 let announcedVersion = null; // the version string we've already glowed for, so a repeat check on the same pending version doesn't re-trigger it
+// v422: the pill now sits inline on the same row it used to sit below, in the spot the
+// version/chevron normally occupy — so showing it means hiding those two, not just itself.
 function setPendingReload(on){
   pendingReload = on;
-  updateActionBtn.style.display = on ? 'block' : 'none';
+  updateActionBtn.style.display = on ? 'inline-block' : 'none';
+  if(updateCur) updateCur.style.display = on ? 'none' : '';
+  if(updateChev) updateChev.style.display = on ? 'none' : '';
 }
 
 async function checkVersion(auto){
@@ -15467,7 +15488,7 @@ async function checkVersion(auto){
       updateLabel.textContent = 'Up to Date';
       setPendingReload(false);
     } else {
-      updateLabel.textContent = 'New Version Available';
+      updateLabel.textContent = 'New Version';
       if(updateCur) updateCur.textContent = m[1];
       setPendingReload(true);
       if(announcedVersion !== m[1]){
@@ -15485,10 +15506,9 @@ async function checkVersion(auto){
   updateBtn.disabled = false;
 }
 
-updateActionBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  location.reload();
-});
+// v422: updateActionBtn is a plain inline span now (see .pUpdateInline), not its own button —
+// a tap anywhere on the row, including on the pill, already reaches updateBtn's own listener
+// below, which reloads whenever pendingReload is true. No separate listener needed here.
 
 updateBtn.addEventListener('click', (e) => {
   e.stopPropagation();
