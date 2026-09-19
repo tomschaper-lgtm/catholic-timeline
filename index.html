@@ -1,6 +1,6 @@
 <!--
-VERSION: 439
-DATE: 2026-09-20T07:30:00-05:00
+VERSION: 440
+DATE: 2026-09-20T08:05:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,26 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v440 — 2026-09-20
+
+**Ask:**
+- The blank blue either side of the article in landscape should be gone — the timeline should
+  show down both sides.
+
+**Implementation:**
+- The narrowing was on the wrong element. v437 narrowed `.artwrap`, the text column INSIDE the
+  sheet, while the sheet itself (`#article.overlay`, in the `pointer:coarse` block) stayed
+  `width:100%` full-bleed — so the text moved in but the blue still ran edge to edge. Corrected:
+  `#article.overlay` is now `width:60%` centered in landscape, and v437's `.artwrap` cut is
+  dropped since the column simply fills the narrower sheet now.
+- Centered via auto side margins against the existing `left:0/right:0` rather than by adding a
+  `translateX` to the transform. That transform is animated across four states here (base, open,
+  peek, expanding) and the fly-portrait maths reads it; an over-constrained fixed box resolves to
+  centered on auto margins, leaving all of them untouched.
+- Checked that nothing in JS assumes the sheet spans the viewport — the portrait morph and
+  sticky-backdrop code all measure via `getBoundingClientRect()`, so they follow the new width.
+- Tapping the now-exposed timeline either side still closes the article, unchanged.
+
 ## v439 — 2026-09-20
 
 **Ask:**
@@ -2086,6 +2106,16 @@ CHANGELOG:END
        slide, so the card's rise reads as a deliberate reveal rather than a snap. The photo
        morph in expandArticle()/collapseArticle() is timed to match. */
     #article.overlay.expanding{transition:transform .78s cubic-bezier(.22,.61,.36,1);}
+    /* v440: in landscape the sheet is inset to 60% of the screen and centered, so the timeline
+       stays visible down both sides instead of the card running edge to edge. Centering is done
+       with auto side margins against the existing left:0/right:0 — NOT by adding translateX to
+       the transform, which is animated across four different states here (and read by the
+       fly-portrait maths); an over-constrained fixed box resolves to centered on auto margins,
+       which leaves every one of those transforms untouched.
+       Tapping the exposed timeline either side still closes the article, as it always has. */
+    @media (orientation: landscape){
+      #article.overlay{width:60%; margin-left:auto; margin-right:auto;}
+    }
   }
   .dhead{display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding-right:118px;}
   .dyear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
@@ -2521,16 +2551,11 @@ CHANGELOG:END
   .lpBtnOk:disabled{opacity:.35; cursor:default;}
   /* Quick Facts panel */
   .factbox{border:1px solid rgba(201,165,66,.4); border-radius:10px; background:rgba(201,165,66,.05); padding:14px 18px; margin:22px 0;}
-  /* v437: v433 narrowed just the fact box, 40% off its 720px parent, landscape only. Tom then
-     asked for the outer article column ("the story") narrowed the same way too — so .artwrap
-     itself now also gets 40% off in landscape (720px -> 432px, still centered by its existing
-     margin:0 auto). With the PARENT now already 432px, the fact box goes back to filling 100% of
-     it rather than keeping its own separate 60% cut — stacking both would compound to roughly
-     260px, too narrow for label/value pairs to read comfortably side by side. Portrait is
-     untouched either way, where there is no width to spare. */
-  @media (orientation: landscape){
-    .artwrap{max-width:432px;}
-  }
+  /* v440: the landscape narrowing moved OFF .artwrap and onto the article sheet itself
+     (#article.overlay, in the pointer:coarse block above) — narrowing the inner text column left
+     the sheet full-bleed, so the reader still saw blue to both edges with no timeline behind it.
+     With the sheet itself now 60% wide, .artwrap simply fills it and needs no cut of its own;
+     likewise the fact box (v433's separate 60% was dropped in v437 and stays dropped). */
   /* The amber theme here echoes the review-hold styling used on the timeline dashed-ring icon
      (.ev.review) and Manage list "Pending" tag, so a reviewer sees the same visual language
      carried onto the article itself. */
@@ -4425,7 +4450,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v439';
+const APP_VERSION = 'v440';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
