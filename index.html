@@ -1,6 +1,6 @@
 <!--
-VERSION: 423
-DATE: 2026-09-19T07:05:00-05:00
+VERSION: 426
+DATE: 2026-09-19T08:40:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -1194,6 +1194,26 @@ CHANGES:
 
   .pSwitch{position:relative;}
   .pSwitch input{position:absolute; opacity:0; width:0; height:0;}
+  /* v424: #offlineRow is the one switch row split into two tap targets, so its note can be
+     opened without touching the switch. .pDisclose (tile + name + caret) expands/collapses the
+     note; .pSwitchHit takes the whole rest of the row out to the switch, so a tap anywhere right
+     of the caret flips offline access. The row stays a plain div — a <label> wrapping the lot
+     would claim every tap on it for the checkbox, caret included. */
+  .pDisclose{
+    flex:0 0 auto; display:flex; align-items:center; gap:16px; align-self:stretch;
+    background:none; border:none; padding:0; margin:0;
+    font:inherit; color:inherit; text-align:left; cursor:pointer;
+  }
+  .pDisclose .pName{flex:0 0 auto;}
+  .pCaret{flex:0 0 auto; display:flex; color:var(--panelBlue); transition:transform .2s ease;}
+  .pCaret svg{width:17px; height:17px;}
+  .pDisclose[aria-expanded="true"] .pCaret{transform:rotate(180deg);}
+  @media (prefers-reduced-motion: reduce){ .pCaret{transition:none;} }
+  .pSwitchHit{
+    flex:1 1 auto; min-width:0; align-self:stretch; cursor:pointer;
+    display:flex; align-items:center; justify-content:flex-end;
+  }
+  .pNote.pNoteCollapsed{display:none;}
   .sw{
     flex:0 0 auto; width:44px; height:26px; border-radius:999px;
     background:#E3E5EA; position:relative; transition:background .2s ease;
@@ -1279,8 +1299,7 @@ CHANGES:
      version centers it directly in that visible slice, still bounded by the era's own edges
      (see updateEraLabels()), and gives up the center on its own as that slice narrows toward
      nothing near either edge — no separate "forced off screen" case needed for it. */
-  .era span{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:0 8px; white-space:nowrap; transition:opacity .22s ease;}
-  @media (prefers-reduced-motion: reduce){ .era span{transition:none;} }
+  .era span{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:0 8px; white-space:nowrap;}
   .axis{position:absolute; top:30px; height:28px; left:0; right:0; border-bottom:1px solid var(--gold); box-shadow:0 1px 0 rgba(232,205,126,.25);}
   .tick{position:absolute; bottom:0; height:8px; width:1px; background:var(--gold);}
   .tick.minor{height:5px; background:rgba(201,165,66,.5);}
@@ -2870,12 +2889,17 @@ CHANGES:
       <span class="pUpdateInline" id="updateActionBtn" style="display:none;">Update</span>
     </button>
 
-    <label class="pRow pSwitch" id="offlineRow">
-      <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 18h16"/></svg></span>
-      <span class="pName">Offline Access</span>
-      <input type="checkbox" id="offlineToggle" autocomplete="off"><i class="sw"></i>
-    </label>
-    <p class="pNote">Stores the whole app on this phone so it still works without a connection. Downloads happen over Wi-Fi only, where this device can tell the difference.</p>
+    <div class="pRow pSwitch" id="offlineRow">
+      <button type="button" class="pDisclose" id="offlineDisclose" aria-expanded="false" aria-controls="offlineNote">
+        <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 18h16"/></svg></span>
+        <span class="pName">Offline Access</span>
+        <span class="pCaret"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 16 5 8h14z"/></svg></span>
+      </button>
+      <label class="pSwitchHit" for="offlineToggle">
+        <input type="checkbox" id="offlineToggle" autocomplete="off"><i class="sw"></i>
+      </label>
+    </div>
+    <p class="pNote" id="offlineNote">Stores the whole app on this phone so it still works without a connection. Downloads happen over Wi-Fi only, where this device can tell the difference.</p>
 
     <div id="ownerGroup" style="display:none;">
       <label class="pRow pSwitch" id="cmsRow">
@@ -3889,7 +3913,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v423';
+const APP_VERSION = 'v426';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -3975,6 +3999,23 @@ if(offlineToggle){
     try{ localStorage.setItem('offline-access', offlineAccessEnabled ? '1' : '0'); }catch(err){}
     if(offlineAccessEnabled) enableOfflineAccess(); else disableOfflineAccess();
   });
+}
+// v424: the explanatory note under Offline Access now collapses, and its open/closed state is
+// remembered per browser like the other panel preferences. Collapsed is the default for a
+// first-time reader — the note explains a switch whose label already says most of it.
+const offlineDisclose = document.getElementById('offlineDisclose');
+const offlineNote = document.getElementById('offlineNote');
+if(offlineDisclose && offlineNote){
+  let offlineNoteOpen = false;
+  try{ offlineNoteOpen = localStorage.getItem('offline-note-open') === '1'; }catch(e){}
+  const setOfflineNote = (on) => {
+    offlineNoteOpen = on;
+    offlineNote.classList.toggle('pNoteCollapsed', !on);
+    offlineDisclose.setAttribute('aria-expanded', on ? 'true' : 'false');
+    try{ localStorage.setItem('offline-note-open', on ? '1' : '0'); }catch(e){}
+  };
+  setOfflineNote(offlineNoteOpen);
+  offlineDisclose.addEventListener('click', () => setOfflineNote(!offlineNoteOpen));
 }
 // Wi-Fi-only for the bulk pull below. navigator.connection (the Network Information API) is the
 // only way a web page can ask this, and Safari/iOS has never implemented it at all — Apple's own
@@ -4737,18 +4778,31 @@ function updateEraLabels(){
     // currently-visible slice, and its center point tracks that slice as it scrolls.
     const visLeft = Math.max(eraLeft, viewLeft);
     const visRight = Math.min(eraRight, viewRight);
-    // v423: centering in the slice is only meaningful while the slice is actually wide enough to
-    // hold the label. An era entering from the left starts with a sliver of visible band, and
-    // centering a full-width name in a sliver put half of it off the screen edge — the name came
-    // in chopped mid-word ("GE OF THE FATHE") until the band grew past its own width. So the
-    // label only shows once its slice can hold it, and fades rather than popping (see .era span's
-    // opacity transition). Width is measured once per element and cached: offsetWidth forces
-    // layout, and this runs for every era on every scroll frame.
+    // Width is measured once per element and cached: offsetWidth forces layout, and this runs
+    // for every era on every scroll frame.
     if(!span._lblW) span._lblW = span.offsetWidth;
     const w = span._lblW;
-    const slice = visRight - visLeft;
-    span.style.opacity = slice >= w ? '' : '0';
-    span.style.left = ((visLeft + visRight) / 2 - eraLeft) + 'px';
+    const half = w / 2;
+    // v425: centering in the slice is right while the slice can hold the label, but on its own
+    // it breaks at both ends of an era. Centering a full-width name in a sliver of band put half
+    // of it off the screen edge (v422 and earlier: names arrived chopped mid-word); hiding it
+    // whenever the slice got too narrow (v423/424) fixed the chopping but made the name vanish
+    // in one step instead of leaving. Clamping the center into the era's OWN bounds does both:
+    // while there's room the clamp doesn't bind and the label sits centered in the visible slice,
+    // and once the slice narrows the label comes to rest against its era's boundary and rides it
+    // off the screen edge — continuous, never chopped mid-word, never popping. This is the same
+    // result the old position:sticky produced at the edges (its containing block did the
+    // clamping), now with the centered behaviour through the middle that sticky couldn't give.
+    // The label's own 8px side padding keeps it off the era divider while it rides out.
+    let center = (visLeft + visRight) / 2;
+    if(eraRight - eraLeft > w){
+      center = Math.min(Math.max(center, eraLeft + half), eraRight - half);
+    }else{
+      // Era narrower than its own name at this zoom — no position satisfies the clamp, so it
+      // stays centered on the band and overhangs both sides equally rather than jumping.
+      center = (eraLeft + eraRight) / 2;
+    }
+    span.style.left = (center - eraLeft) + 'px';
   });
 }
 let eraLabelRAF = null;
@@ -5655,6 +5709,7 @@ function focusEntry(d){
   if(ppy < 1.8){ ppy = Math.min(8, Math.max(fitPpy(), 1.8)); }
   document.getElementById('sResults').style.display = 'none';
   document.getElementById('tlSearch').blur();
+  resetPageZoom(); // see its comment — a stuck pinch-zoom would fight the travel animation
   centerAndFocus(d, {onDone: () => showDetail(d)});
 }
 
@@ -5817,7 +5872,11 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', saveCurrentCardPosition);
 
 document.getElementById('tlSearch').addEventListener('input', runSearch);
-document.getElementById('tlSearch').addEventListener('focus', runSearch);
+// v426: deferred out of the focus handler rather than run inline. Building the dropdown
+// synchronously while the browser is still settling focus is what made the first tap land the
+// focus (recents appeared) without landing a usable caret, so it took a second tap to type.
+// A zero timeout lets focus and the keyboard finish first, then the list renders.
+document.getElementById('tlSearch').addEventListener('focus', () => { setTimeout(runSearch, 0); });
 document.getElementById('tlSearch').addEventListener('keydown', (e) => {
   if(e.key === 'Escape'){ e.target.value = ''; runSearch(); e.target.blur(); }
 });
@@ -5827,6 +5886,25 @@ document.getElementById('searchClear').addEventListener('click', () => {
   runSearch();
   input.focus();
 });
+// v426: any pointer down outside the box or its dropdown dismisses the dropdown, and drops the
+// keyboard with it. Capture phase and pointerdown (not click) for the same reasons the hamburger
+// menu's own outside-handler uses them: it still fires for handlers that stopPropagation, and for
+// touch-scrolling that never produces a click at all. The viewport's own click handler already
+// closed it for taps on the timeline; this covers everywhere else — header, era bands, panels.
+function closeSearchResults(){
+  const box = document.getElementById('sResults');
+  if(!box || box.style.display === 'none') return;
+  box.style.display = 'none';
+  const input = document.getElementById('tlSearch');
+  if(input && document.activeElement === input) input.blur();
+}
+document.addEventListener('pointerdown', (e) => {
+  const t = e.target;
+  if(t && t.closest && t.closest('.searchwrap')) return;
+  closeSearchResults();
+}, true);
+// Scrolling the timeline by any means (touch flick, wheel, a programmatic jump) also dismisses it.
+viewport.addEventListener('scroll', closeSearchResults, {passive:true});
 
 // ---- Publish to GitHub ----
 // ---- Global media base paths: store a bare filename per entry, resolve to a full
@@ -10460,6 +10538,7 @@ function closeArticle(opts){
     setTimeout(() => confirmAndPublishLinks(queued), 60);
   }
   cancelMorph();   // a half-finished flight must never outlive the card it belongs to
+  resetPageZoom(); // returning to the timeline is the other natural moment to undo a stuck pinch
   // A hard flick gets a hard exit: the default .3s slide reads as sluggish when the reader
   // has just thrown the card away. The class is cleared once the card is gone so the normal
   // open/close timing is unaffected next time.
@@ -11482,6 +11561,31 @@ function handleViewportChange(){
 window.addEventListener('resize', handleViewportChange);
 window.addEventListener('orientationchange', handleViewportChange);
 if(window.visualViewport) window.visualViewport.addEventListener('resize', handleViewportChange);
+
+// ---- Pinch-zoom recovery -----------------------------------------------------------
+// v426: pinch-zoom is deliberately left enabled for accessibility (see the viewport meta tag,
+// which never sets user-scalable=no), but readers were getting stuck zoomed in with no obvious
+// way back — pinching out to exactly 1.0 by hand is fiddly on a phone. There is no API to set
+// page zoom directly, so this uses the one lever that exists: momentarily declaring a maximum
+// scale of 1, which makes the browser snap back, then restoring the original meta so pinching
+// still works immediately afterward. Called at natural navigation moments (opening an entry,
+// closing an article) rather than on a timer, so a deliberate zoom is never yanked away while
+// someone is still reading at that scale. Below 1.01 this is a no-op, so an unzoomed reader
+// never touches the meta tag at all.
+function resetPageZoom(){
+  const vv = window.visualViewport;
+  if(!vv || !(vv.scale > 1.01)) return;
+  const meta = document.querySelector('meta[name="viewport"]');
+  if(!meta) return;
+  if(meta._zoomResetting) return; // a reset already in flight — don't stack timers
+  const original = meta.getAttribute('content');
+  meta._zoomResetting = true;
+  meta.setAttribute('content', original + ', maximum-scale=1, user-scalable=no');
+  setTimeout(() => {
+    meta.setAttribute('content', original);
+    meta._zoomResetting = false;
+  }, 350);
+}
 
 // ---- Tap anywhere in the story to stop the audio (pause in place), with a fading pause glyph
 // as feedback — the counterpart to the double-tap-to-play gesture near the other dblclick
@@ -13971,6 +14075,16 @@ function updateManageVisibility(){
   document.getElementById('manageBtn').style.display = unlocked ? '' : 'none';
   const reviewModeRow = document.getElementById('reviewModeRow');
   if(reviewModeRow) reviewModeRow.style.display = unlocked ? '' : 'none';
+  // v424: Offline Access now follows Owner Tools too, at Tom's request. Note this hides the row
+  // from ordinary visitors entirely, and it's the only control that starts the service worker
+  // (see enableOfflineAccess) — so a visitor can no longer turn offline mode on for themselves.
+  // Anyone who already enabled it keeps it: the stored 'offline-access' preference and the
+  // registration it drives are untouched by this, only the switch that reaches them.
+  // '' rather than 'block' on the note, so its own collapsed class still decides when shown.
+  const offlineRowEl = document.getElementById('offlineRow');
+  if(offlineRowEl) offlineRowEl.style.display = unlocked ? '' : 'none';
+  const offlineNoteEl = document.getElementById('offlineNote');
+  if(offlineNoteEl) offlineNoteEl.style.display = unlocked ? '' : 'none';
   // The version number in the header is a developer/debugging aid, not something a visitor
   // should ever see — same visibility rule as the rest of Owner Tools.
   const verStamp = document.getElementById('versionStamp');
