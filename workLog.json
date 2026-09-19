@@ -2726,15 +2726,26 @@
       "type": "sentence-reword",
       "entityId": "st-gerard-majella-1755",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Gerard Majella",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "st-gerard-majella-1755",
+        "name": "St. Gerard Majella",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-19T10:35:28.265Z",
-      "updatedAt": "2026-09-19T10:36:27.363Z",
+      "updatedAt": "2026-09-19T10:37:03.992Z",
       "error": null
     },
     {
@@ -2945,6 +2956,35 @@
       "error": null,
       "createdAt": "2026-09-19T10:36:57.956Z",
       "updatedAt": "2026-09-19T10:36:57.956Z"
+    },
+    {
+      "id": "task-sentence-reword-st-gerard-majella-1755-1789814223992-9586",
+      "type": "sentence-reword",
+      "entityId": "st-gerard-majella-1755",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Gerard Majella",
+      "payload": {},
+      "result": {
+        "name": "St. Gerard Majella",
+        "patches": [
+          [
+            "article",
+            "He relented only under Gerard's persistence, sending him to the novitiate with a note that read, not unkindly but bluntly, \"I send you a useless lay brother.\" Two years later, Gerard made his profession, adding a fourth vow of his own devising to the ordinary vows: to always do whatever seemed to him more perfect.",
+            "U",
+            "He relented only under Gerard's persistence, sending him to the novitiate with a note that read, not unkindly but bluntly, \"I send you a useless lay brother.\" Two years later, Gerard made his profession. He added a fourth vow of his own devising to the ordinary vows: to always do whatever seemed to him more perfect."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-19T10:37:03.992Z",
+      "updatedAt": "2026-09-19T10:37:03.992Z"
     }
   ]
 }
