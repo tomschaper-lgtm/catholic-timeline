@@ -424,6 +424,21 @@ const PROVIDERS = {
 // budget on each retry instead of repeating it, so a retry actually has room to finish where the
 // first attempt didn't.
 const TOKEN_BUDGETS = [700, 1200, 2000];
+// FIXED 2026-09-19: buildPrompt() never gives the model an out — "unchanged" is never a
+// legitimate answer to "split this sentence." But a reply identical to the input sentence still
+// passed every check above (non-empty, not truncated, ends in real punctuation) and was returned
+// as if it were a genuine fix. Back in runSentenceReword's loop, `replacement !== sentence` then
+// failed silently: not counted as reworded, not counted as skippedTagMismatch/apiErrors/
+// linkNotPreserved either — found stayed at 1, reworded stayed at 0, and the summary read a bare
+// "0 of 1 reworded" with no qualifier at all, forever, on every rerun, with nothing anywhere
+// saying why. Treated here as a retryable failure, same as truncation — an escalating token
+// budget won't fix a compliance issue, but it does mean three attempts instead of one, and any
+// attempt that still comes back unchanged now surfaces as a real apiErrors entry with an actual
+// explanation instead of vanishing.
+function sameAsOriginal(text, sentence){
+  const norm = s => String(s).trim().replace(/\s+/g, ' ').replace(/^["'\u201C\u2018]+|["'\u201D\u2019]+$/g, '');
+  return norm(text) === norm(sentence);
+}
 async function rewordSentence(sentence, paragraph, links, provider, apiKey){
   const p = PROVIDERS[provider] || PROVIDERS.anthropic;
   let lastErr;
@@ -439,6 +454,8 @@ async function rewordSentence(sentence, paragraph, links, provider, apiKey){
         lastErr = new Error(p.label + ' returned an empty response');
       }else if(!looksComplete(text)){
         lastErr = new Error(p.label + ' response looks cut off (doesn\u2019t end in sentence-ending punctuation): "' + text.slice(-60) + '"');
+      }else if(sameAsOriginal(text, sentence)){
+        lastErr = new Error(p.label + ' returned the sentence unchanged instead of shortening it (attempt ' + (attempt + 1) + ' of 3)');
       }else{
         return text;
       }
