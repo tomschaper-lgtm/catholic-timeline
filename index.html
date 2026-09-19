@@ -1,6 +1,6 @@
 <!--
-VERSION: 426
-DATE: 2026-09-19T08:40:00-05:00
+VERSION: 428
+DATE: 2026-09-19T10:20:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -8,9 +8,159 @@ logs each build to changelog.json for Manage → Logs reads this comment on ever
 collapsing it further risks silently breaking that (untested here; I can't see the Action's own
 parsing logic from inside this file, so verify Logs still populates after the next push). A
 version bump now touches exactly two places: `const APP_VERSION` below, and a new entry at the
-top of CHANGELOG.md.
+top of the staging block below.
 CHANGES:
-- See CHANGELOG.md.
+- See CHANGELOG.md for filed history, and the staging block below for recent entries.
+
+Entries are written in the staging block below first, because index.html is the file a chat
+session can edit and hand back whole; CHANGELOG.md is not, so entries written straight there were
+getting lost. The daily `scripts/sync-changelog.mjs` job files anything staged here that
+CHANGELOG.md doesn't already have, then trims the block back to the newest few. It prunes by
+VERSION NUMBER, never by age: nothing is dropped until it is confirmed present in CHANGELOG.md,
+so a job that fails for a week loses nothing and a job that runs twice in a day does nothing the
+second time. Edit ONLY between the two sentinel lines — the job replaces that span verbatim and
+touches nothing else in this file. Each sentinel must stay alone on its own line (that is how the
+job finds them, and why this paragraph can describe them without matching itself). Keep the
+`## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
+CHANGELOG:BEGIN
+## v428 — 2026-09-19
+
+**Ask:**
+- Settings update row: show the version number right after "New Version", with the Update button
+  still on the right. Drop the right-hand arrow on the up-to-date state, make the version number
+  black like the rest of the row, and have it read "Version up to Date  v4NN".
+- Make the Offline Access disclosure triangle bigger.
+
+**Implementation:**
+- `.pChev` removed from `#updateBtn`'s markup (the other two rows that navigate, Install and
+  Manage, keep theirs). `setPendingReload()` no longer hides `#updateCur` — the version number
+  now holds its slot in both states, so the row reads "Version up to Date  v427" or
+  "New Version  v433  [Update]".
+- `#updateCur` overrides `.pMeta`'s dimmed grey with #111827. It is the row's actual answer
+  rather than a secondary note, unlike Review Mode's "13 pending", which stays grey.
+- The up-to-date branch of `checkVersion()` now resets `#updateCur` to `APP_VERSION`; a previous
+  check could otherwise leave a newer pending number sitting next to "Version up to Date".
+- `.pCaret svg` 17px -> 24px.
+
+## v427 — 2026-09-19
+
+**Ask:**
+- Put changelog entries in index.html's header in a set format, then have a daily service pull
+  them into CHANGELOG.md and trim the header.
+
+**Implementation:**
+- New sentinel-delimited staging block in this header (see the prose above it), plus
+  `scripts/sync-changelog.mjs` and `.github/workflows/sync-changelog.yml` running it daily.
+- Entries start here rather than in CHANGELOG.md because index.html is the file a chat session
+  can edit and hand back whole — v420-v426 had all shipped without ever reaching CHANGELOG.md.
+  This release backfills them.
+- Prunes by version number, never by age, and asserts every version it drops is present in
+  CHANGELOG.md first: a run that fails for a week loses nothing, and a second run the same day is
+  a no-op. Rewrites only the span between the sentinels; aborts if either is missing or doubled.
+
+## v426 — 2026-09-19
+
+**Ask:**
+- Tapping the search box should place the cursor on the first tap, not the second.
+- Any tap, drag or scroll outside the search box or its dropdown should close the dropdown.
+- Readers who pinch-zoom get stuck; unzoom automatically on the common paths.
+
+**Implementation:**
+- `#tlSearch`'s focus handler no longer calls `runSearch()` inline. Building the dropdown
+  synchronously while the browser was still settling focus is what made the first tap land the
+  focus (recents appeared) without landing a usable caret. Deferred with `setTimeout(..., 0)`.
+  Best-supported explanation rather than a confirmed one — `user-select`, stray `blur()` calls,
+  the hamburger's outside-handler and the viewport-resize handler were all ruled out first, but
+  this was not reproducible off-device.
+- New `closeSearchResults()`, wired to a capture-phase document `pointerdown` (anything not
+  inside `.searchwrap`) and to `viewport`'s scroll. Capture + pointerdown for the same reasons
+  the hamburger menu's own outside-handler uses them: it still fires for handlers that
+  stopPropagation, and for touch-scrolling that never produces a click. Also drops the keyboard.
+- New `resetPageZoom()`. There is no API to set page zoom, so it momentarily adds
+  `maximum-scale=1, user-scalable=no` to the viewport meta (making the browser snap back) and
+  restores the original 350ms later, so pinch still works immediately after. Called from
+  `focusEntry()` and `closeArticle()` — navigation moments, not a timer, so a deliberate zoom is
+  never yanked away mid-read. No-op below scale 1.01.
+
+## v425 — 2026-09-19
+
+**Ask:**
+- Era labels pop off screen all at once when the era gets cramped; they used to slide off
+  holding their padding. Same in both directions.
+
+**Implementation:**
+- `updateEraLabels()` now clamps the label's center into its era's own bounds
+  (`[eraLeft + w/2, eraRight - w/2]`) instead of hiding it when the visible slice is too narrow.
+  While there is room the clamp doesn't bind and the label stays centered in the visible slice;
+  once the slice narrows it comes to rest against its era's boundary and rides it off the screen
+  edge. This is the same result the old `position:sticky` produced at the edges (its containing
+  block did the clamping), now with the centered behaviour through the middle that sticky could
+  not give. Era narrower than its own name at the current zoom falls back to the band's midpoint.
+- Reverted v423/v424's opacity fade on `.era span` — nothing hides anymore.
+
+## v424 — 2026-09-19
+
+**Ask:**
+- Offline Access should only appear when Owner Tools is on.
+- Add a blue triangle after "Offline Access": tapping the row from the left edge through the
+  triangle expands the note below and flips the triangle; remember the state. Tapping right of
+  the triangle toggles the switch.
+- The Font Size label should match the other rows' font face.
+
+**Implementation:**
+- `#offlineRow` and `#offlineNote` now follow `unlocked` in `updateManageVisibility()`, the same
+  rule as Review Mode and Manage. Note this removes the only control that starts the service
+  worker from ordinary visitors — anyone who already enabled it keeps it, since the stored
+  `offline-access` preference and its registration are untouched.
+- The row stopped being a `<label>`: a label wrapping the whole row claims every tap on it for
+  the checkbox, caret included. It is now a plain div holding `.pDisclose` (tile + name + caret,
+  a real button) and `.pSwitchHit` (a `<label for>` filling the rest out to the switch).
+  Disclosure state persists in `localStorage` under `offline-note-open`, collapsed by default.
+- `.pSpecimen` lost its `font-family:'EB Garamond'` override (it was deliberate once — the label
+  doubled as a live size specimen). It still scales with the stepper, just in system-ui now.
+
+## v423 — 2026-09-19
+
+**Ask:**
+- Era labels arrive chopped mid-word when an era scrolls in from the left.
+
+**Implementation:**
+- Superseded by v425 — see there. This release hid the label whenever its visible slice was
+  narrower than the label itself, which stopped the chopping but introduced the popping v425
+  fixes properly.
+
+## v422 — 2026-09-19
+
+**Ask:**
+- Move the Update button onto the same line as the version row, replacing "Available".
+
+**Implementation:**
+- `#updateActionBtn` moved inside `#updateBtn` as an inline `.pUpdateInline` pill and is no
+  longer its own button — a tap anywhere on the row already reaches the row's own handler, which
+  reloads whenever `pendingReload` is true, so its separate click listener was removed.
+  `setPendingReload()` now also hides `#updateCur` and `.pChev`, whose spot the pill takes. Label
+  text shortened to "New Version".
+
+## v421 — 2026-09-19
+
+**Ask:**
+- Era labels that have room should stay centered in the visible part of their band.
+
+**Implementation:**
+- `.era span` moved off `position:sticky` onto JS positioning via a new `updateEraLabels()`,
+  scroll-driven like `updateBandIconFade()`/`updateCenterYearBadge()`. Sticky could only clamp to
+  a flat offset from the screen edge, so an era wider than the viewport sat pinned at that edge
+  for most of the scroll through it.
+
+## v420 — 2026-09-19
+
+**Ask:**
+- Timeline travel should ease in and out, and run about twice as long.
+
+**Implementation:**
+- `animateScroll()`'s duration doubled (now roughly 840–2300ms by distance). The ease curve was
+  already a slow-start/slow-end cubic; at the old 420–1150ms range it read as a near-linear snap.
+CHANGELOG:END
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -1127,6 +1277,10 @@ CHANGES:
   .pChev{flex:0 0 auto; color:#B9BEC9; display:flex;}
   .pChev svg{width:15px; height:15px;}
   .pMeta{flex:0 0 auto; color:#9AA1B0; font-size:15px;}
+  /* v427: this one meta value is the running/available version, which is the row's actual answer
+     rather than a secondary note (contrast Review Mode's "13 pending"), so it reads in the same
+     black as the labels instead of the dimmed grey. */
+  #updateCur{color:#111827;}
   .pNote{
     margin:0; padding:0 22px 14px 76px;
     /* When the note holds the instruction list, the list supplies its own padding. */
@@ -1206,7 +1360,7 @@ CHANGES:
   }
   .pDisclose .pName{flex:0 0 auto;}
   .pCaret{flex:0 0 auto; display:flex; color:var(--panelBlue); transition:transform .2s ease;}
-  .pCaret svg{width:17px; height:17px;}
+  .pCaret svg{width:24px; height:24px;}
   .pDisclose[aria-expanded="true"] .pCaret{transform:rotate(180deg);}
   @media (prefers-reduced-motion: reduce){ .pCaret{transition:none;} }
   .pSwitchHit{
@@ -2885,7 +3039,6 @@ CHANGES:
       <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4.5h-4.5"/></svg></span>
       <span class="pName">Check for Updates</span>
       <span class="pMeta" id="updateCur"></span>
-      <span class="pChev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></span>
       <span class="pUpdateInline" id="updateActionBtn" style="display:none;">Update</span>
     </button>
 
@@ -3913,7 +4066,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v426';
+const APP_VERSION = 'v428';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -15570,18 +15723,17 @@ refreshInstallUI();
 const updateBtn = document.getElementById('updateBtn');
 const updateActionBtn = document.getElementById('updateActionBtn');
 const updateCur = document.getElementById('updateCur');
-const updateChev = updateBtn.querySelector('.pChev');
 const updateLabel = updateBtn.querySelector('.pName');
 if(updateCur) updateCur.textContent = APP_VERSION;
 let pendingReload = false, checking = false, lastCheckAt = 0;
 let announcedVersion = null; // the version string we've already glowed for, so a repeat check on the same pending version doesn't re-trigger it
-// v422: the pill now sits inline on the same row it used to sit below, in the spot the
-// version/chevron normally occupy — so showing it means hiding those two, not just itself.
+// v427: the version number now stays put in both states — "Version up to Date  v426", or
+// "New Version  v433  [Update]" — so this only toggles the pill. The chevron is gone entirely
+// (the row's tap target is the whole row, which the chevron implied led somewhere else), and
+// #updateCur is no longer dimmed, so the number reads like every other value in the panel.
 function setPendingReload(on){
   pendingReload = on;
   updateActionBtn.style.display = on ? 'inline-block' : 'none';
-  if(updateCur) updateCur.style.display = on ? 'none' : '';
-  if(updateChev) updateChev.style.display = on ? 'none' : '';
 }
 
 async function checkVersion(auto){
@@ -15599,7 +15751,9 @@ async function checkVersion(auto){
       updateLabel.textContent = 'Reload Anyway';
       setPendingReload(true);
     } else if(m[1] === APP_VERSION){
-      updateLabel.textContent = 'Up to Date';
+      updateLabel.textContent = 'Version up to Date';
+      // Back to the running version: a previous check may have left a newer number here.
+      if(updateCur) updateCur.textContent = APP_VERSION;
       setPendingReload(false);
     } else {
       updateLabel.textContent = 'New Version';
