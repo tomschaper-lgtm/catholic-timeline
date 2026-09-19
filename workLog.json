@@ -2780,15 +2780,26 @@
       "type": "sentence-reword",
       "entityId": "immaculate-conception-defined-1854",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — Immaculate Conception Defined",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "immaculate-conception-defined-1854",
+        "name": "Immaculate Conception Defined",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-19T10:35:28.265Z",
-      "updatedAt": "2026-09-19T10:36:27.363Z",
+      "updatedAt": "2026-09-19T10:37:08.889Z",
       "error": null
     },
     {
@@ -3025,6 +3036,35 @@
       "error": null,
       "createdAt": "2026-09-19T10:37:06.282Z",
       "updatedAt": "2026-09-19T10:37:06.282Z"
+    },
+    {
+      "id": "task-sentence-reword-immaculate-conception-defined-1854-1789814228889-4602",
+      "type": "sentence-reword",
+      "entityId": "immaculate-conception-defined-1854",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — Immaculate Conception Defined",
+      "payload": {},
+      "result": {
+        "name": "Immaculate Conception Defined",
+        "patches": [
+          [
+            "article",
+            "The apostolic constitution solemnly defined that the Blessed Virgin Mary <blockquote>\"in the first instance of her conception, by a singular privilege and grace granted by God, in view of the merits of Jesus Christ, the Saviour of the human race, was preserved exempt from all stain of original sin.\"</blockquote>",
+            "U",
+            "The apostolic constitution solemnly defined that the Blessed Virgin Mary, <blockquote>\"in the first instance of her conception, by a singular privilege and grace granted by God,</blockquote> was preserved exempt from all stain of original sin. This occurred <blockquote>\"in view of the merits of Jesus Christ, the Saviour of the human race.\"</blockquote>"
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-19T10:37:08.889Z",
+      "updatedAt": "2026-09-19T10:37:08.889Z"
     }
   ]
 }
