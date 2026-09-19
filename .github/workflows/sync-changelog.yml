@@ -1,0 +1,56 @@
+# .github/workflows/sync-changelog.yml
+#
+# Files changelog entries out of index.html's header into CHANGELOG.md once a day, then trims the
+# header. See scripts/sync-changelog.mjs for why the entries start in index.html and why the
+# prune is keyed on version number rather than age.
+#
+# The schedule is deliberately a quiet hour: this job rewrites index.html, so running it while
+# someone is mid-edit means their next push restores the pruned entries. That is harmless (the
+# run is idempotent — the next one just re-files them) but pointless churn, and 08:00 UTC is the
+# small hours in US Central.
+name: Sync changelog
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Report what would change without writing or committing'
+        type: boolean
+        default: false
+      keep_versions:
+        description: 'How many newest versions stay in the index.html header'
+        type: string
+        default: '3'
+
+# Never let two runs rewrite index.html at once.
+concurrency:
+  group: sync-changelog
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The script commits and pushes itself, so it needs real history, not a shallow clone.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync changelog
+        env:
+          KEEP_VERSIONS: ${{ inputs.keep_versions || '3' }}
+        run: |
+          node scripts/sync-changelog.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
