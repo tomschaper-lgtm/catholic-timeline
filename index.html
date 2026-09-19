@@ -1,6 +1,6 @@
 <!--
-VERSION: 432
-DATE: 2026-09-19T12:35:00-05:00
+VERSION: 433
+DATE: 2026-09-19T13:05:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,33 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v433 — 2026-09-19
+
+**Ask:**
+- The compact slide-out treatment should cover every category, not just Saints.
+- Undo v432's article-width reduction — the 40% was meant for the Quick Facts box (the bordered
+  panel inside the story), and only in landscape.
+
+**Implementation:**
+- Reverted `.artwrap` to its original flat `max-width:720px`.
+- `.factbox` instead gets `width:60%` centered under `@media (orientation: landscape)`. Portrait
+  keeps full width, where there is no room to spare.
+- Both left-slide list panels now carry a shared `listPanel` class, and the whole compact media
+  block was retargeted from `.saintsPanel` to `.listPanel` and relocated below `.browsePanel`'s
+  own base rules so its top/max-height overrides land without extra specificity. Browse rows are
+  already `class="spRow brRow"`, so the shorter-row rule reached them unchanged.
+- `setSpChipsOpen`/`syncSpChipBand` generalised to `setChipsOpen(prefix, on)`/`syncChipBand(prefix)`
+  keyed on 'sp'/'br'; the old Saints names remain as thin wrappers so existing call sites read
+  unchanged. Browse gets its own `#brChipBand` pill, wired to open/close/render the same way.
+- A category with no chips of its own (Persecutions, Events today) hides its pill row rather than
+  showing a dead control — `syncChipBand` sets `hidden` from whether any chip exists.
+- `body.saintsPanelOpen` renamed `listPanelOpen` and now toggled by both panels, so the app title
+  slides clear of either.
+
+**Open question:** Browse has no search box, so its compact header is just title + pill + ×, with
+the row that Saints spends on search left empty. Options: leave it (simplest), pull the pill up
+onto the title line for Browse only, or give Browse a search box of its own. Say which.
+
 ## v432 — 2026-09-19
 
 **Ask:**
@@ -791,65 +818,9 @@ CHANGELOG:END
   /* Full height: the search box still wraps to its own full-width line under the title, which
      is what it has always looked like — being inside .panelHead now changes nothing here. */
   .saintsPanel .panelHead .spSearchWrap{order:3; flex:0 0 100%; margin:14px 0 0;}
-  .spChipPillRow{display:none;}
+  .spChipPillRow{display:none;} /* compact layouts turn this on — see the media block below */
 
-  @media (max-height: 760px){
-    /* Subtitle out, search up onto the title row between the title and the × (order 0/1/2),
-       with its own left gap standing in for the padding the wrapped line used to have. */
-    .saintsPanel .spTitleSecond{display:none;}
-    .saintsPanel .spTitleWrap{
-      flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px;
-    }
-    .saintsPanel .panelHead .spSearchWrap{order:1; flex:1 1 auto; margin:0 0 0 14px; min-width:0;}
-    /* align-items:center on .panelHead puts the search box and the × on the vertical midline of
-       the title+pill stack rather than level with the title alone. */
-    .saintsPanel .panelHead{padding-bottom:0; flex-wrap:nowrap; align-items:center;}
-    /* v431: the panel started 46px down and stopped 78px short of the foot, both dead space in
-       a short window. It now covers the full height of the screen, keeping its rounded right
-       corners. The app's own title is moved clear of it below so it stays readable. */
-    .saintsPanel{
-      top:0; padding:10px 0 0;
-      max-height:100vh;
-    }
-    .saintsPanel .panelTitle{font-size:22px;}
-    .saintsPanel .spPoss{display:none;} /* see renderSaintsPanel — turns "Saint's" into "Saints" */
-    .spChipPillRow{display:flex; justify-content:center; flex:0 0 auto;}
 
-    /* The panel now starts at y=0 and covers the header's left end, so "Catholic Timeline"
-       slides right of the panel's edge while it is open rather than sitting underneath it.
-       Transition matches the panel's own slide so the two move together. */
-    body.saintsPanelOpen h1{
-      transform:translateX(calc(min(410px, 95vw) / 2));
-      transition:transform .48s cubic-bezier(.32,.72,.28,1);
-    }
-    h1{transition:transform .48s cubic-bezier(.32,.72,.28,1);}
-    @media (prefers-reduced-motion: reduce){
-      h1, body.saintsPanelOpen h1{transition:none;}
-    }
-
-    /* The chip bar becomes a sheet that rises from the very bottom edge of the panel. It is
-       taken out of flow so the list keeps the height the bar used to occupy; the pill above
-       stands in for it at a fraction of the cost. */
-    .saintsPanel .spChips{
-      position:absolute; left:0; right:0; bottom:0; z-index:3;
-      margin:0; border-radius:22px 22px 0 0;
-      padding:8px 8px calc(8px + env(safe-area-inset-bottom));
-      box-shadow:0 -6px 26px rgba(20,25,40,.22);
-      transform:translateY(110%);
-      transition:transform .3s cubic-bezier(.32,.72,.28,1);
-    }
-    .saintsPanel.chipsOpen .spChips{transform:translateY(0);}
-    .saintsPanel.chipsOpen .spChipPillRow{visibility:hidden;}
-    @media (prefers-reduced-motion: reduce){
-      .saintsPanel .spChips{transition:none;}
-    }
-
-    /* Shorter rows. --rowH is re-measured off a real row on every render (see
-       renderSaintsPanel), so the sticky group label and the infinite-loop maths follow this
-       automatically — no constant to keep in step. */
-    .saintsPanel .spRow{padding-top:8px; padding-bottom:8px;}
-    .saintsPanel .spListWrap{padding-bottom:calc(env(safe-area-inset-bottom));}
-  }
   /* Gold pill naming the live filter — the compact layout's stand-in for the whole chip bar. */
   .spChipBand{
     display:flex; align-items:center; justify-content:center; gap:7px;
@@ -933,6 +904,71 @@ CHANGELOG:END
      outright for the types that have no chips defined, so the panel doesn't render an empty
      floating island. */
   .brChips:empty{display:none;}
+
+  @media (max-height: 760px){
+  /* v433: applies to BOTH left-slide list panels — Saints and Browse (Councils, Persecutions,
+     Eucharistic Miracles, Marian, Events) — via the shared .listPanel class. Placed after both
+     panels' own base rules so its top/max-height overrides land on either without needing extra
+     specificity. Task : Automation deliberately keeps the full layout: it is an owner tool with
+     forms rather than a reading list, and its rows are not the thing being conserved.
+  */
+    /* Subtitle out, search up onto the title row between the title and the × (order 0/1/2),
+       with its own left gap standing in for the padding the wrapped line used to have. */
+    .listPanel .spTitleSecond{display:none;}
+    .listPanel .spTitleWrap{
+      flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:3px;
+    }
+    .listPanel .panelHead .spSearchWrap{order:1; flex:1 1 auto; margin:0 0 0 14px; min-width:0;}
+    /* align-items:center on .panelHead puts the search box and the × on the vertical midline of
+       the title+pill stack rather than level with the title alone. */
+    .listPanel .panelHead{padding-bottom:0; flex-wrap:nowrap; align-items:center;}
+    /* v431: the panel started 46px down and stopped 78px short of the foot, both dead space in
+       a short window. It now covers the full height of the screen, keeping its rounded right
+       corners. The app's own title is moved clear of it below so it stays readable. */
+    .listPanel{
+      top:0; padding:10px 0 0;
+      max-height:100vh;
+    }
+    .listPanel .panelTitle{font-size:22px;}
+    .listPanel .spPoss{display:none;} /* see renderSaintsPanel — turns "Saint's" into "Saints" */
+    .spChipPillRow{display:flex; justify-content:center; flex:0 0 auto;}
+    .spChipPillRow[hidden]{display:none;} /* category with no chips of its own — nothing to raise */
+
+    /* The panel now starts at y=0 and covers the header's left end, so "Catholic Timeline"
+       slides right of the panel's edge while it is open rather than sitting underneath it.
+       Transition matches the panel's own slide so the two move together. */
+    body.listPanelOpen h1{
+      transform:translateX(calc(min(410px, 95vw) / 2));
+      transition:transform .48s cubic-bezier(.32,.72,.28,1);
+    }
+    h1{transition:transform .48s cubic-bezier(.32,.72,.28,1);}
+    @media (prefers-reduced-motion: reduce){
+      h1, body.listPanelOpen h1{transition:none;}
+    }
+
+    /* The chip bar becomes a sheet that rises from the very bottom edge of the panel. It is
+       taken out of flow so the list keeps the height the bar used to occupy; the pill above
+       stands in for it at a fraction of the cost. */
+    .listPanel .spChips{
+      position:absolute; left:0; right:0; bottom:0; z-index:3;
+      margin:0; border-radius:22px 22px 0 0;
+      padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+      box-shadow:0 -6px 26px rgba(20,25,40,.22);
+      transform:translateY(110%);
+      transition:transform .3s cubic-bezier(.32,.72,.28,1);
+    }
+    .listPanel.chipsOpen .spChips{transform:translateY(0);}
+    .listPanel.chipsOpen .spChipPillRow{visibility:hidden;}
+    @media (prefers-reduced-motion: reduce){
+      .listPanel .spChips{transition:none;}
+    }
+
+    /* Shorter rows. --rowH is re-measured off a real row on every render (see
+       renderSaintsPanel), so the sticky group label and the infinite-loop maths follow this
+       automatically — no constant to keep in step. */
+    .listPanel .spRow{padding-top:8px; padding-bottom:8px;}
+    .listPanel .spListWrap{padding-bottom:calc(env(safe-area-inset-bottom));}
+  }
 
   /* ---- Task : Automation panel ----
      Same left-slide shell as .browsePanel/.saintsPanel (same z-index band, same transition,
@@ -2047,11 +2083,7 @@ CHANGELOG:END
   .overlay.expanding{transition:transform .78s cubic-bezier(.22,.61,.36,1);}
   /* Flick dismissal: fast, decelerating exit that matches the force of the gesture. */
   .overlay.flick{transition:transform var(--flickMs, 190ms) cubic-bezier(.3,.8,.4,1);}
-  /* v432: was a flat 720px cap, which on a phone meant the story ran the full width of the
-     screen. Now 60% of the viewport — 40% narrower, still centered — with a 340px floor so it
-     stays readable on a narrow portrait phone rather than collapsing to a column, and the old
-     720px still acting as the ceiling on a wide desktop window. */
-  .artwrap{max-width:min(720px, max(60vw, 340px)); margin:0 auto; padding:18px 20px 70px; position:relative;}
+  .artwrap{max-width:720px; margin:0 auto; padding:18px 20px 70px; position:relative;}
   .artBodyClone{position:absolute; top:0; left:0; width:100%; pointer-events:none;}
   .artBodyClone .artSticky, .artBodyClone .artPlayerWrap{position:static;}
   .artback{
@@ -2385,6 +2417,13 @@ CHANGELOG:END
   .lpBtnOk:disabled{opacity:.35; cursor:default;}
   /* Quick Facts panel */
   .factbox{border:1px solid rgba(201,165,66,.4); border-radius:10px; background:rgba(201,165,66,.05); padding:14px 18px; margin:22px 0;}
+  /* v433: in landscape the article column is wide enough that a full-width facts box leaves a
+     lot of space between a short label and its value. 40% narrower and centered there only —
+     portrait keeps the full width, where there is none to spare. The article column itself
+     (.artwrap) is unchanged. */
+  @media (orientation: landscape){
+    .factbox{width:60%; margin-left:auto; margin-right:auto;}
+  }
   /* The amber theme here echoes the review-hold styling used on the timeline dashed-ring icon
      (.ev.review) and Manage list "Pending" tag, so a reviewer sees the same visual language
      carried onto the article itself. */
@@ -3260,7 +3299,7 @@ CHANGELOG:END
        Saints lane icon on the timeline (see .bandIconWrap.t-s). Slides from the left, mirroring
        .hamMenu's slide-from-right mechanics — see saintsPanel/spScrim in the JS below. -->
   <div class="spScrim" id="spScrim"></div>
-  <div class="saintsPanel" id="saintsPanel" role="dialog" aria-label="Saints">
+  <div class="saintsPanel listPanel" id="saintsPanel" role="dialog" aria-label="Saints">
     <div class="panelHead">
       <div class="spTitleWrap">
         <span class="panelTitle"><span id="spTitleFirst">Saints</span><em class="spTitleSecond" id="spTitleSecond"></em></span>
@@ -3269,7 +3308,7 @@ CHANGELOG:END
              category word itself, not the panel. It names the current filter and raises the bar
              on tap; while the bar is up this is hidden, since the bar is then what shows the
              selection. Hidden entirely at full height. -->
-        <div class="spChipPillRow">
+        <div class="spChipPillRow" id="spChipPillRow">
           <button class="spChipBand" id="spChipBand" type="button" aria-expanded="false" aria-controls="spChips">
             <span id="spChipBandLabel">All</span>
             <svg class="spChipBandArrow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 16 5 8h14z"/></svg>
@@ -3374,10 +3413,18 @@ CHANGELOG:END
        the JS if that changes later, e.g. Eucharistic Miracles' Blood/Protection/Desecration/
        Other chips once the Type backfill lands). -->
   <div class="brScrim" id="brScrim"></div>
-  <div class="browsePanel" id="browsePanel" role="dialog" aria-label="Browse">
+  <div class="browsePanel listPanel" id="browsePanel" role="dialog" aria-label="Browse">
     <div class="panelHead">
       <div class="spTitleWrap">
         <span class="panelTitle"><span id="brTitleFirst">Persecutions</span><em class="spTitleSecond" id="brTitleSecond"></em></span>
+        <!-- v433: Browse's counterpart to the Saints pill. Hidden whenever this category has no
+             chips at all (Persecutions/Events today) — see .spChipPillRow[hidden]. -->
+        <div class="spChipPillRow" id="brChipPillRow">
+          <button class="spChipBand" id="brChipBand" type="button" aria-expanded="false" aria-controls="brChips">
+            <span id="brChipBandLabel">All</span>
+            <svg class="spChipBandArrow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 16 5 8h14z"/></svg>
+          </button>
+        </div>
       </div>
       <button class="panelClose" id="brClose" aria-label="Close list">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
@@ -4262,7 +4309,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v432';
+const APP_VERSION = 'v433';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -15049,7 +15096,7 @@ function openSaintsPanel(){
   });
   saintsPanel.classList.add('open');
   spScrim.classList.add('open');
-  document.body.classList.add('saintsPanelOpen'); // see closeSaintsPanel for what reads this
+  document.body.classList.add('listPanelOpen'); // see closeSaintsPanel for what reads this
   setSpChipsOpen(false); // never inherit a raised sheet from the previous open
   syncSpChipBand();
   renderSaintsPanel();
@@ -15064,7 +15111,7 @@ function closeSaintsPanel(){
   // v431: only the compact layout's CSS acts on this class (it slides the app title clear of a
   // panel that now reaches y=0); setting it unconditionally keeps the two states in step at any
   // height, and costs nothing where no rule matches it.
-  document.body.classList.remove('saintsPanelOpen');
+  document.body.classList.remove('listPanelOpen');
 }
 // ---- About panel: reads db.entries just like everything else (see #aboutPanel markup above) ----
 // "About" articles are ordinary entries with a new type, t:"i" (info) — not a separate table,
@@ -15272,23 +15319,33 @@ document.getElementById('spChips').addEventListener('click', (e) => {
 // Only reachable in the short-viewport layout, where .spChipBand is the only visible control
 // (see its CSS). The class lives on the panel so the CSS can hide the band and raise the sheet
 // together; at full height the band is display:none and none of this is ever triggered.
-const spChipBand = document.getElementById('spChipBand');
-function setSpChipsOpen(on){
-  const panel = document.getElementById('saintsPanel');
+// v433: both left-slide list panels share this — Saints (#saintsPanel/#spChips) and Browse
+// (#browsePanel/#brChips), which covers Councils, Persecutions, Eucharistic Miracles, Marian and
+// Events. Everything is keyed off a prefix rather than duplicated per panel.
+// Elements are looked up inside these rather than closed over from consts: both are called from
+// render/open functions defined EARLIER in the file, so a const declared down here would sit in
+// its temporal dead zone for any call that ran first.
+function setChipsOpen(prefix, on){
+  const panel = document.getElementById(prefix === 'sp' ? 'saintsPanel' : 'browsePanel');
   if(!panel) return;
   panel.classList.toggle('chipsOpen', !!on);
-  const band = document.getElementById('spChipBand');
+  const band = document.getElementById(prefix + 'ChipBand');
   if(band) band.setAttribute('aria-expanded', on ? 'true' : 'false');
 }
-// Elements are looked up here rather than closed over from consts above: both of these are
-// called from renderSaintsPanel()/openSaintsPanel(), which are defined earlier in the file, so
-// a const declared down here would sit in its temporal dead zone for any call that ran first.
-function syncSpChipBand(){
-  const label = document.getElementById('spChipBandLabel');
+function syncChipBand(prefix){
+  const label = document.getElementById(prefix + 'ChipBandLabel');
   if(!label) return;
-  const active = document.querySelector('#spChips .spChip.active span:last-child');
+  const chipsId = prefix === 'sp' ? 'spChips' : 'brChips';
+  const active = document.querySelector('#' + chipsId + ' .spChip.active span:last-child');
   label.textContent = active ? active.textContent : 'All';
+  // A category with no chips of its own (Persecutions, Events) has nothing to raise, so it gets
+  // no pill either — the row is hidden rather than left as a dead control.
+  const row = document.getElementById(prefix + 'ChipPillRow');
+  if(row) row.hidden = !document.querySelector('#' + chipsId + ' .spChip');
 }
+// Saints-side names kept as thin wrappers so the existing call sites read unchanged.
+function setSpChipsOpen(on){ setChipsOpen('sp', on); }
+function syncSpChipBand(){ syncChipBand('sp'); }
 if(spChipBand) spChipBand.addEventListener('click', () => setSpChipsOpen(true));
 // Touching the list while the sheet is up dismisses it, the same way tapping outside any other
 // sheet in the app does — without this the sheet would sit over the rows it's meant to filter.
@@ -15605,6 +15662,7 @@ function renderBrowsePanel(){
         (c.icon ? '<span class="spChipIcon spChipIcon-' + esc(c.icon) + '"></span>' : '') +
         '<span>' + esc(c.label) + '</span></button>'
   ).join('');
+  syncChipBand('br'); // the compact layout's pill names the filter the chips above just rebuilt
   const rows = brRows();
   // Sticky first-column grouping only applies while the panel is actually SORTED BY that column
   // (Region/Country) — under Name/Year sort, .brLast still displays Region/Country text, but
@@ -15693,20 +15751,24 @@ function openBrowsePanel(type){
   if(saved && !fresh) delete brLastState[type];
   brSort = fresh ? saved.sort : 'year';
   brFilter = fresh ? saved.filter : 'all';
+  setChipsOpen('br', false); // never inherit a raised sheet from the previous open
   renderBrowsePanel();
   browsePanel.classList.add('open');
   brScrim.classList.add('open');
+  document.body.classList.add('listPanelOpen'); // see closeSaintsPanel for what reads this
 }
 function closeBrowsePanel(){
   if(brType) brLastState[brType] = {sort: brSort, filter: brFilter, scrollTop: brListEl.scrollTop, ts: Date.now()};
   browsePanel.classList.remove('open');
   brScrim.classList.remove('open');
+  document.body.classList.remove('listPanelOpen');
 }
 document.getElementById('brChips').addEventListener('click', (e) => {
   const actionBtn = e.target.closest('.spChip[data-action]');
-  if(actionBtn){ openAboutPanel(brType); return; }
+  if(actionBtn){ setChipsOpen('br', false); openAboutPanel(brType); return; }
   const btn = e.target.closest('.spChip[data-filter]');
   if(!btn) return;
+  setChipsOpen('br', false); // a selection is the whole point of the sheet — it retires on use
   brFilter = btn.dataset.filter;
   // Ecumenical always reads best in year order — every row is one, and the sequence itself
   // (1st, 2nd, 3rd…) only makes sense chronologically — so pressing the chip forces sort back to
@@ -15720,6 +15782,11 @@ document.getElementById('brChips').addEventListener('click', (e) => {
   if(brFilter === 'scientific') brSort = 'year';
   renderBrowsePanel();
 });
+const brChipBandEl = document.getElementById('brChipBand');
+if(brChipBandEl) brChipBandEl.addEventListener('click', () => setChipsOpen('br', true));
+// Touching the list while the sheet is up dismisses it — otherwise it sits over the rows it
+// filters. Same rule as the Saints list.
+brListEl.addEventListener('pointerdown', () => setChipsOpen('br', false), {passive:true});
 document.getElementById('brClose').addEventListener('click', (e) => { e.stopPropagation(); closeBrowsePanel(); });
 brScrim.addEventListener('click', closeBrowsePanel);
 document.getElementById('brHead').addEventListener('click', (e) => {
