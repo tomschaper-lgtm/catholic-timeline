@@ -1,6 +1,6 @@
 <!--
-VERSION: 438
-DATE: 2026-09-19T15:40:00-05:00
+VERSION: 439
+DATE: 2026-09-20T07:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,21 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v439 — 2026-09-20
+
+**Ask:**
+- v425's era-label behaviour was right; just a bit more padding as the label slides off. Revert
+  if that isn't possible.
+
+**Implementation:**
+- Reverted v438 (`ERA_LABEL_MARGIN` back to 8). That was the wrong lever and a provable no-op for
+  this case: simulating an era entering from the screen edge gives byte-identical label positions
+  at 8 and 24, because the era-bounds clamp binds first and the viewport inset never gets a say.
+- The gap Tom was actually describing is `.era span`'s own side padding — the clamp rests the
+  SPAN's edge on the era divider, so that padding is the gap between divider and text. 8px -> 22px.
+  Verified this one does move the gap, unlike v438's.
+- No behavioural change otherwise: the v425 slide-off is exactly as it was.
+
 ## v438 — 2026-09-19
 
 **Ask:**
@@ -1750,7 +1765,13 @@ CHANGELOG:END
      version centers it directly in that visible slice, still bounded by the era's own edges
      (see updateEraLabels()), and gives up the center on its own as that slice narrows toward
      nothing near either edge — no separate "forced off screen" case needed for it. */
-  .era span{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:0 8px; white-space:nowrap;}
+  /* v439: the side padding here is what you actually see as a label comes to rest against its
+     era's divider and rides off the screen edge — the clamp in updateEraLabels() puts the SPAN's
+     edge on the divider, so this padding is the gap between the divider and the text itself.
+     8px -> 22px at Tom's request for "a bit more". Note ERA_LABEL_MARGIN is NOT this gap: it only
+     insets the centering maths, and v438's attempt to widen it there was a no-op for exactly this
+     reason (the era-bounds clamp binds first and the viewport inset never gets a say). */
+  .era span{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); padding:0 22px; white-space:nowrap;}
   .axis{position:absolute; top:30px; height:28px; left:0; right:0; border-bottom:1px solid var(--gold); box-shadow:0 1px 0 rgba(232,205,126,.25);}
   .tick{position:absolute; bottom:0; height:8px; width:1px; background:var(--gold);}
   .tick.minor{height:5px; background:rgba(201,165,66,.5);}
@@ -4404,7 +4425,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v438';
+const APP_VERSION = 'v439';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
@@ -5256,7 +5277,7 @@ viewport.addEventListener('scroll', scheduleCenterYearBadge, {passive:true});
 // currently on screen (clamped to the era's own left/right edges via the intersection below),
 // rather than pinned to a flat offset from the screen edge — see .era span's CSS comment for
 // what this replaces and why.
-const ERA_LABEL_MARGIN = 24; // v438: 3x the original 8px, at Tom's request — "Age of Martyrs" was reading flush against the screen edge
+const ERA_LABEL_MARGIN = 8; // insets the CENTERING maths only; the gap you see as a label rides off is .era span's own padding (v439)
 function updateEraLabels(){
   const viewLeft = viewport.scrollLeft + ERA_LABEL_MARGIN;
   const viewRight = viewport.scrollLeft + viewport.clientWidth - ERA_LABEL_MARGIN;
