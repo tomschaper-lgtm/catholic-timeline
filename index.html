@@ -1,6 +1,6 @@
 <!--
-VERSION: 429
-DATE: 2026-09-19T11:05:00-05:00
+VERSION: 430
+DATE: 2026-09-19T11:40:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,31 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v430 — 2026-09-19
+
+**Ask:**
+- Keep the sort column headers.
+- Drop the gold band at the foot; move the category up nearer the top and put a gold pill with
+  an arrow centered tightly underneath it. There was unused room at the top.
+- Let the panel run to the full bottom of the site, keeping its rounded corners.
+- Slightly shorter rows.
+
+**Implementation:**
+- `#spChipBand` moved out of the panel foot into a new `.spChipPillRow` directly under
+  `.panelHead`, restyled from a full-width band into a centered rounded pill. While the sheet is
+  up the row goes `visibility:hidden` rather than `display:none`, so the rows below it don't jump
+  by its height each time the sheet opens.
+- Compact `.saintsPanel` padding-top 22px -> 10px, `.panelHead` padding-bottom 18px -> 0, title
+  26px -> 22px, and max-height from `100vh - 78px` to `100vh - 46px - safe-area-top` so the panel
+  reaches the window foot. `border-radius:0 26px 26px 0` untouched.
+- `.spRow` vertical padding 11px -> 8px in compact. `--rowH` is re-measured off a real row on
+  every render, so the sticky group label and the infinite-loop maths follow automatically —
+  there is no constant to keep in step.
+- `.spListWrap` gains a safe-area bottom pad, since the list now ends at the physical screen edge
+  rather than 78px above it.
+- Budget check at the new numbers: ~10 rows at 540px viewport height, 6-7 on a landscape phone
+  (390-430px) — up from roughly 4 before this pass. The sort header stays, as asked.
+
 ## v429 — 2026-09-19
 
 **Ask:**
@@ -726,7 +751,7 @@ CHANGELOG:END
   /* Full height: the search box still wraps to its own full-width line under the title, which
      is what it has always looked like — being inside .panelHead now changes nothing here. */
   .saintsPanel .panelHead .spSearchWrap{order:3; flex:0 0 100%; margin:14px 0 0;}
-  .spChipBand{display:none;}
+  .spChipPillRow{display:none;}
 
   @media (max-height: 760px){
     /* Subtitle out, search up onto the title row between the title and the × (order 0/1/2),
@@ -734,12 +759,22 @@ CHANGELOG:END
     .saintsPanel .spTitleSecond{display:none;}
     .saintsPanel .spTitleWrap{flex:0 0 auto;}
     .saintsPanel .panelHead .spSearchWrap{order:1; flex:1 1 auto; margin:0 0 0 14px; min-width:0;}
-    .saintsPanel .panelHead{padding-bottom:12px; flex-wrap:nowrap;}
-    .saintsPanel{padding-bottom:0;}
+    .saintsPanel .panelHead{padding-bottom:0; flex-wrap:nowrap;}
+    /* v430: the panel ran from a 22px inset to 78px short of the viewport foot, both of which
+       were dead space here. It now starts tight under the app header and runs to the very
+       bottom of the window, keeping its rounded right corners. */
+    .saintsPanel{
+      padding:10px 0 0;
+      max-height:calc(100vh - 46px - env(safe-area-inset-top));
+    }
+    .saintsPanel .panelTitle{font-size:22px;}
+
+    /* The filter pill, centered under the title and tight to it. */
+    .spChipPillRow{display:flex; justify-content:center; flex:0 0 auto; padding:6px 22px 8px;}
 
     /* The chip bar becomes a sheet that rises from the very bottom edge of the panel. It is
-       taken out of flow so the list keeps the height the bar used to occupy; the gold band
-       takes its place in flow instead, at a fraction of the cost. */
+       taken out of flow so the list keeps the height the bar used to occupy; the pill above
+       stands in for it at a fraction of the cost. */
     .saintsPanel .spChips{
       position:absolute; left:0; right:0; bottom:0; z-index:3;
       margin:0; border-radius:22px 22px 0 0;
@@ -749,22 +784,28 @@ CHANGELOG:END
       transition:transform .3s cubic-bezier(.32,.72,.28,1);
     }
     .saintsPanel.chipsOpen .spChips{transform:translateY(0);}
-    .saintsPanel .spChipBand{display:flex;}
-    .saintsPanel.chipsOpen .spChipBand{display:none;}
+    .saintsPanel.chipsOpen .spChipPillRow{visibility:hidden;}
     @media (prefers-reduced-motion: reduce){
       .saintsPanel .spChips{transition:none;}
     }
+
+    /* Shorter rows. --rowH is re-measured off a real row on every render (see
+       renderSaintsPanel), so the sticky group label and the infinite-loop maths follow this
+       automatically — no constant to keep in step. */
+    .saintsPanel .spRow{padding-top:8px; padding-bottom:8px;}
+    .saintsPanel .spListWrap{padding-bottom:calc(env(safe-area-inset-bottom));}
   }
-  /* Roughly a quarter-inch of gold across the foot of the panel, naming the live filter. */
+  /* Gold pill naming the live filter — the compact layout's stand-in for the whole chip bar. */
   .spChipBand{
-    flex:0 0 auto; width:100%; align-items:center; justify-content:center; gap:7px;
-    min-height:26px; padding:5px 16px calc(5px + env(safe-area-inset-bottom));
-    border:none; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    padding:4px 16px; border:none; border-radius:999px;
+    cursor:pointer; -webkit-tap-highlight-color:transparent;
     background:linear-gradient(180deg, var(--gold, #C9A542), #AD8C30);
     color:#fff; font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
     font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    box-shadow:0 2px 8px rgba(20,25,40,.18);
   }
-  .spChipBandArrow{width:14px; height:14px; flex:0 0 auto; opacity:.9;}
+  .spChipBandArrow{width:13px; height:13px; flex:0 0 auto; opacity:.9;}
 
   /* ---- Generic Browse panel: Persecutions / Eucharistic Miracles / Events -----------------
      Same left-slide-panel mechanics as .saintsPanel/.spScrim (mirrored, same z-index band,
@@ -3178,6 +3219,16 @@ CHANGELOG:END
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
       </button>
     </div>
+    <!-- v430: only ever visible in the compact (short-viewport) layout, where the chip bar
+         costs more rows than it's worth. Sits directly under the title, naming the current
+         filter and raising the bar on tap; while the bar is up this is hidden, since the bar
+         itself is then what shows the selection. Hidden entirely at full height. -->
+    <div class="spChipPillRow">
+      <button class="spChipBand" id="spChipBand" type="button" aria-expanded="false" aria-controls="spChips">
+        <span id="spChipBandLabel">All</span>
+        <svg class="spChipBandArrow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 8l7 8H5z"/></svg>
+      </button>
+    </div>
     <div class="spHead">
       <button class="spCol active" id="spSortFeast" data-sort="feast"><span class="spColLabel">Feast</span> <span class="arrow">▲</span></button>
       <button class="spCol" id="spSortName" data-sort="name">Name <span class="arrow">▲</span></button>
@@ -3213,14 +3264,6 @@ CHANGELOG:END
         <span>Learn More</span>
       </button>
     </div>
-    <!-- v429: only ever visible in the compact (short-viewport) layout, where the chip bar
-         costs more rows than it's worth. It names the current filter and lifts the bar into
-         view on tap; while the bar is up this band is hidden, since the bar itself is then the
-         thing showing the selection. Hidden entirely at full height — see .spChipBand's CSS. -->
-    <button class="spChipBand" id="spChipBand" type="button" aria-expanded="false" aria-controls="spChips">
-      <span id="spChipBandLabel">All</span>
-      <svg class="spChipBandArrow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 8l7 8H5z"/></svg>
-    </button>
   </div>
 
   <!-- About panel: full-screen explainer overlay reached from a category's own "Learn More"
@@ -4159,7 +4202,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v429';
+const APP_VERSION = 'v430';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
