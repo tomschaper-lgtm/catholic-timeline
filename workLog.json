@@ -3833,12 +3833,85 @@
       "type": "arbitrate",
       "entityId": "st-angela-merici-1540",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Angela Merici",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Angela Merici",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "TERMINOLOGY",
+            "section": "The First Teaching Order of Women",
+            "sentence": "2-3",
+            "kind": "article",
+            "before": "This founded what became known as the Company of St. Ursula — later, the Ursulines — the Church's first religious order of women dedicated specifically to educating young girls. It was a genuinely pioneering venture",
+            "after": "This marked the foundation of what became known as the Company of St. Ursula — later associated with the Ursulines — an early community of women dedicated to educating girls. It was a genuinely pioneering venture",
+            "concern": "Angela's original Company of St. Ursula was a company of consecrated women living in their own households, not yet a religious order in the later canonical sense. The Ursulines became a religious order only through later developments, and calling it the Church's first such order dedicated specifically to girls' education is too categorical.",
+            "suggestedCorrection": "Describe the 1535 foundation as a company or community of consecrated women, and reserve the description of a religious order for the later Ursuline developments.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The revision correctly avoids the canonical mischaracterization of the early Company as an established religious order.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "Legacy",
+            "sentence": "1",
+            "kind": "article",
+            "before": "having served only five years as superior of the order",
+            "after": "having led the Company for only about three years as its superior",
+            "concern": "Angela was elected superior of the Company of St. Ursula around 1537 and died in 1540, so she served approximately three years in that role, not five. The passage also incorrectly calls the Company an order at this early stage.",
+            "suggestedCorrection": "Correct the duration of her leadership and identify the institution as the Company rather than an already-established religious order.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Corrects the tenure from five years to approximately three (1537 to 1540), aligning better with historical timelines.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "JUDGMENT",
+            "category": "JUDGMENT/TONE",
+            "section": "Legacy",
+            "sentence": "5",
+            "kind": "article",
+            "before": "The whole subsequent tradition of Catholic girls' schooling traces its lineage directly back to one orphaned farmer's daughter's patient, unhurried vision from the shores of Lake Garda.",
+            "after": "The Ursuline tradition became an important influence on the later development of Catholic girls' education in Europe and the Americas.",
+            "concern": "The claim that the whole subsequent tradition of Catholic girls' schooling traces directly to Angela is an unsupported sweeping generalization and overlooks other Catholic educational traditions and institutions. The phrase also presents Angela's background and influence in a rhetorically absolute way.",
+            "suggestedCorrection": "Limit the claim to the significant influence of the Ursuline tradition and avoid asserting a single direct lineage for all Catholic girls' schooling.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Replaces an overly sweeping rhetorical flourish with a more accurate and balanced historical assessment.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Legacy",
+            "sentence": "3",
+            "kind": "article",
+            "before": "one orphaned farmer's daughter's",
+            "after": "one orphaned merchant's daughter's",
+            "concern": "Angela Merici's father, Giovanni Merici, was a merchant and landowner (or innkeeper/tradesman), not a farmer. Describing her as a 'farmer's daughter' is historically inaccurate according to standard biographies of St. Angela.",
+            "suggestedCorrection": "one orphaned merchant's daughter's",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Angela Merici is generally described as the daughter of a merchant or prosperous tradesman, not a farmer.",
+            "proposedBy": "gemini-3.5-flash-lite",
+            "arbitratedBy": "gpt-5.6-luna"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-20T08:26:41.191Z",
+      "updatedAt": "2026-09-20T08:29:37.036Z",
       "error": null
     },
     {
