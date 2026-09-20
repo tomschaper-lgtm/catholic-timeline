@@ -1,6 +1,6 @@
 <!--
-VERSION: 440
-DATE: 2026-09-20T08:05:00-05:00
+VERSION: 441
+DATE: 2026-09-20T08:25:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,19 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v441 — 2026-09-20
+
+**Ask:**
+- Remove the small version number next to "Catholic Timeline" in the header.
+
+**Implementation:**
+- `#versionStamp` removed outright: the span from the `<h1>`, the line that set its text, the
+  Owner-Tools visibility toggle in `updateManageVisibility()`, and its CSS block. It was already
+  hidden from visitors, so this only changes what the owner sees.
+- The running version is still on show in Settings ("Version up to Date  v441"), which is where
+  to read it now — worth knowing, since the header stamp was how we'd been confirming which build
+  was live from screenshots.
+
 ## v440 — 2026-09-20
 
 **Ask:**
@@ -2953,12 +2966,6 @@ CHANGELOG:END
   .logHelp{padding:14px 20px 4px;}
   .logHelp summary{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;}
   #manage .artwrap{max-width:900px;}
-  #versionStamp{
-    font-family:'EB Garamond', Georgia, serif; font-size:11px; font-weight:400;
-    letter-spacing:.1em; font-style:normal; text-transform:none;
-    color:rgba(201,165,66,.62); margin-left:9px; vertical-align:super;
-    pointer-events:none; -webkit-user-select:none; user-select:none;
-  }
   .mgmtHeaderSticky{
     position:sticky; top:0; z-index:20; background:var(--m-row); border-bottom:1px solid var(--m-border);
   }
@@ -3328,7 +3335,7 @@ CHANGELOG:END
        behind the header: a position:fixed element does not get revealed by iOS rubber-band
        overscroll (fixed elements stay pinned while the page bounces), so the earlier
        "hidden until you pull down" placement could never actually be seen on an iPhone. -->
-  <h1><span class="t1">Catholic</span><span class="t2">Timeline</span><span id="versionStamp" aria-hidden="true"></span></h1>
+  <h1><span class="t1">Catholic</span><span class="t2">Timeline</span></h1>
   <button class="hamBtn" id="hamBtn" aria-label="Settings" aria-expanded="false"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   <div class="hamScrim" id="hamScrim"></div>
   <div class="hamMenu" id="hamMenu">
@@ -4450,9 +4457,8 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v440';
+const APP_VERSION = 'v441';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
-document.getElementById('versionStamp').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
 // Entries THIS browser session has actually created/edited or deleted since the last
@@ -14654,10 +14660,6 @@ function updateManageVisibility(){
   if(offlineRowEl) offlineRowEl.style.display = unlocked ? '' : 'none';
   const offlineNoteEl = document.getElementById('offlineNote');
   if(offlineNoteEl) offlineNoteEl.style.display = unlocked ? '' : 'none';
-  // The version number in the header is a developer/debugging aid, not something a visitor
-  // should ever see — same visibility rule as the rest of Owner Tools.
-  const verStamp = document.getElementById('versionStamp');
-  if(verStamp) verStamp.style.display = unlocked ? '' : 'none';
   // The switch itself follows access, not the preference — otherwise turning the CMS off would
   // hide the only control that turns it back on.
   const cmsBox = document.getElementById('cmsEnabled');
