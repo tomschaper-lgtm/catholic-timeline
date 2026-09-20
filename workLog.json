@@ -5210,12 +5210,53 @@
       "type": "arbitrate",
       "entityId": "st-isidore-of-seville-636",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Isidore of Seville",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Isidore of Seville",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "The Last of the Latin Fathers",
+            "sentence": "1",
+            "kind": "article",
+            "before": "the Eighth Council of Toledo met just five years after his death",
+            "after": "the Eighth Council of Toledo met about seventeen years after his death",
+            "concern": "Isidore died in 636, whereas the Eighth Council of Toledo met in 653, not five years later. The chronology is materially incorrect.",
+            "suggestedCorrection": "Replace the stated interval with the accurate one, or remove the interval entirely.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The original date math is clearly wrong (636 to 653 is 17 years, not 5).",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "VERIFY",
+            "category": "TERMINOLOGY",
+            "section": "Quick Facts",
+            "sentence": "4",
+            "kind": "facts",
+            "before": "Archbishop, Doctor of the Church",
+            "after": "Bishop of Seville, Doctor of the Church",
+            "concern": "Isidore is ordinarily identified as bishop of Seville. Calling him 'Archbishop' may project a later ecclesiastical title onto a seventh-century office and is inconsistent with the article's own description of him as bishop of Seville.",
+            "suggestedCorrection": "Use 'Bishop of Seville, Doctor of the Church' unless an authoritative source specifically supports the historical title 'Archbishop' in this context.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Bishop of Seville is historically precise for the 7th century.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-20T08:26:41.191Z",
+      "updatedAt": "2026-09-20T08:35:13.207Z",
       "error": null
     },
     {
