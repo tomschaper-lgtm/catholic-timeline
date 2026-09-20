@@ -3437,12 +3437,38 @@
       "type": "arbitrate",
       "entityId": "st-andr-bessette-1937",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. André Bessette",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. André Bessette",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "Quick Facts",
+            "sentence": "3",
+            "text": "1937, Montreal, Canada (at age 92)",
+            "concern": "Alfred Bessette was born on August 9, 1845, and died on January 6, 1937. Because he died before his birthday, he was 91, not 92.",
+            "suggestedCorrection": "Change the stated age to 91.",
+            "source": "Not externally verified",
+            "kind": "facts",
+            "before": "1937, Montreal, Canada (at age 92)",
+            "after": "1937, Montreal, Canada (at age 91)",
+            "winner": "revised",
+            "comment": "Simple math correction of age at death based on birth and death dates.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-20T08:26:41.191Z",
+      "updatedAt": "2026-09-20T08:27:27.796Z",
       "error": null
     },
     {
