@@ -3919,12 +3919,69 @@
       "type": "arbitrate",
       "entityId": "st-thomas-aquinas-1274",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Thomas Aquinas",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Thomas Aquinas",
+        "verdict": "findings",
+        "debates": [
+          {
+            "kind": "article",
+            "severity": "VERIFY",
+            "category": "FACT",
+            "section": "The Dumb Ox",
+            "sentence": "1",
+            "before": "Born around 1225 at the family castle of Roccasecca near Naples",
+            "after": "Born around 1225 at the family castle of Roccasecca, near Aquino in the Kingdom of Sicily",
+            "concern": "Roccasecca was near Aquino, not near Naples. Describing it as near Naples materially mislocates Thomas's birthplace.",
+            "suggestedCorrection": "Replace the geographical description with an accurate one, such as 'near Aquino in the Kingdom of Sicily.'",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Roccasecca is indeed near Aquino and the territory of the counts of Aquino rather than Naples.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "kind": "article",
+            "severity": "VERIFY",
+            "category": "TRADITION/LEGEND",
+            "section": "The Dumb Ox",
+            "sentence": "4",
+            "before": "His teacher, Albert the Great, famously and correctly predicted that this misjudgment would one day be reversed. He declared that this ox's bellowing would yet be heard throughout the whole world.",
+            "after": "A later tradition attributes to his teacher, Albert the Great, the prediction that this apparently slow ox's bellowing would one day be heard throughout the whole world.",
+            "concern": "The famous prediction is reported in a later biographical tradition rather than securely documented as a verbatim statement by Albert. It should not be presented as an established historical quotation without qualification.",
+            "suggestedCorrection": "Identify the prediction as a later tradition or otherwise verify its earliest reliable source.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Framing Albert the Great's famous remark as a later tradition is more historically accurate.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "kind": "article",
+            "severity": "JUDGMENT",
+            "category": "JUDGMENT/TONE",
+            "section": "Legacy",
+            "sentence": "3",
+            "before": "He remains the single most influential theologian in Western Catholicism's history",
+            "after": "He remains one of the most influential theologians in the history of Western Catholicism",
+            "concern": "The absolute superlative is a contestable evaluative judgment presented as fact. Although Thomas's influence is unquestionably immense, ranking him as the single most influential theologian requires a defensible criterion and ignores other plausible candidates.",
+            "suggestedCorrection": "Use a non-exclusive formulation that states his major influence without asserting an unverifiable absolute ranking.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Softening the absolute superlative to 'one of the most influential' is fairer and avoids an unprovable ranking.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-20T08:26:41.191Z",
+      "updatedAt": "2026-09-20T08:29:52.651Z",
       "error": null
     },
     {
