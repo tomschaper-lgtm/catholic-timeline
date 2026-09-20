@@ -3682,12 +3682,37 @@
       "type": "arbitrate",
       "entityId": "st-agnes-304",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Agnes",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Agnes",
+        "verdict": "findings",
+        "debates": [
+          {
+            "kind": "article",
+            "severity": "VERIFY",
+            "category": "FACT",
+            "section": "A Basilica and an Unbroken Memory",
+            "sentence": "1",
+            "before": "She had a great basilica raised over Agnes's tomb on the Via Nomentana — a church later rebuilt and still standing today",
+            "after": "She had a great basilica raised near Agnes's tomb on the Via Nomentana; the present basilica, rebuilt and modified over the centuries, still stands today",
+            "concern": "The sentence can misleadingly suggest that the basilica attributed to Constantina is substantially the same church standing today. The present Basilica of Sant'Agnese fuori le Mura is a later structure, substantially rebuilt under Pope Honorius I in the seventh century, even though it preserves the site and memory of Agnes's tomb.",
+            "suggestedCorrection": "Clarify the distinction between Constantina's original basilica and the later basilica that stands today, and verify whether 'over Agnes's tomb' is the precise description of the original structure.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Clarifies the architectural history to prevent the misconception that the original 4th-century structure remains intact.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-20T08:26:41.191Z",
+      "updatedAt": "2026-09-20T08:28:40.004Z",
       "error": null
     },
     {
