@@ -5412,12 +5412,53 @@
       "type": "arbitrate",
       "entityId": "st-kateri-tekakwitha-1680",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Kateri Tekakwitha",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Kateri Tekakwitha",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "VERIFY",
+            "category": "TRADITION/LEGEND",
+            "section": "Legacy",
+            "sentence": "1",
+            "kind": "article",
+            "before": "Witnesses recorded that within minutes of her death, the smallpox scars that had marked her face for two decades vanished. Several present testified that she was left strikingly beautiful.",
+            "after": "According to later testimony, witnesses reported that after her death the smallpox scars that had marked her face appeared to vanish, and that she was left strikingly beautiful.",
+            "concern": "The disappearance of Kateri's scars is a traditional postmortem miracle report, not an established historical observation. The current wording presents the alleged event as an unqualified fact.",
+            "suggestedCorrection": "Identify the account as testimony or tradition and avoid presenting the alleged miracle as independently established history.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Clarifies the hagiographical nature of the postmortem miracle report.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "MEANING/CLARITY",
+            "section": "Quick Facts",
+            "sentence": "1",
+            "kind": "facts",
+            "before": "July 14; April 17",
+            "after": "July 14",
+            "concern": "The fact is labeled 'Feast day' but gives two dates. Kateri Tekakwitha's liturgical feast is July 14; April 17 is her date of death, not a second feast day in this context.",
+            "suggestedCorrection": "Set the Feast day value to 'July 14' and, if desired, record April 17 separately as the date of death.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Fixes a factual confusion between the liturgical feast day and the date of death.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-20T08:26:41.191Z",
+      "updatedAt": "2026-09-20T08:36:29.431Z",
       "error": null
     },
     {
