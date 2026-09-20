@@ -4440,12 +4440,53 @@
       "type": "arbitrate",
       "entityId": "st-scholastica-543",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Scholastica",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Scholastica",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "VERIFY",
+            "category": "FACT",
+            "section": "The Annual Visit",
+            "sentence": "1",
+            "kind": "article",
+            "before": "Though unable, as an enclosed nun, to enter her brother's monastery",
+            "after": "Though their meeting is described as taking place outside her brother's monastery",
+            "concern": "Gregory's account places the annual meeting outside Benedict's monastery, but it does not establish the later canonical concept of Scholastica being an 'enclosed nun' unable to enter it. The wording risks projecting a later form of enclosure onto a sixth-century community.",
+            "suggestedCorrection": "Use wording that reports the location of the meeting without asserting an anachronistic explanation for why Scholastica did not enter the monastery.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Anachronistic use of later enclosed nun concepts is worth correcting.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "The Final Meeting and the Storm",
+            "sentence": "2",
+            "kind": "article",
+            "before": "bound by his monastic rule against remaining away from his cell overnight",
+            "after": "bound by his monastic rule not to remain outside his monastery overnight",
+            "concern": "In Gregory's account, Benedict says he cannot remain outside the monastery; the passage does not say that he was forbidden to remain away from his individual cell. 'Cell' changes the nature of the rule being described.",
+            "suggestedCorrection": "Refer to remaining outside the monastery rather than remaining away from his cell.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Cell is too narrow here and misrepresents the rule about staying outside the monastery.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-20T08:26:41.191Z",
+      "updatedAt": "2026-09-20T08:32:12.782Z",
       "error": null
     },
     {
