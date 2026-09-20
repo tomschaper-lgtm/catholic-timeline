@@ -19,6 +19,394 @@ the time.
 
 ---
 
+## v441 — 2026-09-20
+
+**Ask:**
+- Remove the small version number next to "Catholic Timeline" in the header.
+
+**Implementation:**
+- `#versionStamp` removed outright: the span from the `<h1>`, the line that set its text, the
+  Owner-Tools visibility toggle in `updateManageVisibility()`, and its CSS block. It was already
+  hidden from visitors, so this only changes what the owner sees.
+- The running version is still on show in Settings ("Version up to Date  v441"), which is where
+  to read it now — worth knowing, since the header stamp was how we'd been confirming which build
+  was live from screenshots.
+
+## v440 — 2026-09-20
+
+**Ask:**
+- The blank blue either side of the article in landscape should be gone — the timeline should
+  show down both sides.
+
+**Implementation:**
+- The narrowing was on the wrong element. v437 narrowed `.artwrap`, the text column INSIDE the
+  sheet, while the sheet itself (`#article.overlay`, in the `pointer:coarse` block) stayed
+  `width:100%` full-bleed — so the text moved in but the blue still ran edge to edge. Corrected:
+  `#article.overlay` is now `width:60%` centered in landscape, and v437's `.artwrap` cut is
+  dropped since the column simply fills the narrower sheet now.
+- Centered via auto side margins against the existing `left:0/right:0` rather than by adding a
+  `translateX` to the transform. That transform is animated across four states here (base, open,
+  peek, expanding) and the fly-portrait maths reads it; an over-constrained fixed box resolves to
+  centered on auto margins, leaving all of them untouched.
+- Checked that nothing in JS assumes the sheet spans the viewport — the portrait morph and
+  sticky-backdrop code all measure via `getBoundingClientRect()`, so they follow the new width.
+- Tapping the now-exposed timeline either side still closes the article, unchanged.
+
+## v439 — 2026-09-20
+
+**Ask:**
+- v425's era-label behaviour was right; just a bit more padding as the label slides off. Revert
+  if that isn't possible.
+
+**Implementation:**
+- Reverted v438 (`ERA_LABEL_MARGIN` back to 8). That was the wrong lever and a provable no-op for
+  this case: simulating an era entering from the screen edge gives byte-identical label positions
+  at 8 and 24, because the era-bounds clamp binds first and the viewport inset never gets a say.
+- The gap Tom was actually describing is `.era span`'s own side padding — the clamp rests the
+  SPAN's edge on the era divider, so that padding is the gap between divider and text. 8px -> 22px.
+  Verified this one does move the gap, unlike v438's.
+- No behavioural change otherwise: the v425 slide-off is exactly as it was.
+
+## v438 — 2026-09-19
+
+**Ask:**
+- Era label edge padding (the min gap from the screen edge before a label starts riding off, per
+  v425) should be 3x what it currently is — "Age of Martyrs" was reading flush against the edge.
+
+**Implementation:**
+- `ERA_LABEL_MARGIN` 8 -> 24. Single constant, used symmetrically on both edges in
+  `updateEraLabels()`, so both sides got wider at once.
+
+## v437 — 2026-09-19
+
+**Ask:**
+- Narrow the article box by 40% too, not just the fact box — the outer story container, still
+  landscape only.
+
+**Implementation:**
+- `.artwrap` gets its own landscape-only rule: `max-width:432px` (40% off its 720px base),
+  still centered by the `margin:0 auto` it already had. Portrait untouched.
+- `.factbox`'s separate 60%-of-parent cut from v433 was dropped in favor of filling 100% of the
+  now-narrower `.artwrap` — stacking both independent 40% cuts would have compounded to roughly
+  260px, too narrow to read a label and its value side by side.
+
+## v436 — 2026-09-19
+
+**Ask:**
+- Saints search box: ignore "st", "st.", "Saint", "Saints" as noise words.
+- "ro be" should find Robert Bellarmine — space-separated fragments, all required, each
+  matching anywhere (not as one contiguous substring).
+- Apply the fragment matching to all search boxes.
+
+**Implementation:**
+- New shared `SEARCH_STOPWORDS` ('st','saint','saints','sts' — 'sts' added alongside Tom's four
+  since `spDisplayName()` already treats it as the same honorific for display), `searchFragments()`
+  and `fragmentsMatchAny()`, used by both `spRows()` and `brRows()`. Replaces their old
+  `spNormalize(e.n).includes(q)` whole-string check, which required the ENTIRE query as one
+  contiguous substring — "ro be" never matched "Robert Bellarmine" there before this.
+- Real prior bug this fixes: entries store the name as "St. ___" literally, so a reader who
+  typed "Saint" (spelled out, as many naturally would) got zero results — "saint" never appears
+  as a substring of "st. ___". Verified: "saint augustine"/"st augustine" and "saints cosmas"
+  now both find their entries; "st"/"saint"/"st." typed alone now fall back to showing
+  everything (frags empty) rather than matching nothing.
+- The timeline's own `#tlSearch` already did per-fragment AND-substring matching (each parsed
+  term independently required, found anywhere in the field) — that part didn't need changing.
+  Only the stopword drop was missing: `parseSearchQuery()` now skips a plain (unquoted,
+  non-excluded) token via `isStopwordTerm()`, which tolerates the trailing period `fold()`
+  leaves on "St." that `spNormalize()` would otherwise strip. A quoted `"saint"` is a deliberate
+  whole-word search and is left alone.
+- Left out of this pass, pending confirmation: the Manage-side search boxes (`#mSearch`,
+  `#mfSearch`, `#logSearch`, `#lpSearch`) — CMS/owner tools rather than the three reader-facing
+  list searches this was actually about. Say if any of those should get the same treatment.
+
+## v435 — 2026-09-19
+
+**Ask:**
+- Slow the timeline travel animation down a little more.
+
+**Implementation:**
+- `animateScroll()`'s duration multiplier 2 -> 2.5 (v420 had doubled it from the original; this
+  is a smaller further step, not another doubling). Range is now roughly 1050-2875ms by distance,
+  up from 840-2300ms.
+
+## v434 — 2026-09-19
+
+**Ask:**
+- Give every category a search box, with recent searches kept separate per category.
+
+**Implementation:**
+- Browse panel gains the same search shell as Saints (`#brSearch`/`#brSearchClear`/`#brRecentBox`),
+  inside `.panelHead` for the same reason — the compact layout pulls it onto the title row. The
+  `.listPanel .panelHead .spSearchWrap` layout rules were Saints-scoped and are now shared, so
+  Browse's compact header is title + pill + search + × like Saints', answering v433's open
+  question: no empty space and no Browse-only special case.
+- `brRows()` filters on the entry name OR the category's own last-column value (`cfg.lastValue`),
+  so "France" in Councils and "Poland" in Eucharistic Miracles match by the same text visible in
+  the list. Verified across name and region matching.
+- Recents are keyed per category — `ct-browse-recent-searches-c|p|u|m|e` — so Councils' history
+  never appears while browsing Persecutions, and none of them mix with the Saints list
+  (`ct-saints-recent-searches`) or the timeline's. Same promote-don't-duplicate and cap-at-5
+  behaviour, and the term is pushed on a row tap, matching Saints.
+- Placeholder is set per category on open ("Search councils", "Search persecutions", ...).
+  Search clears on open; sort/filter/scroll still carry over as before.
+
+## v433 — 2026-09-19
+
+**Ask:**
+- The compact slide-out treatment should cover every category, not just Saints.
+- Undo v432's article-width reduction — the 40% was meant for the Quick Facts box (the bordered
+  panel inside the story), and only in landscape.
+
+**Implementation:**
+- Reverted `.artwrap` to its original flat `max-width:720px`.
+- `.factbox` instead gets `width:60%` centered under `@media (orientation: landscape)`. Portrait
+  keeps full width, where there is no room to spare.
+- Both left-slide list panels now carry a shared `listPanel` class, and the whole compact media
+  block was retargeted from `.saintsPanel` to `.listPanel` and relocated below `.browsePanel`'s
+  own base rules so its top/max-height overrides land without extra specificity. Browse rows are
+  already `class="spRow brRow"`, so the shorter-row rule reached them unchanged.
+- `setSpChipsOpen`/`syncSpChipBand` generalised to `setChipsOpen(prefix, on)`/`syncChipBand(prefix)`
+  keyed on 'sp'/'br'; the old Saints names remain as thin wrappers so existing call sites read
+  unchanged. Browse gets its own `#brChipBand` pill, wired to open/close/render the same way.
+- A category with no chips of its own (Persecutions, Events today) hides its pill row rather than
+  showing a dead control — `syncChipBand` sets `hidden` from whether any chip exists.
+- `body.saintsPanelOpen` renamed `listPanelOpen` and now toggled by both panels, so the app title
+  slides clear of either.
+
+**Open question:** Browse has no search box, so its compact header is just title + pill + ×, with
+the row that Saints spends on search left empty. Options: leave it (simplest), pull the pill up
+onto the title line for Browse only, or give Browse a search box of its own. Say which.
+
+## v432 — 2026-09-19
+
+**Ask:**
+- The All/Feast view reads "Saint's" in the compact layout — drop the possessive.
+- Point the pill arrow down and make it slightly larger.
+- The article overlay runs the full width of the screen; make it 40% narrower, centered.
+
+**Implementation:**
+- Compact hides the italic second half of the title, which left "Saint's Feast Day" as a bare,
+  dangling "Saint's". `renderSaintsPanel()` now wraps only the apostrophe in a `.spPoss` span,
+  which the compact media query drops — so the word reads "Saints" there and the full-height
+  title is byte-identical to before. One string, no second copy to keep in step. Verified across
+  all five title variants.
+- `.spChipBandArrow` path flipped to a down triangle, 13px -> 16px.
+- `.artwrap` max-width `720px` -> `min(720px, max(60vw, 340px))`: 40% narrower and still centered,
+  with a 340px floor so it doesn't collapse to a column on a narrow portrait phone, and the old
+  720px still acting as the ceiling on a wide desktop window. `#manage .artwrap`'s 900px override
+  is untouched.
+
+## v431 — 2026-09-19
+
+**Ask:**
+- Center the pill under the category word itself, tightly spaced.
+- Bring the search box down so it is vertically centered against the category/pill pair.
+- Take the panel all the way to the top, and move "Catholic Timeline" right so it stays visible
+  while the panel is open.
+
+**Implementation:**
+- `.spChipPillRow` moved inside `.spTitleWrap`, which becomes a centered flex column in compact
+  mode (`gap:3px`) — so the pill centers on the category word rather than on the panel, and the
+  two read as one unit.
+- `.panelHead` gets an explicit `align-items:center`, which puts the search box and the × on the
+  vertical midline of the title+pill stack instead of level with the title alone.
+- Compact `.saintsPanel` top `46px + safe-area` -> 0 and max-height -> `100vh`; rounded right
+  corners unchanged.
+- The panel now covers the header's left end, so `body.saintsPanelOpen h1` translates the app
+  title right by half the panel's width, on the same easing curve and duration as the panel's own
+  slide so the two move together. The class is toggled unconditionally in `openSaintsPanel()`/
+  `closeSaintsPanel()`; only the compact media query has a rule for it, so it is inert elsewhere.
+
+## v430 — 2026-09-19
+
+**Ask:**
+- Keep the sort column headers.
+- Drop the gold band at the foot; move the category up nearer the top and put a gold pill with
+  an arrow centered tightly underneath it. There was unused room at the top.
+- Let the panel run to the full bottom of the site, keeping its rounded corners.
+- Slightly shorter rows.
+
+**Implementation:**
+- `#spChipBand` moved out of the panel foot into a new `.spChipPillRow` directly under
+  `.panelHead`, restyled from a full-width band into a centered rounded pill. While the sheet is
+  up the row goes `visibility:hidden` rather than `display:none`, so the rows below it don't jump
+  by its height each time the sheet opens.
+- Compact `.saintsPanel` padding-top 22px -> 10px, `.panelHead` padding-bottom 18px -> 0, title
+  26px -> 22px, and max-height from `100vh - 78px` to `100vh - 46px - safe-area-top` so the panel
+  reaches the window foot. `border-radius:0 26px 26px 0` untouched.
+- `.spRow` vertical padding 11px -> 8px in compact. `--rowH` is re-measured off a real row on
+  every render, so the sticky group label and the infinite-loop maths follow automatically —
+  there is no constant to keep in step.
+- `.spListWrap` gains a safe-area bottom pad, since the list now ends at the physical screen edge
+  rather than 78px above it.
+- Budget check at the new numbers: ~10 rows at 540px viewport height, 6-7 on a landscape phone
+  (390-430px) — up from roughly 4 before this pass. The sort header stays, as asked.
+
+## v429 — 2026-09-19
+
+**Ask:**
+- When the Saints panel is short on space (ten rows or fewer), buy back room: drop the subtitle
+  and move the search box up beside the title, ending before the close ×.
+- Turn the chip bar into a sheet that slides up from the bottom and retires once a selection is
+  made. The bottom quarter-inch becomes a gold band naming the selection in white with an arrow
+  hinting at the sheet; the band disappears while the sheet is up, and the sheet reaches the
+  very bottom.
+
+**Implementation:**
+- The Saints search box now lives inside `.panelHead` rather than as a sibling below it. At full
+  height `.saintsPanel .panelHead` wraps it to its own full-width line (`order:3; flex:0 0 100%`)
+  so nothing looks different; the compact layout re-orders it between title and × instead. Only
+  this panel's markup moved — Browse and Task keep theirs as siblings.
+- Compact layout is gated on `@media (max-height:760px)`, roughly where the fixed chrome stops
+  leaving ten rows. Phones in portrait and tablets stay on the full layout; landscape phones and
+  short desktop windows get the compact one.
+- `.spChips` becomes `position:absolute; bottom:0` in compact mode, so the list keeps the height
+  the bar used to take, and rides in on a transform under `.saintsPanel.chipsOpen`. New
+  `#spChipBand` takes its place in flow.
+- `setSpChipsOpen()`/`syncSpChipBand()` handle raise/dismiss and the label. The sheet closes on a
+  chip pick, on Learn More, and on any pointerdown in the list. Both look their elements up by id
+  rather than closing over consts — they are called from `renderSaintsPanel()`/
+  `openSaintsPanel()`, defined earlier in the file, so a const declared at their own definition
+  point would sit in its temporal dead zone for any call that ran first.
+
+## v428 — 2026-09-19
+
+**Ask:**
+- Settings update row: show the version number right after "New Version", with the Update button
+  still on the right. Drop the right-hand arrow on the up-to-date state, make the version number
+  black like the rest of the row, and have it read "Version up to Date  v4NN".
+- Make the Offline Access disclosure triangle bigger.
+
+**Implementation:**
+- `.pChev` removed from `#updateBtn`'s markup (the other two rows that navigate, Install and
+  Manage, keep theirs). `setPendingReload()` no longer hides `#updateCur` — the version number
+  now holds its slot in both states, so the row reads "Version up to Date  v427" or
+  "New Version  v433  [Update]".
+- `#updateCur` overrides `.pMeta`'s dimmed grey with #111827. It is the row's actual answer
+  rather than a secondary note, unlike Review Mode's "13 pending", which stays grey.
+- The up-to-date branch of `checkVersion()` now resets `#updateCur` to `APP_VERSION`; a previous
+  check could otherwise leave a newer pending number sitting next to "Version up to Date".
+- `.pCaret svg` 17px -> 24px.
+
+## v427 — 2026-09-19
+
+**Ask:**
+- Put changelog entries in index.html's header in a set format, then have a daily service pull
+  them into CHANGELOG.md and trim the header.
+
+**Implementation:**
+- New sentinel-delimited staging block in this header (see the prose above it), plus
+  `scripts/sync-changelog.mjs` and `.github/workflows/sync-changelog.yml` running it daily.
+- Entries start here rather than in CHANGELOG.md because index.html is the file a chat session
+  can edit and hand back whole — v420-v426 had all shipped without ever reaching CHANGELOG.md.
+  This release backfills them.
+- Prunes by version number, never by age, and asserts every version it drops is present in
+  CHANGELOG.md first: a run that fails for a week loses nothing, and a second run the same day is
+  a no-op. Rewrites only the span between the sentinels; aborts if either is missing or doubled.
+
+## v426 — 2026-09-19
+
+**Ask:**
+- Tapping the search box should place the cursor on the first tap, not the second.
+- Any tap, drag or scroll outside the search box or its dropdown should close the dropdown.
+- Readers who pinch-zoom get stuck; unzoom automatically on the common paths.
+
+**Implementation:**
+- `#tlSearch`'s focus handler no longer calls `runSearch()` inline. Building the dropdown
+  synchronously while the browser was still settling focus is what made the first tap land the
+  focus (recents appeared) without landing a usable caret. Deferred with `setTimeout(..., 0)`.
+  Best-supported explanation rather than a confirmed one — `user-select`, stray `blur()` calls,
+  the hamburger's outside-handler and the viewport-resize handler were all ruled out first, but
+  this was not reproducible off-device.
+- New `closeSearchResults()`, wired to a capture-phase document `pointerdown` (anything not
+  inside `.searchwrap`) and to `viewport`'s scroll. Capture + pointerdown for the same reasons
+  the hamburger menu's own outside-handler uses them: it still fires for handlers that
+  stopPropagation, and for touch-scrolling that never produces a click. Also drops the keyboard.
+- New `resetPageZoom()`. There is no API to set page zoom, so it momentarily adds
+  `maximum-scale=1, user-scalable=no` to the viewport meta (making the browser snap back) and
+  restores the original 350ms later, so pinch still works immediately after. Called from
+  `focusEntry()` and `closeArticle()` — navigation moments, not a timer, so a deliberate zoom is
+  never yanked away mid-read. No-op below scale 1.01.
+
+## v425 — 2026-09-19
+
+**Ask:**
+- Era labels pop off screen all at once when the era gets cramped; they used to slide off
+  holding their padding. Same in both directions.
+
+**Implementation:**
+- `updateEraLabels()` now clamps the label's center into its era's own bounds
+  (`[eraLeft + w/2, eraRight - w/2]`) instead of hiding it when the visible slice is too narrow.
+  While there is room the clamp doesn't bind and the label stays centered in the visible slice;
+  once the slice narrows it comes to rest against its era's boundary and rides it off the screen
+  edge. This is the same result the old `position:sticky` produced at the edges (its containing
+  block did the clamping), now with the centered behaviour through the middle that sticky could
+  not give. Era narrower than its own name at the current zoom falls back to the band's midpoint.
+- Reverted v423/v424's opacity fade on `.era span` — nothing hides anymore.
+
+## v424 — 2026-09-19
+
+**Ask:**
+- Offline Access should only appear when Owner Tools is on.
+- Add a blue triangle after "Offline Access": tapping the row from the left edge through the
+  triangle expands the note below and flips the triangle; remember the state. Tapping right of
+  the triangle toggles the switch.
+- The Font Size label should match the other rows' font face.
+
+**Implementation:**
+- `#offlineRow` and `#offlineNote` now follow `unlocked` in `updateManageVisibility()`, the same
+  rule as Review Mode and Manage. Note this removes the only control that starts the service
+  worker from ordinary visitors — anyone who already enabled it keeps it, since the stored
+  `offline-access` preference and its registration are untouched.
+- The row stopped being a `<label>`: a label wrapping the whole row claims every tap on it for
+  the checkbox, caret included. It is now a plain div holding `.pDisclose` (tile + name + caret,
+  a real button) and `.pSwitchHit` (a `<label for>` filling the rest out to the switch).
+  Disclosure state persists in `localStorage` under `offline-note-open`, collapsed by default.
+- `.pSpecimen` lost its `font-family:'EB Garamond'` override (it was deliberate once — the label
+  doubled as a live size specimen). It still scales with the stepper, just in system-ui now.
+
+## v423 — 2026-09-19
+
+**Ask:**
+- Era labels arrive chopped mid-word when an era scrolls in from the left.
+
+**Implementation:**
+- Superseded by v425 — see there. This release hid the label whenever its visible slice was
+  narrower than the label itself, which stopped the chopping but introduced the popping v425
+  fixes properly.
+
+## v422 — 2026-09-19
+
+**Ask:**
+- Move the Update button onto the same line as the version row, replacing "Available".
+
+**Implementation:**
+- `#updateActionBtn` moved inside `#updateBtn` as an inline `.pUpdateInline` pill and is no
+  longer its own button — a tap anywhere on the row already reaches the row's own handler, which
+  reloads whenever `pendingReload` is true, so its separate click listener was removed.
+  `setPendingReload()` now also hides `#updateCur` and `.pChev`, whose spot the pill takes. Label
+  text shortened to "New Version".
+
+## v421 — 2026-09-19
+
+**Ask:**
+- Era labels that have room should stay centered in the visible part of their band.
+
+**Implementation:**
+- `.era span` moved off `position:sticky` onto JS positioning via a new `updateEraLabels()`,
+  scroll-driven like `updateBandIconFade()`/`updateCenterYearBadge()`. Sticky could only clamp to
+  a flat offset from the screen edge, so an era wider than the viewport sat pinned at that edge
+  for most of the scroll through it.
+
+## v420 — 2026-09-19
+
+**Ask:**
+- Timeline travel should ease in and out, and run about twice as long.
+
+**Implementation:**
+- `animateScroll()`'s duration doubled (now roughly 840–2300ms by distance). The ease curve was
+  already a slow-start/slow-end cubic; at the old 420–1150ms range it read as a near-linear snap.
+
 ## v419 — 2026-09-18
 
 **Ask:**
