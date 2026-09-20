@@ -5171,12 +5171,38 @@
       "type": "arbitrate",
       "entityId": "st-richard-of-chichester-1253",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Richard of Chichester",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Richard of Chichester",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Death on the Road to Dover",
+            "sentence": "1",
+            "text": "the king appointed Richard to preach in favor of a new crusade",
+            "concern": "Richard is generally described as having been commissioned by Pope Innocent IV to preach the crusade, rather than appointed by King Henry III. The attribution materially changes who authorized this work.",
+            "suggestedCorrection": "Replace with: \"In 1252, Pope Innocent IV commissioned Richard to preach in favor of a new crusade, and he threw himself into the task with characteristic energy...\"",
+            "source": "Not externally verified",
+            "kind": "article",
+            "before": "the king appointed Richard to preach in favor of a new crusade",
+            "after": "Pope Innocent IV commissioned Richard to preach in favor of a new crusade",
+            "winner": "revised",
+            "comment": "Corrects a material error in papal vs. royal authority for preaching a crusade.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-20T08:26:41.191Z",
+      "updatedAt": "2026-09-20T08:35:01.236Z",
       "error": null
     },
     {
