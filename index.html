@@ -1,6 +1,6 @@
 <!--
-VERSION: 441
-DATE: 2026-09-20T08:25:00-05:00
+VERSION: 443
+DATE: 2026-09-20T10:15:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,55 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v443 — 2026-09-20
+
+**Ask:**
+- "Couldn't find this exact wording" still firing on the St. Vincent Ferrer / Helping End the
+  Schism arbitrate debate, even after the tag-stripping and curly-quote fixes — diagnose and fix
+  if possible.
+
+**Implementation:**
+- Diagnosis (not confirmed against arbitrate.mjs's own source, which isn't visible from this
+  file): the debate's before-text (sentence #1-2) crosses a paragraph break — the raw Edit box
+  showed it as two separate one-sentence paragraphs. Likely cause: the AI proposer reads the
+  article as flowing prose (a paragraph gap collapsed to a plain space) when it quotes before/
+  after, while the stored text keeps a literal "\n\n" between paragraphs, so an otherwise
+  word-for-word match came out one character short.
+- Couldn't just collapse "\n\n" to a space in tkStripInlineTagsTracked's output, though —
+  tkRenderArbitrateArticle's own paragraph split depends on that literal gap surviving in
+  plainFull, and collapsing it there would merge every paragraph in a section together for
+  highlighting. New tkNthIndexOfFlexibleWs instead makes the SEARCH tolerant: each whitespace run
+  in the needle matches one-or-more whitespace characters in the haystack, leaving plainFull
+  itself untouched. Returns the real matched {index, length} rather than a bare index, since the
+  matched span can now be longer than needle.length (a "\n\n" absorbing what was one space in the
+  needle) — every caller was updated to use that length instead of assuming needle.length.
+- Scoped to 'article'-kind debates only (tkFindDebateSpan, tkApplyDebateText's article branch);
+  facts/quotes values are short single fields with no paragraphs to cross, so they keep
+  tkNthIndexOf's exact match unchanged.
+- Also fixed tkDebateShownText (prefills the Edit box): it was matching raw tkNthIndexOf directly
+  against the UNTOUCHED raw HTML, never tag-stripped and never whitespace-flexible, so it fell
+  back to the unmodified section any time a span touched a tag or crossed a paragraph gap — even
+  after tkApplyDebateText itself was fixed for the tag case. Its own comment already claimed
+  parity with tkApplyDebateText; it now actually has it, sharing the same tag-strip +
+  flexible-whitespace match for the 'article' case.
+- Verified against a reconstruction of the actual St. Vincent Ferrer text from Tom's screenshots
+  (Node, not the live site — no access to the real stored entry): the new match correctly spans
+  the `<a>` cross-reference link AND the paragraph gap, and the existing link-preservation rule in
+  tkApplyDebateText correctly drops the Council of Constance link since the proposed replacement
+  doesn't mention it by name. Not verified live — worth confirming this debate now resolves
+  cleanly after deploying.
+
+## v442 — 2026-09-20
+
+**Ask:**
+- Wire up the "Report an issue" button so submissions actually reach Tom.
+
+**Implementation:**
+- `WEB3FORMS_KEY` set to Tom's real Web3Forms access key, replacing the
+  `PASTE_YOUR_WEB3FORMS_ACCESS_KEY_HERE` placeholder. No other logic in the report-modal flow
+  changed — the fetch call, fields, and modal were already wired up in a prior version and just
+  needed a real key. Submissions now deliver to the inbox tied to that Web3Forms account.
+
 ## v441 — 2026-09-20
 
 **Ask:**
@@ -70,6 +119,346 @@ CHANGELOG:BEGIN
   SPAN's edge on the era divider, so that padding is the gap between divider and text. 8px -> 22px.
   Verified this one does move the gap, unlike v438's.
 - No behavioural change otherwise: the v425 slide-off is exactly as it was.
+
+## v438 — 2026-09-19
+
+**Ask:**
+- Era label edge padding (the min gap from the screen edge before a label starts riding off, per
+  v425) should be 3x what it currently is — "Age of Martyrs" was reading flush against the edge.
+
+**Implementation:**
+- `ERA_LABEL_MARGIN` 8 -> 24. Single constant, used symmetrically on both edges in
+  `updateEraLabels()`, so both sides got wider at once.
+
+## v437 — 2026-09-19
+
+**Ask:**
+- Narrow the article box by 40% too, not just the fact box — the outer story container, still
+  landscape only.
+
+**Implementation:**
+- `.artwrap` gets its own landscape-only rule: `max-width:432px` (40% off its 720px base),
+  still centered by the `margin:0 auto` it already had. Portrait untouched.
+- `.factbox`'s separate 60%-of-parent cut from v433 was dropped in favor of filling 100% of the
+  now-narrower `.artwrap` — stacking both independent 40% cuts would have compounded to roughly
+  260px, too narrow to read a label and its value side by side.
+
+## v436 — 2026-09-19
+
+**Ask:**
+- Saints search box: ignore "st", "st.", "Saint", "Saints" as noise words.
+- "ro be" should find Robert Bellarmine — space-separated fragments, all required, each
+  matching anywhere (not as one contiguous substring).
+- Apply the fragment matching to all search boxes.
+
+**Implementation:**
+- New shared `SEARCH_STOPWORDS` ('st','saint','saints','sts' — 'sts' added alongside Tom's four
+  since `spDisplayName()` already treats it as the same honorific for display), `searchFragments()`
+  and `fragmentsMatchAny()`, used by both `spRows()` and `brRows()`. Replaces their old
+  `spNormalize(e.n).includes(q)` whole-string check, which required the ENTIRE query as one
+  contiguous substring — "ro be" never matched "Robert Bellarmine" there before this.
+- Real prior bug this fixes: entries store the name as "St. ___" literally, so a reader who
+  typed "Saint" (spelled out, as many naturally would) got zero results — "saint" never appears
+  as a substring of "st. ___". Verified: "saint augustine"/"st augustine" and "saints cosmas"
+  now both find their entries; "st"/"saint"/"st." typed alone now fall back to showing
+  everything (frags empty) rather than matching nothing.
+- The timeline's own `#tlSearch` already did per-fragment AND-substring matching (each parsed
+  term independently required, found anywhere in the field) — that part didn't need changing.
+  Only the stopword drop was missing: `parseSearchQuery()` now skips a plain (unquoted,
+  non-excluded) token via `isStopwordTerm()`, which tolerates the trailing period `fold()`
+  leaves on "St." that `spNormalize()` would otherwise strip. A quoted `"saint"` is a deliberate
+  whole-word search and is left alone.
+- Left out of this pass, pending confirmation: the Manage-side search boxes (`#mSearch`,
+  `#mfSearch`, `#logSearch`, `#lpSearch`) — CMS/owner tools rather than the three reader-facing
+  list searches this was actually about. Say if any of those should get the same treatment.
+
+## v435 — 2026-09-19
+
+**Ask:**
+- Slow the timeline travel animation down a little more.
+
+**Implementation:**
+- `animateScroll()`'s duration multiplier 2 -> 2.5 (v420 had doubled it from the original; this
+  is a smaller further step, not another doubling). Range is now roughly 1050-2875ms by distance,
+  up from 840-2300ms.
+
+## v434 — 2026-09-19
+
+**Ask:**
+- Give every category a search box, with recent searches kept separate per category.
+
+**Implementation:**
+- Browse panel gains the same search shell as Saints (`#brSearch`/`#brSearchClear`/`#brRecentBox`),
+  inside `.panelHead` for the same reason — the compact layout pulls it onto the title row. The
+  `.listPanel .panelHead .spSearchWrap` layout rules were Saints-scoped and are now shared, so
+  Browse's compact header is title + pill + search + × like Saints', answering v433's open
+  question: no empty space and no Browse-only special case.
+- `brRows()` filters on the entry name OR the category's own last-column value (`cfg.lastValue`),
+  so "France" in Councils and "Poland" in Eucharistic Miracles match by the same text visible in
+  the list. Verified across name and region matching.
+- Recents are keyed per category — `ct-browse-recent-searches-c|p|u|m|e` — so Councils' history
+  never appears while browsing Persecutions, and none of them mix with the Saints list
+  (`ct-saints-recent-searches`) or the timeline's. Same promote-don't-duplicate and cap-at-5
+  behaviour, and the term is pushed on a row tap, matching Saints.
+- Placeholder is set per category on open ("Search councils", "Search persecutions", ...).
+  Search clears on open; sort/filter/scroll still carry over as before.
+
+## v433 — 2026-09-19
+
+**Ask:**
+- The compact slide-out treatment should cover every category, not just Saints.
+- Undo v432's article-width reduction — the 40% was meant for the Quick Facts box (the bordered
+  panel inside the story), and only in landscape.
+
+**Implementation:**
+- Reverted `.artwrap` to its original flat `max-width:720px`.
+- `.factbox` instead gets `width:60%` centered under `@media (orientation: landscape)`. Portrait
+  keeps full width, where there is no room to spare.
+- Both left-slide list panels now carry a shared `listPanel` class, and the whole compact media
+  block was retargeted from `.saintsPanel` to `.listPanel` and relocated below `.browsePanel`'s
+  own base rules so its top/max-height overrides land without extra specificity. Browse rows are
+  already `class="spRow brRow"`, so the shorter-row rule reached them unchanged.
+- `setSpChipsOpen`/`syncSpChipBand` generalised to `setChipsOpen(prefix, on)`/`syncChipBand(prefix)`
+  keyed on 'sp'/'br'; the old Saints names remain as thin wrappers so existing call sites read
+  unchanged. Browse gets its own `#brChipBand` pill, wired to open/close/render the same way.
+- A category with no chips of its own (Persecutions, Events today) hides its pill row rather than
+  showing a dead control — `syncChipBand` sets `hidden` from whether any chip exists.
+- `body.saintsPanelOpen` renamed `listPanelOpen` and now toggled by both panels, so the app title
+  slides clear of either.
+
+**Open question:** Browse has no search box, so its compact header is just title + pill + ×, with
+the row that Saints spends on search left empty. Options: leave it (simplest), pull the pill up
+onto the title line for Browse only, or give Browse a search box of its own. Say which.
+
+## v432 — 2026-09-19
+
+**Ask:**
+- The All/Feast view reads "Saint's" in the compact layout — drop the possessive.
+- Point the pill arrow down and make it slightly larger.
+- The article overlay runs the full width of the screen; make it 40% narrower, centered.
+
+**Implementation:**
+- Compact hides the italic second half of the title, which left "Saint's Feast Day" as a bare,
+  dangling "Saint's". `renderSaintsPanel()` now wraps only the apostrophe in a `.spPoss` span,
+  which the compact media query drops — so the word reads "Saints" there and the full-height
+  title is byte-identical to before. One string, no second copy to keep in step. Verified across
+  all five title variants.
+- `.spChipBandArrow` path flipped to a down triangle, 13px -> 16px.
+- `.artwrap` max-width `720px` -> `min(720px, max(60vw, 340px))`: 40% narrower and still centered,
+  with a 340px floor so it doesn't collapse to a column on a narrow portrait phone, and the old
+  720px still acting as the ceiling on a wide desktop window. `#manage .artwrap`'s 900px override
+  is untouched.
+
+## v431 — 2026-09-19
+
+**Ask:**
+- Center the pill under the category word itself, tightly spaced.
+- Bring the search box down so it is vertically centered against the category/pill pair.
+- Take the panel all the way to the top, and move "Catholic Timeline" right so it stays visible
+  while the panel is open.
+
+**Implementation:**
+- `.spChipPillRow` moved inside `.spTitleWrap`, which becomes a centered flex column in compact
+  mode (`gap:3px`) — so the pill centers on the category word rather than on the panel, and the
+  two read as one unit.
+- `.panelHead` gets an explicit `align-items:center`, which puts the search box and the × on the
+  vertical midline of the title+pill stack instead of level with the title alone.
+- Compact `.saintsPanel` top `46px + safe-area` -> 0 and max-height -> `100vh`; rounded right
+  corners unchanged.
+- The panel now covers the header's left end, so `body.saintsPanelOpen h1` translates the app
+  title right by half the panel's width, on the same easing curve and duration as the panel's own
+  slide so the two move together. The class is toggled unconditionally in `openSaintsPanel()`/
+  `closeSaintsPanel()`; only the compact media query has a rule for it, so it is inert elsewhere.
+
+## v430 — 2026-09-19
+
+**Ask:**
+- Keep the sort column headers.
+- Drop the gold band at the foot; move the category up nearer the top and put a gold pill with
+  an arrow centered tightly underneath it. There was unused room at the top.
+- Let the panel run to the full bottom of the site, keeping its rounded corners.
+- Slightly shorter rows.
+
+**Implementation:**
+- `#spChipBand` moved out of the panel foot into a new `.spChipPillRow` directly under
+  `.panelHead`, restyled from a full-width band into a centered rounded pill. While the sheet is
+  up the row goes `visibility:hidden` rather than `display:none`, so the rows below it don't jump
+  by its height each time the sheet opens.
+- Compact `.saintsPanel` padding-top 22px -> 10px, `.panelHead` padding-bottom 18px -> 0, title
+  26px -> 22px, and max-height from `100vh - 78px` to `100vh - 46px - safe-area-top` so the panel
+  reaches the window foot. `border-radius:0 26px 26px 0` untouched.
+- `.spRow` vertical padding 11px -> 8px in compact. `--rowH` is re-measured off a real row on
+  every render, so the sticky group label and the infinite-loop maths follow automatically —
+  there is no constant to keep in step.
+- `.spListWrap` gains a safe-area bottom pad, since the list now ends at the physical screen edge
+  rather than 78px above it.
+- Budget check at the new numbers: ~10 rows at 540px viewport height, 6-7 on a landscape phone
+  (390-430px) — up from roughly 4 before this pass. The sort header stays, as asked.
+
+## v429 — 2026-09-19
+
+**Ask:**
+- When the Saints panel is short on space (ten rows or fewer), buy back room: drop the subtitle
+  and move the search box up beside the title, ending before the close ×.
+- Turn the chip bar into a sheet that slides up from the bottom and retires once a selection is
+  made. The bottom quarter-inch becomes a gold band naming the selection in white with an arrow
+  hinting at the sheet; the band disappears while the sheet is up, and the sheet reaches the
+  very bottom.
+
+**Implementation:**
+- The Saints search box now lives inside `.panelHead` rather than as a sibling below it. At full
+  height `.saintsPanel .panelHead` wraps it to its own full-width line (`order:3; flex:0 0 100%`)
+  so nothing looks different; the compact layout re-orders it between title and × instead. Only
+  this panel's markup moved — Browse and Task keep theirs as siblings.
+- Compact layout is gated on `@media (max-height:760px)`, roughly where the fixed chrome stops
+  leaving ten rows. Phones in portrait and tablets stay on the full layout; landscape phones and
+  short desktop windows get the compact one.
+- `.spChips` becomes `position:absolute; bottom:0` in compact mode, so the list keeps the height
+  the bar used to take, and rides in on a transform under `.saintsPanel.chipsOpen`. New
+  `#spChipBand` takes its place in flow.
+- `setSpChipsOpen()`/`syncSpChipBand()` handle raise/dismiss and the label. The sheet closes on a
+  chip pick, on Learn More, and on any pointerdown in the list. Both look their elements up by id
+  rather than closing over consts — they are called from `renderSaintsPanel()`/
+  `openSaintsPanel()`, defined earlier in the file, so a const declared at their own definition
+  point would sit in its temporal dead zone for any call that ran first.
+
+## v428 — 2026-09-19
+
+**Ask:**
+- Settings update row: show the version number right after "New Version", with the Update button
+  still on the right. Drop the right-hand arrow on the up-to-date state, make the version number
+  black like the rest of the row, and have it read "Version up to Date  v4NN".
+- Make the Offline Access disclosure triangle bigger.
+
+**Implementation:**
+- `.pChev` removed from `#updateBtn`'s markup (the other two rows that navigate, Install and
+  Manage, keep theirs). `setPendingReload()` no longer hides `#updateCur` — the version number
+  now holds its slot in both states, so the row reads "Version up to Date  v427" or
+  "New Version  v433  [Update]".
+- `#updateCur` overrides `.pMeta`'s dimmed grey with #111827. It is the row's actual answer
+  rather than a secondary note, unlike Review Mode's "13 pending", which stays grey.
+- The up-to-date branch of `checkVersion()` now resets `#updateCur` to `APP_VERSION`; a previous
+  check could otherwise leave a newer pending number sitting next to "Version up to Date".
+- `.pCaret svg` 17px -> 24px.
+
+## v427 — 2026-09-19
+
+**Ask:**
+- Put changelog entries in index.html's header in a set format, then have a daily service pull
+  them into CHANGELOG.md and trim the header.
+
+**Implementation:**
+- New sentinel-delimited staging block in this header (see the prose above it), plus
+  `scripts/sync-changelog.mjs` and `.github/workflows/sync-changelog.yml` running it daily.
+- Entries start here rather than in CHANGELOG.md because index.html is the file a chat session
+  can edit and hand back whole — v420-v426 had all shipped without ever reaching CHANGELOG.md.
+  This release backfills them.
+- Prunes by version number, never by age, and asserts every version it drops is present in
+  CHANGELOG.md first: a run that fails for a week loses nothing, and a second run the same day is
+  a no-op. Rewrites only the span between the sentinels; aborts if either is missing or doubled.
+
+## v426 — 2026-09-19
+
+**Ask:**
+- Tapping the search box should place the cursor on the first tap, not the second.
+- Any tap, drag or scroll outside the search box or its dropdown should close the dropdown.
+- Readers who pinch-zoom get stuck; unzoom automatically on the common paths.
+
+**Implementation:**
+- `#tlSearch`'s focus handler no longer calls `runSearch()` inline. Building the dropdown
+  synchronously while the browser was still settling focus is what made the first tap land the
+  focus (recents appeared) without landing a usable caret. Deferred with `setTimeout(..., 0)`.
+  Best-supported explanation rather than a confirmed one — `user-select`, stray `blur()` calls,
+  the hamburger's outside-handler and the viewport-resize handler were all ruled out first, but
+  this was not reproducible off-device.
+- New `closeSearchResults()`, wired to a capture-phase document `pointerdown` (anything not
+  inside `.searchwrap`) and to `viewport`'s scroll. Capture + pointerdown for the same reasons
+  the hamburger menu's own outside-handler uses them: it still fires for handlers that
+  stopPropagation, and for touch-scrolling that never produces a click. Also drops the keyboard.
+- New `resetPageZoom()`. There is no API to set page zoom, so it momentarily adds
+  `maximum-scale=1, user-scalable=no` to the viewport meta (making the browser snap back) and
+  restores the original 350ms later, so pinch still works immediately after. Called from
+  `focusEntry()` and `closeArticle()` — navigation moments, not a timer, so a deliberate zoom is
+  never yanked away mid-read. No-op below scale 1.01.
+
+## v425 — 2026-09-19
+
+**Ask:**
+- Era labels pop off screen all at once when the era gets cramped; they used to slide off
+  holding their padding. Same in both directions.
+
+**Implementation:**
+- `updateEraLabels()` now clamps the label's center into its era's own bounds
+  (`[eraLeft + w/2, eraRight - w/2]`) instead of hiding it when the visible slice is too narrow.
+  While there is room the clamp doesn't bind and the label stays centered in the visible slice;
+  once the slice narrows it comes to rest against its era's boundary and rides it off the screen
+  edge. This is the same result the old `position:sticky` produced at the edges (its containing
+  block did the clamping), now with the centered behaviour through the middle that sticky could
+  not give. Era narrower than its own name at the current zoom falls back to the band's midpoint.
+- Reverted v423/v424's opacity fade on `.era span` — nothing hides anymore.
+
+## v424 — 2026-09-19
+
+**Ask:**
+- Offline Access should only appear when Owner Tools is on.
+- Add a blue triangle after "Offline Access": tapping the row from the left edge through the
+  triangle expands the note below and flips the triangle; remember the state. Tapping right of
+  the triangle toggles the switch.
+- The Font Size label should match the other rows' font face.
+
+**Implementation:**
+- `#offlineRow` and `#offlineNote` now follow `unlocked` in `updateManageVisibility()`, the same
+  rule as Review Mode and Manage. Note this removes the only control that starts the service
+  worker from ordinary visitors — anyone who already enabled it keeps it, since the stored
+  `offline-access` preference and its registration are untouched.
+- The row stopped being a `<label>`: a label wrapping the whole row claims every tap on it for
+  the checkbox, caret included. It is now a plain div holding `.pDisclose` (tile + name + caret,
+  a real button) and `.pSwitchHit` (a `<label for>` filling the rest out to the switch).
+  Disclosure state persists in `localStorage` under `offline-note-open`, collapsed by default.
+- `.pSpecimen` lost its `font-family:'EB Garamond'` override (it was deliberate once — the label
+  doubled as a live size specimen). It still scales with the stepper, just in system-ui now.
+
+## v423 — 2026-09-19
+
+**Ask:**
+- Era labels arrive chopped mid-word when an era scrolls in from the left.
+
+**Implementation:**
+- Superseded by v425 — see there. This release hid the label whenever its visible slice was
+  narrower than the label itself, which stopped the chopping but introduced the popping v425
+  fixes properly.
+
+## v422 — 2026-09-19
+
+**Ask:**
+- Move the Update button onto the same line as the version row, replacing "Available".
+
+**Implementation:**
+- `#updateActionBtn` moved inside `#updateBtn` as an inline `.pUpdateInline` pill and is no
+  longer its own button — a tap anywhere on the row already reaches the row's own handler, which
+  reloads whenever `pendingReload` is true, so its separate click listener was removed.
+  `setPendingReload()` now also hides `#updateCur` and `.pChev`, whose spot the pill takes. Label
+  text shortened to "New Version".
+
+## v421 — 2026-09-19
+
+**Ask:**
+- Era labels that have room should stay centered in the visible part of their band.
+
+**Implementation:**
+- `.era span` moved off `position:sticky` onto JS positioning via a new `updateEraLabels()`,
+  scroll-driven like `updateBandIconFade()`/`updateCenterYearBadge()`. Sticky could only clamp to
+  a flat offset from the screen edge, so an era wider than the viewport sat pinned at that edge
+  for most of the scroll through it.
+
+## v420 — 2026-09-19
+
+**Ask:**
+- Timeline travel should ease in and out, and run about twice as long.
+
+**Implementation:**
+- `animateScroll()`'s duration doubled (now roughly 840–2300ms by distance). The ease curve was
+  already a slow-start/slow-end cubic; at the old 420–1150ms range it read as a near-linear snap.
 CHANGELOG:END
 -->
 <!DOCTYPE html>
@@ -4117,7 +4506,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v441';
+const APP_VERSION = 'v443';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -7720,6 +8109,43 @@ function tkNthIndexOf(haystack, needle, n){
   }
   return idx;
 }
+function tkRegexEscape(s){
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+// Diagnosis for a THIRD cause of "couldn't find this exact wording" (the tag-stripping and
+// curly-quote causes below are already fixed) — from the actual St. Vincent Ferrer case Tom hit:
+// Section "Helping End the Schism", sentence #1-2, before-text reading as one flowing sentence
+// straight across what the raw Edit box shows as two separate one-sentence paragraphs. Likely
+// explanation: the AI proposer in arbitrate.mjs reads the article as flowing prose (a paragraph
+// gap collapsed to a plain space) when it quotes `before`/`after`, while the stored article text
+// keeps a literal "\n\n" between paragraphs — so a debate whose span happens to cross a paragraph
+// break comes out one character short of matching verbatim. NOT confirmed against arbitrate.mjs's
+// own source, which isn't visible from this file — a reasoned diagnosis from this one case, not a
+// certainty; verify this actually clears after v443 ships.
+// tkStripInlineTagsTracked can't just collapse "\n\n" into a plain space to fix this, though,
+// because tkRenderArbitrateArticle's own paragraph split (a few lines below) depends on that
+// literal "\n\n" surviving in plainFull — collapsing it there would merge every paragraph in the
+// section into one for highlighting purposes. So instead the flexibility lives in the SEARCH, not
+// the haystack: tkNthIndexOfFlexibleWs treats each run of whitespace IN THE NEEDLE as "one or more
+// whitespace characters" in the haystack, leaving plainFull itself untouched. Since the matched
+// span in haystack can then be longer than needle.length (a "\n\n" absorbing what was a single
+// space in the needle), this returns the real matched {index, length} instead of a bare index —
+// callers must use that length, not needle.length, when computing where the match ends. Scoped to
+// 'article'-kind debates only; facts/quotes values are short single fields with no paragraph
+// structure to cross, so they keep using tkNthIndexOf's exact match unchanged.
+function tkNthIndexOfFlexibleWs(haystack, needle, n){
+  if(!needle) return null;
+  const h = tkNormalizeQuotes(haystack), ndl = tkNormalizeQuotes(needle);
+  const pattern = ndl.split(/(\s+)/).map(part => /^\s+$/.test(part) ? '\\s+' : tkRegexEscape(part)).join('');
+  const re = new RegExp(pattern, 'g');
+  let m, count = 0;
+  while((m = re.exec(h))){
+    count++;
+    if(count === n) return { index: m.index, length: m[0].length };
+    if(m[0].length === 0) re.lastIndex++;
+  }
+  return null;
+}
 // The actual bug behind "couldn't find this exact wording": the backend (arbitrate.mjs) strips
 // <a>/<b>/<i>/<u> tags to NOTHING before the proposer ever reads the article, but this file's own
 // general-purpose stripHtml() replaces every tag with a SPACE instead — so a debated phrase that
@@ -7765,9 +8191,9 @@ function tkFindDebateSpan(sections, debate){
   if(secIdx === -1) return null;
   const plainFull = tkStripInlineTagsTracked(sections[secIdx].b || '').plain;
   const { text: needle, n } = tkParseBeforeText(debate.before);
-  const at = tkNthIndexOf(plainFull, needle, n);
-  if(at === -1) return null;
-  return { sectionIndex: secIdx, start: at, end: at + needle.length };
+  const hit = tkNthIndexOfFlexibleWs(plainFull, needle, n);
+  if(!hit) return null;
+  return { sectionIndex: secIdx, start: hit.index, end: hit.index + hit.length };
 }
 // Whether a debate's before-text can currently be located at all, regardless of kind — the
 // single check the not-found warning uses. 'article' checks via a located span (also used for
@@ -7812,9 +8238,12 @@ function tkApplyDebateText(entry, debate){
   if(secIdx === -1) return false;
   const raw = sections[secIdx].b || '';
   const { plain, map } = tkStripInlineTagsTracked(raw);
-  const at = tkNthIndexOf(plain, needle, n);
-  if(at === -1) return false;
-  const matchEnd = at + needle.length; // exclusive, in plain-text coordinates
+  const hit = tkNthIndexOfFlexibleWs(plain, needle, n);
+  if(!hit) return false;
+  const at = hit.index;
+  const matchEnd = at + hit.length; // exclusive, in plain-text coords — hit.length, not
+  // needle.length: a paragraph gap can absorb more than one plain-text char (see
+  // tkNthIndexOfFlexibleWs above) for the same single space in the needle.
   const rawStart = map[at];
   const rawEnd = matchEnd < map.length ? map[matchEnd] : raw.length;
   const rawChunk = raw.slice(rawStart, rawEnd);
@@ -7851,10 +8280,24 @@ function tkDebateRawText(entry, debate){
 // the proposed wording, not starting over from Claude's original. Falls back to the untouched raw
 // text if the debate's exact wording can no longer be found (the article changed since this task
 // ran) — same case tkApplyDebateText itself reports as a failed Approve.
+// For 'article' debates this used to match raw tkNthIndexOf directly against the untouched raw
+// HTML — never tag-stripped, never whitespace-flexible — so it fell back to the plain unmodified
+// section any time the span touched a tag OR crossed a paragraph gap, even after tkApplyDebateText
+// itself was fixed to handle both. The comment above already claimed parity with that function;
+// this now actually delivers it, sharing the same tag-strip + flexible-whitespace match.
 function tkDebateShownText(entry, debate, showOrig){
   const raw = tkDebateRawText(entry, debate);
   if(showOrig) return raw;
   const { text: needle, n } = tkParseBeforeText(debate.before);
+  if(debate.kind === 'article'){
+    const { plain, map } = tkStripInlineTagsTracked(raw);
+    const hit = tkNthIndexOfFlexibleWs(plain, needle, n);
+    if(!hit) return raw;
+    const matchEnd = hit.index + hit.length;
+    const rawStart = map[hit.index];
+    const rawEnd = matchEnd < map.length ? map[matchEnd] : raw.length;
+    return raw.slice(0, rawStart) + debate.after + raw.slice(rawEnd);
+  }
   const at = tkNthIndexOf(raw, needle, n);
   if(at === -1) return raw;
   return raw.slice(0, at) + debate.after + raw.slice(at + needle.length);
@@ -16131,7 +16574,7 @@ document.getElementById('disclaimerOkBtn').addEventListener('click', () => {
 // this: a static site with no backend of its own). WEB3FORMS_KEY is a public access key, not a
 // secret — it only controls which inbox a submission is delivered to, the same way it's meant to
 // be embedded in client-side code across every site that uses this service.
-const WEB3FORMS_KEY = 'PASTE_YOUR_WEB3FORMS_ACCESS_KEY_HERE';
+const WEB3FORMS_KEY = '153fce73-01df-4b44-91fb-c768426a51bd';
 let reportEntityId = null, reportEntityName = null;
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('#reportIssueBtn');
