@@ -770,12 +770,69 @@
       "type": "arbitrate",
       "entityId": "st-polycarp-155",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Polycarp",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Polycarp",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "The Roman Visit",
+            "sentence": "3",
+            "kind": "article",
+            "before": "While in Rome Polycarp also won back many who had been led astray by heretics.",
+            "after": "While in Rome Polycarp encountered Marcion, whom he rejected as a heretic.",
+            "concern": "The surviving account, reported by Irenaeus, says that Polycarp encountered Marcion and denounced him; it does not establish that Polycarp won back many people from heresy. The present wording appears to turn an isolated encounter into an unsupported mass conversion.",
+            "suggestedCorrection": "Replace the claim with the specific, documented account or qualify it as uncertain.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The revision aligns the text specifically with the Irenaeus account regarding Marcion.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Arrest and Trial",
+            "sentence": "2",
+            "kind": "article",
+            "before": "he was urged to save his life by cursing Christ.",
+            "after": "he was urged to save his life by swearing by Caesar and reviling Christ.",
+            "concern": "The Martyrdom of Polycarp describes the proconsul's demand that Polycarp swear by Caesar and revile Christ. Reducing this to an instruction to curse Christ omits the central legal and political element of the trial and is not an accurate representation of the account.",
+            "suggestedCorrection": "State the proconsul's demand more precisely.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Adding the demand to swear by Caesar accurately reflects the Roman trial context.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "VERIFY",
+            "category": "MEANING/CLARITY",
+            "section": "Quick Facts",
+            "sentence": "3",
+            "kind": "facts",
+            "before": "c. 155, Smyrna (burned at the stake)",
+            "after": "c. 155, Smyrna (executed by fire and sword)",
+            "concern": "The article itself says that the flames did not consume Polycarp and that he was ultimately killed with a dagger. 'Burned at the stake' can therefore misleadingly suggest that burning was the direct cause of death.",
+            "suggestedCorrection": "Use wording that reflects both the attempted burning and the subsequent stabbing, or state simply that he was martyred at Smyrna.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "More accurately reflects the text's own account of the dagger being the direct cause of death.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-18T04:36:06.022Z",
-      "updatedAt": "2026-09-20T07:58:04.592Z",
+      "updatedAt": "2026-09-20T08:00:33.309Z",
       "error": null
     },
     {
