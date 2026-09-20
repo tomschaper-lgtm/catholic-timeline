@@ -802,12 +802,37 @@
       "type": "arbitrate",
       "entityId": "st-polycarp-155",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Polycarp",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Polycarp",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "INTERNAL CONSISTENCY",
+            "section": "Quick Facts",
+            "sentence": "3",
+            "kind": "facts",
+            "before": "c. 155, Smyrna (burned at the stake)",
+            "after": "c. 155, Smyrna (martyred after an attempted burning; killed by stabbing)",
+            "concern": "This fact says Polycarp was burned at the stake, but the article itself says that the flames did not consume him and that he was finally killed with a dagger. The current wording is therefore inconsistent and materially misleading.",
+            "suggestedCorrection": "Describe the attempted burning and subsequent stabbing rather than saying simply that he was burned at the stake.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The revision correctly fixes an internal contradiction between the quick fact and the narrative account of Polycarp's martyrdom.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-18T04:36:06.022Z",
-      "updatedAt": "2026-09-20T07:54:45.433Z",
+      "updatedAt": "2026-09-20T07:56:37.569Z",
       "error": null
     },
     {
