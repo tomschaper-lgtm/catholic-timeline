@@ -3720,12 +3720,53 @@
       "type": "arbitrate",
       "entityId": "st-alban-roe-1642",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Alban Roe",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Alban Roe",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "VERIFY",
+            "category": "FACT",
+            "section": "An Unlikely Convert",
+            "sentence": "3",
+            "kind": "article",
+            "before": "a Catholic prisoner named David",
+            "after": "a Catholic prisoner",
+            "concern": "Biographical accounts commonly describe Roe's conversion as resulting from a visit to a Catholic prisoner at St. Albans, but the prisoner's name is not consistently documented and may not have been David. The specific name should be verified or omitted.",
+            "suggestedCorrection": "Verify the prisoner's name against a reliable biographical source; if it cannot be established, omit the name.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Removing the unverified specific name prevents propagating potentially inaccurate biographical details.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "VERIFY",
+            "category": "DATE/CHRONOLOGY",
+            "section": "A Difficult Path to the Priesthood",
+            "sentence": "3",
+            "kind": "article",
+            "before": "That house was later relocated to England as Ampleforth Abbey",
+            "after": "That community later returned to England and eventually became associated with Ampleforth Abbey",
+            "concern": "The wording compresses a complex institutional history. The Dieulouard Benedictine community was not simply relocated to England directly as the existing Ampleforth Abbey; its members later established English foundations, including Ampleforth.",
+            "suggestedCorrection": "Verify the precise succession of the Dieulouard community and describe its later connection with Ampleforth rather than stating that the house itself was relocated as Ampleforth Abbey.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The revised wording correctly and more precisely captures the complex institutional history of the community.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-20T08:26:41.191Z",
+      "updatedAt": "2026-09-20T08:28:58.938Z",
       "error": null
     },
     {
