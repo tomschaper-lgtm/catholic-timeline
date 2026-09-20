@@ -5466,12 +5466,37 @@
       "type": "arbitrate",
       "entityId": "st-anselm-1109",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Anselm",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Anselm",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "MEANING/CLARITY",
+            "section": "An Argument Born of Sleepless Nights",
+            "sentence": "5",
+            "kind": "article",
+            "before": "This was nearly a thousand years after a monk first conceived it in the depths of prayerful concentration.",
+            "after": "The argument, first conceived by a monk in the depths of prayerful concentration nearly a thousand years ago, is still actively debated today.",
+            "concern": "The sentence says that Anselm's argument occurred nearly a thousand years after a monk first conceived it, even though Anselm himself was the monk who conceived it. The wording creates a materially false chronological relationship.",
+            "suggestedCorrection": "Replace the sentence with wording that makes clear that Anselm conceived the argument nearly a thousand years ago, rather than nearly a thousand years after its conception.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The original text contained a confusing chronological error about Anselm's relationship to the conception of the argument.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-20T08:26:41.191Z",
+      "updatedAt": "2026-09-20T08:36:40.607Z",
       "error": null
     },
     {
