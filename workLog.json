@@ -3989,12 +3989,53 @@
       "type": "arbitrate",
       "entityId": "st-john-bosco-1888",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. John Bosco",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. John Bosco",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Founding the Salesians",
+            "sentence": "1",
+            "kind": "article",
+            "before": "receiving full papal approval in 1868",
+            "after": "receiving full papal approval in 1869",
+            "concern": "The Society of St. Francis de Sales received definitive papal approval in 1869, not 1868. Earlier ecclesiastical recognition occurred before the definitive approval.",
+            "suggestedCorrection": "Change the year of full papal approval to 1869.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Definitive papal approval of the Salesian Constitutions was granted in 1869.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Founding the Salesians",
+            "sentence": "2",
+            "kind": "article",
+            "before": "the order had grown from its original seventeen members to over a thousand",
+            "after": "the order had grown from its original seventeen members to 773",
+            "concern": "The commonly reported number of Salesians at Don Bosco's death in 1888 is about 773, so 'over a thousand' substantially overstates the congregation's size at that time.",
+            "suggestedCorrection": "Replace 'over a thousand' with the documented figure, or use a cautious formulation such as 'nearly 800.'",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Correcting the exaggerated figure to the historically accurate number of members at Don Bosco's death.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-20T08:26:41.191Z",
+      "updatedAt": "2026-09-20T08:30:15.149Z",
       "error": null
     },
     {
