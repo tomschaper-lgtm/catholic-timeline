@@ -4313,12 +4313,51 @@
       "type": "arbitrate",
       "entityId": "st-paul-miki-companions-1597",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Paul Miki & Companions",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Paul Miki & Companions",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "Arrest and the March to Nagasaki",
+            "sentence": "1",
+            "kind": "article",
+            "before": "They endured a brutal, month-long, six-hundred-mile march from Kyoto to Nagasaki",
+            "after": "They endured a brutal, month-long march of roughly six hundred kilometers from Kyoto to Nagasaki",
+            "concern": "The historical route from Kyoto to Nagasaki was approximately 600 kilometers, not 600 miles. Six hundred miles would substantially overstate the distance.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Six hundred miles is geographically impossible for Kyoto to Nagasaki; kilometers corrects a significant factual error.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Crucified on Nishizaka Hill",
+            "sentence": "1",
+            "kind": "article",
+            "before": "killed by spear thrusts through the chest",
+            "after": "killed by spear thrusts",
+            "concern": "The general historical account records that the martyrs were killed by being speared, but the more specific wording about the precise location of the thrusts is not necessary and should be verified before being stated as fact.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Removing the unverified anatomical detail ('through the chest') improves historical accuracy.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-20T08:26:41.191Z",
+      "updatedAt": "2026-09-20T08:31:32.292Z",
       "error": null
     },
     {
