@@ -19,6 +19,55 @@ the time.
 
 ---
 
+## v443 — 2026-09-20
+
+**Ask:**
+- "Couldn't find this exact wording" still firing on the St. Vincent Ferrer / Helping End the
+  Schism arbitrate debate, even after the tag-stripping and curly-quote fixes — diagnose and fix
+  if possible.
+
+**Implementation:**
+- Diagnosis (not confirmed against arbitrate.mjs's own source, which isn't visible from this
+  file): the debate's before-text (sentence #1-2) crosses a paragraph break — the raw Edit box
+  showed it as two separate one-sentence paragraphs. Likely cause: the AI proposer reads the
+  article as flowing prose (a paragraph gap collapsed to a plain space) when it quotes before/
+  after, while the stored text keeps a literal "\n\n" between paragraphs, so an otherwise
+  word-for-word match came out one character short.
+- Couldn't just collapse "\n\n" to a space in tkStripInlineTagsTracked's output, though —
+  tkRenderArbitrateArticle's own paragraph split depends on that literal gap surviving in
+  plainFull, and collapsing it there would merge every paragraph in a section together for
+  highlighting. New tkNthIndexOfFlexibleWs instead makes the SEARCH tolerant: each whitespace run
+  in the needle matches one-or-more whitespace characters in the haystack, leaving plainFull
+  itself untouched. Returns the real matched {index, length} rather than a bare index, since the
+  matched span can now be longer than needle.length (a "\n\n" absorbing what was one space in the
+  needle) — every caller was updated to use that length instead of assuming needle.length.
+- Scoped to 'article'-kind debates only (tkFindDebateSpan, tkApplyDebateText's article branch);
+  facts/quotes values are short single fields with no paragraphs to cross, so they keep
+  tkNthIndexOf's exact match unchanged.
+- Also fixed tkDebateShownText (prefills the Edit box): it was matching raw tkNthIndexOf directly
+  against the UNTOUCHED raw HTML, never tag-stripped and never whitespace-flexible, so it fell
+  back to the unmodified section any time a span touched a tag or crossed a paragraph gap — even
+  after tkApplyDebateText itself was fixed for the tag case. Its own comment already claimed
+  parity with tkApplyDebateText; it now actually has it, sharing the same tag-strip +
+  flexible-whitespace match for the 'article' case.
+- Verified against a reconstruction of the actual St. Vincent Ferrer text from Tom's screenshots
+  (Node, not the live site — no access to the real stored entry): the new match correctly spans
+  the `<a>` cross-reference link AND the paragraph gap, and the existing link-preservation rule in
+  tkApplyDebateText correctly drops the Council of Constance link since the proposed replacement
+  doesn't mention it by name. Not verified live — worth confirming this debate now resolves
+  cleanly after deploying.
+
+## v442 — 2026-09-20
+
+**Ask:**
+- Wire up the "Report an issue" button so submissions actually reach Tom.
+
+**Implementation:**
+- `WEB3FORMS_KEY` set to Tom's real Web3Forms access key, replacing the
+  `PASTE_YOUR_WEB3FORMS_ACCESS_KEY_HERE` placeholder. No other logic in the report-modal flow
+  changed — the fetch call, fields, and modal were already wired up in a prior version and just
+  needed a real key. Submissions now deliver to the inbox tied to that Web3Forms account.
+
 ## v441 — 2026-09-20
 
 **Ask:**
