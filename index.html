@@ -1,6 +1,6 @@
 <!--
-VERSION: 451
-DATE: 2026-09-22T12:30:00-05:00
+VERSION: 452
+DATE: 2026-09-22T13:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,17 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v452 — 2026-09-22
+
+**Ask:**
+- Photo view Ken Burns: don't speed it up — go slow, slow down at the end of the zoom, stop 4s,
+  then slowly zoom out, and repeat.
+
+**Implementation:**
+- kenBurnsPhoto retimed to a 66s loop of three 22s moves: 9s push-in to 1.5x on the eyes
+  (ease-out, cubic-bezier(.25,.5,.3,1)), 4s hold, 9s ease-in-out pull-back to 1x. Pull-back
+  directions (3:00 / 7:00 / 11:00) kept from v451.
+
 ## v451 — 2026-09-22
 
 **Ask:**
@@ -2743,30 +2754,31 @@ CHANGELOG:END
     width:100%; height:100%; display:block; object-fit:cover; object-position:50% 38%;
     transform-origin:50% 38%;
   }
-  /* v451 Ken Burns, three moves per loop (34.5s total, 11.5s each):
-       1. Push in to 1.5x on the eyes (50% 38%) over 4.5s, easing out so it slows at the end.
-       2. Hold there 2.5s.
-       3. Drift back out to 1x over 4.5s toward a clock direction — 3:00, then 7:00, then 11:00
-          (anchor slides to that side of the frame), so each pull-back leaves a different way.
+  /* v452 Ken Burns — slow. Three moves per loop (66s total, 22s each):
+       1. Slow push-in to 1.5x on the eyes (50% 38%) over 9s, easing out so it slows further
+          as it arrives.
+       2. Stop there for 4s.
+       3. Slow pull-back to 1x over 9s (eases in and out), drifting toward a clock direction —
+          3:00, then 7:00, then 11:00 — then repeat.
      Anchors stay inside the frame and scale never drops below 1, so no edges show. Each move
      ends at scale 1, where the anchor makes no visual difference, so snapping it back to the
-     eyes for the next push-in (the x.01% keyframes) is invisible, as is the loop restart.
+     eyes (the x.01% keyframes) and the loop restart are both invisible.
      animation-timing-function inside a keyframe governs the segment that starts there. */
   @media (prefers-reduced-motion: no-preference){
-    .photoView.open img{animation:kenBurnsPhoto 34.5s linear infinite;}
+    .photoView.open img{animation:kenBurnsPhoto 66s linear infinite;}
   }
   @keyframes kenBurnsPhoto{
-    0%     {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:cubic-bezier(.15,.6,.25,1);}
-    13.04% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:linear;}
-    20.29% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:ease-in-out;}
+    0%     {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:cubic-bezier(.25,.5,.3,1);}
+    13.64% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:linear;}
+    19.70% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:ease-in-out;}
     33.33% {transform:scale(1);   transform-origin:95% 50%;}   /* out toward 3:00 */
-    33.34% {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:cubic-bezier(.15,.6,.25,1);}
-    46.38% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:linear;}
-    53.62% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:ease-in-out;}
+    33.34% {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:cubic-bezier(.25,.5,.3,1);}
+    46.97% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:linear;}
+    53.03% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:ease-in-out;}
     66.67% {transform:scale(1);   transform-origin:28% 89%;}   /* out toward 7:00 */
-    66.68% {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:cubic-bezier(.15,.6,.25,1);}
-    79.71% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:linear;}
-    86.96% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:ease-in-out;}
+    66.68% {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:cubic-bezier(.25,.5,.3,1);}
+    80.30% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:linear;}
+    86.36% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:ease-in-out;}
     100%   {transform:scale(1);   transform-origin:28% 11%;}   /* out toward 11:00 */
   }
   .imgLightbox{
@@ -4746,7 +4758,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v451';
+const APP_VERSION = 'v452';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
