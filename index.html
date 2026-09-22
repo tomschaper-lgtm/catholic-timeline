@@ -1,6 +1,6 @@
 <!--
-VERSION: 443
-DATE: 2026-09-20T10:15:00-05:00
+VERSION: 445
+DATE: 2026-09-21T09:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,75 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v445 — 2026-09-21
+
+**Ask:**
+- Review Mode: replace the brown "Review Mode / Show Only Pending" bar with one pill ("Review" off,
+  "Pending Only" on).
+- Tapping the article year in Review Mode jumps to a new status block at the bottom: largest
+  sentence word count, proofread status, Submit to Proofread, and a Flag Issue button (audio
+  pronunciation/timing, image, facts, mark for review — each with a note and a "Remove from public
+  view" switch).
+- Facts flags feed a new fact-research service: several models (Claude, Luna, Gemini) each
+  independently research the question and propose a Quick Fact (add/update) or a section
+  (swap/insert by position), with source link and note. No voting — a picker screen shows each
+  answer; Approve, Override, or Edit the one you like, and move an inserted section up/down.
+
+**Implementation:**
+- Pill: #reviewBanner loses its label and colored bar; #reviewOnlyBtn reads Review / Pending Only.
+- New longestSentenceWordCount() (same splitting/skip rules as entryHasLongSentence). Article Status
+  block in fillArticleBody (Review Mode + unlocked + real article). Submit to Proofread reuses
+  tkQueueQuickTask('arbitrate'). Year tap handled by a delegated click on .ahYear.
+- Flag modal (#flagModal, shares report-modal styling): writes a category-tagged note into
+  entry.reviewNote; sets entry.review only if the switch is on (defaults on for "Mark for review"
+  only); publishes; then queues audio-generate / image-generate / fact-research unless one is
+  already pending. Facts shows a change-type picker (Quick Fact / Section) sent as
+  payload.changeType. tkQueueQuickTask gained an optional payload override.
+- New task type 'fact-research' (TK_SERVICES, addable:false). Review screen
+  tkRenderFactResearchReview: preview built with the EXISTING tkRenderFacts/tkRenderArticle so
+  preview and apply share one code path; tkRenderArticle extended to render whole-section swap and
+  insert (heading + body). tkFactCandidateToPatch converts a candidate to the standard patch tuple:
+  quickFact update with no matching label becomes an add (per Tom); section insert translates
+  Tom's 1-based landing slot to applyOnePatch's "after section N" convention (N = position − 1).
+  Approve applies via applyOnePatch; same deferred publish/worklog flags as arbitrate. Pills select
+  + toggle the reason (method badge Searched/From memory, source link); misses listed below.
+- Verified in Node against the real client functions: quick fact add / update / update-no-match,
+  section swap, and insert at slots 1, 3, and append — preview and applied result match in every
+  case. Not verified live.
+- Server (separate files): scripts/services/fact-research.mjs (new) and a two-line
+  orchestrator.mjs registration. Needs ANTHROPIC_API_KEY passed through orchestrator.yml env.
+
+## v444 — 2026-09-20
+
+**Ask:**
+- Approve/Override in Arbitrate Review still feels slow on every tap — can decisions be batched
+  and only actually published when closing the queue, e.g. every 20 articles?
+
+**Implementation:**
+- That batching already existed for the expensive half of this (v400's deferred content-publish:
+  publishToGitHub()/data.json only fires for real on the last decision in a queue, or on exit).
+  What it missed: saveWorkLog() — a SEPARATE GET+PUT to workLog.json for task status/bookkeeping —
+  was unconditional in all three places that call it (tkResolveArbitrateDebate,
+  tkSaveArbitrateEdit, and wlResolveTasks, which the sentence-reword/auto-approve flow also uses),
+  regardless of whether content-publish itself was deferred. That's the real source of "every tap
+  is slow" even with v400 already live: a full GitHub round-trip on every single Approve/Override/
+  Edit tap, unrelated to content.
+- New tkDeferredWorkLogIds/tkFlushDeferredWorkLog(), same shape as tkDeferredPublish/
+  tkFlushDeferredPublish: accumulates every touched task id instead of saving immediately;
+  tkFlushDeferredPublish() now flushes both together, so the three existing exit points
+  (finishing the queue, tkGoList(), closeTaskPanel()) cover this for free — no new wiring needed
+  at the call sites that already trigger a flush.
+- Didn't build a fixed "publish every 20" — the existing deferral already collapses arbitrarily
+  many decisions into exactly 1 round-trip at the true end of a session (or on early exit), which
+  is strictly fewer network calls than a fixed batch size would produce.
+- Also fixes the same problem for sentence-reword's manual approve/reject (tkResolveCurrent) and
+  auto-approve, both of which go through wlResolveTasks — auto-approve was already batching
+  content-publish at TK_AUTO_PUBLISH_BATCH_SIZE (10) but re-saving workLog.json on every poll
+  regardless; it now batches both together at the same cadence.
+- Verified by simulation (Node, not the live site): 20 sequential approvals through the same
+  defer/flush logic now produce exactly 1 publishToGitHub() call and 1 saveWorkLog() call, versus
+  1 and 20 before this fix.
+
 ## v443 — 2026-09-20
 
 **Ask:**
@@ -84,6 +153,381 @@ CHANGELOG:BEGIN
 - The running version is still on show in Settings ("Version up to Date  v441"), which is where
   to read it now — worth knowing, since the header stamp was how we'd been confirming which build
   was live from screenshots.
+
+## v440 — 2026-09-20
+
+**Ask:**
+- The blank blue either side of the article in landscape should be gone — the timeline should
+  show down both sides.
+
+**Implementation:**
+- The narrowing was on the wrong element. v437 narrowed `.artwrap`, the text column INSIDE the
+  sheet, while the sheet itself (`#article.overlay`, in the `pointer:coarse` block) stayed
+  `width:100%` full-bleed — so the text moved in but the blue still ran edge to edge. Corrected:
+  `#article.overlay` is now `width:60%` centered in landscape, and v437's `.artwrap` cut is
+  dropped since the column simply fills the narrower sheet now.
+- Centered via auto side margins against the existing `left:0/right:0` rather than by adding a
+  `translateX` to the transform. That transform is animated across four states here (base, open,
+  peek, expanding) and the fly-portrait maths reads it; an over-constrained fixed box resolves to
+  centered on auto margins, leaving all of them untouched.
+- Checked that nothing in JS assumes the sheet spans the viewport — the portrait morph and
+  sticky-backdrop code all measure via `getBoundingClientRect()`, so they follow the new width.
+- Tapping the now-exposed timeline either side still closes the article, unchanged.
+
+## v439 — 2026-09-20
+
+**Ask:**
+- v425's era-label behaviour was right; just a bit more padding as the label slides off. Revert
+  if that isn't possible.
+
+**Implementation:**
+- Reverted v438 (`ERA_LABEL_MARGIN` back to 8). That was the wrong lever and a provable no-op for
+  this case: simulating an era entering from the screen edge gives byte-identical label positions
+  at 8 and 24, because the era-bounds clamp binds first and the viewport inset never gets a say.
+- The gap Tom was actually describing is `.era span`'s own side padding — the clamp rests the
+  SPAN's edge on the era divider, so that padding is the gap between divider and text. 8px -> 22px.
+  Verified this one does move the gap, unlike v438's.
+- No behavioural change otherwise: the v425 slide-off is exactly as it was.
+
+## v438 — 2026-09-19
+
+**Ask:**
+- Era label edge padding (the min gap from the screen edge before a label starts riding off, per
+  v425) should be 3x what it currently is — "Age of Martyrs" was reading flush against the edge.
+
+**Implementation:**
+- `ERA_LABEL_MARGIN` 8 -> 24. Single constant, used symmetrically on both edges in
+  `updateEraLabels()`, so both sides got wider at once.
+
+## v437 — 2026-09-19
+
+**Ask:**
+- Narrow the article box by 40% too, not just the fact box — the outer story container, still
+  landscape only.
+
+**Implementation:**
+- `.artwrap` gets its own landscape-only rule: `max-width:432px` (40% off its 720px base),
+  still centered by the `margin:0 auto` it already had. Portrait untouched.
+- `.factbox`'s separate 60%-of-parent cut from v433 was dropped in favor of filling 100% of the
+  now-narrower `.artwrap` — stacking both independent 40% cuts would have compounded to roughly
+  260px, too narrow to read a label and its value side by side.
+
+## v436 — 2026-09-19
+
+**Ask:**
+- Saints search box: ignore "st", "st.", "Saint", "Saints" as noise words.
+- "ro be" should find Robert Bellarmine — space-separated fragments, all required, each
+  matching anywhere (not as one contiguous substring).
+- Apply the fragment matching to all search boxes.
+
+**Implementation:**
+- New shared `SEARCH_STOPWORDS` ('st','saint','saints','sts' — 'sts' added alongside Tom's four
+  since `spDisplayName()` already treats it as the same honorific for display), `searchFragments()`
+  and `fragmentsMatchAny()`, used by both `spRows()` and `brRows()`. Replaces their old
+  `spNormalize(e.n).includes(q)` whole-string check, which required the ENTIRE query as one
+  contiguous substring — "ro be" never matched "Robert Bellarmine" there before this.
+- Real prior bug this fixes: entries store the name as "St. ___" literally, so a reader who
+  typed "Saint" (spelled out, as many naturally would) got zero results — "saint" never appears
+  as a substring of "st. ___". Verified: "saint augustine"/"st augustine" and "saints cosmas"
+  now both find their entries; "st"/"saint"/"st." typed alone now fall back to showing
+  everything (frags empty) rather than matching nothing.
+- The timeline's own `#tlSearch` already did per-fragment AND-substring matching (each parsed
+  term independently required, found anywhere in the field) — that part didn't need changing.
+  Only the stopword drop was missing: `parseSearchQuery()` now skips a plain (unquoted,
+  non-excluded) token via `isStopwordTerm()`, which tolerates the trailing period `fold()`
+  leaves on "St." that `spNormalize()` would otherwise strip. A quoted `"saint"` is a deliberate
+  whole-word search and is left alone.
+- Left out of this pass, pending confirmation: the Manage-side search boxes (`#mSearch`,
+  `#mfSearch`, `#logSearch`, `#lpSearch`) — CMS/owner tools rather than the three reader-facing
+  list searches this was actually about. Say if any of those should get the same treatment.
+
+## v435 — 2026-09-19
+
+**Ask:**
+- Slow the timeline travel animation down a little more.
+
+**Implementation:**
+- `animateScroll()`'s duration multiplier 2 -> 2.5 (v420 had doubled it from the original; this
+  is a smaller further step, not another doubling). Range is now roughly 1050-2875ms by distance,
+  up from 840-2300ms.
+
+## v434 — 2026-09-19
+
+**Ask:**
+- Give every category a search box, with recent searches kept separate per category.
+
+**Implementation:**
+- Browse panel gains the same search shell as Saints (`#brSearch`/`#brSearchClear`/`#brRecentBox`),
+  inside `.panelHead` for the same reason — the compact layout pulls it onto the title row. The
+  `.listPanel .panelHead .spSearchWrap` layout rules were Saints-scoped and are now shared, so
+  Browse's compact header is title + pill + search + × like Saints', answering v433's open
+  question: no empty space and no Browse-only special case.
+- `brRows()` filters on the entry name OR the category's own last-column value (`cfg.lastValue`),
+  so "France" in Councils and "Poland" in Eucharistic Miracles match by the same text visible in
+  the list. Verified across name and region matching.
+- Recents are keyed per category — `ct-browse-recent-searches-c|p|u|m|e` — so Councils' history
+  never appears while browsing Persecutions, and none of them mix with the Saints list
+  (`ct-saints-recent-searches`) or the timeline's. Same promote-don't-duplicate and cap-at-5
+  behaviour, and the term is pushed on a row tap, matching Saints.
+- Placeholder is set per category on open ("Search councils", "Search persecutions", ...).
+  Search clears on open; sort/filter/scroll still carry over as before.
+
+## v433 — 2026-09-19
+
+**Ask:**
+- The compact slide-out treatment should cover every category, not just Saints.
+- Undo v432's article-width reduction — the 40% was meant for the Quick Facts box (the bordered
+  panel inside the story), and only in landscape.
+
+**Implementation:**
+- Reverted `.artwrap` to its original flat `max-width:720px`.
+- `.factbox` instead gets `width:60%` centered under `@media (orientation: landscape)`. Portrait
+  keeps full width, where there is no room to spare.
+- Both left-slide list panels now carry a shared `listPanel` class, and the whole compact media
+  block was retargeted from `.saintsPanel` to `.listPanel` and relocated below `.browsePanel`'s
+  own base rules so its top/max-height overrides land without extra specificity. Browse rows are
+  already `class="spRow brRow"`, so the shorter-row rule reached them unchanged.
+- `setSpChipsOpen`/`syncSpChipBand` generalised to `setChipsOpen(prefix, on)`/`syncChipBand(prefix)`
+  keyed on 'sp'/'br'; the old Saints names remain as thin wrappers so existing call sites read
+  unchanged. Browse gets its own `#brChipBand` pill, wired to open/close/render the same way.
+- A category with no chips of its own (Persecutions, Events today) hides its pill row rather than
+  showing a dead control — `syncChipBand` sets `hidden` from whether any chip exists.
+- `body.saintsPanelOpen` renamed `listPanelOpen` and now toggled by both panels, so the app title
+  slides clear of either.
+
+**Open question:** Browse has no search box, so its compact header is just title + pill + ×, with
+the row that Saints spends on search left empty. Options: leave it (simplest), pull the pill up
+onto the title line for Browse only, or give Browse a search box of its own. Say which.
+
+## v432 — 2026-09-19
+
+**Ask:**
+- The All/Feast view reads "Saint's" in the compact layout — drop the possessive.
+- Point the pill arrow down and make it slightly larger.
+- The article overlay runs the full width of the screen; make it 40% narrower, centered.
+
+**Implementation:**
+- Compact hides the italic second half of the title, which left "Saint's Feast Day" as a bare,
+  dangling "Saint's". `renderSaintsPanel()` now wraps only the apostrophe in a `.spPoss` span,
+  which the compact media query drops — so the word reads "Saints" there and the full-height
+  title is byte-identical to before. One string, no second copy to keep in step. Verified across
+  all five title variants.
+- `.spChipBandArrow` path flipped to a down triangle, 13px -> 16px.
+- `.artwrap` max-width `720px` -> `min(720px, max(60vw, 340px))`: 40% narrower and still centered,
+  with a 340px floor so it doesn't collapse to a column on a narrow portrait phone, and the old
+  720px still acting as the ceiling on a wide desktop window. `#manage .artwrap`'s 900px override
+  is untouched.
+
+## v431 — 2026-09-19
+
+**Ask:**
+- Center the pill under the category word itself, tightly spaced.
+- Bring the search box down so it is vertically centered against the category/pill pair.
+- Take the panel all the way to the top, and move "Catholic Timeline" right so it stays visible
+  while the panel is open.
+
+**Implementation:**
+- `.spChipPillRow` moved inside `.spTitleWrap`, which becomes a centered flex column in compact
+  mode (`gap:3px`) — so the pill centers on the category word rather than on the panel, and the
+  two read as one unit.
+- `.panelHead` gets an explicit `align-items:center`, which puts the search box and the × on the
+  vertical midline of the title+pill stack instead of level with the title alone.
+- Compact `.saintsPanel` top `46px + safe-area` -> 0 and max-height -> `100vh`; rounded right
+  corners unchanged.
+- The panel now covers the header's left end, so `body.saintsPanelOpen h1` translates the app
+  title right by half the panel's width, on the same easing curve and duration as the panel's own
+  slide so the two move together. The class is toggled unconditionally in `openSaintsPanel()`/
+  `closeSaintsPanel()`; only the compact media query has a rule for it, so it is inert elsewhere.
+
+## v430 — 2026-09-19
+
+**Ask:**
+- Keep the sort column headers.
+- Drop the gold band at the foot; move the category up nearer the top and put a gold pill with
+  an arrow centered tightly underneath it. There was unused room at the top.
+- Let the panel run to the full bottom of the site, keeping its rounded corners.
+- Slightly shorter rows.
+
+**Implementation:**
+- `#spChipBand` moved out of the panel foot into a new `.spChipPillRow` directly under
+  `.panelHead`, restyled from a full-width band into a centered rounded pill. While the sheet is
+  up the row goes `visibility:hidden` rather than `display:none`, so the rows below it don't jump
+  by its height each time the sheet opens.
+- Compact `.saintsPanel` padding-top 22px -> 10px, `.panelHead` padding-bottom 18px -> 0, title
+  26px -> 22px, and max-height from `100vh - 78px` to `100vh - 46px - safe-area-top` so the panel
+  reaches the window foot. `border-radius:0 26px 26px 0` untouched.
+- `.spRow` vertical padding 11px -> 8px in compact. `--rowH` is re-measured off a real row on
+  every render, so the sticky group label and the infinite-loop maths follow automatically —
+  there is no constant to keep in step.
+- `.spListWrap` gains a safe-area bottom pad, since the list now ends at the physical screen edge
+  rather than 78px above it.
+- Budget check at the new numbers: ~10 rows at 540px viewport height, 6-7 on a landscape phone
+  (390-430px) — up from roughly 4 before this pass. The sort header stays, as asked.
+
+## v429 — 2026-09-19
+
+**Ask:**
+- When the Saints panel is short on space (ten rows or fewer), buy back room: drop the subtitle
+  and move the search box up beside the title, ending before the close ×.
+- Turn the chip bar into a sheet that slides up from the bottom and retires once a selection is
+  made. The bottom quarter-inch becomes a gold band naming the selection in white with an arrow
+  hinting at the sheet; the band disappears while the sheet is up, and the sheet reaches the
+  very bottom.
+
+**Implementation:**
+- The Saints search box now lives inside `.panelHead` rather than as a sibling below it. At full
+  height `.saintsPanel .panelHead` wraps it to its own full-width line (`order:3; flex:0 0 100%`)
+  so nothing looks different; the compact layout re-orders it between title and × instead. Only
+  this panel's markup moved — Browse and Task keep theirs as siblings.
+- Compact layout is gated on `@media (max-height:760px)`, roughly where the fixed chrome stops
+  leaving ten rows. Phones in portrait and tablets stay on the full layout; landscape phones and
+  short desktop windows get the compact one.
+- `.spChips` becomes `position:absolute; bottom:0` in compact mode, so the list keeps the height
+  the bar used to take, and rides in on a transform under `.saintsPanel.chipsOpen`. New
+  `#spChipBand` takes its place in flow.
+- `setSpChipsOpen()`/`syncSpChipBand()` handle raise/dismiss and the label. The sheet closes on a
+  chip pick, on Learn More, and on any pointerdown in the list. Both look their elements up by id
+  rather than closing over consts — they are called from `renderSaintsPanel()`/
+  `openSaintsPanel()`, defined earlier in the file, so a const declared at their own definition
+  point would sit in its temporal dead zone for any call that ran first.
+
+## v428 — 2026-09-19
+
+**Ask:**
+- Settings update row: show the version number right after "New Version", with the Update button
+  still on the right. Drop the right-hand arrow on the up-to-date state, make the version number
+  black like the rest of the row, and have it read "Version up to Date  v4NN".
+- Make the Offline Access disclosure triangle bigger.
+
+**Implementation:**
+- `.pChev` removed from `#updateBtn`'s markup (the other two rows that navigate, Install and
+  Manage, keep theirs). `setPendingReload()` no longer hides `#updateCur` — the version number
+  now holds its slot in both states, so the row reads "Version up to Date  v427" or
+  "New Version  v433  [Update]".
+- `#updateCur` overrides `.pMeta`'s dimmed grey with #111827. It is the row's actual answer
+  rather than a secondary note, unlike Review Mode's "13 pending", which stays grey.
+- The up-to-date branch of `checkVersion()` now resets `#updateCur` to `APP_VERSION`; a previous
+  check could otherwise leave a newer pending number sitting next to "Version up to Date".
+- `.pCaret svg` 17px -> 24px.
+
+## v427 — 2026-09-19
+
+**Ask:**
+- Put changelog entries in index.html's header in a set format, then have a daily service pull
+  them into CHANGELOG.md and trim the header.
+
+**Implementation:**
+- New sentinel-delimited staging block in this header (see the prose above it), plus
+  `scripts/sync-changelog.mjs` and `.github/workflows/sync-changelog.yml` running it daily.
+- Entries start here rather than in CHANGELOG.md because index.html is the file a chat session
+  can edit and hand back whole — v420-v426 had all shipped without ever reaching CHANGELOG.md.
+  This release backfills them.
+- Prunes by version number, never by age, and asserts every version it drops is present in
+  CHANGELOG.md first: a run that fails for a week loses nothing, and a second run the same day is
+  a no-op. Rewrites only the span between the sentinels; aborts if either is missing or doubled.
+
+## v426 — 2026-09-19
+
+**Ask:**
+- Tapping the search box should place the cursor on the first tap, not the second.
+- Any tap, drag or scroll outside the search box or its dropdown should close the dropdown.
+- Readers who pinch-zoom get stuck; unzoom automatically on the common paths.
+
+**Implementation:**
+- `#tlSearch`'s focus handler no longer calls `runSearch()` inline. Building the dropdown
+  synchronously while the browser was still settling focus is what made the first tap land the
+  focus (recents appeared) without landing a usable caret. Deferred with `setTimeout(..., 0)`.
+  Best-supported explanation rather than a confirmed one — `user-select`, stray `blur()` calls,
+  the hamburger's outside-handler and the viewport-resize handler were all ruled out first, but
+  this was not reproducible off-device.
+- New `closeSearchResults()`, wired to a capture-phase document `pointerdown` (anything not
+  inside `.searchwrap`) and to `viewport`'s scroll. Capture + pointerdown for the same reasons
+  the hamburger menu's own outside-handler uses them: it still fires for handlers that
+  stopPropagation, and for touch-scrolling that never produces a click. Also drops the keyboard.
+- New `resetPageZoom()`. There is no API to set page zoom, so it momentarily adds
+  `maximum-scale=1, user-scalable=no` to the viewport meta (making the browser snap back) and
+  restores the original 350ms later, so pinch still works immediately after. Called from
+  `focusEntry()` and `closeArticle()` — navigation moments, not a timer, so a deliberate zoom is
+  never yanked away mid-read. No-op below scale 1.01.
+
+## v425 — 2026-09-19
+
+**Ask:**
+- Era labels pop off screen all at once when the era gets cramped; they used to slide off
+  holding their padding. Same in both directions.
+
+**Implementation:**
+- `updateEraLabels()` now clamps the label's center into its era's own bounds
+  (`[eraLeft + w/2, eraRight - w/2]`) instead of hiding it when the visible slice is too narrow.
+  While there is room the clamp doesn't bind and the label stays centered in the visible slice;
+  once the slice narrows it comes to rest against its era's boundary and rides it off the screen
+  edge. This is the same result the old `position:sticky` produced at the edges (its containing
+  block did the clamping), now with the centered behaviour through the middle that sticky could
+  not give. Era narrower than its own name at the current zoom falls back to the band's midpoint.
+- Reverted v423/v424's opacity fade on `.era span` — nothing hides anymore.
+
+## v424 — 2026-09-19
+
+**Ask:**
+- Offline Access should only appear when Owner Tools is on.
+- Add a blue triangle after "Offline Access": tapping the row from the left edge through the
+  triangle expands the note below and flips the triangle; remember the state. Tapping right of
+  the triangle toggles the switch.
+- The Font Size label should match the other rows' font face.
+
+**Implementation:**
+- `#offlineRow` and `#offlineNote` now follow `unlocked` in `updateManageVisibility()`, the same
+  rule as Review Mode and Manage. Note this removes the only control that starts the service
+  worker from ordinary visitors — anyone who already enabled it keeps it, since the stored
+  `offline-access` preference and its registration are untouched.
+- The row stopped being a `<label>`: a label wrapping the whole row claims every tap on it for
+  the checkbox, caret included. It is now a plain div holding `.pDisclose` (tile + name + caret,
+  a real button) and `.pSwitchHit` (a `<label for>` filling the rest out to the switch).
+  Disclosure state persists in `localStorage` under `offline-note-open`, collapsed by default.
+- `.pSpecimen` lost its `font-family:'EB Garamond'` override (it was deliberate once — the label
+  doubled as a live size specimen). It still scales with the stepper, just in system-ui now.
+
+## v423 — 2026-09-19
+
+**Ask:**
+- Era labels arrive chopped mid-word when an era scrolls in from the left.
+
+**Implementation:**
+- Superseded by v425 — see there. This release hid the label whenever its visible slice was
+  narrower than the label itself, which stopped the chopping but introduced the popping v425
+  fixes properly.
+
+## v422 — 2026-09-19
+
+**Ask:**
+- Move the Update button onto the same line as the version row, replacing "Available".
+
+**Implementation:**
+- `#updateActionBtn` moved inside `#updateBtn` as an inline `.pUpdateInline` pill and is no
+  longer its own button — a tap anywhere on the row already reaches the row's own handler, which
+  reloads whenever `pendingReload` is true, so its separate click listener was removed.
+  `setPendingReload()` now also hides `#updateCur` and `.pChev`, whose spot the pill takes. Label
+  text shortened to "New Version".
+
+## v421 — 2026-09-19
+
+**Ask:**
+- Era labels that have room should stay centered in the visible part of their band.
+
+**Implementation:**
+- `.era span` moved off `position:sticky` onto JS positioning via a new `updateEraLabels()`,
+  scroll-driven like `updateBandIconFade()`/`updateCenterYearBadge()`. Sticky could only clamp to
+  a flat offset from the screen edge, so an era wider than the viewport sat pinned at that edge
+  for most of the scroll through it.
+
+## v420 — 2026-09-19
+
+**Ask:**
+- Timeline travel should ease in and out, and run about twice as long.
+
+**Implementation:**
+- `animateScroll()`'s duration doubled (now roughly 840–2300ms by distance). The ease curve was
+  already a slow-start/slow-end cubic; at the old 420–1150ms range it read as a near-linear snap.
 CHANGELOG:END
 -->
 <!DOCTYPE html>
@@ -987,6 +1431,10 @@ CHANGELOG:END
   .tkFactLabel{flex:0 0 108px; color:#6B7280; font-size:12.5px; text-transform:uppercase; letter-spacing:.03em;}
   .tkFactValue{flex:1 1 auto; min-width:0; color:#111827; word-break:break-word;}
   .tkSection{margin:14px 0 0;}
+  /* Whole-section target (fact-research's section swap/insert) reuses the same gold-bar .tkTarget
+     treatment as a single paragraph/fact row — just needs its own positioning context and padding
+     since the bar spans the section's full height, not one row's. */
+  .tkSection.tkTarget{position:relative; padding:6px 0 6px 12px;}
   .tkSectionH{font-size:14.5px; font-weight:700; color:#111827; margin:0 0 5px;}
   .tkPara{position:relative; font-size:14px; line-height:1.6; color:#2B2F3A; margin:0 0 9px; padding-left:12px;}
   /* The target marker: a gold bar down the left edge of whatever this task would change,
@@ -1088,6 +1536,27 @@ CHANGELOG:END
   .tkImgWrap{text-align:center; margin:4px 0 12px;}
   .tkImgWrap img{max-width:100%; max-height:56vh; border-radius:10px; border:1px solid #E3E1D8; box-shadow:0 2px 10px rgba(0,0,0,.12);}
   .tkImgSide{font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#8A90A0; margin-top:8px;}
+  /* Fact Research review: one pill per candidate (Claude/Luna/Gemini) — the checkmarked one is
+     selected (what the preview above shows, what Approve/Edit act on); tapping toggles its own
+     reason box below open/closed without changing selection on a re-tap. */
+  .tkFactPills{display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 4px;}
+  .tkFactPill{
+    font-family:inherit; font-size:13.5px; border-radius:20px; padding:6px 14px; cursor:pointer;
+    background:#fff; border:1px solid #C7CAD3; color:#2B2F3A;
+  }
+  .tkFactPill.on{background:#111827; color:#fff; border-color:#111827;}
+  .tkFactReason{font-size:13.5px; line-height:1.5; color:#5B6472; margin:10px 0 4px;}
+  .tkFactMove{display:flex; align-items:center; gap:8px; margin:12px 0 0; font-size:13.5px; color:#5B6472;}
+  .tkFactMove span{flex:1 1 auto;}
+  .tkFactMoveBtn{width:38px; height:34px; border-radius:8px; border:1px solid #C7CAD3; background:#fff; font-size:17px; cursor:pointer;}
+  .tkFactMoveBtn:disabled{opacity:.35; cursor:default;}
+  .tkFactReason a{color:#111827; text-decoration:underline;}
+  .tkFactMethod{
+    display:inline-block; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    border-radius:5px; padding:2px 7px; margin-right:4px;
+  }
+  .tkFactMethod.search{background:#E3F0E6; color:#2E6B3E;}
+  .tkFactMethod.memory{background:#EDEDF2; color:#5B6472;}
   .tkImgNotesLabel{font-size:12px; color:#6B7280; margin:14px 0 5px;}
   .tkImgNotes{
     width:100%; box-sizing:border-box; border:1px solid #C7CAD3; border-radius:10px;
@@ -1706,15 +2175,13 @@ CHANGELOG:END
   .ev.review .nm{color:#e0a33a; font-style:italic; opacity:.9;}
   .reviewBanner{
     position:sticky; top:0; z-index:60; display:none;
-    background:rgba(224,163,58,.16); border-bottom:1px solid rgba(224,163,58,.5);
-    color:#e0a33a; font-size:12px; letter-spacing:.06em; text-transform:uppercase;
-    padding:6px 12px; align-items:center; justify-content:center; gap:12px;
+    padding:8px 12px 0; align-items:center; justify-content:center;
   }
   .reviewBanner.show{display:flex;}
   .reviewBannerBtn{
     font-family:inherit; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
-    background:transparent; color:#e0a33a; border:1px solid rgba(224,163,58,.55); border-radius:999px;
-    padding:3px 10px; cursor:pointer;
+    background:rgba(11,22,48,.85); color:#e0a33a; border:1px solid rgba(224,163,58,.55); border-radius:999px;
+    padding:5px 14px; cursor:pointer;
   }
   .reviewBannerBtn:hover{background:rgba(224,163,58,.15);}
   .reviewBannerBtn.on{background:#e0a33a; color:#1a1200; border-color:#e0a33a; font-weight:700;}
@@ -1849,12 +2316,17 @@ CHANGELOG:END
   }
   .disclaimerBox p{font-size:14px; line-height:1.55; margin:0 0 12px; color:#D9D2BC;}
   .reportModalEntity{font-size:13px; color:#B9AE86; margin:0 0 12px;}
-  .reportModalBox textarea, .reportModalBox input[type=email]{
+  .reportModalBox textarea, .reportModalBox input[type=email], .reportModalBox select{
     width:100%; box-sizing:border-box; font-family:inherit; font-size:14px;
     background:#132043; border:1px solid rgba(201,165,66,.3); border-radius:8px;
     color:#EFE6CE; padding:9px 10px; margin-bottom:10px;
   }
   .reportModalBox textarea{min-height:100px; resize:vertical;}
+  .flagRemoveRow{
+    display:flex; align-items:center; gap:8px; font-size:13.5px; color:#D9D2BC;
+    margin:0 0 14px; cursor:pointer;
+  }
+  .flagRemoveRow input{margin:0; cursor:pointer;}
   .reportModalSubmit, .disclaimerOkBtn{
     width:100%; font-family:'Cinzel',serif; font-size:12.5px; letter-spacing:.1em; text-transform:uppercase;
     background:var(--gold); color:var(--navy-deep); border:none; border-radius:6px;
@@ -1972,6 +2444,7 @@ CHANGELOG:END
   .ahHead{display:flex; flex-direction:column; align-items:flex-start; gap:1px;}
   .artSticky.hasPortrait .ahHead{padding-right:120px;}
   .ahYear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
+  .review-on .ahYear{cursor:pointer;}
   .ahName{font-size:25px; font-weight:600; line-height:1.15;}
   /* Same taper rule as the teaser card. It stays invisible while the big photo is on
      screen and fades in together with the corner portrait. */
@@ -2318,6 +2791,21 @@ CHANGELOG:END
   .reviewActBtn.queue:hover{background:rgba(201,165,66,.12);}
   .reviewActBtn.queue:disabled{opacity:.45; cursor:default; pointer-events:none;}
   .reviewActionNote{font-size:13.5px; color:var(--muted); text-align:center; margin-top:10px; min-height:1.2em;}
+  /* Article Status (Review Mode only, bottom of the article) — the longest-sentence/proofread
+     readout plus Submit to Proofread / Flag Issue. Boxed rather than bare rows like the quick-
+     action bars above it, so it reads as its own distinct block when you jump straight to it
+     (see the artSticky year-tap handler). */
+  .reviewStatusSection{
+    border:1px solid rgba(201,165,66,.3); border-radius:10px; padding:16px 18px; margin:36px 0 8px;
+  }
+  .reviewStatusRow{
+    display:flex; justify-content:space-between; gap:14px; font-size:14.5px; padding:6px 0;
+    border-bottom:1px solid rgba(201,165,66,.14);
+  }
+  .reviewStatusRow:last-of-type{border-bottom:none; margin-bottom:14px;}
+  .reviewStatusRow span:first-child{color:var(--muted);}
+  .reviewStatusRow span:last-child{color:#fff; font-weight:600; text-align:right;}
+  .reviewStatusSection .reviewActionBar{margin:0 0 4px;}
   .factrow{display:flex; gap:14px; padding:7px 0; border-bottom:1px solid rgba(201,165,66,.14); font-size:calc(17.5px * var(--txt)); line-height:1.5;}
   .factrow:last-child{border-bottom:none;}
   .factlabel{flex:0 0 38%; max-width:38%; font-family:'Cinzel',serif; font-size:calc(14px * var(--txt)); letter-spacing:.05em; text-transform:uppercase; color:#BFC9EA; padding-top:2px;}
@@ -3399,8 +3887,7 @@ CHANGELOG:END
 </div>
 
 <div class="reviewBanner" id="reviewBanner">
-  <span>Review Mode</span>
-  <button type="button" class="reviewBannerBtn" id="reviewOnlyBtn">Show Only Pending</button>
+  <button type="button" class="reviewBannerBtn" id="reviewOnlyBtn">Review</button>
 </div>
 
 <div class="viewport" id="viewport">
@@ -4131,7 +4618,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v443';
+const APP_VERSION = 'v445';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -6782,6 +7269,15 @@ let tkView = 'list';       // 'add' | 'list' | 'review'
 let tkReviewIds = [];      // the queue being worked through, captured when review opens
 let tkReviewIdx = 0;
 let tkImgSide = 'a';       // which candidate Picture Review is currently showing — local view
+// Fact Research review: which candidate (index into result.candidates) is currently selected —
+// its proposed change is what the preview above shows, and it's what Approve/Edit act on.
+// tkFactReasonOpen mirrors the pill pattern from the design mockup: tapping a pill selects it AND
+// toggles its own reason open/closed, so a re-tap of the already-selected pill just collapses the
+// reason without deselecting (something must stay selected for Approve/Edit to have a target).
+// Same reset points as tkImgSide, right alongside each one — local view state, not task data.
+let tkFactSelectedIdx = 0;
+let tkFactReasonOpen = true;
+let tkFactEditing = false;
                             // state only, reset whenever the on-screen task changes
 let tkFinalShowOriginal = false;   // final-review's toggle: false = final image, true = the
                                     // winning original before refinement — same local-view-only
@@ -6900,7 +7396,10 @@ const TK_SERVICES = [
   { id: 'image-finalize', label: 'Finalize images', addable: false },
   { id: 'sentence-reword', label: 'Reword long sentences' },
   { id: 'audio-generate', label: 'Record audio narration' },
-  { id: 'arbitrate', label: 'Proofread articles' }
+  { id: 'arbitrate', label: 'Proofread articles' },
+  // addable:false, same reasoning as image-finalize above — only ever created by the Flag Issue
+  // button (which sets payload.question), never by hand through the generic Add Task type picker.
+  { id: 'fact-research', label: 'Research a flagged fact', addable: false }
 ];
 // Services that queue one task per entity (Category/Start/Quantity picker) rather than a single
 // scan task (plain description). Add a new entry here — and a pool function below, following
@@ -7014,6 +7513,25 @@ function paragraphHasLongSentence(html){
 function entryHasLongSentence(e){
   const sections = (e.art && e.art.sections) || [];
   return sections.some(sec => String(sec.b || '').split('\n\n').some(p => paragraphHasLongSentence(p)));
+}
+// Same sentence-splitting discipline as paragraphHasLongSentence/entryHasLongSentence above, but
+// returns the actual longest count instead of a >40 boolean — for the Review Mode status readout
+// ("largest sentence: NN words"), not an eligibility check.
+function longestSentenceWordCount(e){
+  const sections = (e.art && e.art.sections) || [];
+  let max = 0;
+  sections.forEach(sec => {
+    String(sec.b || '').split('\n\n').forEach(p => {
+      if(/href\s*=\s*["']entry:/i.test(p)) return; // same skip rule as paragraphHasLongSentence
+      const plain = stripHtml(p).replace(/\s+/g, ' ').trim();
+      if(!plain) return;
+      tkSplitSentencesForDisplay(plain).forEach(s => {
+        const n = s.trim().split(' ').filter(Boolean).length;
+        if(n > max) max = n;
+      });
+    });
+  });
+  return max;
 }
 function sentenceRewordPool(){
   const category = document.getElementById('tkBatchCategory').value;
@@ -7507,27 +8025,130 @@ function tkRenderArticle(entry, patch){
   const isArticlePatch = patch && patch[0] === 'article';
   const matchText = isArticlePatch ? String(patch[1]).replace(/@\d+$/, '') : '';
   const secMatch = isArticlePatch ? /^section-(\d+)$/.exec(String(patch[1])) : null;
+  // A section-N patch (whole-section swap or insert — fact-research's structured "section" change
+  // type, addressed by position rather than matched text) carries the proposed heading+body in
+  // the SAME format applyOnePatch's patchParseSectionValue already parses (heading on the first
+  // line, body after) — reused directly here so preview and apply can never disagree about what a
+  // candidate's value string means. U swaps section N entirely, 1-based, both fields. I inserts a
+  // new section — same convention applyOnePatch's own splice uses: section-N lands AFTER existing
+  // section N (0 = new opening section), not "at" N — see the splice-copy below, which mirrors
+  // applyOnePatch's insertAt clamp/splice exactly so the two can't drift apart.
+  const secParsed = secMatch ? patchParseSectionValue(patch[3]) : null;
+  const secPos = secMatch ? parseInt(secMatch[1], 10) : -1;
   let marked = false;
-  const html = sections.map((sec, si) => {
+  const renderSection = (sec, isTarget) => {
     const paras = String(sec.b || '').split('\n\n');
-    const secIsTarget = !!secMatch && parseInt(secMatch[1], 10) === si + 1;
     const body = paras.map(p => {
       const plain = String(p).replace(/<[^>]*>/g, '');
-      let isTarget = secIsTarget;
+      let paraIsTarget = isTarget;
       let shown = plain;
       if(!marked && matchText && !secMatch && plain.indexOf(matchText) !== -1){
-        isTarget = true; marked = true;
-        // Show the paragraph as it would read after the edit, so the marked text is the
-        // proposed wording rather than the wording being replaced.
+        paraIsTarget = true; marked = true;
         if(patch[2] === 'U') shown = plain.replace(matchText, String(patch[3] == null ? '' : patch[3]));
         else if(patch[2] === 'I') shown = plain.replace(matchText, matchText + String(patch[3] == null ? '' : patch[3]));
         else if(patch[2] === 'D') shown = plain.replace(matchText, '');
       }
-      return '<p class="tkPara' + (isTarget ? ' tkTarget' : '') + '">' + esc(shown) + '</p>';
+      return '<p class="tkPara' + (paraIsTarget ? ' tkTarget' : '') + '">' + esc(shown) + '</p>';
     }).join('');
-    return '<div class="tkSection"><div class="tkSectionH">' + esc(sec.h || '') + '</div>' + body + '</div>';
+    return '<div class="tkSection' + (isTarget ? ' tkTarget' : '') + '"><div class="tkSectionH">' + esc(sec.h || '') + '</div>' + body + '</div>';
+  };
+  let out;
+  if(secMatch && patch[2] === 'I'){
+    const copy = sections.map(s => ({ h: s.h, b: s.b }));
+    const insertAt = Math.max(0, Math.min(secPos, copy.length));
+    copy.splice(insertAt, 0, { h: secParsed.h, b: secParsed.b, __target: true });
+    out = copy.map(sec => renderSection(sec, !!sec.__target));
+  } else if(secMatch && patch[2] === 'U'){
+    out = sections.map((sec, si) => {
+      const isTarget = si + 1 === secPos;
+      return renderSection(isTarget ? { h: secParsed.h, b: secParsed.b } : sec, isTarget);
+    });
+  } else {
+    out = sections.map(sec => renderSection(sec, false));
+  }
+  return '<div class="tkRvHead">Article</div>' + out.join('');
+}
+// Converts one fact-research candidate into the same [scope, element, op, value] patch tuple
+// tkRenderFacts/tkRenderArticle (above) and applyFactResearchCandidate (below) already
+// understand — one conversion, shared by preview and Approve, so they can never disagree about
+// what a candidate actually does.
+function tkFactCandidateToPatch(entry, c){
+  if(!c) return null;
+  if(c.changeType === 'quickFact'){
+    const qf = c.quickFact || {};
+    const exists = (entry.facts || []).some(f => f.label === qf.label);
+    // Per Tom: an "update" naming a label that doesn't actually exist just behaves as an add.
+    const isUpdate = qf.mode === 'update' && exists;
+    return isUpdate
+      ? ['facts', qf.label, 'U', qf.value]
+      : ['facts', qf.label, 'I', qf.label + ' :: ' + qf.value];
+  }
+  if(c.changeType === 'section'){
+    const s = c.section || {};
+    const pos = parseInt(s.position, 10) || 1;
+    const value = (s.heading || '') + '\n' + (s.body || ''); // patchParseSectionValue's own format
+    // applyOnePatch's insert convention: section-N lands AFTER existing section N (0 = new
+    // opening section) — Tom's own spec gives position as the 1-based LANDING slot, so N = position-1.
+    return s.mode === 'insert'
+      ? ['article', 'section-' + Math.max(0, pos - 1), 'I', value]
+      : ['article', 'section-' + pos, 'U', value];
+  }
+  return null;
+}
+// Fact Research review: N independent candidates (Claude/Luna/Gemini) answering one flagged
+// question, no cross-model voting — Tom picks or Edits whichever he likes (see the design
+// discussion this replaced the earlier propose/judge debate loop with). Reuses tkRenderFacts/
+// tkRenderArticle for the top preview so "what would this look like" is the exact same code path
+// every other patch-based task already uses, not a second implementation to keep in sync.
+// tkFactSelectedIdx/tkFactReasonOpen are this screen's local view state (declared with tkImgSide
+// above, reset at the same points) — tapping a pill both selects it (preview above updates) and
+// toggles its own reason open/closed; the currently-selected candidate is always what
+// Approve/Edit act on.
+function tkRenderFactResearchReview(entry, t){
+  const candidates = (t.result && Array.isArray(t.result.candidates)) ? t.result.candidates : [];
+  if(!candidates.length){
+    return '<div class="tkRvName">' + esc(entry.n) + '</div>' +
+      '<div class="tkRvEmpty">No candidates came back for this question.</div>';
+  }
+  if(tkFactSelectedIdx >= candidates.length) tkFactSelectedIdx = 0;
+  const sel = candidates[tkFactSelectedIdx];
+  const patch = tkFactCandidateToPatch(entry, sel);
+  const question = (t.payload && t.payload.question) || '';
+  const MODEL_LABELS = { claude: 'Claude', openai: 'Luna', google: 'Gemini' };
+  const pills = candidates.map((c, i) => {
+    const isSel = i === tkFactSelectedIdx;
+    return '<button type="button" class="tkFactPill' + (isSel ? ' on' : '') + '" data-idx="' + i + '">' +
+      esc(MODEL_LABELS[c.model] || c.model) + (isSel ? ' \u2713' : '') + '</button>';
   }).join('');
-  return '<div class="tkRvHead">Article</div>' + html;
+  const openC = tkFactReasonOpen ? candidates[tkFactSelectedIdx] : null;
+  const reasonHtml = openC
+    ? '<div class="tkFactReason"><span class="tkFactMethod ' + esc(openC.method || '') + '">' +
+        (openC.method === 'search' ? 'Searched' : 'From memory') + '</span> ' +
+        esc(openC.sourceNote || '') +
+        (openC.sourceUrl ? ' \u2014 <a href="' + esc(openC.sourceUrl) + '" target="_blank" rel="noopener">' + esc(openC.sourceUrl) + '</a>' : '') +
+      '</div>'
+    : '';
+  return '<div class="tkRvName">' + esc(entry.n) + '</div>' +
+    '<div class="tkRvMeta">Fact research \u00b7 ' + esc(t.entityId) + ' \u00b7 ' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</div>' +
+    '<p class="tkNote">\u201c' + esc(question) + '\u201d</p>' +
+    '<div class="tkRvHead">Quick Facts</div>' + tkRenderFacts(entry, patch && patch[0] === 'facts' ? patch : null) +
+    tkRenderArticle(entry, patch && patch[0] === 'article' ? patch : null) +
+    '<div class="tkFactPills">' + pills + '</div>' +
+    // Up/down placement (Tom's spec: keep a model's wording but move it earlier/later) — insert
+    // only; for a swap the position IS which section gets replaced, so moving it would retarget
+    // the swap rather than reposition anything. Adjusts the selected candidate in place, so
+    // Approve/Edit use whatever position is showing.
+    ((sel.changeType === 'section' && sel.section && sel.section.mode === 'insert')
+      ? '<div class="tkFactMove"><span>New section position: ' + sel.section.position + ' of ' + (((entry.art && entry.art.sections) || []).length + 1) + '</span>' +
+          '<button type="button" class="tkFactMoveBtn" id="tkFactUp"' + (sel.section.position <= 1 ? ' disabled' : '') + ' aria-label="Move earlier">\u2191</button>' +
+          '<button type="button" class="tkFactMoveBtn" id="tkFactDown"' + (sel.section.position > ((entry.art && entry.art.sections) || []).length ? ' disabled' : '') + ' aria-label="Move later">\u2193</button></div>'
+      : '') +
+    reasonHtml +
+    // Researchers that came back empty or failed (see fact-research.mjs result.misses) — shown so
+    // "only 2 of 3 answered" is visible rather than silently missing a pill.
+    ((t.result && Array.isArray(t.result.misses) && t.result.misses.length)
+      ? '<p class="tkNote">' + t.result.misses.map(m => esc((MODEL_LABELS[m.model] || m.model) + ': ' + (m.note || 'no answer'))).join('<br>') + '</p>'
+      : '');
 }
 
 // ==================== Sentence-reword review — whole article, Before/After ====================
@@ -8182,6 +8803,7 @@ function renderTaskReview(){
   document.getElementById('tkTitleSecond').textContent =
     (t.status === 'awaiting_review' && t.type === 'audio-generate') ? ' : Audio Review' :
     (t.status === 'awaiting_review' && t.type === 'arbitrate') ? ' : Arbitrate Review' :
+    (t.status === 'awaiting_review' && t.type === 'fact-research') ? ' : Fact Research' :
     (TK_TITLES[t.status] || ' : Task');
 
   const entry = t.entityId ? getEntry(t.entityId) : null;
@@ -8210,6 +8832,10 @@ function renderTaskReview(){
   if(isArbitrateReview && tkDebateTaskId !== t.id){
     tkDebateTaskId = t.id; tkDebateIdx = 0; tkDebateShown = new Set(); tkDebateEditing = false; tkDebateDetailsOpen = false; tkDebateDetailsFor = null;
   }
+  // Fact Research: N independent candidates for one flagged question (see tkRenderFactResearchReview
+  // above) — not a debate, so none of the arbitrate state above applies. tkFactSelectedIdx/
+  // tkFactReasonOpen are reset elsewhere (declared with tkImgSide), same "local view state" pattern.
+  const isFactResearchReview = t.type === 'fact-research' && t.status === 'awaiting_review';
   // A sentence-reword task bundles every long-sentence fix for the entity into one review — the
   // whole article, Before/After toggle — rather than the single-paragraph-marked view the generic
   // entry branch below gives other patch-based tasks (age-backfill etc).
@@ -8279,6 +8905,8 @@ function renderTaskReview(){
       tkRenderAudioReviewArticle(entry, cues);
   } else if(isArbitrateReview && entry){
     body = tkRenderArbitrateReview(entry, t);
+  } else if(isFactResearchReview && entry){
+    body = tkRenderFactResearchReview(entry, t);
   } else if(isSentenceRewordReview && entry){
     const hasBundledPatches = t.result && Array.isArray(t.result.patches);
     // A task queued before this whole-article review existed carries the old single result.patch
@@ -8325,6 +8953,27 @@ function renderTaskReview(){
   }
   scroll.innerHTML = body;
   scroll.scrollTop = 0;
+
+  if(isFactResearchReview){
+    document.querySelectorAll('.tkFactPill').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.idx, 10);
+        tkFactReasonOpen = (idx === tkFactSelectedIdx) ? !tkFactReasonOpen : true;
+        tkFactSelectedIdx = idx;
+        renderTaskPanel();
+      });
+    });
+    const moveBy = (delta) => {
+      const c = ((t.result && t.result.candidates) || [])[tkFactSelectedIdx];
+      if(!c || !c.section) return;
+      const max = (((entry && entry.art && entry.art.sections) || []).length) + 1;
+      c.section.position = Math.max(1, Math.min(max, (parseInt(c.section.position, 10) || 1) + delta));
+      renderTaskPanel();
+    };
+    const upBtn = document.getElementById('tkFactUp'), downBtn = document.getElementById('tkFactDown');
+    if(upBtn) upBtn.addEventListener('click', () => moveBy(-1));
+    if(downBtn) downBtn.addEventListener('click', () => moveBy(1));
+  }
 
   if(isFinalReview){
     const toggleBtn = document.getElementById('tkToggleOriginal');
@@ -8503,6 +9152,39 @@ function renderTaskReview(){
     return;
   }
 
+  if(isFactResearchReview && entry){
+    const candidates = (t.result && Array.isArray(t.result.candidates)) ? t.result.candidates : [];
+    if(!candidates.length){ lock.innerHTML = ''; return; }
+    if(tkFactSelectedIdx >= candidates.length) tkFactSelectedIdx = 0;
+    const sel = candidates[tkFactSelectedIdx];
+    if(tkFactEditing){
+      // Starts from the selected candidate's own proposed value/body, same "edit what's already
+      // on screen" rule as arbitrate's Edit — not a blank box.
+      const label = sel.changeType === 'quickFact' ? ((sel.quickFact && sel.quickFact.label) || 'Quick Fact') : ((sel.section && sel.section.heading) || 'Section');
+      const startText = sel.changeType === 'quickFact' ? ((sel.quickFact && sel.quickFact.value) || '') : ((sel.section && sel.section.body) || '');
+      lock.innerHTML =
+        '<div class="tkArbNavSticky"><div class="tkRvHead">Edit \u2014 ' + esc(label) + '</div></div>' +
+        '<textarea class="tkArbEditBox" id="tkFactEditBox">' + esc(startText) + '</textarea>' +
+        '<div class="tkArbBottomSticky"><div class="tkLockBtns">' +
+          '<button class="tkBtn go" id="tkFactSaveEdit">Save</button>' +
+          '<button class="tkBtn" id="tkFactCancelEdit">Cancel</button>' +
+        '</div></div>';
+      document.getElementById('tkFactSaveEdit').addEventListener('click', () => tkSaveFactResearchEdit());
+      document.getElementById('tkFactCancelEdit').addEventListener('click', () => { tkFactEditing = false; renderTaskPanel(); });
+      return;
+    }
+    lock.innerHTML =
+      '<div class="tkArbBottomSticky"><div class="tkLockBtns">' +
+        '<button class="tkBtn go" id="tkFactApprove">Approve</button>' +
+        '<button class="tkBtn no" id="tkFactOverride">Override</button>' +
+        '<button class="tkBtn" id="tkFactEdit">Edit</button>' +
+      '</div></div>';
+    document.getElementById('tkFactApprove').addEventListener('click', () => tkResolveFactResearch('approve'));
+    document.getElementById('tkFactOverride').addEventListener('click', () => tkResolveFactResearch('override'));
+    document.getElementById('tkFactEdit').addEventListener('click', () => { tkFactEditing = true; renderTaskPanel(); });
+    return;
+  }
+
   // Nothing to decide on a task that's already settled — the bar renders empty and hides
   // itself (see .tkLockBar:empty), giving its height back to the content.
   if(t.status !== 'proposed'){ lock.innerHTML = ''; return; }
@@ -8611,6 +9293,7 @@ async function tkResolveImage(decision){
     next++;
   }
   tkImgSide = 'a';
+  tkFactSelectedIdx = 0; tkFactReasonOpen = true; tkFactEditing = false;
   if(next >= tkReviewIds.length){ tkGoList(); return; }
   tkReviewIdx = next;
   renderTaskPanel();
@@ -8864,14 +9547,16 @@ async function tkResolveArbitrateDebate(decision){
 
   const stillOpen = tkArbitrateOpenDebates(debates);
   if(!stillOpen.length){ t.status = 'done'; t.updatedAt = new Date().toISOString(); }
-  const saved = await saveWorkLog(
-    (decision === 'approve' ? 'Approved' : 'Overrode') + ' arbitrated change for ' + ((t.result && t.result.name) || t.entityId),
-    [t.id]
-  );
-  if(!saved || saved.ok === false){
-    btns.forEach(b => { if(b) b.disabled = false; });
-    wlSetLog('Saved the change, but the task list didn\u2019t update \u2014 refresh and it should show correctly.', true);
-    return;
+  // Deferred the same way as the content publish above — see tkFlushDeferredWorkLog's comment for
+  // why this needed its own flag, separate from tkDeferredPublish.
+  tkDeferredWorkLogIds.add(t.id);
+  if(!moreAhead){
+    const saved = await tkFlushDeferredWorkLog();
+    if(!saved || saved.ok === false){
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog('Saved the change, but the task list didn\u2019t update \u2014 refresh and it should show correctly.', true);
+      return;
+    }
   }
 
   tkDebateShown.delete(cur.idx);
@@ -8948,11 +9633,14 @@ async function tkSaveArbitrateEdit(){
   d.resolved = true; d.resolution = 'edited';
   const stillOpen = tkArbitrateOpenDebates(debates);
   if(!stillOpen.length){ t.status = 'done'; t.updatedAt = new Date().toISOString(); }
-  const saved = await saveWorkLog('Manually edited ' + ((t.result && t.result.name) || t.entityId) + ' resolving an arbitrated debate', [t.id]);
-  if(!saved || saved.ok === false){
-    if(btn) btn.disabled = false;
-    wlSetLog('Saved the edit, but the task list didn\u2019t update \u2014 refresh and it should show correctly.', true);
-    return;
+  tkDeferredWorkLogIds.add(t.id);
+  if(!moreAhead){
+    const saved = await tkFlushDeferredWorkLog();
+    if(!saved || saved.ok === false){
+      if(btn) btn.disabled = false;
+      wlSetLog('Saved the edit, but the task list didn\u2019t update \u2014 refresh and it should show correctly.', true);
+      return;
+    }
   }
   tkDebateEditing = false;
   tkDebateShown.delete(cur.idx);
@@ -8969,6 +9657,104 @@ async function tkSaveArbitrateEdit(){
     tkDebateIdx = stillOpen.length - 1;
   }
   renderTaskPanel();
+}
+
+// One decision resolves the whole task (unlike arbitrate's per-debate loop) — a fact-research
+// task carries N independent candidates for ONE question, not a list of separate findings, so
+// there's nothing further to step through within the task once Tom picks. Same deferred-publish/
+// deferred-worklog pattern as tkResolveArbitrateDebate above, reusing the identical flags/flush
+// functions — only the look-ahead is simpler (queue-only, no per-debate level).
+async function tkResolveFactResearch(decision){
+  const t = tkTask(tkReviewIds[tkReviewIdx]);
+  if(!t) return;
+  const candidates = (t.result && Array.isArray(t.result.candidates)) ? t.result.candidates : [];
+  const sel = candidates[tkFactSelectedIdx];
+  if(!sel){ wlSetLog('No candidate selected.', true); return; }
+  const entry = getEntry(t.entityId);
+  if(!entry){ wlSetLog('Could not find entry ' + t.entityId + '.', true); return; }
+
+  const btns = ['tkFactApprove', 'tkFactOverride', 'tkFactEdit'].map(id => document.getElementById(id));
+  btns.forEach(b => { if(b) b.disabled = true; });
+
+  let moreAhead = false;
+  let scan = tkReviewIdx + 1;
+  while(scan < tkReviewIds.length){
+    const nt = tkTask(tkReviewIds[scan]);
+    if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review' || nt.status === 'error')){ moreAhead = true; break; }
+    scan++;
+  }
+
+  if(decision === 'approve'){
+    const patch = tkFactCandidateToPatch(entry, sel);
+    const applied = patch ? applyOnePatch(entry, patch) : { ok: false, note: 'Unrecognized change type' };
+    if(!applied.ok){
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog(applied.note || 'Could not apply this candidate.', true);
+      return;
+    }
+    dirtyEntryIds.add(t.entityId);
+    if(moreAhead){
+      tkDeferredPublish = true;
+      wlSetLog('Saved \u2014 publishing once you finish the queue.');
+    }else{
+      const published = await publishToGitHub();
+      if(!published){
+        btns.forEach(b => { if(b) b.disabled = false; });
+        wlSetLog('Could not publish the change \u2014 check your GitHub token and try again.', true);
+        return;
+      }
+      tkDeferredPublish = false;
+    }
+  }
+  t.status = 'done';
+  t.result = t.result || {};
+  t.result.decision = decision;
+  t.result.chosenModel = sel.model;
+  t.updatedAt = new Date().toISOString();
+
+  // Deferred the same way as arbitrate's own resolve — see tkFlushDeferredWorkLog's comment.
+  tkDeferredWorkLogIds.add(t.id);
+  if(!moreAhead){
+    const saved = await tkFlushDeferredWorkLog();
+    if(!saved || saved.ok === false){
+      btns.forEach(b => { if(b) b.disabled = false; });
+      wlSetLog('Saved the change, but the task list didn\u2019t update \u2014 refresh and it should show correctly.', true);
+      return;
+    }
+  }
+
+  let next = tkReviewIdx + 1;
+  while(next < tkReviewIds.length){
+    const nt = tkTask(tkReviewIds[next]);
+    if(nt && (nt.status === 'proposed' || nt.status === 'awaiting_review' || nt.status === 'error')) break;
+    next++;
+  }
+  tkFactSelectedIdx = 0; tkFactReasonOpen = true; tkFactEditing = false;
+  if(next >= tkReviewIds.length){ tkGoList(); return; }
+  tkReviewIdx = next;
+  renderTaskPanel();
+}
+// Edit overwrites the selected candidate's own value/body with what was typed, then resolves
+// exactly like Approve — same "the human has now handled it by hand" rule as arbitrate's Edit.
+// Only the value/body is editable here (not the label/heading), matching arbitrate's own Edit,
+// which is similarly body-only.
+async function tkSaveFactResearchEdit(){
+  const t = tkTask(tkReviewIds[tkReviewIdx]);
+  if(!t) return;
+  const candidates = (t.result && Array.isArray(t.result.candidates)) ? t.result.candidates : [];
+  const sel = candidates[tkFactSelectedIdx];
+  if(!sel) return;
+  const box = document.getElementById('tkFactEditBox');
+  const text = box ? box.value : '';
+  if(sel.changeType === 'quickFact'){
+    sel.quickFact = sel.quickFact || {};
+    sel.quickFact.value = text;
+  } else if(sel.changeType === 'section'){
+    sel.section = sel.section || {};
+    sel.section.body = text;
+  }
+  tkFactEditing = false;
+  await tkResolveFactResearch('approve');
 }
 
 // The more drastic sibling of Redo above: instead of nudging the current final image, this goes
@@ -9011,6 +9797,7 @@ async function tkRestartFromCandidates(){
     next++;
   }
   tkImgSide = 'a';
+  tkFactSelectedIdx = 0; tkFactReasonOpen = true; tkFactEditing = false;
   if(next >= tkReviewIds.length){ tkGoList(); return; }
   tkReviewIdx = next;
   renderTaskPanel();
@@ -9040,14 +9827,42 @@ function renderTaskPanel(){
 // leave approved-but-unpublished entries — exactly the state that caused the re-queue loop
 // diagnosed in v395/v396.
 let tkDeferredPublish = false;
+// Companion to tkDeferredPublish above, for the OTHER GitHub round-trip every approve/override/
+// edit did on every single tap regardless of whether content-publish itself was deferred:
+// saveWorkLog() is its own separate GET+PUT to workLog.json (task status/bookkeeping), entirely
+// unrelated to publishToGitHub() (data.json/content). Tom described every tap in Arbitrate Review
+// as slow even with the v400 deferred-publish fix already live; reading wlResolveTasks and
+// tkResolveArbitrateDebate/tkSaveArbitrateEdit found why — all three called saveWorkLog()
+// unconditionally, every decision, regardless of deferPublish/moreAhead. This defers it the same
+// way, accumulating every touched task id so the eventual flush's touchedIds still covers
+// everything decided along the way (saveWorkLog only overwrites entries in that list when merging
+// against whatever's live on GitHub at flush time — see its own comment — so nothing decided
+// earlier in the batch is lost even if the remote moved in the meantime).
+let tkDeferredWorkLogIds = new Set();
+async function tkFlushDeferredWorkLog(){
+  if(!tkDeferredWorkLogIds.size) return { ok: true };
+  const ids = Array.from(tkDeferredWorkLogIds);
+  const saved = await saveWorkLog('Updated ' + ids.length + ' task(s) via Content Manager', ids);
+  if(saved && saved.ok !== false) tkDeferredWorkLogIds.clear();
+  return saved;
+}
 async function tkFlushDeferredPublish(){
-  if(!tkDeferredPublish) return;
-  tkDeferredPublish = false;
-  wlSetLog('Publishing approved changes\u2026');
-  const ok = await publishToGitHub();
-  wlSetLog(ok
-    ? 'Published to GitHub \u2014 live in about a minute.'
-    : 'Approved changes are saved in this session but publishing failed \u2014 use Publish manually, or the next scan will queue those entries again.', !ok);
+  if(!tkDeferredPublish && !tkDeferredWorkLogIds.size) return;
+  if(tkDeferredPublish){
+    tkDeferredPublish = false;
+    wlSetLog('Publishing approved changes\u2026');
+    const ok = await publishToGitHub();
+    wlSetLog(ok
+      ? 'Published to GitHub \u2014 live in about a minute.'
+      : 'Approved changes are saved in this session but publishing failed \u2014 use Publish manually, or the next scan will queue those entries again.', !ok);
+    if(!ok) return; // leave the pending work-log sync for the next flush rather than compounding the error
+  }
+  if(tkDeferredWorkLogIds.size){
+    const saved = await tkFlushDeferredWorkLog();
+    if(!saved || saved.ok === false){
+      wlSetLog('Published, but the task list could not sync: ' + ((saved && saved.error) || 'unknown error') + ' \u2014 tap Refresh; already-approved items will still show correctly next time.', true);
+    }
+  }
 }
 function tkGoList(){
   tkStopAudioPlayer();
@@ -9063,6 +9878,7 @@ function tkOpenReview(taskId){
   tkReviewIdx = tkReviewIds.indexOf(taskId);
   if(tkReviewIdx < 0) return;
   tkImgSide = 'a';
+  tkFactSelectedIdx = 0; tkFactReasonOpen = true; tkFactEditing = false;
   tkView = 'review';
   renderTaskPanel();
 }
@@ -9073,6 +9889,7 @@ function tkStepReview(delta){
   if(next < 0 || next >= tkReviewIds.length){ tkGoList(); return; }
   tkReviewIdx = next;
   tkImgSide = 'a';
+  tkFactSelectedIdx = 0; tkFactReasonOpen = true; tkFactEditing = false;
   renderTaskPanel();
 }
 
@@ -9515,7 +10332,7 @@ function tkAudioPayload(){
 // Queues a single image-generate or audio-generate task for one entity, used by the Review Mode
 // quick-action buttons on the article view. Same task shape tkAdd's batch path builds (one map()
 // entry, just inlined for a single e), so both routes land identical tasks in workLog.json.
-async function tkQueueQuickTask(type, entry, btnEl, noteEl){
+async function tkQueueQuickTask(type, entry, btnEl, noteEl, payloadOverride){
   const g = wlGh();
   if(!g.owner || !g.repo || !g.token){
     if(noteEl) noteEl.textContent = 'Enter your GitHub token under Manage \u2192 Import \u2192 Publish to GitHub first.';
@@ -9523,7 +10340,7 @@ async function tkQueueQuickTask(type, entry, btnEl, noteEl){
   }
   if(!wlData) wlData = { v: 1, tasks: [] };
   if(!Array.isArray(wlData.tasks)) wlData.tasks = [];
-  const payload = type === 'audio-generate' ? tkAudioPayload() : {};
+  const payload = payloadOverride || (type === 'audio-generate' ? tkAudioPayload() : {});
   if(type === 'audio-generate') saveAudioGenSettings(); // remembered for next time, same as the batch path
   const nowIso = new Date().toISOString();
   const id = 'task-' + type + '-' + entry.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
@@ -9819,8 +10636,20 @@ async function wlResolveTasks(taskIds, approve, opts){
     if(deferPublish){ tkDeferredPublish = true; }
     else { published = await publishToGitHub(); if(published) tkDeferredPublish = false; }
   }
-  wlSetLog(verb + ' ' + applied.length + (partialCount ? ' (' + partialCount + ' partially \u2014 flagged for review)' : '') + (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') + ' \u00b7 saving work log\u2026', !!failed.length || !!partialCount);
-  const saved = await saveWorkLog(verb + ' ' + applied.length + ' task(s) via Content Manager', applied);
+  // Same defer as content-publish above, for the SAME reason: saveWorkLog() is its own separate
+  // GET+PUT to workLog.json, previously unconditional here regardless of deferPublish — see
+  // tkFlushDeferredWorkLog's comment. applied.forEach rather than a single id: this can be called
+  // with several taskIds at once (auto-approve's own batches), and every one of them needs to
+  // ride the eventual flush's touchedIds, not just the last.
+  applied.forEach(id => tkDeferredWorkLogIds.add(id));
+  let saved;
+  if(deferPublish){
+    saved = { ok: true };
+    wlSetLog(verb + ' ' + applied.length + (partialCount ? ' (' + partialCount + ' partially \u2014 flagged for review)' : '') + (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') + ' \u00b7 saved \u2014 syncing once you finish the queue.', !!failed.length || !!partialCount);
+  }else{
+    wlSetLog(verb + ' ' + applied.length + (partialCount ? ' (' + partialCount + ' partially \u2014 flagged for review)' : '') + (failed.length ? ' \u00b7 ' + failed.length + ' could not apply: ' + failed.join('; ') : '') + ' \u00b7 saving work log\u2026', !!failed.length || !!partialCount);
+    saved = await tkFlushDeferredWorkLog();
+  }
   if(!saved.ok){
     wlSetLog('Content updated in this session, but the work log could not be saved: ' + saved.error + ' \u2014 tap Refresh and try again, or these items will still show as proposed next time.', true);
   }else{
@@ -10320,6 +11149,31 @@ function fillArticleBody(d, peek){
       '</div>' +
       '<p class="reviewActionNote" id="tkQuickNote"></p>';
   }
+  // Article Status (Review Mode only): the longest-sentence readout, proofread status, a
+  // Submit to Proofread quick-queue (tkQueueQuickTask again, type 'arbitrate' — same mechanism
+  // the Generate Images/Record Audio buttons above already use for a single entity), and Flag
+  // Issue (opens #flagModal). Tapping the year in the sticky header scrolls straight here — see
+  // the artSticky click delegation below. Same gate as the quick-action bar above: real article
+  // content, Review Mode, unlocked.
+  if(reviewMode && manageUnlocked() && articleStats(d).wordCount > 0){
+    const longest = longestSentenceWordCount(d);
+    const qc = d.qc || {};
+    const proofreadLabel = !qc.proofread ? 'Not yet run'
+      : qc.proofread === 'pass' ? 'Pass \u2014 no issues found'
+      : 'Findings \u2014 see Arbitrate Review';
+    const proofreadPending = tkHasPendingTask(d.id, ['arbitrate']);
+    html += '<div class="reviewStatusSection" id="reviewStatusSection">' +
+      '<div class="reviewStatusRow"><span>Largest sentence</span><span>' + longest + ' word' + (longest === 1 ? '' : 's') + '</span></div>' +
+      '<div class="reviewStatusRow"><span>Proofread</span><span>' + esc(proofreadLabel) + '</span></div>' +
+      '<div class="reviewActionBar">' +
+        '<button type="button" class="reviewActBtn queue" id="tkSubmitProofreadBtn"' +
+          (proofreadPending ? ' disabled title="Already queued for proofreading."' : '') +
+          '>Submit to Proofread</button>' +
+        '<button type="button" class="reviewActBtn queue" id="tkFlagIssueBtn">Flag Issue</button>' +
+      '</div>' +
+      '<p class="reviewActionNote" id="tkStatusNote"></p>' +
+    '</div>';
+  }
   // Clearance for the fixed bottom audio bar (see .audioBottomBar) — it's always present once
   // the entry has audio (not just while playing, per Tom's spec), so this is unconditional on
   // d.audio too, not on play state, to avoid a layout jump when the bar's own visibility toggles.
@@ -10341,6 +11195,13 @@ function fillArticleBody(d, peek){
     const audioBtn = document.getElementById('tkQuickAudioBtn');
     if(imgBtn) imgBtn.addEventListener('click', () => tkQueueQuickTask('image-generate', d, imgBtn, quickNoteEl));
     if(audioBtn) audioBtn.addEventListener('click', () => tkQueueQuickTask('audio-generate', d, audioBtn, quickNoteEl));
+  }
+  if(reviewMode && manageUnlocked() && articleStats(d).wordCount > 0){
+    const statusNoteEl = document.getElementById('tkStatusNote');
+    const proofreadBtn = document.getElementById('tkSubmitProofreadBtn');
+    const flagBtn = document.getElementById('tkFlagIssueBtn');
+    if(proofreadBtn) proofreadBtn.addEventListener('click', () => tkQueueQuickTask('arbitrate', d, proofreadBtn, statusNoteEl));
+    if(flagBtn) flagBtn.addEventListener('click', () => openFlagModal(d));
   }
 
   // Hand the photo to the body-level flying element and cache the geometry the morph
@@ -11580,6 +12441,16 @@ document.getElementById('aboutBody').addEventListener('click', (e) => {
   const idx = parseInt(el.dataset.cueIdx, 10);
   if(!isNaN(idx)) seekToCue(idx);
 });
+// Review Mode only: tapping the year in the sticky header jumps straight to the Article Status
+// section at the bottom (longest sentence, proofread state, Submit to Proofread, Flag Issue) —
+// a shortcut so triaging an article doesn't mean scrolling past the whole story every time.
+// Outside Review Mode the year is inert, same as it always was.
+document.getElementById('artBody').addEventListener('click', (e) => {
+  if(!reviewMode) return;
+  if(!e.target.closest('.ahYear')) return;
+  const target = document.getElementById('reviewStatusSection');
+  if(target) target.scrollIntoView({behavior: 'smooth', block: 'start'});
+});
 
 // ---- Sticky header / player backdrops ----
 // Both sticky bands need an opaque backdrop so article text scrolls cleanly underneath.
@@ -12731,7 +13602,7 @@ function updateReviewUI(){
   if(hamMeta) hamMeta.textContent = pend ? pend + ' pending' : '';
   if(banner) banner.classList.toggle('show', reviewMode && pend > 0);
   if(onlyBtn){
-    onlyBtn.textContent = reviewOnlyMode ? 'Show All' : 'Show Only Pending';
+    onlyBtn.textContent = reviewOnlyMode ? 'Pending Only' : 'Review';
     onlyBtn.classList.toggle('on', reviewOnlyMode);
   }
 }
@@ -16254,6 +17125,85 @@ document.getElementById('reportModalSubmit').addEventListener('click', async () 
   }
   btn.disabled = false;
 });
+
+// Flag an issue — owner-only quick triage from the Article Status section (Review Mode). Writes
+// a category-tagged note into entry.reviewNote (the same field the existing "mark for review"
+// mechanism already uses), and — per Tom's own switch — only sets entry.review (removing the
+// entry from the public timeline) when "Remove from public view" is checked; unchecked just
+// records the note without touching visibility. Audio/Image categories also immediately queue
+// the matching existing quick task, same as the Article Status section's own buttons (Tier 1 from
+// the design discussion: this fires the service blindly — the note isn't fed into what it
+// generates yet). Facts queues the new fact-research task, built specifically to consume the note
+// as its research question.
+let flagEntityId = null;
+function openFlagModal(d){
+  flagEntityId = d.id;
+  document.getElementById('flagModalEntity').textContent = 'Regarding: ' + d.n;
+  document.getElementById('flagCategory').value = 'audio-pronunciation';
+  document.getElementById('flagNote').value = '';
+  document.getElementById('flagChangeType').value = 'quickFact';
+  document.getElementById('flagModalStatus').textContent = '';
+  applyFlagRemoveDefault();
+  document.getElementById('flagModal').style.display = 'flex';
+}
+// "Mark for review" is the one category that already meant "pull this from public view" before
+// this switch existed, so it defaults checked; the other three default unchecked, since flagging
+// an audio/image/facts nit usually shouldn't yank an otherwise-fine article off the site. Tom can
+// flip it either way before submitting regardless of category.
+function applyFlagRemoveDefault(){
+  const cat = document.getElementById('flagCategory').value;
+  document.getElementById('flagRemovePublic').checked = cat === 'review';
+  // Change type only matters for Facts (it tells fact-research what shape to answer in) — per
+  // Tom's spec the user picks it, and every model is asked to answer in that same shape.
+  document.getElementById('flagChangeType').style.display = cat === 'facts' ? '' : 'none';
+}
+document.getElementById('flagCategory').addEventListener('change', applyFlagRemoveDefault);
+document.getElementById('flagModalClose').addEventListener('click', () => {
+  document.getElementById('flagModal').style.display = 'none';
+});
+document.getElementById('flagModal').addEventListener('click', (e) => {
+  if(e.target.id === 'flagModal') document.getElementById('flagModal').style.display = 'none';
+});
+document.getElementById('flagModalSubmit').addEventListener('click', async () => {
+  const noteBox = document.getElementById('flagNote');
+  const note = noteBox.value.trim();
+  const statusEl = document.getElementById('flagModalStatus');
+  if(!note){ statusEl.textContent = 'Describe what\u2019s wrong or what you\u2019d like checked first.'; return; }
+  const entry = getEntry(flagEntityId);
+  if(!entry){ statusEl.textContent = 'Could not find this entry \u2014 close and try again.'; return; }
+  const category = document.getElementById('flagCategory').value;
+  const removePublic = document.getElementById('flagRemovePublic').checked;
+  const CATEGORY_LABELS = {
+    'audio-pronunciation': 'Audio \u2014 pronunciation',
+    'audio-timing': 'Audio \u2014 timing',
+    'image': 'Image',
+    'facts': 'Facts',
+    'review': 'Review'
+  };
+  const tag = '[' + CATEGORY_LABELS[category] + '] ' + note;
+  entry.reviewNote = entry.reviewNote ? entry.reviewNote + ' \u2014 ' + tag : tag;
+  if(removePublic) entry.review = true;
+  dirtyEntryIds.add(entry.id);
+  const btn = document.getElementById('flagModalSubmit');
+  btn.disabled = true;
+  statusEl.textContent = 'Saving\u2026';
+  const ok = await publishReviewAction(statusEl, 'Flagged \u2713');
+  btn.disabled = false;
+  if(!ok) return; // publishReviewAction already left an explanatory message; don't also auto-queue or close
+  if(category === 'audio-pronunciation' || category === 'audio-timing'){
+    if(tkHasPendingTask(entry.id, ['audio-generate'])) statusEl.textContent += ' \u2014 already queued for audio, not re-queued.';
+    else await tkQueueQuickTask('audio-generate', entry, null, statusEl);
+  }else if(category === 'image'){
+    if(tkHasPendingTask(entry.id, ['image-generate', 'image-finalize'])) statusEl.textContent += ' \u2014 already queued for images, not re-queued.';
+    else await tkQueueQuickTask('image-generate', entry, null, statusEl);
+  }else if(category === 'facts'){
+    if(tkHasPendingTask(entry.id, ['fact-research'])) statusEl.textContent += ' \u2014 already have a pending fact-research task for this entry.';
+    else await tkQueueQuickTask('fact-research', entry, null, statusEl, { question: note, changeType: document.getElementById('flagChangeType').value });
+  }
+  render();
+  if(currentEntry && currentEntry.id === entry.id) showDetail(getEntry(entry.id) || entry);
+  setTimeout(() => { document.getElementById('flagModal').style.display = 'none'; }, 1400);
+});
 </script>
 <!-- Report an issue — opened from the button at the end of every article (fillArticleBody). -->
 <div class="reportModal" id="reportModal">
@@ -16267,6 +17217,33 @@ document.getElementById('reportModalSubmit').addEventListener('click', async () 
     <p class="reportModalStatus" id="reportModalStatus"></p>
   </div>
 </div>
+
+<!-- Flag an issue — owner-only quick triage, opened from Flag Issue in the Article Status
+     section (Review Mode). Shares the report-modal's box/overlay styling (see .flagModal in the
+     shared selector list) — different id, different fields. -->
+<div class="reportModal flagModal" id="flagModal">
+  <div class="reportModalBox">
+    <button class="reportModalClose" id="flagModalClose" aria-label="Close">&times;</button>
+    <h3>Flag an Issue</h3>
+    <p class="reportModalEntity" id="flagModalEntity"></p>
+    <select id="flagCategory">
+      <option value="audio-pronunciation">Audio — pronunciation issue</option>
+      <option value="audio-timing">Audio — timing issue</option>
+      <option value="image">Image issue</option>
+      <option value="facts">Facts issue (missing or incorrect detail)</option>
+      <option value="review">Mark for review</option>
+    </select>
+    <select id="flagChangeType" style="display:none">
+      <option value="quickFact">Answer as a Quick Fact</option>
+      <option value="section">Answer as a section (new or rewritten)</option>
+    </select>
+    <textarea id="flagNote" placeholder="What's wrong, or what would you like checked or added?"></textarea>
+    <label class="flagRemoveRow"><input type="checkbox" id="flagRemovePublic"> Remove from public view until resolved</label>
+    <button class="reportModalSubmit" id="flagModalSubmit">Submit</button>
+    <p class="reportModalStatus" id="flagModalStatus"></p>
+  </div>
+</div>
+
 
 <!-- One-time disclaimer gate — shown once per device (localStorage), never again after "I
      Understand" is tapped. See the IIFE near the bottom of the script that checks/shows it. -->
