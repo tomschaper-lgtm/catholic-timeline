@@ -1,6 +1,6 @@
 <!--
-VERSION: 446
-DATE: 2026-09-22T10:00:00-05:00
+VERSION: 448
+DATE: 2026-09-22T11:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,28 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v448 — 2026-09-22
+
+**Ask:**
+- Right-align the switches — the Review row's switch sat past the right edge, out of line with
+  the Offline Access and Owner Tools switches.
+
+**Implementation:**
+- The Review row has one extra item (the Show only pill), so at the standard 16px row gaps its
+  contents ran wider than the sheet and pushed the switch off the edge. #reviewModeRow now uses
+  10px gaps, the pill is slightly more compact (no extra right margin), and the label won't wrap.
+
+## v447 — 2026-09-22
+
+**Ask:**
+- Settings Review row: "Review" and "13 pending" were drawn on top of each other. Just show
+  "Review 13".
+
+**Implementation:**
+- The count moved inside the row's label span ("Review 13") instead of a separate .pMeta span —
+  the separate span was overlapping the shrinking .pName and pushing the switch past the edge.
+  Count text is now just the number (still shows 0).
+
 ## v446 — 2026-09-22
 
 **Ask:**
@@ -2191,10 +2213,15 @@ CHANGELOG:END
   /* "Show only" pill on the Settings Review row (v446 — replaces the on-timeline review
      banner, which is gone entirely). Light-theme, matching the Settings sheet. Filled when on. */
   .reviewOnlyPill{
-    flex:0 0 auto; font-family:inherit; font-size:13px; font-weight:600; white-space:nowrap;
+    flex:0 0 auto; font-family:inherit; font-size:12.5px; font-weight:600; white-space:nowrap;
     background:#fff; color:#2F4A9A; border:1.5px solid #2F4A9A; border-radius:999px;
-    padding:4px 11px; margin-right:10px; cursor:pointer;
+    padding:3px 9px; cursor:pointer;
   }
+  /* v448: this row carries one more item (the pill) than the other switch rows, and at the
+     default 16px gaps it ran ~wider than the sheet, pushing the switch past the right edge.
+     Tighter gaps here keep the switch lined up with every other row's. */
+  #reviewModeRow{gap:10px;}
+  #reviewModeRow .pName{white-space:nowrap;}
   .reviewOnlyPill.on{background:#2F4A9A; color:#fff;}
   .mPending{
     display:inline-block; margin-left:6px; padding:1px 6px; border-radius:999px;
@@ -3595,8 +3622,7 @@ CHANGELOG:END
       </label>
       <label class="pRow pSwitch" id="reviewModeRow">
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
-        <span class="pName">Review</span>
-        <span class="pMeta" id="reviewModeMeta" style="margin-right:10px;"></span>
+        <span class="pName">Review <span id="reviewModeMeta"></span></span>
         <button type="button" class="reviewOnlyPill" id="reviewOnlyBtn">Show only</button>
         <input type="checkbox" id="reviewModeToggle" autocomplete="off"><i class="sw"></i>
       </label>
@@ -4627,7 +4653,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v446';
+const APP_VERSION = 'v448';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -13608,7 +13634,7 @@ function updateReviewUI(){
   }
   if(hamBox) hamBox.checked = reviewMode;
   // Always shows a count, including "0 pending" — the row works the same at zero.
-  if(hamMeta) hamMeta.textContent = pend + ' pending';
+  if(hamMeta) hamMeta.textContent = String(pend);
   if(onlyBtn) onlyBtn.classList.toggle('on', reviewOnlyMode);
 }
 const reviewToggleBtn = document.getElementById('reviewToggle');
