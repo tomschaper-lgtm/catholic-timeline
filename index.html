@@ -1,6 +1,6 @@
 <!--
-VERSION: 456
-DATE: 2026-09-22T14:30:00-05:00
+VERSION: 457
+DATE: 2026-09-22T15:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,24 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v457 — 2026-09-22
+
+**Ask:**
+- Landscape card should look like portrait: rounded corners, full gold border, padding. It should
+  animate up to take most of the screen. Hide the search box and hamburger. The picture must not
+  move. With no picture, split 50/50.
+
+**Implementation:**
+- Landscape #article.overlay: 96% wide (max 1400px), centered, 94dvh, gold hairline and 34px top
+  rounding restored — v455's full-bleed/square/borderless landscape rules dropped. The existing
+  slide-up transform gives the rise.
+- #searchRow and .hamBtn hidden via body:has(#article.open) in landscape only, matching the
+  technique .hamBtn already uses for the Content Manager.
+- #artLandImg inset 16px from the card's top/right, rounded and gold-bordered to match the card,
+  max-width 52%; still position:fixed against the card so it does not move while the story
+  scrolls. syncLandImgWidth now adds that 16px inset into --landImgW.
+- No photo: .factbox column widened from 32% to half the card (50/50), same inset/rounding.
+
 ## v456 — 2026-09-22
 
 **Ask:**
@@ -2413,40 +2431,45 @@ CHANGELOG:END
        fly-portrait maths); an over-constrained fixed box resolves to centered on auto margins,
        which leaves every one of those transforms untouched.
        Tapping the exposed timeline either side still closes the article, as it always has. */
-    /* v455 landscape: the sheet fills the whole screen (top to bottom, edge to edge) and the
-       photo takes the right-hand column at full height, its width following the picture's own
-       aspect ratio. The story gets whatever is left, via --landImgW (set in JS once the image
-       has measured itself). The hero photo and the flying corner portrait are both hidden here —
-       their morph is a portrait-mode effect and has nothing to animate in this layout. */
+    /* v457 landscape: the sheet keeps the portrait card's look — deep rounding on all four
+       corners, the full gold hairline, and real padding — and rises to fill most of the screen
+       rather than bleeding to the edges (v455/v456 had it full-bleed, square and borderless).
+       The photo is parked in the right-hand column and never moves: it's position:fixed, and
+       since #article carries a transform it's positioned against the CARD, not the viewport,
+       so the story scrolls past a stationary picture. Inset by the card's own padding and
+       rounded on its outer corners so it sits inside the border rather than over it.
+       The search box and hamburger are hidden while the card is up (body:has, same technique
+       .hamBtn already uses for the Content Manager) — the card covers nearly everything and
+       they'd only show through the margins. */
     @media (orientation: landscape){
       #article.overlay{
-        width:100%; margin:0; height:100dvh; max-height:100dvh;
-        border:none; border-radius:0;
+        left:0; right:0; bottom:0; top:auto;
+        width:min(96%, 1400px); margin-left:auto; margin-right:auto;
+        height:94dvh; max-height:94dvh;
+        border:1px solid var(--gold); border-bottom:none;
+        border-radius:34px 34px 0 0;
       }
-      #article.overlay.open.peek{transform:translateY(calc(100% - var(--peekH)));}
-      /* #article carries a transform, so a fixed child is positioned against the card, not the
-         viewport — which is exactly what's wanted: the photo stays put while the story scrolls. */
+      body:has(#article.open) #searchRow,
+      body:has(#article.open) .hamBtn{display:none;}
       #article.overlay .artLandImg{
-        display:block; position:fixed; top:0; right:0; height:100%; width:auto;
-        max-width:55%; object-fit:cover; object-position:50% 38%;
-        border-left:1px solid var(--gold); z-index:14;
+        display:block; position:fixed; top:16px; right:16px;
+        height:calc(100% - 16px); width:auto; max-width:52%;
+        object-fit:cover; object-position:50% 38%;
+        border:1.5px solid var(--gold); border-radius:14px 14px 0 0;
+        z-index:14;
       }
       #article.overlay #artHeroImg, #article.overlay .artcap{display:none;}
       #flyPortrait{display:none !important;}
-      /* Story column: everything inside the card keeps clear of the photo. */
-      #article .artwrap, #article .artSticky{padding-right:calc(var(--landImgW, 45%) + 22px);}
-      /* v456: no photo — Quick Facts becomes the right-hand column, same footprint the photo
-         would have occupied, and the story keeps the left. Fixed against the card (its transform
-         is the containing block) so the panel stays put while the story scrolls; it scrolls
-         internally if the list is long. Padding-top clears the sticky header. */
+      #article .artwrap, #article .artSticky{padding-right:calc(var(--landImgW, 45%) + 34px);}
+      /* No photo: Quick Facts takes the right column instead and the screen splits 50/50. */
       #article.overlay.landFactsCol .factbox{
-        position:fixed; top:0; right:0; bottom:0; width:32%;
-        margin:0; border:none; border-left:1px solid var(--gold); border-radius:0;
+        position:fixed; top:16px; right:16px; bottom:0; width:calc(50% - 26px);
+        margin:0; border:1px solid rgba(201,165,66,.4); border-radius:14px 14px 0 0;
         background:rgba(201,165,66,.05);
-        padding:86px 22px 22px; overflow-y:auto; z-index:14;
+        padding:78px 20px 20px; overflow-y:auto; z-index:14;
       }
       #article.overlay.landFactsCol .artwrap,
-      #article.overlay.landFactsCol .artSticky{padding-right:calc(32% + 22px);}
+      #article.overlay.landFactsCol .artSticky{padding-right:calc(50% + 10px);}
       /* Year and name share one line — there's width for it here. */
       #article .ahHead{flex-direction:row; align-items:baseline; gap:14px; padding-right:0;}
       #article .artSticky.hasPortrait .ahHead{padding-right:0;}
@@ -4852,7 +4875,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v456';
+const APP_VERSION = 'v457';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -13405,7 +13428,7 @@ function syncLandImgWidth(){
   const img = document.getElementById('artLandImg');
   const root = document.documentElement;
   if(!img || !img.offsetWidth){ root.style.removeProperty('--landImgW'); return; }
-  root.style.setProperty('--landImgW', img.offsetWidth + 'px');
+  root.style.setProperty('--landImgW', (img.offsetWidth + 16) + 'px'); // + the photo's right inset
 }
 window.addEventListener('resize', syncLandImgWidth);
 document.getElementById('artBody').addEventListener('click', (e) => {
