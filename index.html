@@ -1,6 +1,6 @@
 <!--
-VERSION: 448
-DATE: 2026-09-22T11:00:00-05:00
+VERSION: 449
+DATE: 2026-09-22T11:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,25 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v449 — 2026-09-22
+
+**Ask:**
+- Portrait: a single tap on the article picture opens it full screen on the topmost layer, audio
+  keeps playing, Ken Burns continues a bit faster, zoom focused slightly above center (where eyes
+  usually are), filled edge to edge with no border. Another tap closes it.
+
+**Implementation:**
+- New body-level #photoView (z-index 10000, above the audio bar). object-fit:cover with
+  object-position and transform-origin both at 50% 38%; new kenBurnsPhoto keyframes, 5s
+  alternate (article drift is 8s), scale 1 → 1.14 only — never below 1, so no edges show.
+  Honors prefers-reduced-motion like the existing effect.
+- Opens from a single tap on .artimg (artBody) or on #flyPortrait (the visible flying copy),
+  portrait only; landscape keeps the existing double-tap lightbox. Tap anywhere on the view closes.
+- Fix needed for "audio continues": the article's tap-anywhere-to-pause handler now ignores taps
+  on .artimg — otherwise opening the picture would have stopped the narration.
+- #photoView added alongside #imgLightbox to the outside-click exclusions and the flying-portrait
+  mask observer, so tapping it never closes the article and the corner badge hides beneath it.
+
 ## v448 — 2026-09-22
 
 **Ask:**
@@ -2677,6 +2696,28 @@ CHANGELOG:END
     from{transform:scale(1) translate(0,0);}
     to{transform:scale(1.09) translate(-2%,-1.5%);}
   }
+  /* v449 portrait full-screen photo view (single tap on the article picture). Topmost layer
+     (above the audio bar), edge-to-edge: object-fit:cover fills the whole screen with no border
+     or letterbox, cropped around a point a little above center (38%) — where eyes usually sit
+     in a portrait — and the Ken Burns zoom is anchored on that same point. Scale only ever grows
+     from 1, so cover's no-edge guarantee holds through the whole animation. Faster than the
+     article's 8s drift. Audio is untouched. One tap anywhere closes it. */
+  .photoView{
+    position:fixed; inset:0; z-index:10000; background:#000; overflow:hidden;
+    display:none; cursor:zoom-out; touch-action:manipulation;
+  }
+  .photoView.open{display:block;}
+  .photoView img{
+    width:100%; height:100%; display:block; object-fit:cover; object-position:50% 38%;
+    transform-origin:50% 38%;
+  }
+  @media (prefers-reduced-motion: no-preference){
+    .photoView.open img{animation:kenBurnsPhoto 5s ease-in-out infinite alternate;}
+  }
+  @keyframes kenBurnsPhoto{
+    from{transform:scale(1);}
+    to{transform:scale(1.14);}
+  }
   .imgLightbox{
     position:fixed; inset:0; z-index:200; background:rgba(4,9,26,.97);
     display:none; align-items:center; justify-content:center; padding:24px;
@@ -3987,6 +4028,7 @@ CHANGELOG:END
 <div class="flyPortrait" id="flyPortrait" aria-hidden="true"><img id="flyPortraitImg" src="" alt=""></div>
 <div id="peekFade" aria-hidden="true"></div>
 
+<div class="photoView" id="photoView" aria-hidden="true"><img id="photoViewImg" src="" alt=""></div>
 <div class="imgLightbox" id="imgLightbox">
   <img id="imgLightboxImg" src="" alt="">
 </div>
@@ -4653,7 +4695,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v448';
+const APP_VERSION = 'v449';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -5089,7 +5131,7 @@ let suppressArticleClick = false;
 let articleClickWasInside = false;
 document.addEventListener('click', (e) => {
   const t = e.target;
-  articleClickWasInside = !!(t && t.closest && t.closest('#article, #flyPortrait, #imgLightbox, #linkPicker'));
+  articleClickWasInside = !!(t && t.closest && t.closest('#article, #flyPortrait, #imgLightbox, #photoView, #linkPicker'));
 }, true); // true briefly after a swipe-navigation gesture, so the tap-to-pause handler ignores it
 
 
@@ -5846,7 +5888,7 @@ document.addEventListener('click', (e) => {
                      !!(e.target.isConnected && e.target.closest && e.target.closest(sel));
   // The floating audio bar is a no-close zone: a tap on it (or near it) is always a transport
   // control, never a "you clicked outside the card" dismissal.
-  if(hit('#imgLightbox, #flyPortrait, #manage, #jsonView, #aboutPanel, .sresults, #hamMenu, .ev, .audioBottomBar, #linkPicker, #saintsPanel, #spScrim, #browsePanel, #brScrim')) return;
+  if(hit('#imgLightbox, #photoView, #flyPortrait, #manage, #jsonView, #aboutPanel, .sresults, #hamMenu, .ev, .audioBottomBar, #linkPicker, #saintsPanel, #spScrim, #browsePanel, #brScrim')) return;
   if(article.classList.contains('open')){
     if(!hit('#article')) closeArticle();
     return;
@@ -12734,7 +12776,7 @@ function queueFly(){
 // which button or gesture opened them.
 (function(){
   const fly = document.getElementById('flyPortrait');
-  const others = ['manage','jsonView','imgLightbox']
+  const others = ['manage','jsonView','imgLightbox','photoView']
     .map(id => document.getElementById(id)).filter(Boolean);
   if(!fly || !others.length) return;
   const sync = () => fly.classList.toggle('masked', others.some(el => el.classList.contains('open')));
@@ -12812,7 +12854,9 @@ function showPauseIndicator(){
 document.getElementById('article').addEventListener('click', (e) => {
   if(suppressArticleClick) return;
   if(!audioEl || audioEl.paused) return;
-  if(e.target.closest('.audioBottomBar, a, button, input, .artX')) return;
+  // .artimg: in portrait a tap on the picture opens the full-screen photo view (v449), which
+  // must leave narration running — so the picture is exempt from tap-to-pause.
+  if(e.target.closest('.audioBottomBar, a, button, input, .artX, .artimg')) return;
   stopAudioPlaybackInPlace();
   showPauseIndicator();
 });
@@ -13154,6 +13198,42 @@ imgLightbox.addEventListener('click', () => {
   imgLightbox.classList.remove('open');
   imgLightboxImg.src = '';
 });
+// ---- v449: portrait only — single tap on the article picture opens the full-screen photo view.
+// Landscape keeps the double-tap lightbox above. In portrait the double-tap never reaches it:
+// the first tap opens this view, the second lands on the view and closes it.
+const photoView = document.getElementById('photoView');
+const photoViewImg = document.getElementById('photoViewImg');
+function isPortrait(){ return window.matchMedia('(orientation: portrait)').matches; }
+function openPhotoView(src, alt){
+  if(!src) return;
+  photoViewImg.src = src;
+  photoViewImg.alt = alt || '';
+  photoView.classList.add('open');
+  photoView.setAttribute('aria-hidden', 'false');
+}
+function closePhotoView(){
+  photoView.classList.remove('open');
+  photoView.setAttribute('aria-hidden', 'true');
+  photoViewImg.src = '';
+}
+// The picture is usually the body-level flying copy (#flyPortrait) — at the top of the article
+// it has pointer-events:none, so the tap falls through to the invisible inline .artimg; once
+// shrunk to the corner badge it takes taps itself. Both paths open the same view.
+document.getElementById('artBody').addEventListener('click', (e) => {
+  if(!isPortrait()) return;
+  const img = e.target.closest('.artimg');
+  if(!img || !img.src) return;
+  e.preventDefault(); e.stopPropagation();
+  openPhotoView(img.src, img.alt);
+});
+document.getElementById('flyPortrait').addEventListener('click', (e) => {
+  if(!isPortrait()) return;
+  const img = document.getElementById('flyPortraitImg');
+  if(!img || !img.src) return;
+  e.preventDefault(); e.stopPropagation();
+  openPhotoView(img.src, img.alt);
+});
+photoView.addEventListener('click', (e) => { e.stopPropagation(); closePhotoView(); });
 
 // ================= CONTENT MANAGER =================
 let mSnapshot = null; // deep copy of db taken when Manage is opened, for "Exit Without Saving"
