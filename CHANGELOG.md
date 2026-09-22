@@ -19,6 +19,179 @@ the time.
 
 ---
 
+## v453 — 2026-09-22
+
+**Ask:**
+- Photo view Ken Burns: stop for 4s after every zoom, in or out.
+
+**Implementation:**
+- kenBurnsPhoto retimed to a 78s loop of three 26s rounds: 9s push-in to 1.5x, 4s hold, 9s
+  pull-back to 1x (toward 3:00 / 7:00 / 11:00), 4s hold. Both zooms use one gentle curve,
+  cubic-bezier(.45,0,.25,1), so each eases out of its stop and slows before arriving.
+
+## v452 — 2026-09-22
+
+**Ask:**
+- Photo view Ken Burns: don't speed it up — go slow, slow down at the end of the zoom, stop 4s,
+  then slowly zoom out, and repeat.
+
+**Implementation:**
+- kenBurnsPhoto retimed to a 66s loop of three 22s moves: 9s push-in to 1.5x on the eyes
+  (ease-out, cubic-bezier(.25,.5,.3,1)), 4s hold, 9s ease-in-out pull-back to 1x. Pull-back
+  directions (3:00 / 7:00 / 11:00) kept from v451.
+
+## v451 — 2026-09-22
+
+**Ask:**
+- Photo view Ken Burns: zoom in and slow down at the end, pause about 2.5s, then go off in another
+  direction each time (3:00, 7:00, 11:00...).
+
+**Implementation:**
+- kenBurnsPhoto rewritten as a 34.5s loop of three 11.5s moves: 4.5s push-in to 1.5x on the eyes
+  (strong ease-out, cubic-bezier(.15,.6,.25,1)), 2.5s hold, 4.5s ease-in-out pull-back to 1x with
+  the anchor sliding toward 3:00 (95% 50%), then 7:00 (28% 89%), then 11:00 (28% 11%). Per-keyframe
+  timing functions; anchor snaps back to the eyes at scale 1 (invisible). No edges at any point.
+
+## v450 — 2026-09-22
+
+**Ask:**
+- Full-screen photo view: fade in and out gently over 1.5s. Ken Burns should zoom much farther
+  in, and zoom back out in a different direction.
+
+**Implementation:**
+- #photoView now hides with opacity/visibility (not display:none) so it can transition both ways;
+  1.5s opacity fade, visibility delayed on close. The image src is released 1.5s after close
+  (timer cleared if reopened mid-fade).
+- kenBurnsPhoto rewritten as a 12s one-way loop: scale 1 → 1.5 anchored at 50% 38% (eyes), then
+  back to 1 while the anchor slides to 82% 78%, so the pull-back drifts toward the lower right.
+  Anchors stay inside the frame and scale never drops below 1, so no edges show; the loop seam is
+  invisible because the anchor doesn't matter at scale 1.
+
+## v449 — 2026-09-22
+
+**Ask:**
+- Portrait: a single tap on the article picture opens it full screen on the topmost layer, audio
+  keeps playing, Ken Burns continues a bit faster, zoom focused slightly above center (where eyes
+  usually are), filled edge to edge with no border. Another tap closes it.
+
+**Implementation:**
+- New body-level #photoView (z-index 10000, above the audio bar). object-fit:cover with
+  object-position and transform-origin both at 50% 38%; new kenBurnsPhoto keyframes, 5s
+  alternate (article drift is 8s), scale 1 → 1.14 only — never below 1, so no edges show.
+  Honors prefers-reduced-motion like the existing effect.
+- Opens from a single tap on .artimg (artBody) or on #flyPortrait (the visible flying copy),
+  portrait only; landscape keeps the existing double-tap lightbox. Tap anywhere on the view closes.
+- Fix needed for "audio continues": the article's tap-anywhere-to-pause handler now ignores taps
+  on .artimg — otherwise opening the picture would have stopped the narration.
+- #photoView added alongside #imgLightbox to the outside-click exclusions and the flying-portrait
+  mask observer, so tapping it never closes the article and the corner badge hides beneath it.
+
+## v448 — 2026-09-22
+
+**Ask:**
+- Right-align the switches — the Review row's switch sat past the right edge, out of line with
+  the Offline Access and Owner Tools switches.
+
+**Implementation:**
+- The Review row has one extra item (the Show only pill), so at the standard 16px row gaps its
+  contents ran wider than the sheet and pushed the switch off the edge. #reviewModeRow now uses
+  10px gaps, the pill is slightly more compact (no extra right margin), and the label won't wrap.
+
+## v447 — 2026-09-22
+
+**Ask:**
+- Settings Review row: "Review" and "13 pending" were drawn on top of each other. Just show
+  "Review 13".
+
+**Implementation:**
+- The count moved inside the row's label span ("Review 13") instead of a separate .pMeta span —
+  the separate span was overlapping the shrinking .pName and pushing the switch past the edge.
+  Count text is now just the number (still shows 0).
+
+## v446 — 2026-09-22
+
+**Ask:**
+- Nothing about review mode should show on the timeline screen. Move it into the Settings menu as
+  one line: "Review · 13 pending", then a "Show only" pill. Must work with 0 pending too.
+
+**Implementation:**
+- Removed #reviewBanner (markup and CSS) from the timeline entirely.
+- Settings row renamed "Review Mode" → "Review"; the meta now always shows "N pending" (including
+  "0 pending"); #reviewOnlyBtn moved into the row as a light-theme "Show only" pill (.reviewOnlyPill,
+  filled when on), between the count and the switch.
+- The pill sits inside the row's <label>, so its click calls preventDefault/stopPropagation to keep
+  it from also flipping the Review switch. Turning Show only on while Review is off turns Review on;
+  turning Review off still clears Show only (existing setReviewMode behavior).
+
+## v445 — 2026-09-21
+
+**Ask:**
+- Review Mode: replace the brown "Review Mode / Show Only Pending" bar with one pill ("Review" off,
+  "Pending Only" on).
+- Tapping the article year in Review Mode jumps to a new status block at the bottom: largest
+  sentence word count, proofread status, Submit to Proofread, and a Flag Issue button (audio
+  pronunciation/timing, image, facts, mark for review — each with a note and a "Remove from public
+  view" switch).
+- Facts flags feed a new fact-research service: several models (Claude, Luna, Gemini) each
+  independently research the question and propose a Quick Fact (add/update) or a section
+  (swap/insert by position), with source link and note. No voting — a picker screen shows each
+  answer; Approve, Override, or Edit the one you like, and move an inserted section up/down.
+
+**Implementation:**
+- Pill: #reviewBanner loses its label and colored bar; #reviewOnlyBtn reads Review / Pending Only.
+- New longestSentenceWordCount() (same splitting/skip rules as entryHasLongSentence). Article Status
+  block in fillArticleBody (Review Mode + unlocked + real article). Submit to Proofread reuses
+  tkQueueQuickTask('arbitrate'). Year tap handled by a delegated click on .ahYear.
+- Flag modal (#flagModal, shares report-modal styling): writes a category-tagged note into
+  entry.reviewNote; sets entry.review only if the switch is on (defaults on for "Mark for review"
+  only); publishes; then queues audio-generate / image-generate / fact-research unless one is
+  already pending. Facts shows a change-type picker (Quick Fact / Section) sent as
+  payload.changeType. tkQueueQuickTask gained an optional payload override.
+- New task type 'fact-research' (TK_SERVICES, addable:false). Review screen
+  tkRenderFactResearchReview: preview built with the EXISTING tkRenderFacts/tkRenderArticle so
+  preview and apply share one code path; tkRenderArticle extended to render whole-section swap and
+  insert (heading + body). tkFactCandidateToPatch converts a candidate to the standard patch tuple:
+  quickFact update with no matching label becomes an add (per Tom); section insert translates
+  Tom's 1-based landing slot to applyOnePatch's "after section N" convention (N = position − 1).
+  Approve applies via applyOnePatch; same deferred publish/worklog flags as arbitrate. Pills select
+  + toggle the reason (method badge Searched/From memory, source link); misses listed below.
+- Verified in Node against the real client functions: quick fact add / update / update-no-match,
+  section swap, and insert at slots 1, 3, and append — preview and applied result match in every
+  case. Not verified live.
+- Server (separate files): scripts/services/fact-research.mjs (new) and a two-line
+  orchestrator.mjs registration. Needs ANTHROPIC_API_KEY passed through orchestrator.yml env.
+
+## v444 — 2026-09-20
+
+**Ask:**
+- Approve/Override in Arbitrate Review still feels slow on every tap — can decisions be batched
+  and only actually published when closing the queue, e.g. every 20 articles?
+
+**Implementation:**
+- That batching already existed for the expensive half of this (v400's deferred content-publish:
+  publishToGitHub()/data.json only fires for real on the last decision in a queue, or on exit).
+  What it missed: saveWorkLog() — a SEPARATE GET+PUT to workLog.json for task status/bookkeeping —
+  was unconditional in all three places that call it (tkResolveArbitrateDebate,
+  tkSaveArbitrateEdit, and wlResolveTasks, which the sentence-reword/auto-approve flow also uses),
+  regardless of whether content-publish itself was deferred. That's the real source of "every tap
+  is slow" even with v400 already live: a full GitHub round-trip on every single Approve/Override/
+  Edit tap, unrelated to content.
+- New tkDeferredWorkLogIds/tkFlushDeferredWorkLog(), same shape as tkDeferredPublish/
+  tkFlushDeferredPublish: accumulates every touched task id instead of saving immediately;
+  tkFlushDeferredPublish() now flushes both together, so the three existing exit points
+  (finishing the queue, tkGoList(), closeTaskPanel()) cover this for free — no new wiring needed
+  at the call sites that already trigger a flush.
+- Didn't build a fixed "publish every 20" — the existing deferral already collapses arbitrarily
+  many decisions into exactly 1 round-trip at the true end of a session (or on early exit), which
+  is strictly fewer network calls than a fixed batch size would produce.
+- Also fixes the same problem for sentence-reword's manual approve/reject (tkResolveCurrent) and
+  auto-approve, both of which go through wlResolveTasks — auto-approve was already batching
+  content-publish at TK_AUTO_PUBLISH_BATCH_SIZE (10) but re-saving workLog.json on every poll
+  regardless; it now batches both together at the same cadence.
+- Verified by simulation (Node, not the live site): 20 sequential approvals through the same
+  defer/flush logic now produce exactly 1 publishToGitHub() call and 1 saveWorkLog() call, versus
+  1 and 20 before this fix.
+
 ## v443 — 2026-09-20
 
 **Ask:**
