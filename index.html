@@ -1,6 +1,6 @@
 <!--
-VERSION: 449
-DATE: 2026-09-22T11:30:00-05:00
+VERSION: 451
+DATE: 2026-09-22T12:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,33 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v451 — 2026-09-22
+
+**Ask:**
+- Photo view Ken Burns: zoom in and slow down at the end, pause about 2.5s, then go off in another
+  direction each time (3:00, 7:00, 11:00...).
+
+**Implementation:**
+- kenBurnsPhoto rewritten as a 34.5s loop of three 11.5s moves: 4.5s push-in to 1.5x on the eyes
+  (strong ease-out, cubic-bezier(.15,.6,.25,1)), 2.5s hold, 4.5s ease-in-out pull-back to 1x with
+  the anchor sliding toward 3:00 (95% 50%), then 7:00 (28% 89%), then 11:00 (28% 11%). Per-keyframe
+  timing functions; anchor snaps back to the eyes at scale 1 (invisible). No edges at any point.
+
+## v450 — 2026-09-22
+
+**Ask:**
+- Full-screen photo view: fade in and out gently over 1.5s. Ken Burns should zoom much farther
+  in, and zoom back out in a different direction.
+
+**Implementation:**
+- #photoView now hides with opacity/visibility (not display:none) so it can transition both ways;
+  1.5s opacity fade, visibility delayed on close. The image src is released 1.5s after close
+  (timer cleared if reopened mid-fade).
+- kenBurnsPhoto rewritten as a 12s one-way loop: scale 1 → 1.5 anchored at 50% 38% (eyes), then
+  back to 1 while the anchor slides to 82% 78%, so the pull-back drifts toward the lower right.
+  Anchors stay inside the frame and scale never drops below 1, so no edges show; the loop seam is
+  invisible because the anchor doesn't matter at scale 1.
+
 ## v449 — 2026-09-22
 
 **Ask:**
@@ -2702,21 +2729,45 @@ CHANGELOG:END
      in a portrait — and the Ken Burns zoom is anchored on that same point. Scale only ever grows
      from 1, so cover's no-edge guarantee holds through the whole animation. Faster than the
      article's 8s drift. Audio is untouched. One tap anywhere closes it. */
+  /* v450: 1.5s fade in and out — opacity + visibility instead of display:none, so both
+     directions can transition (visibility waits out the fade on close so the view stays
+     tappable-through only once it's fully gone). */
   .photoView{
     position:fixed; inset:0; z-index:10000; background:#000; overflow:hidden;
-    display:none; cursor:zoom-out; touch-action:manipulation;
+    display:block; opacity:0; visibility:hidden; pointer-events:none;
+    transition:opacity 1.5s ease, visibility 0s linear 1.5s;
+    cursor:zoom-out; touch-action:manipulation;
   }
-  .photoView.open{display:block;}
+  .photoView.open{opacity:1; visibility:visible; pointer-events:auto; transition:opacity 1.5s ease, visibility 0s;}
   .photoView img{
     width:100%; height:100%; display:block; object-fit:cover; object-position:50% 38%;
     transform-origin:50% 38%;
   }
+  /* v451 Ken Burns, three moves per loop (34.5s total, 11.5s each):
+       1. Push in to 1.5x on the eyes (50% 38%) over 4.5s, easing out so it slows at the end.
+       2. Hold there 2.5s.
+       3. Drift back out to 1x over 4.5s toward a clock direction — 3:00, then 7:00, then 11:00
+          (anchor slides to that side of the frame), so each pull-back leaves a different way.
+     Anchors stay inside the frame and scale never drops below 1, so no edges show. Each move
+     ends at scale 1, where the anchor makes no visual difference, so snapping it back to the
+     eyes for the next push-in (the x.01% keyframes) is invisible, as is the loop restart.
+     animation-timing-function inside a keyframe governs the segment that starts there. */
   @media (prefers-reduced-motion: no-preference){
-    .photoView.open img{animation:kenBurnsPhoto 5s ease-in-out infinite alternate;}
+    .photoView.open img{animation:kenBurnsPhoto 34.5s linear infinite;}
   }
   @keyframes kenBurnsPhoto{
-    from{transform:scale(1);}
-    to{transform:scale(1.14);}
+    0%     {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:cubic-bezier(.15,.6,.25,1);}
+    13.04% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:linear;}
+    20.29% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:ease-in-out;}
+    33.33% {transform:scale(1);   transform-origin:95% 50%;}   /* out toward 3:00 */
+    33.34% {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:cubic-bezier(.15,.6,.25,1);}
+    46.38% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:linear;}
+    53.62% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:ease-in-out;}
+    66.67% {transform:scale(1);   transform-origin:28% 89%;}   /* out toward 7:00 */
+    66.68% {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:cubic-bezier(.15,.6,.25,1);}
+    79.71% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:linear;}
+    86.96% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:ease-in-out;}
+    100%   {transform:scale(1);   transform-origin:28% 11%;}   /* out toward 11:00 */
   }
   .imgLightbox{
     position:fixed; inset:0; z-index:200; background:rgba(4,9,26,.97);
@@ -4695,7 +4746,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v449';
+const APP_VERSION = 'v451';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -13204,8 +13255,10 @@ imgLightbox.addEventListener('click', () => {
 const photoView = document.getElementById('photoView');
 const photoViewImg = document.getElementById('photoViewImg');
 function isPortrait(){ return window.matchMedia('(orientation: portrait)').matches; }
+let photoViewClearTimer = null;
 function openPhotoView(src, alt){
   if(!src) return;
+  clearTimeout(photoViewClearTimer); // reopened mid-fade-out — don't blank the new picture
   photoViewImg.src = src;
   photoViewImg.alt = alt || '';
   photoView.classList.add('open');
@@ -13214,7 +13267,9 @@ function openPhotoView(src, alt){
 function closePhotoView(){
   photoView.classList.remove('open');
   photoView.setAttribute('aria-hidden', 'true');
-  photoViewImg.src = '';
+  // Keep the picture until the 1.5s fade-out finishes, then release it.
+  clearTimeout(photoViewClearTimer);
+  photoViewClearTimer = setTimeout(() => { photoViewImg.src = ''; }, 1500);
 }
 // The picture is usually the body-level flying copy (#flyPortrait) — at the top of the article
 // it has pointer-events:none, so the tap falls through to the invisible inline .artimg; once
