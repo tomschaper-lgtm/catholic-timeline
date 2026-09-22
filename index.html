@@ -1,6 +1,6 @@
 <!--
-VERSION: 445
-DATE: 2026-09-21T09:30:00-05:00
+VERSION: 446
+DATE: 2026-09-22T10:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,21 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v446 — 2026-09-22
+
+**Ask:**
+- Nothing about review mode should show on the timeline screen. Move it into the Settings menu as
+  one line: "Review · 13 pending", then a "Show only" pill. Must work with 0 pending too.
+
+**Implementation:**
+- Removed #reviewBanner (markup and CSS) from the timeline entirely.
+- Settings row renamed "Review Mode" → "Review"; the meta now always shows "N pending" (including
+  "0 pending"); #reviewOnlyBtn moved into the row as a light-theme "Show only" pill (.reviewOnlyPill,
+  filled when on), between the count and the switch.
+- The pill sits inside the row's <label>, so its click calls preventDefault/stopPropagation to keep
+  it from also flipping the Review switch. Turning Show only on while Review is off turns Review on;
+  turning Review off still clears Show only (existing setReviewMode behavior).
+
 ## v445 — 2026-09-21
 
 **Ask:**
@@ -2173,18 +2188,14 @@ CHANGELOG:END
      never read as finished content sitting on the public timeline. */
   .ev.review .ic{border-style:dashed; border-color:#e0a33a; box-shadow:0 0 0 2px rgba(224,163,58,.18);}
   .ev.review .nm{color:#e0a33a; font-style:italic; opacity:.9;}
-  .reviewBanner{
-    position:sticky; top:0; z-index:60; display:none;
-    padding:8px 12px 0; align-items:center; justify-content:center;
+  /* "Show only" pill on the Settings Review row (v446 — replaces the on-timeline review
+     banner, which is gone entirely). Light-theme, matching the Settings sheet. Filled when on. */
+  .reviewOnlyPill{
+    flex:0 0 auto; font-family:inherit; font-size:13px; font-weight:600; white-space:nowrap;
+    background:#fff; color:#2F4A9A; border:1.5px solid #2F4A9A; border-radius:999px;
+    padding:4px 11px; margin-right:10px; cursor:pointer;
   }
-  .reviewBanner.show{display:flex;}
-  .reviewBannerBtn{
-    font-family:inherit; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
-    background:rgba(11,22,48,.85); color:#e0a33a; border:1px solid rgba(224,163,58,.55); border-radius:999px;
-    padding:5px 14px; cursor:pointer;
-  }
-  .reviewBannerBtn:hover{background:rgba(224,163,58,.15);}
-  .reviewBannerBtn.on{background:#e0a33a; color:#1a1200; border-color:#e0a33a; font-weight:700;}
+  .reviewOnlyPill.on{background:#2F4A9A; color:#fff;}
   .mPending{
     display:inline-block; margin-left:6px; padding:1px 6px; border-radius:999px;
     background:rgba(224,163,58,.18); border:1px solid rgba(224,163,58,.55);
@@ -3584,8 +3595,9 @@ CHANGELOG:END
       </label>
       <label class="pRow pSwitch" id="reviewModeRow">
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
-        <span class="pName">Review Mode</span>
-        <span class="pMeta" id="reviewModeMeta"></span>
+        <span class="pName">Review</span>
+        <span class="pMeta" id="reviewModeMeta" style="margin-right:10px;"></span>
+        <button type="button" class="reviewOnlyPill" id="reviewOnlyBtn">Show only</button>
         <input type="checkbox" id="reviewModeToggle" autocomplete="off"><i class="sw"></i>
       </label>
       <button class="pRow" id="manageBtn">
@@ -3886,9 +3898,6 @@ CHANGELOG:END
   </div>
 </div>
 
-<div class="reviewBanner" id="reviewBanner">
-  <button type="button" class="reviewBannerBtn" id="reviewOnlyBtn">Review</button>
-</div>
 
 <div class="viewport" id="viewport">
   <div class="centerYearWrap" id="centerYearWrap"><div class="centerYearNotch"></div><div class="centerYearBadge" id="centerYearBadge"></div></div>
@@ -4618,7 +4627,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v445';
+const APP_VERSION = 'v446';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -13585,7 +13594,6 @@ function setReviewMode(on){
 function updateReviewUI(){
   const btn = document.getElementById('reviewToggle');
   const cnt = document.getElementById('reviewCount');
-  const banner = document.getElementById('reviewBanner');
   const hamBox = document.getElementById('reviewModeToggle');
   const hamMeta = document.getElementById('reviewModeMeta');
   const onlyBtn = document.getElementById('reviewOnlyBtn');
@@ -13599,12 +13607,9 @@ function updateReviewUI(){
     cnt.textContent = pend + ' review + ' + (total - pend) + ' public = ' + total;
   }
   if(hamBox) hamBox.checked = reviewMode;
-  if(hamMeta) hamMeta.textContent = pend ? pend + ' pending' : '';
-  if(banner) banner.classList.toggle('show', reviewMode && pend > 0);
-  if(onlyBtn){
-    onlyBtn.textContent = reviewOnlyMode ? 'Pending Only' : 'Review';
-    onlyBtn.classList.toggle('on', reviewOnlyMode);
-  }
+  // Always shows a count, including "0 pending" — the row works the same at zero.
+  if(hamMeta) hamMeta.textContent = pend + ' pending';
+  if(onlyBtn) onlyBtn.classList.toggle('on', reviewOnlyMode);
 }
 const reviewToggleBtn = document.getElementById('reviewToggle');
 if(reviewToggleBtn) reviewToggleBtn.addEventListener('click', () => {
@@ -13613,8 +13618,11 @@ if(reviewToggleBtn) reviewToggleBtn.addEventListener('click', () => {
 document.getElementById('reviewModeToggle').addEventListener('change', (e) => {
   setReviewMode(e.target.checked);
 });
-document.getElementById('reviewOnlyBtn').addEventListener('click', () => {
-  reviewOnlyMode = !reviewOnlyMode;
+document.getElementById('reviewOnlyBtn').addEventListener('click', (e) => {
+  e.preventDefault(); e.stopPropagation(); // inside the row's <label> — don't also flip the switch
+  const next = !reviewOnlyMode;
+  if(next && !reviewMode) setReviewMode(true);
+  reviewOnlyMode = next;
   updateReviewUI();
   render();
 });
