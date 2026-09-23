@@ -19,6 +19,137 @@ the time.
 
 ---
 
+## v460 — 2026-09-23
+
+**Ask:**
+- Review switch in Settings won't turn off — toggling it only flips "Show only pending" instead,
+  Review stays stuck on.
+- Landscape: gap between the story and the photo when rotating mid-session (portrait →
+  landscape), though opening straight into landscape looks right.
+- Landscape: drag handle needs to disappear (it was triggering what looked like an iOS system
+  gesture); the close X needs to sit to the left of the picture/facts panel, not on top of it.
+
+**Implementation:**
+- Root cause of the switch bug: #reviewModeRow was a `<label>` wrapping BOTH the "Show only"
+  button and the switch. A label forwards any click inside it to its checkbox — so tapping the
+  pill was also toggling Review's checkbox underneath it, and there was no tap that hit the
+  switch alone. #offlineRow hit this exact issue in v424 and already has the fix documented:
+  plain `<div class="pRow pSwitch">`, with the switch given its own minimal
+  `<label class="pSwitchHit" for="reviewModeToggle">` instead of the whole row being one label.
+  Applied the same pattern here.
+- Root cause of the rotation gap: syncLandImgWidth() (v455) ran straight off the 'resize' event,
+  which can fire before the browser has actually applied @media(orientation:landscape) — so it
+  measured the photo's offsetWidth as 0 or a stale portrait value, wrote that into --landImgW, and
+  nothing ever re-measured afterward. Deferred the read two animation frames past resize (and
+  added orientationchange as a second trigger) so layout has settled into landscape before the
+  photo is measured.
+- Landscape: #artHandle hidden outright (nothing to reveal underneath in a full-screen card, and
+  the reported gesture conflict). .artX repositioned clear of the photo/facts column using
+  `!important`, since setArtXShift()'s inline `right` (still running every scroll tick —
+  measureFly/placePeekFly aren't landscape-aware) would otherwise override a plain override.
+
+## v459 — 2026-09-23
+
+**Ask:**
+- Remove the "Before You Explore" disclaimer popup for now.
+
+**Implementation:**
+- New DISCLAIMER_ENABLED flag (false) short-circuits the one-time gate before it shows. Markup,
+  CSS, and the localStorage "seen" flag are untouched, so setting it back to true restores the
+  original behavior exactly.
+
+## v458 — 2026-09-23
+
+**Ask (landscape only):**
+- Year/name line ran into the picture; picture overlapped the text.
+- Picture needs rounded corners top and bottom.
+- Card edge to edge left and right; nothing of "Catholic Timeline" showing at the top.
+- Picture must stay locked in place (it was scrolling off the top), and pulling down on it should
+  close the card.
+
+**Implementation:**
+- Root cause of the scrolling photo: v455–v457 pinned it with position:fixed inside #article,
+  which is both transformed and the scroll container — there, fixed behaves like absolute and
+  scrolls with the content. Replaced with a zero-height position:sticky anchor (.artLandAnchor)
+  emitted first in artBody; the photo hangs off it, absolutely positioned into the right column.
+- Root cause of the overlap: .artwrap kept its 720px centered cap, so the text column and header
+  were measured against the wrong box. Landscape now removes the cap and pads right by the photo's
+  measured width (--landImgW, now the pure image width) + 40px.
+- Card: full screen (inset 0, 100dvh), no border/radius.
+- Photo: 16px inset top/right/bottom, rounded all four corners, gold hairline, touch-action:none.
+- Drag-down on the photo counts as a header drag (fromHeader), so it closes the card from any
+  scroll position.
+- Year never wraps; name may wrap only if very long.
+- No-photo 50/50 facts column moved into the same sticky anchor (a copy of Quick Facts; inline
+  copy hidden), fixing the same scroll-away bug there.
+- Verified in headless Chromium at 932×430: photo stays at the same position after scrolling
+  600px, 16px from the card's top/right/bottom; text column ends 24px left of it; year and name on
+  one line; no-photo facts panel pinned to the right half.
+- Separate fix (not landscape-specific): the Report an Issue, Flag an Issue and first-visit
+  disclaimer popups sat AFTER the main <script> in the file, so the code wiring them at load found
+  nothing and threw — silently skipping every line after it. That's why "Report an issue" did
+  nothing, Flag Issue couldn't have worked, and the disclaimer never appeared. The three blocks now
+  sit before the script.
+
+## v457 — 2026-09-22
+
+**Ask:**
+- Landscape card should look like portrait: rounded corners, full gold border, padding. It should
+  animate up to take most of the screen. Hide the search box and hamburger. The picture must not
+  move. With no picture, split 50/50.
+
+**Implementation:**
+- Landscape #article.overlay: 96% wide (max 1400px), centered, 94dvh, gold hairline and 34px top
+  rounding restored — v455's full-bleed/square/borderless landscape rules dropped. The existing
+  slide-up transform gives the rise.
+- #searchRow and .hamBtn hidden via body:has(#article.open) in landscape only, matching the
+  technique .hamBtn already uses for the Content Manager.
+- #artLandImg inset 16px from the card's top/right, rounded and gold-bordered to match the card,
+  max-width 52%; still position:fixed against the card so it does not move while the story
+  scrolls. syncLandImgWidth now adds that 16px inset into --landImgW.
+- No photo: .factbox column widened from 32% to half the card (50/50), same inset/rounding.
+
+## v456 — 2026-09-22
+
+**Ask:**
+- Landscape with no picture: story on the left, Quick Facts on the right.
+
+**Implementation:**
+- fillArticleBody toggles .landFactsCol on #article when the entry has no image AND has facts
+  (no facts = story keeps full width). Class is inert in portrait.
+- In landscape that pins .factbox to the right edge at 32% width, full height, fixed against the
+  card like the side photo, scrolling internally if the list is long; borders/radius/margins
+  dropped so it reads as a column rather than a floating box, and padding-top clears the sticky
+  header. .artwrap/.artSticky pad right to match.
+
+## v455 — 2026-09-22
+
+**Ask:**
+- Landscape: article card fills the screen top to bottom; if there's a photo, it runs full height
+  down the right with its width proportional to the image; the story takes the space left of it;
+  year and name share one line.
+
+**Implementation:**
+- Landscape #article.overlay is now full-width, 100dvh, no radius/border (was 60% wide, 88vh).
+- New #artLandImg — a second <img> of the same picture, landscape-only, position:fixed against the
+  card (the card's transform makes it the containing block), top/right, height:100%, width:auto so
+  the aspect ratio sets the width; capped at 55%. The hero photo, its caption and #flyPortrait are
+  hidden in landscape: the fly morph is a portrait effect with nothing to do in this layout.
+- syncLandImgWidth() measures the photo on load/resize into --landImgW; .artwrap and .artSticky
+  pad right by that plus a gutter. Cleared when the entry has no photo, so the story runs full width.
+- .ahHead switches to a row in landscape (year and name on one line).
+
+## v454 — 2026-09-22
+
+**Ask:**
+- Photo view Ken Burns still zooms too quickly.
+
+**Implementation:**
+- Zooms lengthened from 9s to 18s each (4s holds unchanged): 132s loop of three 44s rounds.
+- Curve changed from cubic-bezier(.45,0,.25,1) to a sine ease, cubic-bezier(.37,0,.63,1) — the
+  old curve concentrated the motion mid-zoom, making the peak speed feel fast; sine keeps the
+  middle slow while still easing into and out of each stop. Depth (1.5x) and directions unchanged.
+
 ## v453 — 2026-09-22
 
 **Ask:**
