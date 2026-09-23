@@ -1,6 +1,6 @@
 <!--
-VERSION: 467
-DATE: 2026-09-23T17:30:00-05:00
+VERSION: 468
+DATE: 2026-09-23T18:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,22 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v468 — 2026-09-23
+
+**Ask:**
+- Sticky section headings do more harm than good — remove.
+- Portrait: 1.4 lines more space between the line under the name and the article text.
+- Back navigation: instead of a "← Back" pill on its own line, a small, thick gold arrow on the
+  same line, followed by the year.
+
+**Implementation:**
+- Removed the .audio-playing sticky .arth rules and markStuckSectionHeading() (v461/v467).
+- Portrait .artSticky padding-bottom = 10px + 1.4 × the story's line height (19.5px × --txt ×
+  1.68), so the gap holds while scrolling and scales with Font Size. Header-height consumers all
+  read offsetHeight and follow automatically.
+- .artBackBtn is now an SVG arrow (stroke 3.4, 22px) inside a new .ahYearRow wrapper before
+  .ahYear. Same id and click handling.
+
 ## v467 — 2026-09-23
 
 **Ask:**
@@ -1969,25 +1985,9 @@ CHANGELOG:END
   }
   .tkFactMethod.search{background:#E3F0E6; color:#2E6B3E;}
   .tkFactMethod.memory{background:#EDEDF2; color:#5B6472;}
-  /* v461: section heading sticks under the sticky article header WHILE AUDIO IS PLAYING (see
-     .audio-playing, toggled in startAudioPlayback/stopAudioPlaybackInPlace/the 'ended' handler) —
-     not all the time, per Tom's own scoping. top reuses --ahH, the article header's own measured
-     height (already kept live by syncStickyBackdrops() for an unrelated backdrop, so no new
-     measurement code needed). Flat navy rather than a gradient-matched backdrop like the header
-     gets — simpler, and close enough since .arth is a small band, not the whole header. */
-  .audio-playing #artStoryText .arth{
-    position:sticky; top:var(--ahH, 0px); z-index:6;
-  }
-  /* v467: v461 gave EVERY heading a flat navy band while playing — visibly darker than the
-     card's gradient ("the headers' background turns dark"). Now only the heading actually pinned
-     at the top gets a backdrop (.arthStuck, set by markStuckSectionHeading on scroll), and it's
-     the card's own gradient sliced at that exact height — the same technique syncStickyBackdrops
-     already uses for the header — so it matches the card instead of showing as a band. */
-  .audio-playing #artStoryText .arth.arthStuck{
-    background-image:var(--cardGrad, none);
-    background-size:100% var(--cardH, 100vh);
-    background-position:0 calc(-1 * var(--ahH, 0px));
-  }
+  /* v461 made section headings sticky while audio played (v467 refined their backdrop). v468:
+     removed at Tom's request — in practice it did more harm than good. Headings scroll normally.
+     The .audio-playing class on #article is still toggled (harmless, and handy if ever needed). */
   .tkImgNotesLabel{font-size:12px; color:#6B7280; margin:14px 0 5px;}
   .tkImgNotes{
     width:100%; box-sizing:border-box; border:1px solid #C7CAD3; border-radius:10px;
@@ -2923,13 +2923,14 @@ CHANGELOG:END
      empty or the article is closed. touch-action:auto so a tap isn't swallowed by the
      header's own swipe-to-dismiss handling. */
   .artBackBtn{
-    display:inline-flex; align-items:center; gap:4px; margin-bottom:8px;
-    font-family:'Cinzel',serif; font-size:11.5px; letter-spacing:.08em; text-transform:uppercase;
-    background:var(--navy-band); color:var(--gold-bright);
-    border:1px solid var(--gold); border-radius:14px; padding:5px 12px;
+    display:inline-flex; align-items:center; justify-content:center; flex:none;
+    width:30px; height:30px; margin:0 2px 0 -4px; padding:0;
+    background:none; border:none; color:var(--gold-bright);
     cursor:pointer; touch-action:auto;
   }
-  .artBackBtn:hover{background:var(--gold); color:var(--navy-deep);}
+  .artBackBtn svg{width:22px; height:22px;}
+  .artBackBtn:hover{color:#fff;}
+  .ahYearRow{display:flex; align-items:center; gap:6px; flex:none;}
   .arthead{margin-top:10px; text-align:center;}
   .artyear{display:block; font-family:'Cinzel',serif; font-weight:600; color:#fff; font-size:clamp(19px,4vw,26px); letter-spacing:.05em;}
   .arttitle{font-family:'Cinzel',serif; font-weight:700; color:var(--gold-bright); font-size:clamp(28px,6.2vw,42px); line-height:1.15; margin-top:8px; text-align:center;}
@@ -2947,6 +2948,15 @@ CHANGELOG:END
   }
   .ahHead{display:flex; flex-direction:column; align-items:flex-start; gap:1px;}
   .artSticky.hasPortrait .ahHead{padding-right:120px;}
+  /* v468: portrait only — 1.4 lines of story text (the story's own .artp metrics: 19.5px ×
+     --txt × 1.68 line-height) of extra space under the taper line. Added to the sticky header's
+     own bottom padding rather than as a margin on the first paragraph, so the gap holds while
+     scrolling too (text slides under the header's backdrop, never right up against the line).
+     Everything that measures the header (--ahH, the white audio line's clamp, line-snap's safe
+     top) reads offsetHeight, so it all follows automatically. Scales with the Font Size setting. */
+  @media (orientation: portrait){
+    .artSticky{padding-bottom:calc(10px + 19.5px * var(--txt, 1) * 1.68 * 1.4);}
+  }
   .ahYear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
   .review-on .ahYear{cursor:pointer;}
   .ahName{font-size:25px; font-weight:600; line-height:1.15;}
@@ -5274,7 +5284,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v467';
+const APP_VERSION = 'v468';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -11683,8 +11693,12 @@ function fillArticleBody(d, peek){
     if(a) html += '<div class="artLandAnchor">' + a + '</div>';
   }
   html += '<div class="artSticky' + (hasImg ? ' hasPortrait' : '') + '" id="artSticky">' +
-    (articleBackStack.length ? '<button type="button" class="artBackBtn" id="artBackBtn" aria-label="Back to previous entry">&larr; Back</button>' : '') +
-    '<div class="ahHead"><span class="ahYear">' + esc(fmtYear(d.y)) + '</span>' +
+    '<div class="ahHead"><div class="ahYearRow">' +
+    // v468: the back control is now a small, thick gold arrow on the same line as the year
+    // (was a "← BACK" pill on its own line above it). Same id/handler, so goBackArticle() and
+    // the delegated click wiring are unchanged.
+    (articleBackStack.length ? '<button type="button" class="artBackBtn" id="artBackBtn" aria-label="Back to previous entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M11.5 5.5 5 12l6.5 6.5"/></svg></button>' : '') +
+    '<span class="ahYear">' + esc(fmtYear(d.y)) + '</span></div>' +
     '<div class="ahName">' + esc(d.n) + '</div></div>' +
     '<div class="ahTaper" id="ahTaper"></div>';
   html += '</div>'; // .artSticky
@@ -12795,7 +12809,6 @@ function updateAudioActiveBar(idx){
 }
 document.getElementById('article').addEventListener('scroll', () => {
   if(activeCueIdx >= 0) updateAudioActiveBar(activeCueIdx);
-  markStuckSectionHeading();
 }, {passive:true});
 function setActiveCue(idx){
   if(idx !== activeCueIdx){
@@ -13245,16 +13258,6 @@ function syncStickyBackdrops(){
   artEl.style.setProperty('--cardGrad', grad);
   artEl.style.setProperty('--cardH', sheetH + 'px');
   paintPlayerBackdrop();
-}
-// v467: flags whichever section heading is currently pinned under the header (only matters
-// while audio plays — that's the only time .arth is sticky), so just that one gets a backdrop.
-function markStuckSectionHeading(){
-  const artEl = document.getElementById('article');
-  const heads = artEl.querySelectorAll('#artStoryText .arth');
-  if(!artEl.classList.contains('audio-playing')){ heads.forEach(h => h.classList.remove('arthStuck')); return; }
-  const sticky = document.getElementById('artSticky');
-  const line = artEl.getBoundingClientRect().top + (sticky ? sticky.offsetHeight : 0) + 1;
-  heads.forEach(h => h.classList.toggle('arthStuck', h.getBoundingClientRect().top <= line));
 }
 // The scrubber strip's backdrop, kept in step with wherever the strip currently sits.
 //
