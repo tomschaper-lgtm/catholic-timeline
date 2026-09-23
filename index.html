@@ -1,6 +1,6 @@
 <!--
-VERSION: 460
-DATE: 2026-09-23T11:30:00-05:00
+VERSION: 467
+DATE: 2026-09-23T17:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,174 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v467 — 2026-09-23
+
+**Ask:**
+- No visible shadow on the play button (a dark ring + gold line instead).
+- White active-sentence line still rises above the divider under the name.
+- Section headings turn dark when Play is pressed.
+- Portrait text should run full width, no blank strip (tested: v466 already does — see reply;
+  the phone appears to be showing a cached older version).
+
+**Implementation:**
+- Play button: the ring was .audioBottomBar's own pill (dark fill, faint gold border, shadow,
+  6px padding) wrapped around the lone button once prev/next were hidden. Wrapper now draws
+  nothing; button gets a two-layer soft drop shadow.
+- White bar: v465's clamp used the wrong coordinate frame (compared content-space top with the
+  header's height, ignoring scrollTop, since the header is sticky) — it never engaged once
+  scrolled. Now clamps to scrollTop + header height, hides if the sentence is entirely under the
+  header, and re-runs on every scroll.
+- Headings: removed v461's flat navy band on every heading. Only the heading currently pinned
+  (.arthStuck via markStuckSectionHeading on scroll) gets a backdrop, and it's the card's own
+  gradient sliced at that height, same technique as the header's backdrop.
+- syncStickyBackdrops() had the same unscoped querySelector('.artwrap') bug fixed elsewhere in
+  v461 — --ahH could land on the wrong element. Scoped to #article.
+
+## v466 — 2026-09-23
+
+**Ask:**
+- Large blank strip running down the right side of the whole article, below the picture (screen-
+  shotted with the empty area circled).
+
+**Implementation:**
+- Root cause: v463's per-image padding-right reservation (following v461's flat-190px attempt)
+  still reserved that space for the article's FULL HEIGHT, not just where the ~300px-tall picture
+  actually sits — everything below it was empty column for no reason. Removed the reservation
+  and the --flyBadgeW plumbing that fed it entirely. Restores the original behavior: the corner
+  badge can occasionally sit over text as you scroll past it, rather than guaranteeing zero
+  overlap at the cost of a permanent, mostly-empty column. A real fix, if still wanted, needs a
+  fundamentally different approach — not a third reservation width.
+
+## v465 — 2026-09-23
+
+**Ask:**
+- The white active-sentence bar was extending above the divider under the article name.
+- The play-button "shadow" read as a hard black ring plus the gold border, not a real shadow.
+- ("Column width" and "glass isn't frosted" reported too — see reply, not both are code changes.)
+
+**Implementation:**
+- updateAudioActiveBar(): #audioActiveBar is #article's first child (a sibling of .artSticky, not
+  nested under it), so a content-space top near 0 renders visually above the header. Root cause
+  traced to the one case that can produce a too-small top: the active cue is a section HEADING
+  that's also sticky right now (.audio-playing's own .arth rule, v461) — a stuck element's
+  getBoundingClientRect() reports its pinned viewport position, which this function's
+  content-space math wasn't written to expect. Rather than chase that coordinate edge case
+  directly, clamped the bar's top to never go above .artSticky's own measured height — an
+  always-correct guarantee regardless of why a raw number came in low. Verified in headless
+  Chromium with a forced edge case: an artificially "stuck near top" cue rect now correctly
+  produces a bar top equal to the header height, not above it.
+- .audBarPlay's shadow (0 6px 16px, 55% black) softened to 0 3px 8px at 35% — the old values
+  were reading as a second hard ring stacked against .audioBottomBar's own existing shadow rather
+  than one soft one.
+
+## v464 — 2026-09-23
+
+**Ask:**
+- Frosted-glass look for the Settings sheet, like Apple's own translucent materials.
+
+**Implementation:**
+- .hamMenu background changed to rgba(255,255,255,.78) + backdrop-filter blur(24px) saturate(1.5)
+  — the same real technique (translucency + blur), not a fake approximation, matching what the
+  bottom audio bar already does elsewhere in the app. Wrapped in an @supports check with the
+  existing solid #fff kept as the fallback for browsers without backdrop-filter.
+  .pRow (each settings row) already has background:none, so it inherits the frosted sheet
+  automatically — no per-row changes needed.
+
+## v463 — 2026-09-23
+
+**Ask:**
+- Text still goes under the picture in portrait.
+- Play bar: just the circle, no prev/next.
+- Scroll-snap was landing on whole SENTENCES, not lines — that's not what was meant.
+- Decent shadow under the play/pause button; button slightly smaller.
+- The tapered line under the name (portrait) should also show in landscape.
+
+**Implementation:**
+- Text-under-picture, take two: v461's flat 190px (the badge's absolute MAX size) was reverted in
+  v462 as too disruptive. v463 reserves the ACTUAL per-image badge width instead of a worst-case
+  guess — measureFly() already computes flyGeo.flyW for this image's real aspect ratio; now
+  published as --flyBadgeW and read by the reservation rule. Most saint portraits are taller than
+  wide, which keeps this well under the old flat guess in practice (measured ~134px against a
+  typical portrait-aspect test image, vs. v461's flat 190px). Still a permanent reservation for
+  the reason v461 already documented (the badge is fixed for the whole scroll, not just the top)
+  — just sized to what this image actually needs.
+- .audBarSide (prev/next) hidden via CSS, not removed — the buttons, handlers, and
+  audJumpSection() are untouched, so restoring them later is one line.
+- Scroll-snap rebuilt on a different, simpler basis: reads whatever element is rendered at the
+  safe-top pixel via elementFromPoint(), takes its own computed line-height, and rounds the
+  scroll position to the nearest multiple of that — a small nudge to the nearest LINE, not a jump
+  to the nearest sentence start. Doesn't need [data-cue-idx] spans or audio timing at all anymore,
+  so it now works on any article, not just ones with synced audio.
+- .audBarPlay: 64px → 56px, added box-shadow (0 6px 16px, 55% black).
+- .ahTaper's opacity is entirely driven by the portrait fly-badge's scroll progress, which never
+  runs in landscape (v458 disabled that whole mechanism there) — that's why it silently never
+  appeared. Forced on unconditionally in landscape, where it's just decoration with no morph to
+  sync to.
+- Verified in headless Chromium: reservation now reads ~134px (not 190px) for a typical
+  portrait-aspect test image; play button 56px with a visible shadow; prev/next hidden; landscape
+  taper opacity reads 1; a synthetic 60-sentence paragraph confirmed the line-snap lands within
+  half a pixel of the exact line boundary at the sticky header's edge.
+
+## v462 — 2026-09-23
+
+**Ask:**
+- v461's portrait fix broke readability ("something went wrong") — text wrapped into very short,
+  cramped lines throughout the whole article.
+
+**Implementation:**
+- Reverted #article.hasPortrait .artwrap's 190px padding-right entirely. Root cause: the badge is
+  position:fixed for the WHOLE scroll (not just near the top), so guaranteeing zero overlap needs
+  a permanent reservation — and 190px on a ~390px phone is nearly half the screen, which cramped
+  every line of the article, not just the ones actually near the badge. Restores pre-v461
+  behavior: the corner badge can sit over text again.
+- Left everything else from v461 in place (sticky section heading, scroll-snap-to-sentence, the
+  play button restyle, its text-column centering) — none of those were implicated and all tested
+  fine independently.
+- A real fix for "text never under the picture" needs the reservation to apply only near the
+  badge's actual screen position (roughly the first screenful), not the article's full height —
+  a proper scroll-aware pass, not a bigger guessed number, if still wanted.
+
+## v461 — 2026-09-23
+
+**Ask:**
+- Section heading sticky while the story is playing.
+- Portrait: text shouldn't scroll under the corner photo badge.
+- Manual scroll release should always settle on a full sentence, not cut one in half.
+- Different play button: solid navy circle, thicker gold border, bigger gold triangle, nothing
+  else. Applies portrait and landscape both. Button always centers on the article text, at the
+  bottom.
+
+**Implementation:**
+- .arth (section heading) gets position:sticky, top:var(--ahH) (the header's own height, already
+  kept live by syncStickyBackdrops() for an unrelated reason) ONLY while .audio-playing is on
+  #article — toggled in startAudioPlayback/stopAudioPlaybackInPlace/the 'ended' handler. Flat
+  navy backdrop rather than a gradient-matched one, for simplicity.
+- Portrait: new #article.hasPortrait .artwrap{padding-right:190px} (FLY_MAX + FLY_INSET + a
+  gap), scoped to @media(orientation:portrait) so it can't collide with landscape's own
+  --landImgW reservation. #flyPortrait is fixed for the whole scroll, not just near the top, so
+  only a permanent reservation actually guarantees text never runs under it.
+- Scroll-snap reuses the [data-cue-idx] sentence spans wireSentenceCues()/applyCueMarkup() already
+  wrap every sentence in — no new markup. On scroll, a 160ms settle timer finds whichever
+  sentence currently straddles the safe-top line (below the sticky header, and the sticky section
+  heading too when one's showing) and glides it flush via the same animateFollowScroll() the
+  audio-follow system already uses. Works independently of playback.
+- .audBarPlay: solid navy fill (was translucent gold), border 1px→2.5px, ICON_PLAY/ICON_PAUSE
+  25px→30px. New syncAudioBarCenter() measures #article's own .artwrap content-box center
+  (border box minus current padding) and sets the bar's left directly — orientation-agnostic,
+  automatically correct whether the narrowing is landscape's photo or portrait's new badge
+  reservation. Synced at the same points as syncLandImgWidth (article open, resize/rotation).
+- Two testing mistakes caught and fixed before shipping, both the same shape: an unscoped
+  `.artwrap` selector (three elements share that class — article, About panel, one more) grabbed
+  the wrong one, first making the portrait padding rule look broken, then making the bar-centering
+  read the wrong box. Both now scoped to `#article.overlay .artwrap` explicitly.
+- Verified in headless Chromium: portrait padding-right reads 190px on the real article element
+  with .hasPortrait; bar center matches the text column's true midpoint in both portrait (110px
+  vs. 195px viewport-center) and landscape (252px vs. 466px viewport-center); a synthetic
+  100-sentence article confirmed a straddling sentence (top 92.75px against a 101px header) is
+  fully resolved (no straddle) after the snap animation completes. Not verified against a real
+  audio-timing file live on site — first real playback is the true test of the sticky-heading
+  interaction with real section lengths.
+
 ## v460 — 2026-09-23
 
 **Ask:**
@@ -884,6 +1052,15 @@ CHANGELOG:END
     width:min(360px, 88vw);
     max-height:calc(100vh - 78px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     overflow-y:auto; -webkit-overflow-scrolling:touch;
+    /* v464: frosted glass, the same real technique iOS's own translucent materials use —
+       semi-transparent white + a blurred backdrop, not a flat color. saturate() is the same
+       touch Apple's own materials add, so colors behind the blur read a little richer rather
+       than washed out. .pRow's own background is already `none` (just a hairline under each
+       row), so it inherits this automatically — no row-level change needed. Solid-white
+       fallback for browsers without backdrop-filter support (old Firefox, some in-app webviews),
+       which would otherwise render the intended-translucent color as a flat, slightly-transparent
+       sheet with whatever's behind it showing through unblurred — muddier than either a clean
+       blur or a clean solid. */
     background:#fff;
     border-radius:26px 0 0 26px;
     box-shadow:-16px 0 46px rgba(7,15,34,.28);
@@ -1792,6 +1969,25 @@ CHANGELOG:END
   }
   .tkFactMethod.search{background:#E3F0E6; color:#2E6B3E;}
   .tkFactMethod.memory{background:#EDEDF2; color:#5B6472;}
+  /* v461: section heading sticks under the sticky article header WHILE AUDIO IS PLAYING (see
+     .audio-playing, toggled in startAudioPlayback/stopAudioPlaybackInPlace/the 'ended' handler) —
+     not all the time, per Tom's own scoping. top reuses --ahH, the article header's own measured
+     height (already kept live by syncStickyBackdrops() for an unrelated backdrop, so no new
+     measurement code needed). Flat navy rather than a gradient-matched backdrop like the header
+     gets — simpler, and close enough since .arth is a small band, not the whole header. */
+  .audio-playing #artStoryText .arth{
+    position:sticky; top:var(--ahH, 0px); z-index:6;
+  }
+  /* v467: v461 gave EVERY heading a flat navy band while playing — visibly darker than the
+     card's gradient ("the headers' background turns dark"). Now only the heading actually pinned
+     at the top gets a backdrop (.arthStuck, set by markStuckSectionHeading on scroll), and it's
+     the card's own gradient sliced at that exact height — the same technique syncStickyBackdrops
+     already uses for the header — so it matches the card instead of showing as a band. */
+  .audio-playing #artStoryText .arth.arthStuck{
+    background-image:var(--cardGrad, none);
+    background-size:100% var(--cardH, 100vh);
+    background-position:0 calc(-1 * var(--ahH, 0px));
+  }
   .tkImgNotesLabel{font-size:12px; color:#6B7280; margin:14px 0 5px;}
   .tkImgNotes{
     width:100%; box-sizing:border-box; border:1px solid #C7CAD3; border-radius:10px;
@@ -2556,6 +2752,14 @@ CHANGELOG:END
       #article .artSticky.hasPortrait .ahHead{padding-right:0;}
       #article .ahYear{white-space:nowrap; flex:none;}
       #article .ahName{min-width:0;}
+      /* v463: .ahTaper's opacity is entirely driven by the portrait corner-badge's scroll
+         progress (measureFly/updateFly) — 0 while the big hero photo is up top, fading to 1 as
+         the badge docks. Landscape has no such morph (v458 disabled the whole fly mechanism
+         there, its photo is static in the side column) — so that JS never runs for landscape and
+         the taper stayed permanently at its opacity:0 default. It's just decorative here, so
+         forcing it on unconditionally is correct rather than adding a landscape branch to the
+         portrait-specific scroll math. */
+      #article .ahTaper{opacity:1 !important;}
       /* v460: the handle is a portrait "pull sheet down" affordance; in landscape the card
          already fills the screen with nothing to reveal underneath, and iOS was reportedly
          reading a drag on it as some OS-level gesture (Messages or similar) — simplest fix is
@@ -2919,6 +3123,16 @@ CHANGELOG:END
   /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
      so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
   .artLandImg, .artLandAnchor{display:none;}
+  /* v461 reserved a flat 190px (the badge's worst-case size); reverted in v462 as too wide.
+     v463 retried with the image's real per-photo width instead of a worst-case guess — narrower,
+     but still a PERMANENT reservation for the article's full height, because the badge is fixed
+     to the same screen spot for the whole scroll (any paragraph passes behind it at some point).
+     v465: reverted again. The real flaw isn't the width, it's the permanence — a picture only
+     ~300px tall was reserving a column for the ENTIRE rest of the article, a large empty strip
+     below it for no reason. A reservation that only applies near the picture would mean the text
+     column changes width WHILE actively scrolling past that point, which is likely worse. Back to
+     the original behavior: the badge can sit over text occasionally, same as most of this
+     project's life, rather than guaranteeing zero overlap at the cost of a broken-looking gap. */
   .artimg{width:100%; border-radius:14px; border:1.5px solid var(--gold); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
   /* Ken Burns (v213, opened to everyone in v414 — was Review Mode only while the effect was
      being evaluated before deciding whether to show it to visitors).
@@ -3190,6 +3404,14 @@ CHANGELOG:END
     transition:opacity .25s ease, transform .25s ease;
   }
   .audioBottomBar.show{opacity:1; pointer-events:auto; transform:translate(-50%, 0);}
+  /* v467: with prev/next hidden (v463), the bar's own pill — dark fill, faint gold border, its
+     own shadow, 6px padding — became a dark ring hugging the lone button: the "black line then a
+     gold line" Tom saw, which read as a bad shadow. The wrapper now draws nothing; the button
+     carries the only visual (circle, gold border, one soft drop shadow). */
+  .audioBottomBar{
+    background:none; border:none; box-shadow:none; padding:0;
+    -webkit-backdrop-filter:none; backdrop-filter:none;
+  }
   .audBarBtn{
     background:none; border:none; color:var(--gold); padding:0;
     display:flex; align-items:center; justify-content:center;
@@ -3197,10 +3419,21 @@ CHANGELOG:END
   }
   .audBarBtn:hover{color:var(--gold-bright);}
   .audBarBtn:active{transform:scale(0.92);}
-  .audBarSide{width:46px; height:46px; border-radius:50%;}
+  /* v463: prev/next section skip removed from view per Tom — just the circle now. Hidden, not
+     deleted: the buttons, their click handlers, and audJumpSection() are all untouched, so
+     restoring them later is a one-line CSS change, not a rebuild. */
+  .audBarSide{display:none;}
+  /* v461: solid navy circle (was translucent gold-tinted), thicker gold border, bigger glyph
+     (ICON_PLAY/ICON_PAUSE bumped 25→30px to match) — "nothing else": no shadow, no second
+     ring, just circle + border + glyph. Applies everywhere this one button is used (portrait and
+     landscape both use the same #audPlayBtn), not a Review Mode variant. */
+  /* v465: previous shadow (0 6px 16px, 55% black) read as a hard dark ring against the bar's
+     own existing shadow (.audioBottomBar already casts one), not a soft drop shadow — lower
+     opacity + smaller spread reads as a real, subtle shadow instead of a second outline. */
   .audBarPlay{
-    width:64px; height:64px; border-radius:50%;
-    background:rgba(201,165,66,.14); border:1px solid rgba(201,165,66,.5);
+    width:56px; height:56px; border-radius:50%;
+    background:var(--navy, #0B1630); border:2.5px solid var(--gold);
+    box-shadow:0 8px 18px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.35);
   }
   /* Comfortable clearance so the fixed bar (above) never sits over the last lines of the story
      or Sources & Further Reading — see fillArticleBody's audioBottomSpacer. */
@@ -3307,6 +3540,13 @@ CHANGELOG:END
     --m-danger:#96291A; --m-danger-bg:#FDEDEA;
     background:var(--m-bg); color:var(--m-ink);
     overflow:hidden; /* the overlay itself no longer scrolls — see .mgmtScroll below */
+  }
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)){
+    .hamMenu{
+      background:rgba(255,255,255,.78);
+      -webkit-backdrop-filter:blur(24px) saturate(1.5);
+      backdrop-filter:blur(24px) saturate(1.5);
+    }
   }
   /* iOS Safari reliably breaks position:sticky when its scrolling ancestor is also
      position:fixed — which #manage is, since it's a shared .overlay. Splitting the two roles
@@ -5034,7 +5274,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v460';
+const APP_VERSION = 'v467';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -11622,6 +11862,7 @@ function fillArticleBody(d, peek){
   // so it's harmless in portrait.
   document.getElementById('article').classList.toggle('landFactsCol', !hasImg && factList.length > 0);
   document.getElementById('article').classList.toggle('hasLandImg', hasImg);
+  document.getElementById('article').classList.toggle('hasPortrait', hasImg); // v461: portrait text-reservation for the corner badge — see its CSS comment
   {
     const landImg = document.getElementById('artLandImg');
     if(landImg){
@@ -11631,6 +11872,7 @@ function fillArticleBody(d, peek){
       document.documentElement.style.removeProperty('--landImgW');
     }
   }
+  syncAudioBarCenter(); // v461: re-centers on the text column, portrait's reservation and landscape's both — see its own comment
   // A deep ("=") search sets pendingSearchHighlight before opening the article; apply it now
   // that the prose is in the DOM. Runs before wireSentenceCues() only incidentally — the two
   // are order-independent, because wrapping text in a span doesn't change the flat text either
@@ -12298,8 +12540,8 @@ function fmtTime(s){
   const m = Math.floor(s/60), sec = Math.floor(s%60);
   return m + ':' + String(sec).padStart(2,'0');
 }
-const ICON_PLAY = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor" pointer-events="none"><path d="M7 4l14 8-14 8V4z"/></svg>';
-const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor" pointer-events="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+const ICON_PLAY = '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" pointer-events="none"><path d="M7 4l14 8-14 8V4z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" pointer-events="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
 // Standard "skip to previous/next track" glyph (bar + triangle) — the metaphor still reads
 // correctly even though these skip by SECTION rather than by time/track; see audJumpSection().
 const ICON_PREV_SECTION = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" pointer-events="none"><rect x="4" y="4" width="3" height="16"/><path d="M20 4v16L8 12z"/></svg>';
@@ -12375,6 +12617,7 @@ function startAudioPlayback(){
   if(!audioEl) return;
   audioEl.play();
   if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PAUSE; apPlayBtn.setAttribute('aria-label','Stop'); }
+  document.getElementById('article').classList.add('audio-playing'); // v461: makes .arth sticky — see its CSS comment
   // Force a follow-check right now, regardless of whether the highlighted sentence is about to
   // change: this is exactly the moment a reader who scrolled elsewhere (e.g. down to the very
   // bottom, then started the story over) needs the view brought back to wherever playback is
@@ -12390,6 +12633,7 @@ function stopAudioPlaybackInPlace(){
   if(!audioEl) return;
   audioEl.pause();
   if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PLAY; apPlayBtn.setAttribute('aria-label','Play'); }
+  document.getElementById('article').classList.remove('audio-playing');
 }
 function toggleAudioPlayback(){
   if(!audioEl) return;
@@ -12481,6 +12725,7 @@ function initAudio(url, resumeTime){
   a.addEventListener('ended', () => {
     apPlayBtn.innerHTML = ICON_PLAY; apPlayBtn.setAttribute('aria-label','Play');
     setActiveCue(-1);
+    document.getElementById('article').classList.remove('audio-playing');
   });
   a.addEventListener('error', () => {
     const toast = document.getElementById('shareToast');
@@ -12525,10 +12770,33 @@ function updateAudioActiveBar(idx){
   });
   if(!isFinite(top) || !isFinite(bottom)){ bar.classList.remove('on'); return; }
   const PAD = 3;
-  bar.style.top = (top - PAD) + 'px';
-  bar.style.height = (bottom - top + PAD * 2) + 'px';
+  // v465: clamped to never start above the sticky header's own height — #audioActiveBar is
+  // #article's first child (sibling of .artSticky, not nested under it), so a content-space top
+  // near 0 lands visually above the header/name-divider rather than at the story text below it.
+  // The one case that can legitimately produce a too-small top: the active cue is a section
+  // HEADING that's also sticky right now (.audio-playing's own .arth rule) — a stuck element's
+  // getBoundingClientRect() reports its pinned viewport position, not a value this function's
+  // "content-space = viewport + scrollTop" math was written for, so it can under-report. Clamping
+  // to the header's real height is a direct, always-correct guarantee regardless of why the raw
+  // number came in low, rather than chasing the sticky-coordinate edge case itself.
+  // v467 correction: v465 compared content-space `top` against the header's height, but the
+  // header is sticky — its bottom edge in content-space is scrollTop + headerH, not headerH.
+  // Once the article was scrolled, the clamp never engaged and the bar still rose above the
+  // divider. Clamped in the right frame now, and re-run on every scroll (listener below), since
+  // the header's content-space position moves with the scroll even when the cue doesn't change.
+  const sticky = artEl === document.getElementById('article') ? document.getElementById('artSticky') : null;
+  const headerBottom = artEl.scrollTop + (sticky ? sticky.offsetHeight : 0);
+  const barTop = Math.max(headerBottom, top - PAD);
+  const barBottom = bottom + PAD;
+  if(barBottom <= barTop){ bar.classList.remove('on'); return; } // sentence fully under the header
+  bar.style.top = barTop + 'px';
+  bar.style.height = (barBottom - barTop) + 'px';
   bar.classList.add('on');
 }
+document.getElementById('article').addEventListener('scroll', () => {
+  if(activeCueIdx >= 0) updateAudioActiveBar(activeCueIdx);
+  markStuckSectionHeading();
+}, {passive:true});
 function setActiveCue(idx){
   if(idx !== activeCueIdx){
     (cueEls[activeCueIdx] || []).forEach(el => el.classList.remove('cuePlaying'));
@@ -12661,6 +12929,55 @@ document.getElementById('article').addEventListener('touchmove', noteManualScrol
 document.getElementById('article').addEventListener('wheel', noteManualScrollForAudioFollow, {passive:true});
 document.getElementById('aboutPanel').addEventListener('touchmove', noteManualScrollForAudioFollow, {passive:true});
 document.getElementById('aboutPanel').addEventListener('wheel', noteManualScrollForAudioFollow, {passive:true});
+
+// v461: after a reader scrolls by hand and lets go, settle so the row of text sitting at the
+// top edge is a complete line rather than cut off mid-line.
+// v463: reworked per Tom's own correction — v461 snapped to the start of the whole SENTENCE
+// (reusing the [data-cue-idx] spans audio highlighting already wraps each sentence in), which
+// could be several lines above where the reader actually let go, an unexpectedly large jump.
+// What was actually asked for is simpler and doesn't need those spans (or audio timing) at all:
+// find whatever's rendered exactly at the safe-top pixel via elementFromPoint, read ITS
+// line-height, and round the scroll position to the nearest multiple of that — a small nudge to
+// the nearest line, not a jump to the nearest sentence. Works for any article, with or without
+// audio/cues. Independent of playback; if audio-follow is actively driving the scroll itself
+// there's no "reader let go" moment to react to, since that path never fires the touchmove/wheel
+// gesture this timer is scheduled from.
+let scrollSnapTimer = null;
+const SCROLL_SNAP_SETTLE_MS = 160;
+function scheduleScrollSnap(artEl){
+  clearTimeout(scrollSnapTimer);
+  scrollSnapTimer = setTimeout(() => snapToLineBoundary(artEl), SCROLL_SNAP_SETTLE_MS);
+}
+function snapToLineBoundary(artEl){
+  if(!artEl || !artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
+  const stickyHeader = document.getElementById('artSticky');
+  const stickySection = artEl.classList.contains('audio-playing')
+    ? document.querySelector('#artStoryText .arth')
+    : null;
+  const headerH = stickyHeader ? stickyHeader.offsetHeight : 0;
+  const sectionH = (stickySection && getComputedStyle(stickySection).position === 'sticky') ? stickySection.offsetHeight : 0;
+  const safeTop = headerH + sectionH;
+  const artRect = artEl.getBoundingClientRect();
+  const probeX = artRect.left + artRect.width / 2;
+  const probeY = artRect.top + safeTop + 1; // 1px past the line, so it lands IN the row, not on its border
+  if(probeY < 0 || probeY > window.innerHeight) return; // safe-top itself is off-screen — nothing to align
+  const hit = document.elementFromPoint(probeX, probeY);
+  const textEl = hit ? hit.closest('#artStoryText p, #artStoryText .arth, #artStoryText li') : null;
+  if(!textEl) return;
+  let lh = parseFloat(getComputedStyle(textEl).lineHeight);
+  if(!lh || isNaN(lh)) lh = parseFloat(getComputedStyle(textEl).fontSize) * 1.3; // 'normal' line-height fallback
+  const textRect = textEl.getBoundingClientRect();
+  const blockTop = textRect.top - artRect.top + artEl.scrollTop; // this block's own top, in content-space
+  const linesIn = Math.round((artEl.scrollTop + safeTop - blockTop) / lh);
+  const targetLineTop = blockTop + linesIn * lh;
+  const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
+  const target = Math.min(max, Math.max(0, targetLineTop - safeTop));
+  if(Math.abs(artEl.scrollTop - target) < 2) return;
+  animateFollowScroll(artEl, target);
+}
+document.getElementById('article').addEventListener('scroll', () => scheduleScrollSnap(document.getElementById('article')), {passive:true});
+document.getElementById('aboutPanel').addEventListener('scroll', () => scheduleScrollSnap(document.getElementById('aboutPanel')), {passive:true});
+
 function seekToCue(idx){
   const cue = currentCues[idx];
   if(!cue || !audioEl) return;
@@ -12921,9 +13238,23 @@ function syncStickyBackdrops(){
   sticky.style.backgroundSize = '100% ' + sheetH + 'px';
   sticky.style.backgroundPosition = '0 0';
   const headerH = sticky.offsetHeight;
-  const wrap = document.querySelector('.artwrap');
+  // v467: was an unscoped querySelector('.artwrap') — three elements share that class, and the
+  // first in the DOM isn't #article's, so --ahH could land on the wrong element entirely.
+  const wrap = artEl.querySelector('.artwrap');
   if(wrap) wrap.style.setProperty('--ahH', headerH + 'px');
+  artEl.style.setProperty('--cardGrad', grad);
+  artEl.style.setProperty('--cardH', sheetH + 'px');
   paintPlayerBackdrop();
+}
+// v467: flags whichever section heading is currently pinned under the header (only matters
+// while audio plays — that's the only time .arth is sticky), so just that one gets a backdrop.
+function markStuckSectionHeading(){
+  const artEl = document.getElementById('article');
+  const heads = artEl.querySelectorAll('#artStoryText .arth');
+  if(!artEl.classList.contains('audio-playing')){ heads.forEach(h => h.classList.remove('arthStuck')); return; }
+  const sticky = document.getElementById('artSticky');
+  const line = artEl.getBoundingClientRect().top + (sticky ? sticky.offsetHeight : 0) + 1;
+  heads.forEach(h => h.classList.toggle('arthStuck', h.getBoundingClientRect().top <= line));
 }
 // The scrubber strip's backdrop, kept in step with wherever the strip currently sits.
 //
@@ -13607,6 +13938,27 @@ function syncLandImgWidth(){
   if(!img || !img.offsetWidth){ root.style.removeProperty('--landImgW'); return; }
   root.style.setProperty('--landImgW', img.offsetWidth + 'px');
 }
+// v461: the fixed bottom play bar used to just sit at 50% of the VIEWPORT — fine when the text
+// fills the viewport, wrong the moment it doesn't (landscape's side photo/facts column, or now
+// portrait's corner-badge reservation too). Measures .artwrap's own CONTENT box (border box
+// minus whatever padding is currently applied) and centers the bar on THAT instead — orientation-
+// and reason-agnostic, so it doesn't need to know why the padding is what it is, only what it
+// currently measures as. transform:translateX(-50%) (already on .audioBottomBar) still centers
+// correctly on a pixel left value, same as it did on a percentage.
+function syncAudioBarCenter(){
+  const bar = document.getElementById('audioBottomBar');
+  // v461 fix: three elements share class="artwrap" (article, About panel, one more) — an
+  // unscoped .artwrap grabbed whichever came first in the DOM, not necessarily #article's own,
+  // giving a centering calc based on the wrong element's (unreserved) padding.
+  const wrap = document.querySelector('#article.overlay .artwrap');
+  if(!bar || !wrap){ return; }
+  const cs = getComputedStyle(wrap);
+  const rect = wrap.getBoundingClientRect();
+  const contentLeft = rect.left + (parseFloat(cs.paddingLeft) || 0);
+  const contentRight = rect.right - (parseFloat(cs.paddingRight) || 0);
+  if(contentRight <= contentLeft){ bar.style.left = ''; return; } // nothing sane to measure yet
+  bar.style.left = ((contentLeft + contentRight) / 2) + 'px';
+}
 // v460: rotating mid-session (vs. opening fresh already in landscape) was leaving a gap between
 // the story and the photo. Cause: 'resize' can fire and this function can measure the photo's
 // offsetWidth before the browser has actually applied the @media(orientation:landscape) rules —
@@ -13615,7 +13967,7 @@ function syncLandImgWidth(){
 // layout settle before measuring; orientationchange is a second trigger for builds where it fires
 // more reliably than resize on a rotation specifically.
 function syncLandImgWidthDeferred(){
-  requestAnimationFrame(() => requestAnimationFrame(syncLandImgWidth));
+  requestAnimationFrame(() => requestAnimationFrame(() => { syncLandImgWidth(); syncAudioBarCenter(); }));
 }
 window.addEventListener('resize', syncLandImgWidthDeferred);
 window.addEventListener('orientationchange', syncLandImgWidthDeferred);
