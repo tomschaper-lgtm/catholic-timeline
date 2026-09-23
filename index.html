@@ -1,6 +1,6 @@
 <!--
-VERSION: 464
-DATE: 2026-09-23T15:20:00-05:00
+VERSION: 465
+DATE: 2026-09-23T15:45:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,28 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v465 — 2026-09-23
+
+**Ask:**
+- The white active-sentence bar was extending above the divider under the article name.
+- The play-button "shadow" read as a hard black ring plus the gold border, not a real shadow.
+- ("Column width" and "glass isn't frosted" reported too — see reply, not both are code changes.)
+
+**Implementation:**
+- updateAudioActiveBar(): #audioActiveBar is #article's first child (a sibling of .artSticky, not
+  nested under it), so a content-space top near 0 renders visually above the header. Root cause
+  traced to the one case that can produce a too-small top: the active cue is a section HEADING
+  that's also sticky right now (.audio-playing's own .arth rule, v461) — a stuck element's
+  getBoundingClientRect() reports its pinned viewport position, which this function's
+  content-space math wasn't written to expect. Rather than chase that coordinate edge case
+  directly, clamped the bar's top to never go above .artSticky's own measured height — an
+  always-correct guarantee regardless of why a raw number came in low. Verified in headless
+  Chromium with a forced edge case: an artificially "stuck near top" cue rect now correctly
+  produces a bar top equal to the header height, not above it.
+- .audBarPlay's shadow (0 6px 16px, 55% black) softened to 0 3px 8px at 35% — the old values
+  were reading as a second hard ring stacked against .audioBottomBar's own existing shadow rather
+  than one soft one.
+
 ## v464 — 2026-09-23
 
 **Ask:**
@@ -3352,10 +3374,13 @@ CHANGELOG:END
      (ICON_PLAY/ICON_PAUSE bumped 25→30px to match) — "nothing else": no shadow, no second
      ring, just circle + border + glyph. Applies everywhere this one button is used (portrait and
      landscape both use the same #audPlayBtn), not a Review Mode variant. */
+  /* v465: previous shadow (0 6px 16px, 55% black) read as a hard dark ring against the bar's
+     own existing shadow (.audioBottomBar already casts one), not a soft drop shadow — lower
+     opacity + smaller spread reads as a real, subtle shadow instead of a second outline. */
   .audBarPlay{
     width:56px; height:56px; border-radius:50%;
     background:var(--navy, #0B1630); border:2.5px solid var(--gold);
-    box-shadow:0 6px 16px rgba(0,0,0,.55);
+    box-shadow:0 3px 8px rgba(0,0,0,.35);
   }
   /* Comfortable clearance so the fixed bar (above) never sits over the last lines of the story
      or Sources & Further Reading — see fillArticleBody's audioBottomSpacer. */
@@ -5196,7 +5221,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v464';
+const APP_VERSION = 'v465';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -12692,8 +12717,20 @@ function updateAudioActiveBar(idx){
   });
   if(!isFinite(top) || !isFinite(bottom)){ bar.classList.remove('on'); return; }
   const PAD = 3;
-  bar.style.top = (top - PAD) + 'px';
-  bar.style.height = (bottom - top + PAD * 2) + 'px';
+  // v465: clamped to never start above the sticky header's own height — #audioActiveBar is
+  // #article's first child (sibling of .artSticky, not nested under it), so a content-space top
+  // near 0 lands visually above the header/name-divider rather than at the story text below it.
+  // The one case that can legitimately produce a too-small top: the active cue is a section
+  // HEADING that's also sticky right now (.audio-playing's own .arth rule) — a stuck element's
+  // getBoundingClientRect() reports its pinned viewport position, not a value this function's
+  // "content-space = viewport + scrollTop" math was written for, so it can under-report. Clamping
+  // to the header's real height is a direct, always-correct guarantee regardless of why the raw
+  // number came in low, rather than chasing the sticky-coordinate edge case itself.
+  const headerH = document.getElementById('artSticky') ? document.getElementById('artSticky').offsetHeight : 0;
+  const barTop = Math.max(headerH, top - PAD);
+  const barBottom = bottom + PAD;
+  bar.style.top = barTop + 'px';
+  bar.style.height = Math.max(0, barBottom - barTop) + 'px';
   bar.classList.add('on');
 }
 function setActiveCue(idx){
