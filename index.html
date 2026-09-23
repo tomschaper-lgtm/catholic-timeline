@@ -1,6 +1,6 @@
 <!--
-VERSION: 461
-DATE: 2026-09-23T14:00:00-05:00
+VERSION: 462
+DATE: 2026-09-23T14:20:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,25 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v462 — 2026-09-23
+
+**Ask:**
+- v461's portrait fix broke readability ("something went wrong") — text wrapped into very short,
+  cramped lines throughout the whole article.
+
+**Implementation:**
+- Reverted #article.hasPortrait .artwrap's 190px padding-right entirely. Root cause: the badge is
+  position:fixed for the WHOLE scroll (not just near the top), so guaranteeing zero overlap needs
+  a permanent reservation — and 190px on a ~390px phone is nearly half the screen, which cramped
+  every line of the article, not just the ones actually near the badge. Restores pre-v461
+  behavior: the corner badge can sit over text again.
+- Left everything else from v461 in place (sticky section heading, scroll-snap-to-sentence, the
+  play button restyle, its text-column centering) — none of those were implicated and all tested
+  fine independently.
+- A real fix for "text never under the picture" needs the reservation to apply only near the
+  badge's actual screen position (roughly the first screenful), not the article's full height —
+  a proper scroll-aware pass, not a bigger guessed number, if still wanted.
+
 ## v461 — 2026-09-23
 
 **Ask:**
@@ -2970,16 +2989,13 @@ CHANGELOG:END
   /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
      so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
   .artLandImg, .artLandAnchor{display:none;}
-  /* v461: portrait's flying corner badge (#flyPortrait, up to FLY_MAX=156px + FLY_INSET=20px)
-     is position:fixed for the entire scroll, not just near the top — so "text never goes under
-     it" can only be guaranteed by reserving its footprint in the text column PERMANENTLY, the
-     same principle as landscape's --landImgW reservation, just for a small corner instead of a
-     full side column. 190px covers the badge's max width + inset + a breathing gap. Scoped away
-     from landscape (own @media block below) since the badge is hidden there entirely (v458) and
-     that layout already reserves space for its own, much larger side photo. */
-  @media (orientation: portrait){
-    #article.hasPortrait .artwrap{padding-right:190px;}
-  }
+  /* v461 tried a permanent padding-right reservation here (the badge floats for the whole
+     scroll, not just the top, so a real fix needs a permanent reservation) — REVERTED in v462:
+     190px on a ~390px phone was nearly half the screen, cramping every line of the article, not
+     just the top. Reverting restores the pre-v461 behavior (badge can sit over text) rather than
+     shipping a guessed-smaller number under time pressure. A real fix needs the reservation to
+     apply only near the badge's own screen position, not the whole article height — that's a
+     separate, more careful pass if still wanted. */
   .artimg{width:100%; border-radius:14px; border:1.5px solid var(--gold); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
   /* Ken Burns (v213, opened to everyone in v414 — was Review Mode only while the effect was
      being evaluated before deciding whether to show it to visitors).
@@ -5099,7 +5115,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v461';
+const APP_VERSION = 'v462';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
