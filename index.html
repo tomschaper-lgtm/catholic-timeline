@@ -1,6 +1,6 @@
 <!--
-VERSION: 461
-DATE: 2026-09-23T14:00:00-05:00
+VERSION: 460
+DATE: 2026-09-23T11:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,47 +23,6 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
-## v461 — 2026-09-23
-
-**Ask:**
-- Section heading sticky while the story is playing.
-- Portrait: text shouldn't scroll under the corner photo badge.
-- Manual scroll release should always settle on a full sentence, not cut one in half.
-- Different play button: solid navy circle, thicker gold border, bigger gold triangle, nothing
-  else. Applies portrait and landscape both. Button always centers on the article text, at the
-  bottom.
-
-**Implementation:**
-- .arth (section heading) gets position:sticky, top:var(--ahH) (the header's own height, already
-  kept live by syncStickyBackdrops() for an unrelated reason) ONLY while .audio-playing is on
-  #article — toggled in startAudioPlayback/stopAudioPlaybackInPlace/the 'ended' handler. Flat
-  navy backdrop rather than a gradient-matched one, for simplicity.
-- Portrait: new #article.hasPortrait .artwrap{padding-right:190px} (FLY_MAX + FLY_INSET + a
-  gap), scoped to @media(orientation:portrait) so it can't collide with landscape's own
-  --landImgW reservation. #flyPortrait is fixed for the whole scroll, not just near the top, so
-  only a permanent reservation actually guarantees text never runs under it.
-- Scroll-snap reuses the [data-cue-idx] sentence spans wireSentenceCues()/applyCueMarkup() already
-  wrap every sentence in — no new markup. On scroll, a 160ms settle timer finds whichever
-  sentence currently straddles the safe-top line (below the sticky header, and the sticky section
-  heading too when one's showing) and glides it flush via the same animateFollowScroll() the
-  audio-follow system already uses. Works independently of playback.
-- .audBarPlay: solid navy fill (was translucent gold), border 1px→2.5px, ICON_PLAY/ICON_PAUSE
-  25px→30px. New syncAudioBarCenter() measures #article's own .artwrap content-box center
-  (border box minus current padding) and sets the bar's left directly — orientation-agnostic,
-  automatically correct whether the narrowing is landscape's photo or portrait's new badge
-  reservation. Synced at the same points as syncLandImgWidth (article open, resize/rotation).
-- Two testing mistakes caught and fixed before shipping, both the same shape: an unscoped
-  `.artwrap` selector (three elements share that class — article, About panel, one more) grabbed
-  the wrong one, first making the portrait padding rule look broken, then making the bar-centering
-  read the wrong box. Both now scoped to `#article.overlay .artwrap` explicitly.
-- Verified in headless Chromium: portrait padding-right reads 190px on the real article element
-  with .hasPortrait; bar center matches the text column's true midpoint in both portrait (110px
-  vs. 195px viewport-center) and landscape (252px vs. 466px viewport-center); a synthetic
-  100-sentence article confirmed a straddling sentence (top 92.75px against a 101px header) is
-  fully resolved (no straddle) after the snap animation completes. Not verified against a real
-  audio-timing file live on site — first real playback is the true test of the sticky-heading
-  interaction with real section lengths.
-
 ## v460 — 2026-09-23
 
 **Ask:**
@@ -1833,16 +1792,6 @@ CHANGELOG:END
   }
   .tkFactMethod.search{background:#E3F0E6; color:#2E6B3E;}
   .tkFactMethod.memory{background:#EDEDF2; color:#5B6472;}
-  /* v461: section heading sticks under the sticky article header WHILE AUDIO IS PLAYING (see
-     .audio-playing, toggled in startAudioPlayback/stopAudioPlaybackInPlace/the 'ended' handler) —
-     not all the time, per Tom's own scoping. top reuses --ahH, the article header's own measured
-     height (already kept live by syncStickyBackdrops() for an unrelated backdrop, so no new
-     measurement code needed). Flat navy rather than a gradient-matched backdrop like the header
-     gets — simpler, and close enough since .arth is a small band, not the whole header. */
-  .audio-playing #artStoryText .arth{
-    position:sticky; top:var(--ahH, 0px); z-index:6;
-    background:var(--navy, #0B1630); padding:10px 0 2px; margin-top:0;
-  }
   .tkImgNotesLabel{font-size:12px; color:#6B7280; margin:14px 0 5px;}
   .tkImgNotes{
     width:100%; box-sizing:border-box; border:1px solid #C7CAD3; border-radius:10px;
@@ -2970,16 +2919,6 @@ CHANGELOG:END
   /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
      so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
   .artLandImg, .artLandAnchor{display:none;}
-  /* v461: portrait's flying corner badge (#flyPortrait, up to FLY_MAX=156px + FLY_INSET=20px)
-     is position:fixed for the entire scroll, not just near the top — so "text never goes under
-     it" can only be guaranteed by reserving its footprint in the text column PERMANENTLY, the
-     same principle as landscape's --landImgW reservation, just for a small corner instead of a
-     full side column. 190px covers the badge's max width + inset + a breathing gap. Scoped away
-     from landscape (own @media block below) since the badge is hidden there entirely (v458) and
-     that layout already reserves space for its own, much larger side photo. */
-  @media (orientation: portrait){
-    #article.hasPortrait .artwrap{padding-right:190px;}
-  }
   .artimg{width:100%; border-radius:14px; border:1.5px solid var(--gold); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
   /* Ken Burns (v213, opened to everyone in v414 — was Review Mode only while the effect was
      being evaluated before deciding whether to show it to visitors).
@@ -3259,13 +3198,9 @@ CHANGELOG:END
   .audBarBtn:hover{color:var(--gold-bright);}
   .audBarBtn:active{transform:scale(0.92);}
   .audBarSide{width:46px; height:46px; border-radius:50%;}
-  /* v461: solid navy circle (was translucent gold-tinted), thicker gold border, bigger glyph
-     (ICON_PLAY/ICON_PAUSE bumped 25→30px to match) — "nothing else": no shadow, no second
-     ring, just circle + border + glyph. Applies everywhere this one button is used (portrait and
-     landscape both use the same #audPlayBtn), not a Review Mode variant. */
   .audBarPlay{
     width:64px; height:64px; border-radius:50%;
-    background:var(--navy, #0B1630); border:2.5px solid var(--gold);
+    background:rgba(201,165,66,.14); border:1px solid rgba(201,165,66,.5);
   }
   /* Comfortable clearance so the fixed bar (above) never sits over the last lines of the story
      or Sources & Further Reading — see fillArticleBody's audioBottomSpacer. */
@@ -5099,7 +5034,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v461';
+const APP_VERSION = 'v460';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -11687,7 +11622,6 @@ function fillArticleBody(d, peek){
   // so it's harmless in portrait.
   document.getElementById('article').classList.toggle('landFactsCol', !hasImg && factList.length > 0);
   document.getElementById('article').classList.toggle('hasLandImg', hasImg);
-  document.getElementById('article').classList.toggle('hasPortrait', hasImg); // v461: portrait text-reservation for the corner badge — see its CSS comment
   {
     const landImg = document.getElementById('artLandImg');
     if(landImg){
@@ -11697,7 +11631,6 @@ function fillArticleBody(d, peek){
       document.documentElement.style.removeProperty('--landImgW');
     }
   }
-  syncAudioBarCenter(); // v461: re-centers on the text column, portrait's reservation and landscape's both — see its own comment
   // A deep ("=") search sets pendingSearchHighlight before opening the article; apply it now
   // that the prose is in the DOM. Runs before wireSentenceCues() only incidentally — the two
   // are order-independent, because wrapping text in a span doesn't change the flat text either
@@ -12365,8 +12298,8 @@ function fmtTime(s){
   const m = Math.floor(s/60), sec = Math.floor(s%60);
   return m + ':' + String(sec).padStart(2,'0');
 }
-const ICON_PLAY = '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" pointer-events="none"><path d="M7 4l14 8-14 8V4z"/></svg>';
-const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" pointer-events="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+const ICON_PLAY = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor" pointer-events="none"><path d="M7 4l14 8-14 8V4z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor" pointer-events="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
 // Standard "skip to previous/next track" glyph (bar + triangle) — the metaphor still reads
 // correctly even though these skip by SECTION rather than by time/track; see audJumpSection().
 const ICON_PREV_SECTION = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" pointer-events="none"><rect x="4" y="4" width="3" height="16"/><path d="M20 4v16L8 12z"/></svg>';
@@ -12442,7 +12375,6 @@ function startAudioPlayback(){
   if(!audioEl) return;
   audioEl.play();
   if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PAUSE; apPlayBtn.setAttribute('aria-label','Stop'); }
-  document.getElementById('article').classList.add('audio-playing'); // v461: makes .arth sticky — see its CSS comment
   // Force a follow-check right now, regardless of whether the highlighted sentence is about to
   // change: this is exactly the moment a reader who scrolled elsewhere (e.g. down to the very
   // bottom, then started the story over) needs the view brought back to wherever playback is
@@ -12458,7 +12390,6 @@ function stopAudioPlaybackInPlace(){
   if(!audioEl) return;
   audioEl.pause();
   if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PLAY; apPlayBtn.setAttribute('aria-label','Play'); }
-  document.getElementById('article').classList.remove('audio-playing');
 }
 function toggleAudioPlayback(){
   if(!audioEl) return;
@@ -12550,7 +12481,6 @@ function initAudio(url, resumeTime){
   a.addEventListener('ended', () => {
     apPlayBtn.innerHTML = ICON_PLAY; apPlayBtn.setAttribute('aria-label','Play');
     setActiveCue(-1);
-    document.getElementById('article').classList.remove('audio-playing');
   });
   a.addEventListener('error', () => {
     const toast = document.getElementById('shareToast');
@@ -12731,59 +12661,6 @@ document.getElementById('article').addEventListener('touchmove', noteManualScrol
 document.getElementById('article').addEventListener('wheel', noteManualScrollForAudioFollow, {passive:true});
 document.getElementById('aboutPanel').addEventListener('touchmove', noteManualScrollForAudioFollow, {passive:true});
 document.getElementById('aboutPanel').addEventListener('wheel', noteManualScrollForAudioFollow, {passive:true});
-
-// v461: after a reader scrolls by hand and lets go, settle on a sentence boundary rather than
-// leaving whatever sentence happened to land straddling the top edge, cut off mid-line. Reuses
-// the SAME [data-cue-idx] sentence spans wireSentenceCues()/applyCueMarkup() already wrap every
-// sentence in for audio highlighting/tap-to-seek — no new markup needed. Independent of playback
-// (works whether or not audio is running); if audio-follow is actively driving the scroll itself
-// (driveAudioFollow, above) there's no "reader let go" moment to react to, since that path never
-// fires the scroll-settle timer's triggering gesture in the first place.
-let scrollSnapTimer = null;
-const SCROLL_SNAP_SETTLE_MS = 160;
-function scheduleScrollSnap(artEl){
-  clearTimeout(scrollSnapTimer);
-  scrollSnapTimer = setTimeout(() => snapToSentenceBoundary(artEl), SCROLL_SNAP_SETTLE_MS);
-}
-// Finds whichever sentence span currently straddles the "safe top" line (just below the sticky
-// header, and below the sticky section heading too while one is showing — see .audio-playing)
-// and glides just far enough to bring its TOP flush with that line, so it reads in full rather
-// than starting mid-sentence. Does nothing if the topmost visible sentence already starts there,
-// or if there's nothing to measure (no cues matched, or the very top/bottom of the article).
-function snapToSentenceBoundary(artEl){
-  if(!artEl || !artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
-  if(!cueEls.length) return;
-  const stickyHeader = document.getElementById('artSticky');
-  const stickySection = artEl.classList.contains('audio-playing')
-    ? document.querySelector('#artStoryText .arth')
-    : null;
-  const headerH = stickyHeader ? stickyHeader.offsetHeight : 0;
-  const sectionH = (stickySection && getComputedStyle(stickySection).position === 'sticky') ? stickySection.offsetHeight : 0;
-  const safeTop = headerH + sectionH;
-  const artRect = artEl.getBoundingClientRect();
-  let straddling = null;
-  for(let i = 0; i < cueEls.length; i++){
-    const els = cueEls[i];
-    if(!els || !els.length) continue;
-    let top = Infinity, bottom = -Infinity;
-    els.forEach(el => {
-      const r = el.getBoundingClientRect();
-      top = Math.min(top, r.top - artRect.top);
-      bottom = Math.max(bottom, r.bottom - artRect.top);
-    });
-    if(!isFinite(top)) continue;
-    // Straddling = starts above the line but ends at or below it (genuinely cut off) — a
-    // sentence that starts AT OR BELOW safeTop is already landing cleanly; nothing to fix.
-    if(top < safeTop - 2 && bottom > safeTop + 2){ straddling = { top, bottom }; break; }
-  }
-  if(!straddling) return;
-  const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
-  const target = Math.min(max, Math.max(0, artEl.scrollTop + (straddling.top - safeTop)));
-  if(Math.abs(artEl.scrollTop - target) < 4) return;
-  animateFollowScroll(artEl, target);
-}
-document.getElementById('article').addEventListener('scroll', () => scheduleScrollSnap(document.getElementById('article')), {passive:true});
-document.getElementById('aboutPanel').addEventListener('scroll', () => scheduleScrollSnap(document.getElementById('aboutPanel')), {passive:true});
 function seekToCue(idx){
   const cue = currentCues[idx];
   if(!cue || !audioEl) return;
@@ -13730,27 +13607,6 @@ function syncLandImgWidth(){
   if(!img || !img.offsetWidth){ root.style.removeProperty('--landImgW'); return; }
   root.style.setProperty('--landImgW', img.offsetWidth + 'px');
 }
-// v461: the fixed bottom play bar used to just sit at 50% of the VIEWPORT — fine when the text
-// fills the viewport, wrong the moment it doesn't (landscape's side photo/facts column, or now
-// portrait's corner-badge reservation too). Measures .artwrap's own CONTENT box (border box
-// minus whatever padding is currently applied) and centers the bar on THAT instead — orientation-
-// and reason-agnostic, so it doesn't need to know why the padding is what it is, only what it
-// currently measures as. transform:translateX(-50%) (already on .audioBottomBar) still centers
-// correctly on a pixel left value, same as it did on a percentage.
-function syncAudioBarCenter(){
-  const bar = document.getElementById('audioBottomBar');
-  // v461 fix: three elements share class="artwrap" (article, About panel, one more) — an
-  // unscoped .artwrap grabbed whichever came first in the DOM, not necessarily #article's own,
-  // giving a centering calc based on the wrong element's (unreserved) padding.
-  const wrap = document.querySelector('#article.overlay .artwrap');
-  if(!bar || !wrap){ return; }
-  const cs = getComputedStyle(wrap);
-  const rect = wrap.getBoundingClientRect();
-  const contentLeft = rect.left + (parseFloat(cs.paddingLeft) || 0);
-  const contentRight = rect.right - (parseFloat(cs.paddingRight) || 0);
-  if(contentRight <= contentLeft){ bar.style.left = ''; return; } // nothing sane to measure yet
-  bar.style.left = ((contentLeft + contentRight) / 2) + 'px';
-}
 // v460: rotating mid-session (vs. opening fresh already in landscape) was leaving a gap between
 // the story and the photo. Cause: 'resize' can fire and this function can measure the photo's
 // offsetWidth before the browser has actually applied the @media(orientation:landscape) rules —
@@ -13759,7 +13615,7 @@ function syncAudioBarCenter(){
 // layout settle before measuring; orientationchange is a second trigger for builds where it fires
 // more reliably than resize on a rotation specifically.
 function syncLandImgWidthDeferred(){
-  requestAnimationFrame(() => requestAnimationFrame(() => { syncLandImgWidth(); syncAudioBarCenter(); }));
+  requestAnimationFrame(() => requestAnimationFrame(syncLandImgWidth));
 }
 window.addEventListener('resize', syncLandImgWidthDeferred);
 window.addEventListener('orientationchange', syncLandImgWidthDeferred);
