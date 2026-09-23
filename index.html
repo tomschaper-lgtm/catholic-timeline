@@ -1,6 +1,6 @@
 <!--
-VERSION: 460
-DATE: 2026-09-23T11:30:00-05:00
+VERSION: 461
+DATE: 2026-09-23T14:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,47 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v461 — 2026-09-23
+
+**Ask:**
+- Section heading sticky while the story is playing.
+- Portrait: text shouldn't scroll under the corner photo badge.
+- Manual scroll release should always settle on a full sentence, not cut one in half.
+- Different play button: solid navy circle, thicker gold border, bigger gold triangle, nothing
+  else. Applies portrait and landscape both. Button always centers on the article text, at the
+  bottom.
+
+**Implementation:**
+- .arth (section heading) gets position:sticky, top:var(--ahH) (the header's own height, already
+  kept live by syncStickyBackdrops() for an unrelated reason) ONLY while .audio-playing is on
+  #article — toggled in startAudioPlayback/stopAudioPlaybackInPlace/the 'ended' handler. Flat
+  navy backdrop rather than a gradient-matched one, for simplicity.
+- Portrait: new #article.hasPortrait .artwrap{padding-right:190px} (FLY_MAX + FLY_INSET + a
+  gap), scoped to @media(orientation:portrait) so it can't collide with landscape's own
+  --landImgW reservation. #flyPortrait is fixed for the whole scroll, not just near the top, so
+  only a permanent reservation actually guarantees text never runs under it.
+- Scroll-snap reuses the [data-cue-idx] sentence spans wireSentenceCues()/applyCueMarkup() already
+  wrap every sentence in — no new markup. On scroll, a 160ms settle timer finds whichever
+  sentence currently straddles the safe-top line (below the sticky header, and the sticky section
+  heading too when one's showing) and glides it flush via the same animateFollowScroll() the
+  audio-follow system already uses. Works independently of playback.
+- .audBarPlay: solid navy fill (was translucent gold), border 1px→2.5px, ICON_PLAY/ICON_PAUSE
+  25px→30px. New syncAudioBarCenter() measures #article's own .artwrap content-box center
+  (border box minus current padding) and sets the bar's left directly — orientation-agnostic,
+  automatically correct whether the narrowing is landscape's photo or portrait's new badge
+  reservation. Synced at the same points as syncLandImgWidth (article open, resize/rotation).
+- Two testing mistakes caught and fixed before shipping, both the same shape: an unscoped
+  `.artwrap` selector (three elements share that class — article, About panel, one more) grabbed
+  the wrong one, first making the portrait padding rule look broken, then making the bar-centering
+  read the wrong box. Both now scoped to `#article.overlay .artwrap` explicitly.
+- Verified in headless Chromium: portrait padding-right reads 190px on the real article element
+  with .hasPortrait; bar center matches the text column's true midpoint in both portrait (110px
+  vs. 195px viewport-center) and landscape (252px vs. 466px viewport-center); a synthetic
+  100-sentence article confirmed a straddling sentence (top 92.75px against a 101px header) is
+  fully resolved (no straddle) after the snap animation completes. Not verified against a real
+  audio-timing file live on site — first real playback is the true test of the sticky-heading
+  interaction with real section lengths.
+
 ## v460 — 2026-09-23
 
 **Ask:**
@@ -94,6 +135,675 @@ CHANGELOG:BEGIN
   nothing and threw — silently skipping every line after it. That's why "Report an issue" did
   nothing, Flag Issue couldn't have worked, and the disclaimer never appeared. The three blocks now
   sit before the script.
+
+## v457 — 2026-09-22
+
+**Ask:**
+- Landscape card should look like portrait: rounded corners, full gold border, padding. It should
+  animate up to take most of the screen. Hide the search box and hamburger. The picture must not
+  move. With no picture, split 50/50.
+
+**Implementation:**
+- Landscape #article.overlay: 96% wide (max 1400px), centered, 94dvh, gold hairline and 34px top
+  rounding restored — v455's full-bleed/square/borderless landscape rules dropped. The existing
+  slide-up transform gives the rise.
+- #searchRow and .hamBtn hidden via body:has(#article.open) in landscape only, matching the
+  technique .hamBtn already uses for the Content Manager.
+- #artLandImg inset 16px from the card's top/right, rounded and gold-bordered to match the card,
+  max-width 52%; still position:fixed against the card so it does not move while the story
+  scrolls. syncLandImgWidth now adds that 16px inset into --landImgW.
+- No photo: .factbox column widened from 32% to half the card (50/50), same inset/rounding.
+
+## v456 — 2026-09-22
+
+**Ask:**
+- Landscape with no picture: story on the left, Quick Facts on the right.
+
+**Implementation:**
+- fillArticleBody toggles .landFactsCol on #article when the entry has no image AND has facts
+  (no facts = story keeps full width). Class is inert in portrait.
+- In landscape that pins .factbox to the right edge at 32% width, full height, fixed against the
+  card like the side photo, scrolling internally if the list is long; borders/radius/margins
+  dropped so it reads as a column rather than a floating box, and padding-top clears the sticky
+  header. .artwrap/.artSticky pad right to match.
+
+## v455 — 2026-09-22
+
+**Ask:**
+- Landscape: article card fills the screen top to bottom; if there's a photo, it runs full height
+  down the right with its width proportional to the image; the story takes the space left of it;
+  year and name share one line.
+
+**Implementation:**
+- Landscape #article.overlay is now full-width, 100dvh, no radius/border (was 60% wide, 88vh).
+- New #artLandImg — a second <img> of the same picture, landscape-only, position:fixed against the
+  card (the card's transform makes it the containing block), top/right, height:100%, width:auto so
+  the aspect ratio sets the width; capped at 55%. The hero photo, its caption and #flyPortrait are
+  hidden in landscape: the fly morph is a portrait effect with nothing to do in this layout.
+- syncLandImgWidth() measures the photo on load/resize into --landImgW; .artwrap and .artSticky
+  pad right by that plus a gutter. Cleared when the entry has no photo, so the story runs full width.
+- .ahHead switches to a row in landscape (year and name on one line).
+
+## v454 — 2026-09-22
+
+**Ask:**
+- Photo view Ken Burns still zooms too quickly.
+
+**Implementation:**
+- Zooms lengthened from 9s to 18s each (4s holds unchanged): 132s loop of three 44s rounds.
+- Curve changed from cubic-bezier(.45,0,.25,1) to a sine ease, cubic-bezier(.37,0,.63,1) — the
+  old curve concentrated the motion mid-zoom, making the peak speed feel fast; sine keeps the
+  middle slow while still easing into and out of each stop. Depth (1.5x) and directions unchanged.
+
+## v453 — 2026-09-22
+
+**Ask:**
+- Photo view Ken Burns: stop for 4s after every zoom, in or out.
+
+**Implementation:**
+- kenBurnsPhoto retimed to a 78s loop of three 26s rounds: 9s push-in to 1.5x, 4s hold, 9s
+  pull-back to 1x (toward 3:00 / 7:00 / 11:00), 4s hold. Both zooms use one gentle curve,
+  cubic-bezier(.45,0,.25,1), so each eases out of its stop and slows before arriving.
+
+## v452 — 2026-09-22
+
+**Ask:**
+- Photo view Ken Burns: don't speed it up — go slow, slow down at the end of the zoom, stop 4s,
+  then slowly zoom out, and repeat.
+
+**Implementation:**
+- kenBurnsPhoto retimed to a 66s loop of three 22s moves: 9s push-in to 1.5x on the eyes
+  (ease-out, cubic-bezier(.25,.5,.3,1)), 4s hold, 9s ease-in-out pull-back to 1x. Pull-back
+  directions (3:00 / 7:00 / 11:00) kept from v451.
+
+## v451 — 2026-09-22
+
+**Ask:**
+- Photo view Ken Burns: zoom in and slow down at the end, pause about 2.5s, then go off in another
+  direction each time (3:00, 7:00, 11:00...).
+
+**Implementation:**
+- kenBurnsPhoto rewritten as a 34.5s loop of three 11.5s moves: 4.5s push-in to 1.5x on the eyes
+  (strong ease-out, cubic-bezier(.15,.6,.25,1)), 2.5s hold, 4.5s ease-in-out pull-back to 1x with
+  the anchor sliding toward 3:00 (95% 50%), then 7:00 (28% 89%), then 11:00 (28% 11%). Per-keyframe
+  timing functions; anchor snaps back to the eyes at scale 1 (invisible). No edges at any point.
+
+## v450 — 2026-09-22
+
+**Ask:**
+- Full-screen photo view: fade in and out gently over 1.5s. Ken Burns should zoom much farther
+  in, and zoom back out in a different direction.
+
+**Implementation:**
+- #photoView now hides with opacity/visibility (not display:none) so it can transition both ways;
+  1.5s opacity fade, visibility delayed on close. The image src is released 1.5s after close
+  (timer cleared if reopened mid-fade).
+- kenBurnsPhoto rewritten as a 12s one-way loop: scale 1 → 1.5 anchored at 50% 38% (eyes), then
+  back to 1 while the anchor slides to 82% 78%, so the pull-back drifts toward the lower right.
+  Anchors stay inside the frame and scale never drops below 1, so no edges show; the loop seam is
+  invisible because the anchor doesn't matter at scale 1.
+
+## v449 — 2026-09-22
+
+**Ask:**
+- Portrait: a single tap on the article picture opens it full screen on the topmost layer, audio
+  keeps playing, Ken Burns continues a bit faster, zoom focused slightly above center (where eyes
+  usually are), filled edge to edge with no border. Another tap closes it.
+
+**Implementation:**
+- New body-level #photoView (z-index 10000, above the audio bar). object-fit:cover with
+  object-position and transform-origin both at 50% 38%; new kenBurnsPhoto keyframes, 5s
+  alternate (article drift is 8s), scale 1 → 1.14 only — never below 1, so no edges show.
+  Honors prefers-reduced-motion like the existing effect.
+- Opens from a single tap on .artimg (artBody) or on #flyPortrait (the visible flying copy),
+  portrait only; landscape keeps the existing double-tap lightbox. Tap anywhere on the view closes.
+- Fix needed for "audio continues": the article's tap-anywhere-to-pause handler now ignores taps
+  on .artimg — otherwise opening the picture would have stopped the narration.
+- #photoView added alongside #imgLightbox to the outside-click exclusions and the flying-portrait
+  mask observer, so tapping it never closes the article and the corner badge hides beneath it.
+
+## v448 — 2026-09-22
+
+**Ask:**
+- Right-align the switches — the Review row's switch sat past the right edge, out of line with
+  the Offline Access and Owner Tools switches.
+
+**Implementation:**
+- The Review row has one extra item (the Show only pill), so at the standard 16px row gaps its
+  contents ran wider than the sheet and pushed the switch off the edge. #reviewModeRow now uses
+  10px gaps, the pill is slightly more compact (no extra right margin), and the label won't wrap.
+
+## v447 — 2026-09-22
+
+**Ask:**
+- Settings Review row: "Review" and "13 pending" were drawn on top of each other. Just show
+  "Review 13".
+
+**Implementation:**
+- The count moved inside the row's label span ("Review 13") instead of a separate .pMeta span —
+  the separate span was overlapping the shrinking .pName and pushing the switch past the edge.
+  Count text is now just the number (still shows 0).
+
+## v446 — 2026-09-22
+
+**Ask:**
+- Nothing about review mode should show on the timeline screen. Move it into the Settings menu as
+  one line: "Review · 13 pending", then a "Show only" pill. Must work with 0 pending too.
+
+**Implementation:**
+- Removed #reviewBanner (markup and CSS) from the timeline entirely.
+- Settings row renamed "Review Mode" → "Review"; the meta now always shows "N pending" (including
+  "0 pending"); #reviewOnlyBtn moved into the row as a light-theme "Show only" pill (.reviewOnlyPill,
+  filled when on), between the count and the switch.
+- The pill sits inside the row's <label>, so its click calls preventDefault/stopPropagation to keep
+  it from also flipping the Review switch. Turning Show only on while Review is off turns Review on;
+  turning Review off still clears Show only (existing setReviewMode behavior).
+
+## v445 — 2026-09-21
+
+**Ask:**
+- Review Mode: replace the brown "Review Mode / Show Only Pending" bar with one pill ("Review" off,
+  "Pending Only" on).
+- Tapping the article year in Review Mode jumps to a new status block at the bottom: largest
+  sentence word count, proofread status, Submit to Proofread, and a Flag Issue button (audio
+  pronunciation/timing, image, facts, mark for review — each with a note and a "Remove from public
+  view" switch).
+- Facts flags feed a new fact-research service: several models (Claude, Luna, Gemini) each
+  independently research the question and propose a Quick Fact (add/update) or a section
+  (swap/insert by position), with source link and note. No voting — a picker screen shows each
+  answer; Approve, Override, or Edit the one you like, and move an inserted section up/down.
+
+**Implementation:**
+- Pill: #reviewBanner loses its label and colored bar; #reviewOnlyBtn reads Review / Pending Only.
+- New longestSentenceWordCount() (same splitting/skip rules as entryHasLongSentence). Article Status
+  block in fillArticleBody (Review Mode + unlocked + real article). Submit to Proofread reuses
+  tkQueueQuickTask('arbitrate'). Year tap handled by a delegated click on .ahYear.
+- Flag modal (#flagModal, shares report-modal styling): writes a category-tagged note into
+  entry.reviewNote; sets entry.review only if the switch is on (defaults on for "Mark for review"
+  only); publishes; then queues audio-generate / image-generate / fact-research unless one is
+  already pending. Facts shows a change-type picker (Quick Fact / Section) sent as
+  payload.changeType. tkQueueQuickTask gained an optional payload override.
+- New task type 'fact-research' (TK_SERVICES, addable:false). Review screen
+  tkRenderFactResearchReview: preview built with the EXISTING tkRenderFacts/tkRenderArticle so
+  preview and apply share one code path; tkRenderArticle extended to render whole-section swap and
+  insert (heading + body). tkFactCandidateToPatch converts a candidate to the standard patch tuple:
+  quickFact update with no matching label becomes an add (per Tom); section insert translates
+  Tom's 1-based landing slot to applyOnePatch's "after section N" convention (N = position − 1).
+  Approve applies via applyOnePatch; same deferred publish/worklog flags as arbitrate. Pills select
+  + toggle the reason (method badge Searched/From memory, source link); misses listed below.
+- Verified in Node against the real client functions: quick fact add / update / update-no-match,
+  section swap, and insert at slots 1, 3, and append — preview and applied result match in every
+  case. Not verified live.
+- Server (separate files): scripts/services/fact-research.mjs (new) and a two-line
+  orchestrator.mjs registration. Needs ANTHROPIC_API_KEY passed through orchestrator.yml env.
+
+## v444 — 2026-09-20
+
+**Ask:**
+- Approve/Override in Arbitrate Review still feels slow on every tap — can decisions be batched
+  and only actually published when closing the queue, e.g. every 20 articles?
+
+**Implementation:**
+- That batching already existed for the expensive half of this (v400's deferred content-publish:
+  publishToGitHub()/data.json only fires for real on the last decision in a queue, or on exit).
+  What it missed: saveWorkLog() — a SEPARATE GET+PUT to workLog.json for task status/bookkeeping —
+  was unconditional in all three places that call it (tkResolveArbitrateDebate,
+  tkSaveArbitrateEdit, and wlResolveTasks, which the sentence-reword/auto-approve flow also uses),
+  regardless of whether content-publish itself was deferred. That's the real source of "every tap
+  is slow" even with v400 already live: a full GitHub round-trip on every single Approve/Override/
+  Edit tap, unrelated to content.
+- New tkDeferredWorkLogIds/tkFlushDeferredWorkLog(), same shape as tkDeferredPublish/
+  tkFlushDeferredPublish: accumulates every touched task id instead of saving immediately;
+  tkFlushDeferredPublish() now flushes both together, so the three existing exit points
+  (finishing the queue, tkGoList(), closeTaskPanel()) cover this for free — no new wiring needed
+  at the call sites that already trigger a flush.
+- Didn't build a fixed "publish every 20" — the existing deferral already collapses arbitrarily
+  many decisions into exactly 1 round-trip at the true end of a session (or on early exit), which
+  is strictly fewer network calls than a fixed batch size would produce.
+- Also fixes the same problem for sentence-reword's manual approve/reject (tkResolveCurrent) and
+  auto-approve, both of which go through wlResolveTasks — auto-approve was already batching
+  content-publish at TK_AUTO_PUBLISH_BATCH_SIZE (10) but re-saving workLog.json on every poll
+  regardless; it now batches both together at the same cadence.
+- Verified by simulation (Node, not the live site): 20 sequential approvals through the same
+  defer/flush logic now produce exactly 1 publishToGitHub() call and 1 saveWorkLog() call, versus
+  1 and 20 before this fix.
+
+## v443 — 2026-09-20
+
+**Ask:**
+- "Couldn't find this exact wording" still firing on the St. Vincent Ferrer / Helping End the
+  Schism arbitrate debate, even after the tag-stripping and curly-quote fixes — diagnose and fix
+  if possible.
+
+**Implementation:**
+- Diagnosis (not confirmed against arbitrate.mjs's own source, which isn't visible from this
+  file): the debate's before-text (sentence #1-2) crosses a paragraph break — the raw Edit box
+  showed it as two separate one-sentence paragraphs. Likely cause: the AI proposer reads the
+  article as flowing prose (a paragraph gap collapsed to a plain space) when it quotes before/
+  after, while the stored text keeps a literal "\n\n" between paragraphs, so an otherwise
+  word-for-word match came out one character short.
+- Couldn't just collapse "\n\n" to a space in tkStripInlineTagsTracked's output, though —
+  tkRenderArbitrateArticle's own paragraph split depends on that literal gap surviving in
+  plainFull, and collapsing it there would merge every paragraph in a section together for
+  highlighting. New tkNthIndexOfFlexibleWs instead makes the SEARCH tolerant: each whitespace run
+  in the needle matches one-or-more whitespace characters in the haystack, leaving plainFull
+  itself untouched. Returns the real matched {index, length} rather than a bare index, since the
+  matched span can now be longer than needle.length (a "\n\n" absorbing what was one space in the
+  needle) — every caller was updated to use that length instead of assuming needle.length.
+- Scoped to 'article'-kind debates only (tkFindDebateSpan, tkApplyDebateText's article branch);
+  facts/quotes values are short single fields with no paragraphs to cross, so they keep
+  tkNthIndexOf's exact match unchanged.
+- Also fixed tkDebateShownText (prefills the Edit box): it was matching raw tkNthIndexOf directly
+  against the UNTOUCHED raw HTML, never tag-stripped and never whitespace-flexible, so it fell
+  back to the unmodified section any time a span touched a tag or crossed a paragraph gap — even
+  after tkApplyDebateText itself was fixed for the tag case. Its own comment already claimed
+  parity with tkApplyDebateText; it now actually has it, sharing the same tag-strip +
+  flexible-whitespace match for the 'article' case.
+- Verified against a reconstruction of the actual St. Vincent Ferrer text from Tom's screenshots
+  (Node, not the live site — no access to the real stored entry): the new match correctly spans
+  the `<a>` cross-reference link AND the paragraph gap, and the existing link-preservation rule in
+  tkApplyDebateText correctly drops the Council of Constance link since the proposed replacement
+  doesn't mention it by name. Not verified live — worth confirming this debate now resolves
+  cleanly after deploying.
+
+## v442 — 2026-09-20
+
+**Ask:**
+- Wire up the "Report an issue" button so submissions actually reach Tom.
+
+**Implementation:**
+- `WEB3FORMS_KEY` set to Tom's real Web3Forms access key, replacing the
+  `PASTE_YOUR_WEB3FORMS_ACCESS_KEY_HERE` placeholder. No other logic in the report-modal flow
+  changed — the fetch call, fields, and modal were already wired up in a prior version and just
+  needed a real key. Submissions now deliver to the inbox tied to that Web3Forms account.
+
+## v441 — 2026-09-20
+
+**Ask:**
+- Remove the small version number next to "Catholic Timeline" in the header.
+
+**Implementation:**
+- `#versionStamp` removed outright: the span from the `<h1>`, the line that set its text, the
+  Owner-Tools visibility toggle in `updateManageVisibility()`, and its CSS block. It was already
+  hidden from visitors, so this only changes what the owner sees.
+- The running version is still on show in Settings ("Version up to Date  v441"), which is where
+  to read it now — worth knowing, since the header stamp was how we'd been confirming which build
+  was live from screenshots.
+
+## v440 — 2026-09-20
+
+**Ask:**
+- The blank blue either side of the article in landscape should be gone — the timeline should
+  show down both sides.
+
+**Implementation:**
+- The narrowing was on the wrong element. v437 narrowed `.artwrap`, the text column INSIDE the
+  sheet, while the sheet itself (`#article.overlay`, in the `pointer:coarse` block) stayed
+  `width:100%` full-bleed — so the text moved in but the blue still ran edge to edge. Corrected:
+  `#article.overlay` is now `width:60%` centered in landscape, and v437's `.artwrap` cut is
+  dropped since the column simply fills the narrower sheet now.
+- Centered via auto side margins against the existing `left:0/right:0` rather than by adding a
+  `translateX` to the transform. That transform is animated across four states here (base, open,
+  peek, expanding) and the fly-portrait maths reads it; an over-constrained fixed box resolves to
+  centered on auto margins, leaving all of them untouched.
+- Checked that nothing in JS assumes the sheet spans the viewport — the portrait morph and
+  sticky-backdrop code all measure via `getBoundingClientRect()`, so they follow the new width.
+- Tapping the now-exposed timeline either side still closes the article, unchanged.
+
+## v439 — 2026-09-20
+
+**Ask:**
+- v425's era-label behaviour was right; just a bit more padding as the label slides off. Revert
+  if that isn't possible.
+
+**Implementation:**
+- Reverted v438 (`ERA_LABEL_MARGIN` back to 8). That was the wrong lever and a provable no-op for
+  this case: simulating an era entering from the screen edge gives byte-identical label positions
+  at 8 and 24, because the era-bounds clamp binds first and the viewport inset never gets a say.
+- The gap Tom was actually describing is `.era span`'s own side padding — the clamp rests the
+  SPAN's edge on the era divider, so that padding is the gap between divider and text. 8px -> 22px.
+  Verified this one does move the gap, unlike v438's.
+- No behavioural change otherwise: the v425 slide-off is exactly as it was.
+
+## v438 — 2026-09-19
+
+**Ask:**
+- Era label edge padding (the min gap from the screen edge before a label starts riding off, per
+  v425) should be 3x what it currently is — "Age of Martyrs" was reading flush against the edge.
+
+**Implementation:**
+- `ERA_LABEL_MARGIN` 8 -> 24. Single constant, used symmetrically on both edges in
+  `updateEraLabels()`, so both sides got wider at once.
+
+## v437 — 2026-09-19
+
+**Ask:**
+- Narrow the article box by 40% too, not just the fact box — the outer story container, still
+  landscape only.
+
+**Implementation:**
+- `.artwrap` gets its own landscape-only rule: `max-width:432px` (40% off its 720px base),
+  still centered by the `margin:0 auto` it already had. Portrait untouched.
+- `.factbox`'s separate 60%-of-parent cut from v433 was dropped in favor of filling 100% of the
+  now-narrower `.artwrap` — stacking both independent 40% cuts would have compounded to roughly
+  260px, too narrow to read a label and its value side by side.
+
+## v436 — 2026-09-19
+
+**Ask:**
+- Saints search box: ignore "st", "st.", "Saint", "Saints" as noise words.
+- "ro be" should find Robert Bellarmine — space-separated fragments, all required, each
+  matching anywhere (not as one contiguous substring).
+- Apply the fragment matching to all search boxes.
+
+**Implementation:**
+- New shared `SEARCH_STOPWORDS` ('st','saint','saints','sts' — 'sts' added alongside Tom's four
+  since `spDisplayName()` already treats it as the same honorific for display), `searchFragments()`
+  and `fragmentsMatchAny()`, used by both `spRows()` and `brRows()`. Replaces their old
+  `spNormalize(e.n).includes(q)` whole-string check, which required the ENTIRE query as one
+  contiguous substring — "ro be" never matched "Robert Bellarmine" there before this.
+- Real prior bug this fixes: entries store the name as "St. ___" literally, so a reader who
+  typed "Saint" (spelled out, as many naturally would) got zero results — "saint" never appears
+  as a substring of "st. ___". Verified: "saint augustine"/"st augustine" and "saints cosmas"
+  now both find their entries; "st"/"saint"/"st." typed alone now fall back to showing
+  everything (frags empty) rather than matching nothing.
+- The timeline's own `#tlSearch` already did per-fragment AND-substring matching (each parsed
+  term independently required, found anywhere in the field) — that part didn't need changing.
+  Only the stopword drop was missing: `parseSearchQuery()` now skips a plain (unquoted,
+  non-excluded) token via `isStopwordTerm()`, which tolerates the trailing period `fold()`
+  leaves on "St." that `spNormalize()` would otherwise strip. A quoted `"saint"` is a deliberate
+  whole-word search and is left alone.
+- Left out of this pass, pending confirmation: the Manage-side search boxes (`#mSearch`,
+  `#mfSearch`, `#logSearch`, `#lpSearch`) — CMS/owner tools rather than the three reader-facing
+  list searches this was actually about. Say if any of those should get the same treatment.
+
+## v435 — 2026-09-19
+
+**Ask:**
+- Slow the timeline travel animation down a little more.
+
+**Implementation:**
+- `animateScroll()`'s duration multiplier 2 -> 2.5 (v420 had doubled it from the original; this
+  is a smaller further step, not another doubling). Range is now roughly 1050-2875ms by distance,
+  up from 840-2300ms.
+
+## v434 — 2026-09-19
+
+**Ask:**
+- Give every category a search box, with recent searches kept separate per category.
+
+**Implementation:**
+- Browse panel gains the same search shell as Saints (`#brSearch`/`#brSearchClear`/`#brRecentBox`),
+  inside `.panelHead` for the same reason — the compact layout pulls it onto the title row. The
+  `.listPanel .panelHead .spSearchWrap` layout rules were Saints-scoped and are now shared, so
+  Browse's compact header is title + pill + search + × like Saints', answering v433's open
+  question: no empty space and no Browse-only special case.
+- `brRows()` filters on the entry name OR the category's own last-column value (`cfg.lastValue`),
+  so "France" in Councils and "Poland" in Eucharistic Miracles match by the same text visible in
+  the list. Verified across name and region matching.
+- Recents are keyed per category — `ct-browse-recent-searches-c|p|u|m|e` — so Councils' history
+  never appears while browsing Persecutions, and none of them mix with the Saints list
+  (`ct-saints-recent-searches`) or the timeline's. Same promote-don't-duplicate and cap-at-5
+  behaviour, and the term is pushed on a row tap, matching Saints.
+- Placeholder is set per category on open ("Search councils", "Search persecutions", ...).
+  Search clears on open; sort/filter/scroll still carry over as before.
+
+## v433 — 2026-09-19
+
+**Ask:**
+- The compact slide-out treatment should cover every category, not just Saints.
+- Undo v432's article-width reduction — the 40% was meant for the Quick Facts box (the bordered
+  panel inside the story), and only in landscape.
+
+**Implementation:**
+- Reverted `.artwrap` to its original flat `max-width:720px`.
+- `.factbox` instead gets `width:60%` centered under `@media (orientation: landscape)`. Portrait
+  keeps full width, where there is no room to spare.
+- Both left-slide list panels now carry a shared `listPanel` class, and the whole compact media
+  block was retargeted from `.saintsPanel` to `.listPanel` and relocated below `.browsePanel`'s
+  own base rules so its top/max-height overrides land without extra specificity. Browse rows are
+  already `class="spRow brRow"`, so the shorter-row rule reached them unchanged.
+- `setSpChipsOpen`/`syncSpChipBand` generalised to `setChipsOpen(prefix, on)`/`syncChipBand(prefix)`
+  keyed on 'sp'/'br'; the old Saints names remain as thin wrappers so existing call sites read
+  unchanged. Browse gets its own `#brChipBand` pill, wired to open/close/render the same way.
+- A category with no chips of its own (Persecutions, Events today) hides its pill row rather than
+  showing a dead control — `syncChipBand` sets `hidden` from whether any chip exists.
+- `body.saintsPanelOpen` renamed `listPanelOpen` and now toggled by both panels, so the app title
+  slides clear of either.
+
+**Open question:** Browse has no search box, so its compact header is just title + pill + ×, with
+the row that Saints spends on search left empty. Options: leave it (simplest), pull the pill up
+onto the title line for Browse only, or give Browse a search box of its own. Say which.
+
+## v432 — 2026-09-19
+
+**Ask:**
+- The All/Feast view reads "Saint's" in the compact layout — drop the possessive.
+- Point the pill arrow down and make it slightly larger.
+- The article overlay runs the full width of the screen; make it 40% narrower, centered.
+
+**Implementation:**
+- Compact hides the italic second half of the title, which left "Saint's Feast Day" as a bare,
+  dangling "Saint's". `renderSaintsPanel()` now wraps only the apostrophe in a `.spPoss` span,
+  which the compact media query drops — so the word reads "Saints" there and the full-height
+  title is byte-identical to before. One string, no second copy to keep in step. Verified across
+  all five title variants.
+- `.spChipBandArrow` path flipped to a down triangle, 13px -> 16px.
+- `.artwrap` max-width `720px` -> `min(720px, max(60vw, 340px))`: 40% narrower and still centered,
+  with a 340px floor so it doesn't collapse to a column on a narrow portrait phone, and the old
+  720px still acting as the ceiling on a wide desktop window. `#manage .artwrap`'s 900px override
+  is untouched.
+
+## v431 — 2026-09-19
+
+**Ask:**
+- Center the pill under the category word itself, tightly spaced.
+- Bring the search box down so it is vertically centered against the category/pill pair.
+- Take the panel all the way to the top, and move "Catholic Timeline" right so it stays visible
+  while the panel is open.
+
+**Implementation:**
+- `.spChipPillRow` moved inside `.spTitleWrap`, which becomes a centered flex column in compact
+  mode (`gap:3px`) — so the pill centers on the category word rather than on the panel, and the
+  two read as one unit.
+- `.panelHead` gets an explicit `align-items:center`, which puts the search box and the × on the
+  vertical midline of the title+pill stack instead of level with the title alone.
+- Compact `.saintsPanel` top `46px + safe-area` -> 0 and max-height -> `100vh`; rounded right
+  corners unchanged.
+- The panel now covers the header's left end, so `body.saintsPanelOpen h1` translates the app
+  title right by half the panel's width, on the same easing curve and duration as the panel's own
+  slide so the two move together. The class is toggled unconditionally in `openSaintsPanel()`/
+  `closeSaintsPanel()`; only the compact media query has a rule for it, so it is inert elsewhere.
+
+## v430 — 2026-09-19
+
+**Ask:**
+- Keep the sort column headers.
+- Drop the gold band at the foot; move the category up nearer the top and put a gold pill with
+  an arrow centered tightly underneath it. There was unused room at the top.
+- Let the panel run to the full bottom of the site, keeping its rounded corners.
+- Slightly shorter rows.
+
+**Implementation:**
+- `#spChipBand` moved out of the panel foot into a new `.spChipPillRow` directly under
+  `.panelHead`, restyled from a full-width band into a centered rounded pill. While the sheet is
+  up the row goes `visibility:hidden` rather than `display:none`, so the rows below it don't jump
+  by its height each time the sheet opens.
+- Compact `.saintsPanel` padding-top 22px -> 10px, `.panelHead` padding-bottom 18px -> 0, title
+  26px -> 22px, and max-height from `100vh - 78px` to `100vh - 46px - safe-area-top` so the panel
+  reaches the window foot. `border-radius:0 26px 26px 0` untouched.
+- `.spRow` vertical padding 11px -> 8px in compact. `--rowH` is re-measured off a real row on
+  every render, so the sticky group label and the infinite-loop maths follow automatically —
+  there is no constant to keep in step.
+- `.spListWrap` gains a safe-area bottom pad, since the list now ends at the physical screen edge
+  rather than 78px above it.
+- Budget check at the new numbers: ~10 rows at 540px viewport height, 6-7 on a landscape phone
+  (390-430px) — up from roughly 4 before this pass. The sort header stays, as asked.
+
+## v429 — 2026-09-19
+
+**Ask:**
+- When the Saints panel is short on space (ten rows or fewer), buy back room: drop the subtitle
+  and move the search box up beside the title, ending before the close ×.
+- Turn the chip bar into a sheet that slides up from the bottom and retires once a selection is
+  made. The bottom quarter-inch becomes a gold band naming the selection in white with an arrow
+  hinting at the sheet; the band disappears while the sheet is up, and the sheet reaches the
+  very bottom.
+
+**Implementation:**
+- The Saints search box now lives inside `.panelHead` rather than as a sibling below it. At full
+  height `.saintsPanel .panelHead` wraps it to its own full-width line (`order:3; flex:0 0 100%`)
+  so nothing looks different; the compact layout re-orders it between title and × instead. Only
+  this panel's markup moved — Browse and Task keep theirs as siblings.
+- Compact layout is gated on `@media (max-height:760px)`, roughly where the fixed chrome stops
+  leaving ten rows. Phones in portrait and tablets stay on the full layout; landscape phones and
+  short desktop windows get the compact one.
+- `.spChips` becomes `position:absolute; bottom:0` in compact mode, so the list keeps the height
+  the bar used to take, and rides in on a transform under `.saintsPanel.chipsOpen`. New
+  `#spChipBand` takes its place in flow.
+- `setSpChipsOpen()`/`syncSpChipBand()` handle raise/dismiss and the label. The sheet closes on a
+  chip pick, on Learn More, and on any pointerdown in the list. Both look their elements up by id
+  rather than closing over consts — they are called from `renderSaintsPanel()`/
+  `openSaintsPanel()`, defined earlier in the file, so a const declared at their own definition
+  point would sit in its temporal dead zone for any call that ran first.
+
+## v428 — 2026-09-19
+
+**Ask:**
+- Settings update row: show the version number right after "New Version", with the Update button
+  still on the right. Drop the right-hand arrow on the up-to-date state, make the version number
+  black like the rest of the row, and have it read "Version up to Date  v4NN".
+- Make the Offline Access disclosure triangle bigger.
+
+**Implementation:**
+- `.pChev` removed from `#updateBtn`'s markup (the other two rows that navigate, Install and
+  Manage, keep theirs). `setPendingReload()` no longer hides `#updateCur` — the version number
+  now holds its slot in both states, so the row reads "Version up to Date  v427" or
+  "New Version  v433  [Update]".
+- `#updateCur` overrides `.pMeta`'s dimmed grey with #111827. It is the row's actual answer
+  rather than a secondary note, unlike Review Mode's "13 pending", which stays grey.
+- The up-to-date branch of `checkVersion()` now resets `#updateCur` to `APP_VERSION`; a previous
+  check could otherwise leave a newer pending number sitting next to "Version up to Date".
+- `.pCaret svg` 17px -> 24px.
+
+## v427 — 2026-09-19
+
+**Ask:**
+- Put changelog entries in index.html's header in a set format, then have a daily service pull
+  them into CHANGELOG.md and trim the header.
+
+**Implementation:**
+- New sentinel-delimited staging block in this header (see the prose above it), plus
+  `scripts/sync-changelog.mjs` and `.github/workflows/sync-changelog.yml` running it daily.
+- Entries start here rather than in CHANGELOG.md because index.html is the file a chat session
+  can edit and hand back whole — v420-v426 had all shipped without ever reaching CHANGELOG.md.
+  This release backfills them.
+- Prunes by version number, never by age, and asserts every version it drops is present in
+  CHANGELOG.md first: a run that fails for a week loses nothing, and a second run the same day is
+  a no-op. Rewrites only the span between the sentinels; aborts if either is missing or doubled.
+
+## v426 — 2026-09-19
+
+**Ask:**
+- Tapping the search box should place the cursor on the first tap, not the second.
+- Any tap, drag or scroll outside the search box or its dropdown should close the dropdown.
+- Readers who pinch-zoom get stuck; unzoom automatically on the common paths.
+
+**Implementation:**
+- `#tlSearch`'s focus handler no longer calls `runSearch()` inline. Building the dropdown
+  synchronously while the browser was still settling focus is what made the first tap land the
+  focus (recents appeared) without landing a usable caret. Deferred with `setTimeout(..., 0)`.
+  Best-supported explanation rather than a confirmed one — `user-select`, stray `blur()` calls,
+  the hamburger's outside-handler and the viewport-resize handler were all ruled out first, but
+  this was not reproducible off-device.
+- New `closeSearchResults()`, wired to a capture-phase document `pointerdown` (anything not
+  inside `.searchwrap`) and to `viewport`'s scroll. Capture + pointerdown for the same reasons
+  the hamburger menu's own outside-handler uses them: it still fires for handlers that
+  stopPropagation, and for touch-scrolling that never produces a click. Also drops the keyboard.
+- New `resetPageZoom()`. There is no API to set page zoom, so it momentarily adds
+  `maximum-scale=1, user-scalable=no` to the viewport meta (making the browser snap back) and
+  restores the original 350ms later, so pinch still works immediately after. Called from
+  `focusEntry()` and `closeArticle()` — navigation moments, not a timer, so a deliberate zoom is
+  never yanked away mid-read. No-op below scale 1.01.
+
+## v425 — 2026-09-19
+
+**Ask:**
+- Era labels pop off screen all at once when the era gets cramped; they used to slide off
+  holding their padding. Same in both directions.
+
+**Implementation:**
+- `updateEraLabels()` now clamps the label's center into its era's own bounds
+  (`[eraLeft + w/2, eraRight - w/2]`) instead of hiding it when the visible slice is too narrow.
+  While there is room the clamp doesn't bind and the label stays centered in the visible slice;
+  once the slice narrows it comes to rest against its era's boundary and rides it off the screen
+  edge. This is the same result the old `position:sticky` produced at the edges (its containing
+  block did the clamping), now with the centered behaviour through the middle that sticky could
+  not give. Era narrower than its own name at the current zoom falls back to the band's midpoint.
+- Reverted v423/v424's opacity fade on `.era span` — nothing hides anymore.
+
+## v424 — 2026-09-19
+
+**Ask:**
+- Offline Access should only appear when Owner Tools is on.
+- Add a blue triangle after "Offline Access": tapping the row from the left edge through the
+  triangle expands the note below and flips the triangle; remember the state. Tapping right of
+  the triangle toggles the switch.
+- The Font Size label should match the other rows' font face.
+
+**Implementation:**
+- `#offlineRow` and `#offlineNote` now follow `unlocked` in `updateManageVisibility()`, the same
+  rule as Review Mode and Manage. Note this removes the only control that starts the service
+  worker from ordinary visitors — anyone who already enabled it keeps it, since the stored
+  `offline-access` preference and its registration are untouched.
+- The row stopped being a `<label>`: a label wrapping the whole row claims every tap on it for
+  the checkbox, caret included. It is now a plain div holding `.pDisclose` (tile + name + caret,
+  a real button) and `.pSwitchHit` (a `<label for>` filling the rest out to the switch).
+  Disclosure state persists in `localStorage` under `offline-note-open`, collapsed by default.
+- `.pSpecimen` lost its `font-family:'EB Garamond'` override (it was deliberate once — the label
+  doubled as a live size specimen). It still scales with the stepper, just in system-ui now.
+
+## v423 — 2026-09-19
+
+**Ask:**
+- Era labels arrive chopped mid-word when an era scrolls in from the left.
+
+**Implementation:**
+- Superseded by v425 — see there. This release hid the label whenever its visible slice was
+  narrower than the label itself, which stopped the chopping but introduced the popping v425
+  fixes properly.
+
+## v422 — 2026-09-19
+
+**Ask:**
+- Move the Update button onto the same line as the version row, replacing "Available".
+
+**Implementation:**
+- `#updateActionBtn` moved inside `#updateBtn` as an inline `.pUpdateInline` pill and is no
+  longer its own button — a tap anywhere on the row already reaches the row's own handler, which
+  reloads whenever `pendingReload` is true, so its separate click listener was removed.
+  `setPendingReload()` now also hides `#updateCur` and `.pChev`, whose spot the pill takes. Label
+  text shortened to "New Version".
+
+## v421 — 2026-09-19
+
+**Ask:**
+- Era labels that have room should stay centered in the visible part of their band.
+
+**Implementation:**
+- `.era span` moved off `position:sticky` onto JS positioning via a new `updateEraLabels()`,
+  scroll-driven like `updateBandIconFade()`/`updateCenterYearBadge()`. Sticky could only clamp to
+  a flat offset from the screen edge, so an era wider than the viewport sat pinned at that edge
+  for most of the scroll through it.
+
+## v420 — 2026-09-19
+
+**Ask:**
+- Timeline travel should ease in and out, and run about twice as long.
+
+**Implementation:**
+- `animateScroll()`'s duration doubled (now roughly 840–2300ms by distance). The ease curve was
+  already a slow-start/slow-end cubic; at the old 420–1150ms range it read as a near-linear snap.
 CHANGELOG:END
 -->
 <!DOCTYPE html>
@@ -1123,6 +1833,16 @@ CHANGELOG:END
   }
   .tkFactMethod.search{background:#E3F0E6; color:#2E6B3E;}
   .tkFactMethod.memory{background:#EDEDF2; color:#5B6472;}
+  /* v461: section heading sticks under the sticky article header WHILE AUDIO IS PLAYING (see
+     .audio-playing, toggled in startAudioPlayback/stopAudioPlaybackInPlace/the 'ended' handler) —
+     not all the time, per Tom's own scoping. top reuses --ahH, the article header's own measured
+     height (already kept live by syncStickyBackdrops() for an unrelated backdrop, so no new
+     measurement code needed). Flat navy rather than a gradient-matched backdrop like the header
+     gets — simpler, and close enough since .arth is a small band, not the whole header. */
+  .audio-playing #artStoryText .arth{
+    position:sticky; top:var(--ahH, 0px); z-index:6;
+    background:var(--navy, #0B1630); padding:10px 0 2px; margin-top:0;
+  }
   .tkImgNotesLabel{font-size:12px; color:#6B7280; margin:14px 0 5px;}
   .tkImgNotes{
     width:100%; box-sizing:border-box; border:1px solid #C7CAD3; border-radius:10px;
@@ -2250,6 +2970,16 @@ CHANGELOG:END
   /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
      so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
   .artLandImg, .artLandAnchor{display:none;}
+  /* v461: portrait's flying corner badge (#flyPortrait, up to FLY_MAX=156px + FLY_INSET=20px)
+     is position:fixed for the entire scroll, not just near the top — so "text never goes under
+     it" can only be guaranteed by reserving its footprint in the text column PERMANENTLY, the
+     same principle as landscape's --landImgW reservation, just for a small corner instead of a
+     full side column. 190px covers the badge's max width + inset + a breathing gap. Scoped away
+     from landscape (own @media block below) since the badge is hidden there entirely (v458) and
+     that layout already reserves space for its own, much larger side photo. */
+  @media (orientation: portrait){
+    #article.hasPortrait .artwrap{padding-right:190px;}
+  }
   .artimg{width:100%; border-radius:14px; border:1.5px solid var(--gold); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
   /* Ken Burns (v213, opened to everyone in v414 — was Review Mode only while the effect was
      being evaluated before deciding whether to show it to visitors).
@@ -2529,9 +3259,13 @@ CHANGELOG:END
   .audBarBtn:hover{color:var(--gold-bright);}
   .audBarBtn:active{transform:scale(0.92);}
   .audBarSide{width:46px; height:46px; border-radius:50%;}
+  /* v461: solid navy circle (was translucent gold-tinted), thicker gold border, bigger glyph
+     (ICON_PLAY/ICON_PAUSE bumped 25→30px to match) — "nothing else": no shadow, no second
+     ring, just circle + border + glyph. Applies everywhere this one button is used (portrait and
+     landscape both use the same #audPlayBtn), not a Review Mode variant. */
   .audBarPlay{
     width:64px; height:64px; border-radius:50%;
-    background:rgba(201,165,66,.14); border:1px solid rgba(201,165,66,.5);
+    background:var(--navy, #0B1630); border:2.5px solid var(--gold);
   }
   /* Comfortable clearance so the fixed bar (above) never sits over the last lines of the story
      or Sources & Further Reading — see fillArticleBody's audioBottomSpacer. */
@@ -4365,7 +5099,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v460';
+const APP_VERSION = 'v461';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -10953,6 +11687,7 @@ function fillArticleBody(d, peek){
   // so it's harmless in portrait.
   document.getElementById('article').classList.toggle('landFactsCol', !hasImg && factList.length > 0);
   document.getElementById('article').classList.toggle('hasLandImg', hasImg);
+  document.getElementById('article').classList.toggle('hasPortrait', hasImg); // v461: portrait text-reservation for the corner badge — see its CSS comment
   {
     const landImg = document.getElementById('artLandImg');
     if(landImg){
@@ -10962,6 +11697,7 @@ function fillArticleBody(d, peek){
       document.documentElement.style.removeProperty('--landImgW');
     }
   }
+  syncAudioBarCenter(); // v461: re-centers on the text column, portrait's reservation and landscape's both — see its own comment
   // A deep ("=") search sets pendingSearchHighlight before opening the article; apply it now
   // that the prose is in the DOM. Runs before wireSentenceCues() only incidentally — the two
   // are order-independent, because wrapping text in a span doesn't change the flat text either
@@ -11629,8 +12365,8 @@ function fmtTime(s){
   const m = Math.floor(s/60), sec = Math.floor(s%60);
   return m + ':' + String(sec).padStart(2,'0');
 }
-const ICON_PLAY = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor" pointer-events="none"><path d="M7 4l14 8-14 8V4z"/></svg>';
-const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="25" height="25" fill="currentColor" pointer-events="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+const ICON_PLAY = '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" pointer-events="none"><path d="M7 4l14 8-14 8V4z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" pointer-events="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
 // Standard "skip to previous/next track" glyph (bar + triangle) — the metaphor still reads
 // correctly even though these skip by SECTION rather than by time/track; see audJumpSection().
 const ICON_PREV_SECTION = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" pointer-events="none"><rect x="4" y="4" width="3" height="16"/><path d="M20 4v16L8 12z"/></svg>';
@@ -11706,6 +12442,7 @@ function startAudioPlayback(){
   if(!audioEl) return;
   audioEl.play();
   if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PAUSE; apPlayBtn.setAttribute('aria-label','Stop'); }
+  document.getElementById('article').classList.add('audio-playing'); // v461: makes .arth sticky — see its CSS comment
   // Force a follow-check right now, regardless of whether the highlighted sentence is about to
   // change: this is exactly the moment a reader who scrolled elsewhere (e.g. down to the very
   // bottom, then started the story over) needs the view brought back to wherever playback is
@@ -11721,6 +12458,7 @@ function stopAudioPlaybackInPlace(){
   if(!audioEl) return;
   audioEl.pause();
   if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PLAY; apPlayBtn.setAttribute('aria-label','Play'); }
+  document.getElementById('article').classList.remove('audio-playing');
 }
 function toggleAudioPlayback(){
   if(!audioEl) return;
@@ -11812,6 +12550,7 @@ function initAudio(url, resumeTime){
   a.addEventListener('ended', () => {
     apPlayBtn.innerHTML = ICON_PLAY; apPlayBtn.setAttribute('aria-label','Play');
     setActiveCue(-1);
+    document.getElementById('article').classList.remove('audio-playing');
   });
   a.addEventListener('error', () => {
     const toast = document.getElementById('shareToast');
@@ -11992,6 +12731,59 @@ document.getElementById('article').addEventListener('touchmove', noteManualScrol
 document.getElementById('article').addEventListener('wheel', noteManualScrollForAudioFollow, {passive:true});
 document.getElementById('aboutPanel').addEventListener('touchmove', noteManualScrollForAudioFollow, {passive:true});
 document.getElementById('aboutPanel').addEventListener('wheel', noteManualScrollForAudioFollow, {passive:true});
+
+// v461: after a reader scrolls by hand and lets go, settle on a sentence boundary rather than
+// leaving whatever sentence happened to land straddling the top edge, cut off mid-line. Reuses
+// the SAME [data-cue-idx] sentence spans wireSentenceCues()/applyCueMarkup() already wrap every
+// sentence in for audio highlighting/tap-to-seek — no new markup needed. Independent of playback
+// (works whether or not audio is running); if audio-follow is actively driving the scroll itself
+// (driveAudioFollow, above) there's no "reader let go" moment to react to, since that path never
+// fires the scroll-settle timer's triggering gesture in the first place.
+let scrollSnapTimer = null;
+const SCROLL_SNAP_SETTLE_MS = 160;
+function scheduleScrollSnap(artEl){
+  clearTimeout(scrollSnapTimer);
+  scrollSnapTimer = setTimeout(() => snapToSentenceBoundary(artEl), SCROLL_SNAP_SETTLE_MS);
+}
+// Finds whichever sentence span currently straddles the "safe top" line (just below the sticky
+// header, and below the sticky section heading too while one is showing — see .audio-playing)
+// and glides just far enough to bring its TOP flush with that line, so it reads in full rather
+// than starting mid-sentence. Does nothing if the topmost visible sentence already starts there,
+// or if there's nothing to measure (no cues matched, or the very top/bottom of the article).
+function snapToSentenceBoundary(artEl){
+  if(!artEl || !artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
+  if(!cueEls.length) return;
+  const stickyHeader = document.getElementById('artSticky');
+  const stickySection = artEl.classList.contains('audio-playing')
+    ? document.querySelector('#artStoryText .arth')
+    : null;
+  const headerH = stickyHeader ? stickyHeader.offsetHeight : 0;
+  const sectionH = (stickySection && getComputedStyle(stickySection).position === 'sticky') ? stickySection.offsetHeight : 0;
+  const safeTop = headerH + sectionH;
+  const artRect = artEl.getBoundingClientRect();
+  let straddling = null;
+  for(let i = 0; i < cueEls.length; i++){
+    const els = cueEls[i];
+    if(!els || !els.length) continue;
+    let top = Infinity, bottom = -Infinity;
+    els.forEach(el => {
+      const r = el.getBoundingClientRect();
+      top = Math.min(top, r.top - artRect.top);
+      bottom = Math.max(bottom, r.bottom - artRect.top);
+    });
+    if(!isFinite(top)) continue;
+    // Straddling = starts above the line but ends at or below it (genuinely cut off) — a
+    // sentence that starts AT OR BELOW safeTop is already landing cleanly; nothing to fix.
+    if(top < safeTop - 2 && bottom > safeTop + 2){ straddling = { top, bottom }; break; }
+  }
+  if(!straddling) return;
+  const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
+  const target = Math.min(max, Math.max(0, artEl.scrollTop + (straddling.top - safeTop)));
+  if(Math.abs(artEl.scrollTop - target) < 4) return;
+  animateFollowScroll(artEl, target);
+}
+document.getElementById('article').addEventListener('scroll', () => scheduleScrollSnap(document.getElementById('article')), {passive:true});
+document.getElementById('aboutPanel').addEventListener('scroll', () => scheduleScrollSnap(document.getElementById('aboutPanel')), {passive:true});
 function seekToCue(idx){
   const cue = currentCues[idx];
   if(!cue || !audioEl) return;
@@ -12938,6 +13730,27 @@ function syncLandImgWidth(){
   if(!img || !img.offsetWidth){ root.style.removeProperty('--landImgW'); return; }
   root.style.setProperty('--landImgW', img.offsetWidth + 'px');
 }
+// v461: the fixed bottom play bar used to just sit at 50% of the VIEWPORT — fine when the text
+// fills the viewport, wrong the moment it doesn't (landscape's side photo/facts column, or now
+// portrait's corner-badge reservation too). Measures .artwrap's own CONTENT box (border box
+// minus whatever padding is currently applied) and centers the bar on THAT instead — orientation-
+// and reason-agnostic, so it doesn't need to know why the padding is what it is, only what it
+// currently measures as. transform:translateX(-50%) (already on .audioBottomBar) still centers
+// correctly on a pixel left value, same as it did on a percentage.
+function syncAudioBarCenter(){
+  const bar = document.getElementById('audioBottomBar');
+  // v461 fix: three elements share class="artwrap" (article, About panel, one more) — an
+  // unscoped .artwrap grabbed whichever came first in the DOM, not necessarily #article's own,
+  // giving a centering calc based on the wrong element's (unreserved) padding.
+  const wrap = document.querySelector('#article.overlay .artwrap');
+  if(!bar || !wrap){ return; }
+  const cs = getComputedStyle(wrap);
+  const rect = wrap.getBoundingClientRect();
+  const contentLeft = rect.left + (parseFloat(cs.paddingLeft) || 0);
+  const contentRight = rect.right - (parseFloat(cs.paddingRight) || 0);
+  if(contentRight <= contentLeft){ bar.style.left = ''; return; } // nothing sane to measure yet
+  bar.style.left = ((contentLeft + contentRight) / 2) + 'px';
+}
 // v460: rotating mid-session (vs. opening fresh already in landscape) was leaving a gap between
 // the story and the photo. Cause: 'resize' can fire and this function can measure the photo's
 // offsetWidth before the browser has actually applied the @media(orientation:landscape) rules —
@@ -12946,7 +13759,7 @@ function syncLandImgWidth(){
 // layout settle before measuring; orientationchange is a second trigger for builds where it fires
 // more reliably than resize on a rotation specifically.
 function syncLandImgWidthDeferred(){
-  requestAnimationFrame(() => requestAnimationFrame(syncLandImgWidth));
+  requestAnimationFrame(() => requestAnimationFrame(() => { syncLandImgWidth(); syncAudioBarCenter(); }));
 }
 window.addEventListener('resize', syncLandImgWidthDeferred);
 window.addEventListener('orientationchange', syncLandImgWidthDeferred);
