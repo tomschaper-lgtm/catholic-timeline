@@ -1,6 +1,6 @@
 <!--
-VERSION: 457
-DATE: 2026-09-22T15:00:00-05:00
+VERSION: 458
+DATE: 2026-09-23T09:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,39 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v458 — 2026-09-23
+
+**Ask (landscape only):**
+- Year/name line ran into the picture; picture overlapped the text.
+- Picture needs rounded corners top and bottom.
+- Card edge to edge left and right; nothing of "Catholic Timeline" showing at the top.
+- Picture must stay locked in place (it was scrolling off the top), and pulling down on it should
+  close the card.
+
+**Implementation:**
+- Root cause of the scrolling photo: v455–v457 pinned it with position:fixed inside #article,
+  which is both transformed and the scroll container — there, fixed behaves like absolute and
+  scrolls with the content. Replaced with a zero-height position:sticky anchor (.artLandAnchor)
+  emitted first in artBody; the photo hangs off it, absolutely positioned into the right column.
+- Root cause of the overlap: .artwrap kept its 720px centered cap, so the text column and header
+  were measured against the wrong box. Landscape now removes the cap and pads right by the photo's
+  measured width (--landImgW, now the pure image width) + 40px.
+- Card: full screen (inset 0, 100dvh), no border/radius.
+- Photo: 16px inset top/right/bottom, rounded all four corners, gold hairline, touch-action:none.
+- Drag-down on the photo counts as a header drag (fromHeader), so it closes the card from any
+  scroll position.
+- Year never wraps; name may wrap only if very long.
+- No-photo 50/50 facts column moved into the same sticky anchor (a copy of Quick Facts; inline
+  copy hidden), fixing the same scroll-away bug there.
+- Verified in headless Chromium at 932×430: photo stays at the same position after scrolling
+  600px, 16px from the card's top/right/bottom; text column ends 24px left of it; year and name on
+  one line; no-photo facts panel pinned to the right half.
+- Separate fix (not landscape-specific): the Report an Issue, Flag an Issue and first-visit
+  disclaimer popups sat AFTER the main <script> in the file, so the code wiring them at load found
+  nothing and threw — silently skipping every line after it. That's why "Report an issue" did
+  nothing, Flag Issue couldn't have worked, and the disclaimer never appeared. The three blocks now
+  sit before the script.
+
 ## v457 — 2026-09-22
 
 **Ask:**
@@ -2431,48 +2464,59 @@ CHANGELOG:END
        fly-portrait maths); an over-constrained fixed box resolves to centered on auto margins,
        which leaves every one of those transforms untouched.
        Tapping the exposed timeline either side still closes the article, as it always has. */
-    /* v457 landscape: the sheet keeps the portrait card's look — deep rounding on all four
-       corners, the full gold hairline, and real padding — and rises to fill most of the screen
-       rather than bleeding to the edges (v455/v456 had it full-bleed, square and borderless).
-       The photo is parked in the right-hand column and never moves: it's position:fixed, and
-       since #article carries a transform it's positioned against the CARD, not the viewport,
-       so the story scrolls past a stationary picture. Inset by the card's own padding and
-       rounded on its outer corners so it sits inside the border rather than over it.
-       The search box and hamburger are hidden while the card is up (body:has, same technique
-       .hamBtn already uses for the Content Manager) — the card covers nearly everything and
-       they'd only show through the margins. */
+    /* v458 landscape (landscape only — portrait untouched):
+       - The card fills the whole screen: edge to edge left/right and all the way to the top, so
+         nothing of the page behind shows. Square corners and no border, since it meets every
+         screen edge.
+       - The photo is pinned in the right-hand column. It lives in a zero-height position:sticky
+         anchor at the top of the article body (.artLandAnchor), so it stays exactly where it is
+         while the story scrolls — v455–v457 used position:fixed, which inside this transformed,
+         scrolling card behaves like absolute and scrolled away with the text. Rounded on all
+         four corners with a gold hairline, inset 16px from the top, right and bottom.
+       - The story column is everything to its left: .artwrap drops its 720px centered cap and
+         pads right by the photo's measured width (--landImgW, see syncLandImgWidth) plus the
+         inset and a gutter, so neither the header nor the text can run under the photo.
+       - With no photo, a copy of Quick Facts takes the right half in the same pinned anchor
+         (50/50), scrolling internally when long; the inline Quick Facts is hidden.
+       - Dragging down on the photo (or the facts panel) closes the card, like the header: see
+         fromHeader in the article touchstart handler. touch-action:none keeps it from scrolling. */
     @media (orientation: landscape){
       #article.overlay{
-        left:0; right:0; bottom:0; top:auto;
-        width:min(96%, 1400px); margin-left:auto; margin-right:auto;
-        height:94dvh; max-height:94dvh;
-        border:1px solid var(--gold); border-bottom:none;
-        border-radius:34px 34px 0 0;
+        inset:0; top:0; left:0; right:0; bottom:0;
+        width:100%; height:100dvh; max-height:100dvh;
+        border:none; border-radius:0;
       }
       body:has(#article.open) #searchRow,
       body:has(#article.open) .hamBtn{display:none;}
-      #article.overlay .artLandImg{
-        display:block; position:fixed; top:16px; right:16px;
-        height:calc(100% - 16px); width:auto; max-width:52%;
-        object-fit:cover; object-position:50% 38%;
-        border:1.5px solid var(--gold); border-radius:14px 14px 0 0;
-        z-index:14;
+      #article .artwrap{max-width:none; margin:0; padding-left:32px; padding-right:32px;}
+      #article.hasLandImg .artwrap{padding-right:calc(var(--landImgW, 45vw) + 40px);}
+      #article.landFactsCol .artwrap{padding-right:calc(50vw + 24px);}
+      #article .artSticky{margin-right:0; padding-right:0;}
+      #article .artLandAnchor{
+        display:block; position:sticky; top:18px; height:0; margin:0; z-index:16;
       }
+      #article .artLandAnchor .artLandImg{
+        display:block; position:absolute; top:-2px;
+        right:calc(-1 * var(--landImgW, 45vw) - 24px);
+        height:calc(100dvh - 32px); width:auto; max-width:52vw;
+        object-fit:cover; object-position:50% 38%;
+        border:1.5px solid var(--gold); border-radius:14px;
+        touch-action:none;
+      }
+      #article .artLandAnchor .artLandFacts{
+        position:absolute; top:-2px; right:calc(-50vw - 8px); width:calc(50vw - 16px);
+        height:calc(100dvh - 32px); margin:0; box-sizing:border-box;
+        border:1px solid rgba(201,165,66,.4); border-radius:14px;
+        background:rgba(201,165,66,.05); padding:18px 20px; overflow-y:auto;
+      }
+      #article.landFactsCol #artFactBox{display:none;}
       #article.overlay #artHeroImg, #article.overlay .artcap{display:none;}
       #flyPortrait{display:none !important;}
-      #article .artwrap, #article .artSticky{padding-right:calc(var(--landImgW, 45%) + 34px);}
-      /* No photo: Quick Facts takes the right column instead and the screen splits 50/50. */
-      #article.overlay.landFactsCol .factbox{
-        position:fixed; top:16px; right:16px; bottom:0; width:calc(50% - 26px);
-        margin:0; border:1px solid rgba(201,165,66,.4); border-radius:14px 14px 0 0;
-        background:rgba(201,165,66,.05);
-        padding:78px 20px 20px; overflow-y:auto; z-index:14;
-      }
-      #article.overlay.landFactsCol .artwrap,
-      #article.overlay.landFactsCol .artSticky{padding-right:calc(50% + 10px);}
-      /* Year and name share one line — there's width for it here. */
-      #article .ahHead{flex-direction:row; align-items:baseline; gap:14px; padding-right:0;}
+      /* Year and name share one line; the year never breaks, the name may wrap if very long. */
+      #article .ahHead{flex-direction:row; align-items:baseline; gap:16px; padding-right:0;}
       #article .artSticky.hasPortrait .ahHead{padding-right:0;}
+      #article .ahYear{white-space:nowrap; flex:none;}
+      #article .ahName{min-width:0;}
     }
   }
   .dhead{display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding-right:118px;}
@@ -2822,7 +2866,7 @@ CHANGELOG:END
   #peekFade.show{display:block;}
   /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
      so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
-  .artLandImg{display:none;}
+  .artLandImg, .artLandAnchor{display:none;}
   .artimg{width:100%; border-radius:14px; border:1.5px solid var(--gold); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
   /* Ken Burns (v213, opened to everyone in v414 — was Review Mode only while the effect was
      being evaluated before deciding whether to show it to visitors).
@@ -4641,6 +4685,62 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
   </div>
 </div>
 
+<!-- v458: moved here from after the main <script> — the script wires these popups up at load,
+     so they must exist in the page before it runs (see changelog). -->
+<!-- Report an issue — opened from the button at the end of every article (fillArticleBody). -->
+<div class="reportModal" id="reportModal">
+  <div class="reportModalBox">
+    <button class="reportModalClose" id="reportModalClose" aria-label="Close">&times;</button>
+    <h3>Report an Issue</h3>
+    <p class="reportModalEntity" id="reportModalEntity"></p>
+    <textarea id="reportModalMsg" placeholder="What looks off? Be as specific as you can — which sentence or fact, and why."></textarea>
+    <input type="email" id="reportModalEmail" placeholder="Your email (optional, if you'd like a reply)">
+    <button class="reportModalSubmit" id="reportModalSubmit">Send</button>
+    <p class="reportModalStatus" id="reportModalStatus"></p>
+  </div>
+</div>
+
+<!-- Flag an issue — owner-only quick triage, opened from Flag Issue in the Article Status
+     section (Review Mode). Shares the report-modal's box/overlay styling (see .flagModal in the
+     shared selector list) — different id, different fields. -->
+<div class="reportModal flagModal" id="flagModal">
+  <div class="reportModalBox">
+    <button class="reportModalClose" id="flagModalClose" aria-label="Close">&times;</button>
+    <h3>Flag an Issue</h3>
+    <p class="reportModalEntity" id="flagModalEntity"></p>
+    <select id="flagCategory">
+      <option value="audio-pronunciation">Audio — pronunciation issue</option>
+      <option value="audio-timing">Audio — timing issue</option>
+      <option value="image">Image issue</option>
+      <option value="facts">Facts issue (missing or incorrect detail)</option>
+      <option value="review">Mark for review</option>
+    </select>
+    <select id="flagChangeType" style="display:none">
+      <option value="quickFact">Answer as a Quick Fact</option>
+      <option value="section">Answer as a section (new or rewritten)</option>
+    </select>
+    <textarea id="flagNote" placeholder="What's wrong, or what would you like checked or added?"></textarea>
+    <label class="flagRemoveRow"><input type="checkbox" id="flagRemovePublic"> Remove from public view until resolved</label>
+    <button class="reportModalSubmit" id="flagModalSubmit">Submit</button>
+    <p class="reportModalStatus" id="flagModalStatus"></p>
+  </div>
+</div>
+
+
+<!-- One-time disclaimer gate — shown once per device (localStorage), never again after "I
+     Understand" is tapped. See the IIFE near the bottom of the script that checks/shows it. -->
+<div class="disclaimerGate" id="disclaimerGate">
+  <div class="disclaimerBox">
+    <h2>Before You Explore</h2>
+    <p>Catholic Timeline is a growing resource. Every article is checked by multiple independent
+       AI reviewers against primary Catholic sources, but with hundreds of entries, not every one
+       has been personally read by a human yet.</p>
+    <p>If anything looks wrong, please use "Report an issue" at the end of any article —
+       corrections are always welcome.</p>
+    <button class="disclaimerOkBtn" id="disclaimerOkBtn">I Understand — Continue</button>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ================= SEED DATA =================
@@ -4875,7 +4975,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v457';
+const APP_VERSION = 'v458';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -5946,7 +6046,7 @@ function navigateStory(direction){
     // swiping down anywhere in it always dismisses/steps the card, regardless of how far the
     // story text beneath has been scrolled. #artHandle sits as a sibling just above .artSticky
     // rather than nested inside it, so both are checked explicitly.
-    fromHeader = !!(e.target.closest && (e.target.closest('.artSticky') || e.target.closest('#artHandle')));
+    fromHeader = !!(e.target.closest && (e.target.closest('.artSticky') || e.target.closest('#artHandle') || e.target.closest('.artLandImg')));
   }, {passive:true});
 
   // Passive sampling only — never preventDefault, so native scrolling is untouched.
@@ -11265,6 +11365,24 @@ function fillArticleBody(d, peek){
   // teaser card. It has no border of its own: the article sheet is already a bordered card.
   // The taper and portrait stay invisible while the big photo is on screen, then fade in
   // together as the photo flies up into the corner (see updateFly).
+  // v458 landscape pinned column (CSS shows it only in landscape): the photo, or — with no photo —
+  // a copy of Quick Facts. First in artBody so its zero-height sticky anchor sits at the very top.
+  {
+    const landFacts = (d.facts || []).slice();
+    if(d.country) landFacts.push({label:'Country', value:d.country});
+    let a = '';
+    if(hasImg){
+      a = '<img class="artLandImg" id="artLandImg" src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="imgExtFallback(this)">';
+    }else if(landFacts.length){
+      a = '<div class="factbox artLandFacts">' + landFacts.filter(f => f && f.label).map(f => {
+        const val = f.url
+          ? '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.value || f.url) + '</a>'
+          : esc(f.value || '').replace(/\n/g, '<br>');
+        return '<div class="factrow"><div class="factlabel">' + esc(f.label) + '</div><div class="factval">' + val + '</div></div>';
+      }).join('') + '</div>';
+    }
+    if(a) html += '<div class="artLandAnchor">' + a + '</div>';
+  }
   html += '<div class="artSticky' + (hasImg ? ' hasPortrait' : '') + '" id="artSticky">' +
     (articleBackStack.length ? '<button type="button" class="artBackBtn" id="artBackBtn" aria-label="Back to previous entry">&larr; Back</button>' : '') +
     '<div class="ahHead"><span class="ahYear">' + esc(fmtYear(d.y)) + '</span>' +
@@ -11286,7 +11404,6 @@ function fillArticleBody(d, peek){
     // (CSS), pinned full-height to the right edge of the card. Kept separate from the hero/fly
     // machinery rather than bent into it: #flyPortrait's morph maths assume the portrait
     // pattern, so landscape simply hides the hero + fly and shows this instead.
-    html += '<img class="artLandImg" id="artLandImg" src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="imgExtFallback(this)">';
     html += '<img class="artimg" id="artHeroImg"' + (peek ? ' style="opacity:0"' : '') + ' src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="imgExtFallback(this)">';
     if(d.imgCap) html += '<div class="artcap">' + esc(d.imgCap) + '</div>';
   }
@@ -11445,6 +11562,7 @@ function fillArticleBody(d, peek){
   // when there ARE facts; otherwise the story keeps the full width. The class drives CSS only,
   // so it's harmless in portrait.
   document.getElementById('article').classList.toggle('landFactsCol', !hasImg && factList.length > 0);
+  document.getElementById('article').classList.toggle('hasLandImg', hasImg);
   {
     const landImg = document.getElementById('artLandImg');
     if(landImg){
@@ -13428,7 +13546,7 @@ function syncLandImgWidth(){
   const img = document.getElementById('artLandImg');
   const root = document.documentElement;
   if(!img || !img.offsetWidth){ root.style.removeProperty('--landImgW'); return; }
-  root.style.setProperty('--landImgW', (img.offsetWidth + 16) + 'px'); // + the photo's right inset
+  root.style.setProperty('--landImgW', img.offsetWidth + 'px');
 }
 window.addEventListener('resize', syncLandImgWidth);
 document.getElementById('artBody').addEventListener('click', (e) => {
@@ -17531,59 +17649,6 @@ document.getElementById('flagModalSubmit').addEventListener('click', async () =>
   setTimeout(() => { document.getElementById('flagModal').style.display = 'none'; }, 1400);
 });
 </script>
-<!-- Report an issue — opened from the button at the end of every article (fillArticleBody). -->
-<div class="reportModal" id="reportModal">
-  <div class="reportModalBox">
-    <button class="reportModalClose" id="reportModalClose" aria-label="Close">&times;</button>
-    <h3>Report an Issue</h3>
-    <p class="reportModalEntity" id="reportModalEntity"></p>
-    <textarea id="reportModalMsg" placeholder="What looks off? Be as specific as you can — which sentence or fact, and why."></textarea>
-    <input type="email" id="reportModalEmail" placeholder="Your email (optional, if you'd like a reply)">
-    <button class="reportModalSubmit" id="reportModalSubmit">Send</button>
-    <p class="reportModalStatus" id="reportModalStatus"></p>
-  </div>
-</div>
-
-<!-- Flag an issue — owner-only quick triage, opened from Flag Issue in the Article Status
-     section (Review Mode). Shares the report-modal's box/overlay styling (see .flagModal in the
-     shared selector list) — different id, different fields. -->
-<div class="reportModal flagModal" id="flagModal">
-  <div class="reportModalBox">
-    <button class="reportModalClose" id="flagModalClose" aria-label="Close">&times;</button>
-    <h3>Flag an Issue</h3>
-    <p class="reportModalEntity" id="flagModalEntity"></p>
-    <select id="flagCategory">
-      <option value="audio-pronunciation">Audio — pronunciation issue</option>
-      <option value="audio-timing">Audio — timing issue</option>
-      <option value="image">Image issue</option>
-      <option value="facts">Facts issue (missing or incorrect detail)</option>
-      <option value="review">Mark for review</option>
-    </select>
-    <select id="flagChangeType" style="display:none">
-      <option value="quickFact">Answer as a Quick Fact</option>
-      <option value="section">Answer as a section (new or rewritten)</option>
-    </select>
-    <textarea id="flagNote" placeholder="What's wrong, or what would you like checked or added?"></textarea>
-    <label class="flagRemoveRow"><input type="checkbox" id="flagRemovePublic"> Remove from public view until resolved</label>
-    <button class="reportModalSubmit" id="flagModalSubmit">Submit</button>
-    <p class="reportModalStatus" id="flagModalStatus"></p>
-  </div>
-</div>
-
-
-<!-- One-time disclaimer gate — shown once per device (localStorage), never again after "I
-     Understand" is tapped. See the IIFE near the bottom of the script that checks/shows it. -->
-<div class="disclaimerGate" id="disclaimerGate">
-  <div class="disclaimerBox">
-    <h2>Before You Explore</h2>
-    <p>Catholic Timeline is a growing resource. Every article is checked by multiple independent
-       AI reviewers against primary Catholic sources, but with hundreds of entries, not every one
-       has been personally read by a human yet.</p>
-    <p>If anything looks wrong, please use "Report an issue" at the end of any article —
-       corrections are always welcome.</p>
-    <button class="disclaimerOkBtn" id="disclaimerOkBtn">I Understand — Continue</button>
-  </div>
-</div>
 
 </body>
 </html>
