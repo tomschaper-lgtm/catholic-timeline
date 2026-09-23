@@ -1,6 +1,6 @@
 <!--
-VERSION: 468
-DATE: 2026-09-23T18:30:00-05:00
+VERSION: 469
+DATE: 2026-09-23T19:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,26 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v469 — 2026-09-23
+
+**Ask:**
+- Offline Access has never worked. (sw.js turned out not to exist in the repo at all.)
+
+**Implementation:**
+- NEW FILE sw.js (repo root). index.html has registered it since v415 with errors swallowed, so
+  the switch silently did nothing. Strategies: network-first for the page and data.json (keys
+  ignore query strings; update flow unaffected), stale-while-revalidate for images, timing
+  .json and Google Fonts, cache-first for audio with real byte-range support (206 sliced from the
+  saved whole file) since iOS Safari only ever requests audio in ranges. Uncached audio streams
+  from the network while the whole file is saved in the background. Redirected responses are
+  rebuilt before storing/returning (iOS rejects redirected SW responses for page loads).
+  skipWaiting + clients.claim so the first run is controlled.
+- warmMediaCache(): now waits for the service worker to actually control the page before bulk
+  downloading, and doesn't record a run if control never arrives (previously could "complete"
+  uncontrolled, saving nothing, and block retries for 24h). Timestamp key renamed
+  media-warm-last → media-warm-last-v2 so old timestamps from runs that saved nothing don't
+  block the first real download.
+
 ## v468 — 2026-09-23
 
 **Ask:**
@@ -5284,7 +5304,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v468';
+const APP_VERSION = 'v469';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -5356,7 +5376,7 @@ async function disableOfflineAccess(){
     const names = await caches.keys();
     await Promise.all(names.map(n => caches.delete(n)));
   }catch(e){}
-  try{ localStorage.removeItem('media-warm-last'); }catch(e){}
+  try{ localStorage.removeItem('media-warm-last'); localStorage.removeItem('media-warm-last-v2'); }catch(e){}
 }
 if(!IS_ARTIFACT && 'serviceWorker' in navigator && offlineAccessEnabled){
   window.addEventListener('load', enableOfflineAccess);
@@ -5429,10 +5449,22 @@ async function warmMediaCache(){
   if(IS_ARTIFACT || !('serviceWorker' in navigator) || !navigator.onLine || !offlineAccessEnabled) return;
   if(!isOnWifi()) return;
   try{
-    const last = Number(localStorage.getItem('media-warm-last') || 0);
+    const last = Number(localStorage.getItem('media-warm-last-v2') || 0);
     if(Date.now() - last < 24 * 60 * 60 * 1000) return; // already pulled everything recently
   }catch(e){}
   await navigator.serviceWorker.ready.catch(() => {});
+  // v469: fetches only get saved if sw.js is actually CONTROLLING this page. `ready` only means
+  // the worker is active; on the very first run it takes control a moment later (clients.claim
+  // in sw.js). Previously this could fire every download uncontrolled, save nothing, and still
+  // record "done" below — locking out a retry for 24 hours. Now it waits briefly for control,
+  // and if control never arrives it returns WITHOUT recording a run, so it simply tries again.
+  if(!navigator.serviceWorker.controller){
+    await new Promise(resolve => {
+      const t = setTimeout(resolve, 5000);
+      navigator.serviceWorker.addEventListener('controllerchange', () => { clearTimeout(t); resolve(); }, { once: true });
+    });
+    if(!navigator.serviceWorker.controller) return;
+  }
   const urls = collectMediaUrls();
   const CONCURRENCY = 4;
   let next = 0;
@@ -5443,7 +5475,9 @@ async function warmMediaCache(){
     }
   }
   await Promise.all(Array.from({length: CONCURRENCY}, worker));
-  try{ localStorage.setItem('media-warm-last', String(Date.now())); }catch(e){}
+  // v469: new key — any timestamp recorded under the old one came from runs that saved
+  // nothing (sw.js didn't exist yet), so it must not block the first real download.
+  try{ localStorage.setItem('media-warm-last-v2', String(Date.now())); }catch(e){}
 }
 // Broken-image self-heal. A browser never retries a failed <img> load on its own — once one
 // has failed (most likely because it wasn't cached, and the connection was down at the time —
