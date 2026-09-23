@@ -1,6 +1,6 @@
 <!--
-VERSION: 462
-DATE: 2026-09-23T14:20:00-05:00
+VERSION: 463
+DATE: 2026-09-23T15:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,41 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v463 — 2026-09-23
+
+**Ask:**
+- Text still goes under the picture in portrait.
+- Play bar: just the circle, no prev/next.
+- Scroll-snap was landing on whole SENTENCES, not lines — that's not what was meant.
+- Decent shadow under the play/pause button; button slightly smaller.
+- The tapered line under the name (portrait) should also show in landscape.
+
+**Implementation:**
+- Text-under-picture, take two: v461's flat 190px (the badge's absolute MAX size) was reverted in
+  v462 as too disruptive. v463 reserves the ACTUAL per-image badge width instead of a worst-case
+  guess — measureFly() already computes flyGeo.flyW for this image's real aspect ratio; now
+  published as --flyBadgeW and read by the reservation rule. Most saint portraits are taller than
+  wide, which keeps this well under the old flat guess in practice (measured ~134px against a
+  typical portrait-aspect test image, vs. v461's flat 190px). Still a permanent reservation for
+  the reason v461 already documented (the badge is fixed for the whole scroll, not just the top)
+  — just sized to what this image actually needs.
+- .audBarSide (prev/next) hidden via CSS, not removed — the buttons, handlers, and
+  audJumpSection() are untouched, so restoring them later is one line.
+- Scroll-snap rebuilt on a different, simpler basis: reads whatever element is rendered at the
+  safe-top pixel via elementFromPoint(), takes its own computed line-height, and rounds the
+  scroll position to the nearest multiple of that — a small nudge to the nearest LINE, not a jump
+  to the nearest sentence start. Doesn't need [data-cue-idx] spans or audio timing at all anymore,
+  so it now works on any article, not just ones with synced audio.
+- .audBarPlay: 64px → 56px, added box-shadow (0 6px 16px, 55% black).
+- .ahTaper's opacity is entirely driven by the portrait fly-badge's scroll progress, which never
+  runs in landscape (v458 disabled that whole mechanism there) — that's why it silently never
+  appeared. Forced on unconditionally in landscape, where it's just decoration with no morph to
+  sync to.
+- Verified in headless Chromium: reservation now reads ~134px (not 190px) for a typical
+  portrait-aspect test image; play button 56px with a visible shadow; prev/next hidden; landscape
+  taper opacity reads 1; a synthetic 60-sentence paragraph confirmed the line-snap lands within
+  half a pixel of the exact line boundary at the sticky header's edge.
+
 ## v462 — 2026-09-23
 
 **Ask:**
@@ -2626,6 +2661,14 @@ CHANGELOG:END
       #article .artSticky.hasPortrait .ahHead{padding-right:0;}
       #article .ahYear{white-space:nowrap; flex:none;}
       #article .ahName{min-width:0;}
+      /* v463: .ahTaper's opacity is entirely driven by the portrait corner-badge's scroll
+         progress (measureFly/updateFly) — 0 while the big hero photo is up top, fading to 1 as
+         the badge docks. Landscape has no such morph (v458 disabled the whole fly mechanism
+         there, its photo is static in the side column) — so that JS never runs for landscape and
+         the taper stayed permanently at its opacity:0 default. It's just decorative here, so
+         forcing it on unconditionally is correct rather than adding a landscape branch to the
+         portrait-specific scroll math. */
+      #article .ahTaper{opacity:1 !important;}
       /* v460: the handle is a portrait "pull sheet down" affordance; in landscape the card
          already fills the screen with nothing to reveal underneath, and iOS was reportedly
          reading a drag on it as some OS-level gesture (Messages or similar) — simplest fix is
@@ -2989,13 +3032,18 @@ CHANGELOG:END
   /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
      so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
   .artLandImg, .artLandAnchor{display:none;}
-  /* v461 tried a permanent padding-right reservation here (the badge floats for the whole
-     scroll, not just the top, so a real fix needs a permanent reservation) — REVERTED in v462:
-     190px on a ~390px phone was nearly half the screen, cramping every line of the article, not
-     just the top. Reverting restores the pre-v461 behavior (badge can sit over text) rather than
-     shipping a guessed-smaller number under time pressure. A real fix needs the reservation to
-     apply only near the badge's own screen position, not the whole article height — that's a
-     separate, more careful pass if still wanted. */
+  /* v461 tried this with a flat 190px guess (the badge's absolute MAX size) — reverted in v462
+     as too disruptive on a ~390px phone. v463 retries with the ACTUAL per-image size instead of
+     a worst-case guess: measureFly() already computes flyGeo.flyW (the real docked badge width
+     for THIS image's aspect ratio) and now also publishes it as --flyBadgeW. Most saint portraits
+     are taller than wide, which keeps flyW well under FLY_MAX=156 in practice — typically closer
+     to 100-110px, so the real reservation should read as noticeably gentler than v461's. Still a
+     permanent reservation (the badge is fixed for the whole scroll, not just the top — see v461's
+     own note), just sized to what THIS image actually needs rather than the worst case any image
+     could need. 130px fallback (before JS has measured) approximates a typical portrait aspect. */
+  @media (orientation: portrait){
+    #article.hasPortrait .artwrap{padding-right:calc(var(--flyBadgeW, 130px) + 14px);}
+  }
   .artimg{width:100%; border-radius:14px; border:1.5px solid var(--gold); margin-top:18px; display:block; cursor:zoom-in; touch-action:manipulation; transition:opacity .08s linear;}
   /* Ken Burns (v213, opened to everyone in v414 — was Review Mode only while the effect was
      being evaluated before deciding whether to show it to visitors).
@@ -3274,14 +3322,18 @@ CHANGELOG:END
   }
   .audBarBtn:hover{color:var(--gold-bright);}
   .audBarBtn:active{transform:scale(0.92);}
-  .audBarSide{width:46px; height:46px; border-radius:50%;}
+  /* v463: prev/next section skip removed from view per Tom — just the circle now. Hidden, not
+     deleted: the buttons, their click handlers, and audJumpSection() are all untouched, so
+     restoring them later is a one-line CSS change, not a rebuild. */
+  .audBarSide{display:none;}
   /* v461: solid navy circle (was translucent gold-tinted), thicker gold border, bigger glyph
      (ICON_PLAY/ICON_PAUSE bumped 25→30px to match) — "nothing else": no shadow, no second
      ring, just circle + border + glyph. Applies everywhere this one button is used (portrait and
      landscape both use the same #audPlayBtn), not a Review Mode variant. */
   .audBarPlay{
-    width:64px; height:64px; border-radius:50%;
+    width:56px; height:56px; border-radius:50%;
     background:var(--navy, #0B1630); border:2.5px solid var(--gold);
+    box-shadow:0 6px 16px rgba(0,0,0,.55);
   }
   /* Comfortable clearance so the fixed bar (above) never sits over the last lines of the story
      or Sources & Further Reading — see fillArticleBody's audioBottomSpacer. */
@@ -5115,7 +5167,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v462';
+const APP_VERSION = 'v463';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -12748,27 +12800,26 @@ document.getElementById('article').addEventListener('wheel', noteManualScrollFor
 document.getElementById('aboutPanel').addEventListener('touchmove', noteManualScrollForAudioFollow, {passive:true});
 document.getElementById('aboutPanel').addEventListener('wheel', noteManualScrollForAudioFollow, {passive:true});
 
-// v461: after a reader scrolls by hand and lets go, settle on a sentence boundary rather than
-// leaving whatever sentence happened to land straddling the top edge, cut off mid-line. Reuses
-// the SAME [data-cue-idx] sentence spans wireSentenceCues()/applyCueMarkup() already wrap every
-// sentence in for audio highlighting/tap-to-seek — no new markup needed. Independent of playback
-// (works whether or not audio is running); if audio-follow is actively driving the scroll itself
-// (driveAudioFollow, above) there's no "reader let go" moment to react to, since that path never
-// fires the scroll-settle timer's triggering gesture in the first place.
+// v461: after a reader scrolls by hand and lets go, settle so the row of text sitting at the
+// top edge is a complete line rather than cut off mid-line.
+// v463: reworked per Tom's own correction — v461 snapped to the start of the whole SENTENCE
+// (reusing the [data-cue-idx] spans audio highlighting already wraps each sentence in), which
+// could be several lines above where the reader actually let go, an unexpectedly large jump.
+// What was actually asked for is simpler and doesn't need those spans (or audio timing) at all:
+// find whatever's rendered exactly at the safe-top pixel via elementFromPoint, read ITS
+// line-height, and round the scroll position to the nearest multiple of that — a small nudge to
+// the nearest line, not a jump to the nearest sentence. Works for any article, with or without
+// audio/cues. Independent of playback; if audio-follow is actively driving the scroll itself
+// there's no "reader let go" moment to react to, since that path never fires the touchmove/wheel
+// gesture this timer is scheduled from.
 let scrollSnapTimer = null;
 const SCROLL_SNAP_SETTLE_MS = 160;
 function scheduleScrollSnap(artEl){
   clearTimeout(scrollSnapTimer);
-  scrollSnapTimer = setTimeout(() => snapToSentenceBoundary(artEl), SCROLL_SNAP_SETTLE_MS);
+  scrollSnapTimer = setTimeout(() => snapToLineBoundary(artEl), SCROLL_SNAP_SETTLE_MS);
 }
-// Finds whichever sentence span currently straddles the "safe top" line (just below the sticky
-// header, and below the sticky section heading too while one is showing — see .audio-playing)
-// and glides just far enough to bring its TOP flush with that line, so it reads in full rather
-// than starting mid-sentence. Does nothing if the topmost visible sentence already starts there,
-// or if there's nothing to measure (no cues matched, or the very top/bottom of the article).
-function snapToSentenceBoundary(artEl){
+function snapToLineBoundary(artEl){
   if(!artEl || !artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
-  if(!cueEls.length) return;
   const stickyHeader = document.getElementById('artSticky');
   const stickySection = artEl.classList.contains('audio-playing')
     ? document.querySelector('#artStoryText .arth')
@@ -12777,29 +12828,26 @@ function snapToSentenceBoundary(artEl){
   const sectionH = (stickySection && getComputedStyle(stickySection).position === 'sticky') ? stickySection.offsetHeight : 0;
   const safeTop = headerH + sectionH;
   const artRect = artEl.getBoundingClientRect();
-  let straddling = null;
-  for(let i = 0; i < cueEls.length; i++){
-    const els = cueEls[i];
-    if(!els || !els.length) continue;
-    let top = Infinity, bottom = -Infinity;
-    els.forEach(el => {
-      const r = el.getBoundingClientRect();
-      top = Math.min(top, r.top - artRect.top);
-      bottom = Math.max(bottom, r.bottom - artRect.top);
-    });
-    if(!isFinite(top)) continue;
-    // Straddling = starts above the line but ends at or below it (genuinely cut off) — a
-    // sentence that starts AT OR BELOW safeTop is already landing cleanly; nothing to fix.
-    if(top < safeTop - 2 && bottom > safeTop + 2){ straddling = { top, bottom }; break; }
-  }
-  if(!straddling) return;
+  const probeX = artRect.left + artRect.width / 2;
+  const probeY = artRect.top + safeTop + 1; // 1px past the line, so it lands IN the row, not on its border
+  if(probeY < 0 || probeY > window.innerHeight) return; // safe-top itself is off-screen — nothing to align
+  const hit = document.elementFromPoint(probeX, probeY);
+  const textEl = hit ? hit.closest('#artStoryText p, #artStoryText .arth, #artStoryText li') : null;
+  if(!textEl) return;
+  let lh = parseFloat(getComputedStyle(textEl).lineHeight);
+  if(!lh || isNaN(lh)) lh = parseFloat(getComputedStyle(textEl).fontSize) * 1.3; // 'normal' line-height fallback
+  const textRect = textEl.getBoundingClientRect();
+  const blockTop = textRect.top - artRect.top + artEl.scrollTop; // this block's own top, in content-space
+  const linesIn = Math.round((artEl.scrollTop + safeTop - blockTop) / lh);
+  const targetLineTop = blockTop + linesIn * lh;
   const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
-  const target = Math.min(max, Math.max(0, artEl.scrollTop + (straddling.top - safeTop)));
-  if(Math.abs(artEl.scrollTop - target) < 4) return;
+  const target = Math.min(max, Math.max(0, targetLineTop - safeTop));
+  if(Math.abs(artEl.scrollTop - target) < 2) return;
   animateFollowScroll(artEl, target);
 }
 document.getElementById('article').addEventListener('scroll', () => scheduleScrollSnap(document.getElementById('article')), {passive:true});
 document.getElementById('aboutPanel').addEventListener('scroll', () => scheduleScrollSnap(document.getElementById('aboutPanel')), {passive:true});
+
 function seekToCue(idx){
   const cue = currentCues[idx];
   if(!cue || !audioEl) return;
@@ -13167,6 +13215,7 @@ function measureFly(){
   if(flySuspended || !hero || !sticky || !artEl.classList.contains('open') || !hero.offsetHeight){
     flyGeo = null;
     fly.classList.remove('on');
+    document.documentElement.style.removeProperty('--flyBadgeW'); // v463: no stale width from a previous entry
     updateFly();
     return;
   }
@@ -13214,6 +13263,9 @@ function measureFly(){
   fly.style.top = flyGeo.endTop + 'px';
   fly.classList.add('on');
   hero.style.opacity = '0';
+  // v463: this image's actual docked badge width, for the text-column reservation above —
+  // see that rule's own comment for why per-image beats a flat worst-case guess.
+  document.documentElement.style.setProperty('--flyBadgeW', (flyGeo.flyW + FLY_INSET) + 'px');
   updateFly();
 }
 
