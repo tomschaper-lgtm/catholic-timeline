@@ -1,6 +1,6 @@
 <!--
-VERSION: 458
-DATE: 2026-09-23T09:00:00-05:00
+VERSION: 460
+DATE: 2026-09-23T11:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,45 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v460 — 2026-09-23
+
+**Ask:**
+- Review switch in Settings won't turn off — toggling it only flips "Show only pending" instead,
+  Review stays stuck on.
+- Landscape: gap between the story and the photo when rotating mid-session (portrait →
+  landscape), though opening straight into landscape looks right.
+- Landscape: drag handle needs to disappear (it was triggering what looked like an iOS system
+  gesture); the close X needs to sit to the left of the picture/facts panel, not on top of it.
+
+**Implementation:**
+- Root cause of the switch bug: #reviewModeRow was a `<label>` wrapping BOTH the "Show only"
+  button and the switch. A label forwards any click inside it to its checkbox — so tapping the
+  pill was also toggling Review's checkbox underneath it, and there was no tap that hit the
+  switch alone. #offlineRow hit this exact issue in v424 and already has the fix documented:
+  plain `<div class="pRow pSwitch">`, with the switch given its own minimal
+  `<label class="pSwitchHit" for="reviewModeToggle">` instead of the whole row being one label.
+  Applied the same pattern here.
+- Root cause of the rotation gap: syncLandImgWidth() (v455) ran straight off the 'resize' event,
+  which can fire before the browser has actually applied @media(orientation:landscape) — so it
+  measured the photo's offsetWidth as 0 or a stale portrait value, wrote that into --landImgW, and
+  nothing ever re-measured afterward. Deferred the read two animation frames past resize (and
+  added orientationchange as a second trigger) so layout has settled into landscape before the
+  photo is measured.
+- Landscape: #artHandle hidden outright (nothing to reveal underneath in a full-screen card, and
+  the reported gesture conflict). .artX repositioned clear of the photo/facts column using
+  `!important`, since setArtXShift()'s inline `right` (still running every scroll tick —
+  measureFly/placePeekFly aren't landscape-aware) would otherwise override a plain override.
+
+## v459 — 2026-09-23
+
+**Ask:**
+- Remove the "Before You Explore" disclaimer popup for now.
+
+**Implementation:**
+- New DISCLAIMER_ENABLED flag (false) short-circuits the one-time gate before it shows. Markup,
+  CSS, and the localStorage "seen" flag are untouched, so setting it back to true restores the
+  original behavior exactly.
+
 ## v458 — 2026-09-23
 
 **Ask (landscape only):**
@@ -2517,6 +2556,19 @@ CHANGELOG:END
       #article .artSticky.hasPortrait .ahHead{padding-right:0;}
       #article .ahYear{white-space:nowrap; flex:none;}
       #article .ahName{min-width:0;}
+      /* v460: the handle is a portrait "pull sheet down" affordance; in landscape the card
+         already fills the screen with nothing to reveal underneath, and iOS was reportedly
+         reading a drag on it as some OS-level gesture (Messages or similar) — simplest fix is
+         just not showing it here. */
+      #article #artHandle{display:none;}
+      /* v460: .artX's resting "right" is relative to .artTopBar, which spans the CARD's full
+         width (left:0/right:0) — NOT .artwrap's already-narrowed content width — so by default
+         it lands at the card's own top-right corner, exactly where the photo/facts panel also
+         sits. !important beats setArtXShift()'s inline style, which keeps running in the
+         background (measureFly/placePeekFly aren't landscape-aware) and would otherwise fight
+         this every scroll tick. */
+      #article.overlay.hasLandImg .artX{ right: calc(var(--landImgW, 45vw) + 16px + 14px) !important; }
+      #article.overlay.landFactsCol .artX{ right: calc(50vw + 8px + 14px) !important; }
     }
   }
   .dhead{display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding-right:118px;}
@@ -3885,12 +3937,19 @@ CHANGELOG:END
         <span class="pName">Owner Tools</span>
         <input type="checkbox" id="cmsEnabled" autocomplete="off" checked><i class="sw"></i>
       </label>
-      <label class="pRow pSwitch" id="reviewModeRow">
+      <!-- v460: was a <label class="pRow pSwitch"> wrapping the pill AND the switch — a label
+           forwards any click inside it (pill included) to its checkbox, so every tap on "Show
+           only" was also flipping Review, and there was no way to turn Review off. Same fix
+           #offlineRow already uses (see its own v424 note): plain div, switch gets its OWN
+           minimal <label for>. -->
+      <div class="pRow pSwitch" id="reviewModeRow">
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
         <span class="pName">Review <span id="reviewModeMeta"></span></span>
         <button type="button" class="reviewOnlyPill" id="reviewOnlyBtn">Show only</button>
-        <input type="checkbox" id="reviewModeToggle" autocomplete="off"><i class="sw"></i>
-      </label>
+        <label class="pSwitchHit" for="reviewModeToggle">
+          <input type="checkbox" id="reviewModeToggle" autocomplete="off"><i class="sw"></i>
+        </label>
+      </div>
       <button class="pRow" id="manageBtn">
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="2" fill="currentColor" stroke="none"/></svg></span>
         <span class="pName">Manage</span>
@@ -4975,7 +5034,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v458';
+const APP_VERSION = 'v460';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -13548,7 +13607,18 @@ function syncLandImgWidth(){
   if(!img || !img.offsetWidth){ root.style.removeProperty('--landImgW'); return; }
   root.style.setProperty('--landImgW', img.offsetWidth + 'px');
 }
-window.addEventListener('resize', syncLandImgWidth);
+// v460: rotating mid-session (vs. opening fresh already in landscape) was leaving a gap between
+// the story and the photo. Cause: 'resize' can fire and this function can measure the photo's
+// offsetWidth before the browser has actually applied the @media(orientation:landscape) rules —
+// reading 0 or a stale portrait-era width into --landImgW, which the text column then pads for
+// forever (nothing re-triggers a remeasure afterward). Waiting two animation frames lets the new
+// layout settle before measuring; orientationchange is a second trigger for builds where it fires
+// more reliably than resize on a rotation specifically.
+function syncLandImgWidthDeferred(){
+  requestAnimationFrame(() => requestAnimationFrame(syncLandImgWidth));
+}
+window.addEventListener('resize', syncLandImgWidthDeferred);
+window.addEventListener('orientationchange', syncLandImgWidthDeferred);
 document.getElementById('artBody').addEventListener('click', (e) => {
   if(!isPortrait()) return;
   const img = e.target.closest('.artimg');
@@ -14055,7 +14125,7 @@ document.getElementById('reviewModeToggle').addEventListener('change', (e) => {
   setReviewMode(e.target.checked);
 });
 document.getElementById('reviewOnlyBtn').addEventListener('click', (e) => {
-  e.preventDefault(); e.stopPropagation(); // inside the row's <label> — don't also flip the switch
+  e.preventDefault(); e.stopPropagation(); // no longer load-bearing (row isn't a <label> anymore), harmless to keep
   const next = !reviewOnlyMode;
   if(next && !reviewMode) setReviewMode(true);
   reviewOnlyMode = next;
@@ -17497,7 +17567,11 @@ const APP_ICON = { touch: 'Images/icons/apple-touch-icon.jpg',
 // One-time disclaimer gate — shown once per device, never again once dismissed. Not gated behind
 // Owner Tools at all; this is for every visitor, the opposite of everything else that pattern
 // governs in this file.
+// v459: switched OFF for now at Tom's request. Flip DISCLAIMER_ENABLED back to true to restore it;
+// the markup, styling and "seen" memory are all still in place, so nothing else needs to change.
+const DISCLAIMER_ENABLED = false;
 (function(){
+  if(!DISCLAIMER_ENABLED) return;
   let seen = false;
   try{ seen = localStorage.getItem('disclaimer-seen') === '1'; }catch(e){}
   if(!seen){
