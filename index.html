@@ -1,6 +1,6 @@
 <!--
-VERSION: 463
-DATE: 2026-09-23T15:00:00-05:00
+VERSION: 464
+DATE: 2026-09-23T15:20:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,19 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v464 — 2026-09-23
+
+**Ask:**
+- Frosted-glass look for the Settings sheet, like Apple's own translucent materials.
+
+**Implementation:**
+- .hamMenu background changed to rgba(255,255,255,.78) + backdrop-filter blur(24px) saturate(1.5)
+  — the same real technique (translucency + blur), not a fake approximation, matching what the
+  bottom audio bar already does elsewhere in the app. Wrapped in an @supports check with the
+  existing solid #fff kept as the fallback for browsers without backdrop-filter.
+  .pRow (each settings row) already has background:none, so it inherits the frosted sheet
+  automatically — no per-row changes needed.
+
 ## v463 — 2026-09-23
 
 **Ask:**
@@ -979,6 +992,15 @@ CHANGELOG:END
     width:min(360px, 88vw);
     max-height:calc(100vh - 78px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     overflow-y:auto; -webkit-overflow-scrolling:touch;
+    /* v464: frosted glass, the same real technique iOS's own translucent materials use —
+       semi-transparent white + a blurred backdrop, not a flat color. saturate() is the same
+       touch Apple's own materials add, so colors behind the blur read a little richer rather
+       than washed out. .pRow's own background is already `none` (just a hairline under each
+       row), so it inherits this automatically — no row-level change needed. Solid-white
+       fallback for browsers without backdrop-filter support (old Firefox, some in-app webviews),
+       which would otherwise render the intended-translucent color as a flat, slightly-transparent
+       sheet with whatever's behind it showing through unblurred — muddier than either a clean
+       blur or a clean solid. */
     background:#fff;
     border-radius:26px 0 0 26px;
     box-shadow:-16px 0 46px rgba(7,15,34,.28);
@@ -3441,6 +3463,13 @@ CHANGELOG:END
     background:var(--m-bg); color:var(--m-ink);
     overflow:hidden; /* the overlay itself no longer scrolls — see .mgmtScroll below */
   }
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)){
+    .hamMenu{
+      background:rgba(255,255,255,.78);
+      -webkit-backdrop-filter:blur(24px) saturate(1.5);
+      backdrop-filter:blur(24px) saturate(1.5);
+    }
+  }
   /* iOS Safari reliably breaks position:sticky when its scrolling ancestor is also
      position:fixed — which #manage is, since it's a shared .overlay. Splitting the two roles
      across two elements (this one just scrolls; #manage stays fixed + transformed for the
@@ -5167,7 +5196,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v463';
+const APP_VERSION = 'v464';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
