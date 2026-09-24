@@ -1,6 +1,6 @@
 <!--
-VERSION: 477
-DATE: 2026-09-24T15:40:00-05:00
+VERSION: 478
+DATE: 2026-09-24T16:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,22 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v478 — 2026-09-24
+
+**Ask:**
+- Offline Access public (not behind Owner Tools).
+- Share button to the left of the article's X; share the saint's picture with a link to that page.
+
+**Implementation:**
+- updateManageVisibility(): #offlineRow and #offlineNote always shown.
+- #artShareBtn moved into the sticky .artTopBar next to the X, un-hidden, restyled gold with the
+  X's shadow; setArtXShift() keeps it 54px left of the X as the X slides for the corner photo;
+  landscape !important rules mirror the X's.
+- shareEntry(): shares the picture as a file plus the entry link (#id) when possible, else the
+  link alone, else clipboard. The picture is fetched ahead in openArticle via prepareShareImage(),
+  because iOS Safari rejects share() calls that happen after an async wait. Entries without a
+  picture use Images/heroLogo.jpg.
+
 ## v477 — 2026-09-24
 
 **Ask (portrait):**
@@ -2937,6 +2953,9 @@ CHANGELOG:END
          this every scroll tick. */
       #article.overlay.hasLandImg .artX{ right: calc(var(--landImgW, 45vw) + 16px + 14px) !important; }
       #article.overlay.landFactsCol .artX{ right: calc(50vw + 8px + 14px) !important; }
+      /* v478: share stays just left of the X in landscape too. */
+      #article.overlay.hasLandImg .artShareBtn{ right: calc(var(--landImgW, 45vw) + 16px + 14px + 54px) !important; }
+      #article.overlay.landFactsCol .artShareBtn{ right: calc(50vw + 8px + 14px + 54px) !important; }
     }
   }
   .dhead{display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding-right:118px;}
@@ -3008,13 +3027,16 @@ CHANGELOG:END
     color:#B9AE86; font-size:22px; line-height:1; cursor:pointer; padding:4px;
   }
   .reportModalClose:hover{color:#fff;}
+  /* v478: gold like the X, same drop-shadow treatment, generous 48×60 tap box with the glyph
+     centered so it lines up vertically with the X's. `right` is set by setArtXShift(). */
   .artShareBtn{
-    position:absolute; top:10px; right:58px; z-index:10;
-    width:30px; height:30px; display:flex; align-items:center; justify-content:center;
-    background:none; border:none; color:#fff; cursor:pointer; padding:0;
+    position:absolute; top:0; right:60px; z-index:22;
+    width:48px; height:60px; display:flex; align-items:center; justify-content:center;
+    background:none; border:none; color:var(--gold); cursor:pointer; padding:0;
+    filter:drop-shadow(0 1px 4px rgba(0,0,0,.6));
   }
   .artShareBtn:hover{color:var(--gold-bright);}
-  .artShareBtn svg{width:19px; height:19px;}
+  .artShareBtn svg{width:25px; height:25px;}
   .shareToast{
     position:absolute; top:46px; right:10px; z-index:11;
     display:none; text-align:center; white-space:nowrap;
@@ -3182,10 +3204,7 @@ CHANGELOG:END
   #artStoryText{touch-action:manipulation;}
   /* v205: the old inline sticky scrubber (.artPlayerWrap/.player/.pbtn) is gone, replaced by
      the fixed .audioBottomBar below. */
-  /* Share button hidden for now — not yet implemented. Close (.artX) is visible — see its own
-     rule above — swipe-down-to-close still works too; the button is just a second, discoverable
-     way to do the same thing. */
-  .artShareBtn{display:none;}
+  /* v478: Share is live (was hidden as not-yet-implemented). */
   .artbadges{display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
   .artrule{width:min(360px,60%); height:1px; margin:18px auto; background:linear-gradient(90deg,transparent,var(--gold),transparent);}
   .arth{font-family:'Cinzel',serif; font-size:calc(15px * var(--txt)); letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:26px 0 8px; border-bottom:1px solid rgba(201,165,66,.35); padding-bottom:5px;}
@@ -4727,14 +4746,16 @@ CHANGELOG:END
   <div class="artTopBar" id="artTopBar">
     <div class="draghandle" id="artHandle"></div>
     <button class="artX" id="artClose" aria-label="Close">×</button>
+    <!-- v478: share lives in the sticky top bar with the X (was a scrolling, hidden button), so it
+         stays reachable at any scroll position. Kept just left of the X by setArtXShift(). -->
+    <button class="artShareBtn" id="artShareBtn" aria-label="Share">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3.5v11"/>
+        <path d="M8 7.5l4-4 4 4"/>
+        <path d="M8.5 10.5H7a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6.5a2 2 0 0 0-2-2h-1.5"/>
+      </svg>
+    </button>
   </div>
-  <button class="artShareBtn" id="artShareBtn" aria-label="Share">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 3v12"/>
-      <path d="M8 7l4-4 4 4"/>
-      <path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/>
-    </svg>
-  </button>
   <div class="shareToast" id="shareToast"></div>
   <div class="pauseIndicator" id="pauseIndicator"></div>
   <div class="artwrap">
@@ -5487,7 +5508,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v477';
+const APP_VERSION = 'v478';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -6435,9 +6456,39 @@ function showShareToast(msg){
   void t.offsetWidth; // restart animation
   t.classList.add('show');
 }
+// v478: shares the saint's picture together with a link straight to that entry. iPhone Safari
+// only opens the share sheet if share() is called right away from the tap — waiting on a
+// download first makes it refuse. So the picture is fetched ahead of time, when the article
+// opens (prepareShareImage, called from openArticle), and the tap just uses whatever is ready.
+// If the picture isn't ready yet, isn't available, or the device can't share images, the link
+// alone is shared. Entries with no picture of their own fall back to the site logo.
+const SHARE_FALLBACK_IMAGE = 'Images/heroLogo.jpg';
+let shareImage = { id: null, file: null };
+async function prepareShareImage(d){
+  shareImage = { id: d.id, file: null };
+  if(!navigator.canShare || typeof File === 'undefined') return;
+  const src = d.img ? resolveAsset(d.img, db && db.settings && db.settings.imageBase) : SHARE_FALLBACK_IMAGE;
+  try{
+    const res = await fetch(src);
+    if(!res.ok) return;
+    const blob = await res.blob();
+    const type = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg';
+    const ext = (type.split('/')[1] || 'jpg').replace('jpeg', 'jpg').replace('svg+xml', 'svg');
+    const file = new File([blob], (d.id || 'catholic-timeline') + '.' + ext, { type });
+    if(shareImage.id === d.id && navigator.canShare({ files: [file] })) shareImage.file = file;
+  }catch(e){ /* offline, blocked, or not an image — the link alone will be shared */ }
+}
 async function shareEntry(d){
   const url = entryUrl(d);
   const shareData = { title: d.n, text: d.n, url: url };
+  if(shareImage.id === d.id && shareImage.file){
+    const withImage = { files: [shareImage.file], title: d.n, text: d.n + '\n' + url, url: url };
+    if(navigator.canShare && navigator.canShare(withImage)){
+      try{ await navigator.share(withImage); }
+      catch(e){ /* cancelled — nothing to do */ }
+      return;
+    }
+  }
   if(navigator.share){
     try{ await navigator.share(shareData); }
     catch(e){ /* user cancelled — no toast needed */ }
@@ -12327,6 +12378,7 @@ function openArticle(d, opts){
       if(recent.audioTime > 0) pendingAudioResume = recent.audioTime;
     }
   }
+  prepareShareImage(d); // v478: have the picture ready before the share button can be tapped
   const opening = !article.classList.contains('open');
   // v474: when the card is rising from closed, hold it below the screen (.preopen) until the
   // story is rendered and the saved reading position is applied; it is released two frames
@@ -13568,7 +13620,12 @@ function setArtXShift(amt){
   const btn = document.getElementById('artClose');
   if(!btn) return;
   const clamped = Math.max(0, Math.min(1, amt));
-  btn.style.right = (FLY_ARTX_BASE + clamped * (FLY_ARTX_SHIFTED - FLY_ARTX_BASE)) + 'px';
+  const right = FLY_ARTX_BASE + clamped * (FLY_ARTX_SHIFTED - FLY_ARTX_BASE);
+  btn.style.right = right + 'px';
+  // v478: the share button rides just left of the X wherever the X goes (X box is 60px wide;
+  // 6px overlap of the two invisible tap boxes keeps the glyphs a comfortable distance apart).
+  const share = document.getElementById('artShareBtn');
+  if(share) share.style.right = (right + 54) + 'px';
 }
 let flyGeo = null;
 let flyRAF = null;
@@ -16402,10 +16459,12 @@ function updateManageVisibility(){
   // Anyone who already enabled it keeps it: the stored 'offline-access' preference and the
   // registration it drives are untouched by this, only the switch that reaches them.
   // '' rather than 'block' on the note, so its own collapsed class still decides when shown.
+  // v478: Offline Access is public again now that sw.js exists and works (v469) — shown to every
+  // visitor regardless of Owner Tools. The note keeps its own collapsed class.
   const offlineRowEl = document.getElementById('offlineRow');
-  if(offlineRowEl) offlineRowEl.style.display = unlocked ? '' : 'none';
+  if(offlineRowEl) offlineRowEl.style.display = '';
   const offlineNoteEl = document.getElementById('offlineNote');
-  if(offlineNoteEl) offlineNoteEl.style.display = unlocked ? '' : 'none';
+  if(offlineNoteEl) offlineNoteEl.style.display = '';
   // The switch itself follows access, not the preference — otherwise turning the CMS off would
   // hide the only control that turns it back on.
   const cmsBox = document.getElementById('cmsEnabled');
