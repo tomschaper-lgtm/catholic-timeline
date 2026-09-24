@@ -1,6 +1,6 @@
 <!--
-VERSION: 473
-DATE: 2026-09-24T10:10:00-05:00
+VERSION: 474
+DATE: 2026-09-24T11:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,28 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v474 — 2026-09-24
+
+**Ask:**
+- Closing the article card should animate gracefully, like the side menus. Opening should also be
+  graceful, ending gently.
+- When returning to a remembered reading spot, position the article at that exact spot first,
+  then gently raise the card.
+
+**Implementation:**
+- Separate open and close curves on #article (and the #artCornerMask twin): close .52s
+  cubic-bezier(.32,.72,.28,1) (the side menus' curve); open .64s cubic-bezier(.22,1,.36,1), set on
+  the .open state so it applies to the rise only.
+- New .preopen hold: openArticle() adds it when rising from closed, renders the story and applies
+  the saved scroll, forces a reflow, then removes it two frames later so the rise starts clean,
+  with content already in place. Previously the heavy render shared the slide's first frame.
+- Remembered positions are no longer animated (jumpAndRevealSection no longer used for them):
+  the exact saved position, applied before the rise.
+- restoreArticleScroll skips measureFly/updateFly while .preopen (card still off-screen);
+  settle() measures after the rise. Safety timeout 700 → 1000ms.
+- Flick exit: its fast transition was declared as .overlay.flick, out-ranked by the #article
+  rules, so it never applied. Now #article.overlay.flick.
+
 ## v473 — 2026-09-24
 
 **Ask:**
@@ -2758,9 +2780,17 @@ CHANGELOG:END
       border-radius:34px 34px 0 0;
       background:linear-gradient(180deg, #14224A, #0C1735);
       box-shadow:0 -8px 30px rgba(0,0,0,.6);
-      transition:transform .48s cubic-bezier(0.16, 1, 0.3, 1);
+      /* v474: CLOSING uses the same curve as the side menus (Settings, Manage), a touch longer —
+         eases in, glides, and settles, instead of the old expo curve that bolted off-screen. */
+      transition:transform .52s cubic-bezier(.32,.72,.28,1);
     }
-    #article.overlay.open{transform:translateY(0);}
+    /* v474: OPENING gets its own, slower curve that decelerates into a gentle stop. A transition
+       is taken from the state being entered, so this applies to the rise only. */
+    #article.overlay.open{transform:translateY(0); transition:transform .64s cubic-bezier(.22,1,.36,1);}
+    /* v474: held just below the screen while the story is filled in and the saved reading spot is
+       applied, so the rise starts only once the content is ready and already sitting at the
+       right place. Removed two frames later by openArticle(). See the comment there. */
+    #article.overlay.preopen{transform:translateY(100%) !important; transition:none !important;}
     #article.overlay.open.peek{transform:translateY(calc(100% - var(--peekH))); overflow:hidden;}
     /* v471: the card's rounded top corners leave two small gaps at the screen edges where
        whatever is behind shows through — usually the gold era band of the timeline, which read
@@ -2773,15 +2803,20 @@ CHANGELOG:END
       height:88vh; pointer-events:none;
       background:linear-gradient(var(--navy-deep, #070F22), var(--navy-deep, #070F22)) no-repeat top / 100% 38px;
       transform:translateY(100%);
-      transition:transform .48s cubic-bezier(0.16, 1, 0.3, 1);
+      transition:transform .52s cubic-bezier(.32,.72,.28,1);
     }
-    body:has(#article.overlay.open) .artCornerMask{transform:translateY(0);}
+    body:has(#article.overlay.open) .artCornerMask{transform:translateY(0); transition:transform .64s cubic-bezier(.22,1,.36,1);}
+    body:has(#article.overlay.preopen) .artCornerMask{transform:translateY(100%) !important; transition:none !important;}
     body:has(#article.overlay.open.peek) .artCornerMask{transform:translateY(calc(100% - var(--peekH)));}
     body:has(#article.overlay.expanding) .artCornerMask{transition:transform .78s cubic-bezier(.22,.61,.36,1);}
     /* The peek→full expand (and the full→peek collapse) run slower than the open/close
        slide, so the card's rise reads as a deliberate reveal rather than a snap. The photo
        morph in expandArticle()/collapseArticle() is timed to match. */
     #article.overlay.expanding{transition:transform .78s cubic-bezier(.22,.61,.36,1);}
+    /* v474: the flick exit's fast timing was defined as .overlay.flick, which the #article rules
+       above always out-rank, so a thrown card never actually got its faster exit. */
+    #article.overlay.flick{transition:transform var(--flickMs, 190ms) cubic-bezier(.3,.8,.4,1);}
+    body:has(#article.overlay.flick) .artCornerMask{transition:transform var(--flickMs, 190ms) cubic-bezier(.3,.8,.4,1);}
     /* v440: in landscape the sheet is inset to 60% of the screen and centered, so the timeline
        stays visible down both sides instead of the card running edge to edge. Centering is done
        with auto side margins against the existing left:0/right:0 — NOT by adding translateX to
@@ -5397,7 +5432,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v473';
+const APP_VERSION = 'v474';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -5735,6 +5770,10 @@ function restoreArticleScroll(y, opts){
     if(Math.abs(artEl.scrollTop - want) > 1) artEl.scrollTop = want;
     lastSet = artEl.scrollTop;
     syncStickyBackdrops();
+    // v474: while the card is still held below the screen (or rising), its position isn't
+    // final, so the flying photo would be measured against the wrong place. openArticle's
+    // settle() measures it once the rise has finished.
+    if(artEl.classList.contains('preopen')) return;
     measureFly();   // the flying photo's geometry is measured per entry; re-derive it here
     updateFly();    // ...and put it straight into its scrolled position, no visible flight
   };
@@ -12227,13 +12266,20 @@ function openArticle(d, opts){
     if(recent){
       if(recent.scroll > 0){
         opts.restoreScroll = recent.scroll;
-        opts.animateRestore = true; // a resumed position rides down and glows; the Back button never does
+        // v474: no longer animated — the reader lands on the exact spot, set before the card rises.
         opts.peek = false; // a saved mid-article position always wins over a requested teaser
       }
       if(recent.audioTime > 0) pendingAudioResume = recent.audioTime;
     }
   }
   const opening = !article.classList.contains('open');
+  // v474: when the card is rising from closed, hold it below the screen (.preopen) until the
+  // story is rendered and the saved reading position is applied; it is released two frames
+  // later, below. Rendering a long article in the same frame as the slide used to delay or skip
+  // the first frames of the rise (a visible jump), and a remembered position was applied during
+  // or after the rise, so the text moved while the card came up. Now the card rises with the
+  // content already sitting exactly where the reader left it.
+  if(opening) article.classList.add('preopen');
   article.classList.toggle('peek', !!opts.peek);
   article.classList.add('open');
   document.body.classList.add('artOpen');
@@ -12247,7 +12293,11 @@ function openArticle(d, opts){
   // return the reader to where they left off. Every other route (a fresh open, a forward
   // link tap, a stale/expired position) has no saved position and stays at the top.
   scrollRestoreToken++;   // invalidate any restore still in flight from a previous navigation
-  if(opts.restoreScroll > 0 && !opts.peek) restoreArticleScroll(opts.restoreScroll, {animate: !!opts.animateRestore});
+  if(opts.restoreScroll > 0 && !opts.peek) restoreArticleScroll(opts.restoreScroll, {animate: false});
+  if(opening){
+    void article.offsetHeight; // commit the held position before releasing it
+    requestAnimationFrame(() => requestAnimationFrame(() => article.classList.remove('preopen')));
+  }
   // The sheet slides up on a transform, which a fixed-position element cannot ride along
   // with. So during the open animation the inline photo shows normally, and the flying
   // copy only takes over once the sheet has settled — the swap is invisible because at
@@ -12275,7 +12325,7 @@ function openArticle(d, opts){
       article.removeEventListener('transitionend', once);
       settle();
     });
-    setTimeout(settle, 700); // safety net if the transition never reports
+    setTimeout(settle, 1000); // safety net if the transition never reports (v474: rise is now .64s + 2 frames)
   } else {
     // Card was already fully open (e.g. swiping to a chronological neighbor) — nothing is
     // sliding, so there's no transition to wait for; the new entry's bar (if it has audio) can
