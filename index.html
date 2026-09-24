@@ -1,6 +1,6 @@
 <!--
-VERSION: 474
-DATE: 2026-09-24T11:00:00-05:00
+VERSION: 476
+DATE: 2026-09-24T11:35:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,25 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v476 — 2026-09-24
+
+**Ask:**
+- The article card still closes too fast; make it more graceful.
+
+**Implementation:**
+- #article (and #artCornerMask) close transition: .52s cubic-bezier(.32,.72,.28,1) →
+  .72s cubic-bezier(.42,0,.22,1) — soft start, even glide, eased finish. Opening, peek/expand,
+  and the deliberate flick-away exit are unchanged.
+
+## v475 — 2026-09-24
+
+**Ask:**
+- Frosted Settings menu should be more transparent and more blurred.
+
+**Implementation:**
+- .hamMenu glass: background rgba(255,255,255,.78) → .56; backdrop blur 24px → 34px;
+  saturate 1.5 → 1.8. Solid-white fallback unchanged.
+
 ## v474 — 2026-09-24
 
 **Ask:**
@@ -2780,9 +2799,10 @@ CHANGELOG:END
       border-radius:34px 34px 0 0;
       background:linear-gradient(180deg, #14224A, #0C1735);
       box-shadow:0 -8px 30px rgba(0,0,0,.6);
-      /* v474: CLOSING uses the same curve as the side menus (Settings, Manage), a touch longer —
-         eases in, glides, and settles, instead of the old expo curve that bolted off-screen. */
-      transition:transform .52s cubic-bezier(.32,.72,.28,1);
+      /* v474: CLOSING used the side menus' curve. v475: still read as too fast — that curve does
+         most of its travel in the first moments. Now slower (.72s) with a soft start, an even
+         glide, and an eased finish, so the card lifts away rather than drops. */
+      transition:transform .72s cubic-bezier(.42,0,.22,1);
     }
     /* v474: OPENING gets its own, slower curve that decelerates into a gentle stop. A transition
        is taken from the state being entered, so this applies to the rise only. */
@@ -2803,7 +2823,7 @@ CHANGELOG:END
       height:88vh; pointer-events:none;
       background:linear-gradient(var(--navy-deep, #070F22), var(--navy-deep, #070F22)) no-repeat top / 100% 38px;
       transform:translateY(100%);
-      transition:transform .52s cubic-bezier(.32,.72,.28,1);
+      transition:transform .72s cubic-bezier(.42,0,.22,1);
     }
     body:has(#article.overlay.open) .artCornerMask{transform:translateY(0); transition:transform .64s cubic-bezier(.22,1,.36,1);}
     body:has(#article.overlay.preopen) .artCornerMask{transform:translateY(100%) !important; transition:none !important;}
@@ -3696,10 +3716,13 @@ CHANGELOG:END
     overflow:hidden; /* the overlay itself no longer scrolls — see .mgmtScroll below */
   }
   @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)){
+    /* v475: more see-through (.78 → .56 white) with a stronger blur (24 → 34px) so the
+       timeline reads as soft color behind the glass; extra saturation keeps that color rich
+       rather than muddy. Dark row text still clears ~7:1 contrast over the app's navy. */
     .hamMenu{
-      background:rgba(255,255,255,.78);
-      -webkit-backdrop-filter:blur(24px) saturate(1.5);
-      backdrop-filter:blur(24px) saturate(1.5);
+      background:rgba(255,255,255,.56);
+      -webkit-backdrop-filter:blur(34px) saturate(1.8);
+      backdrop-filter:blur(34px) saturate(1.8);
     }
   }
   /* iOS Safari reliably breaks position:sticky when its scrolling ancestor is also
@@ -5432,7 +5455,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v474';
+const APP_VERSION = 'v476';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
