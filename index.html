@@ -1,6 +1,6 @@
 <!--
-VERSION: 471
-DATE: 2026-09-24T09:00:00-05:00
+VERSION: 472
+DATE: 2026-09-24T09:40:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,21 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v472 — 2026-09-24
+
+**Ask (portrait):**
+- Too much space between the taper line and the text. The bottom of the corner picture and the
+  line under the name should be even: move the picture up a bit, move the line (and the date and
+  name) down a bit, and move the article text up a bit.
+
+**Implementation:**
+- FLY_OVERHANG 24 → 34 (docked picture sits 10px higher).
+- .ahHead padding-top 6px (date/name slightly lower).
+- measureFly() now aligns the taper's bottom with the docked badge's bottom via --taperShift on
+  .artSticky (badge size varies with each photo's shape, so it's measured per photo). Re-measures
+  once when the shift changes, since the header height moves the hero. Never negative, capped 60px.
+- Space under the taper: 1.4 → 0.8 story lines.
+
 ## v471 — 2026-09-24
 
 **Ask:**
@@ -3019,7 +3034,13 @@ CHANGELOG:END
      Everything that measures the header (--ahH, the white audio line's clamp, line-snap's safe
      top) reads offsetHeight, so it all follows automatically. Scales with the Font Size setting. */
   @media (orientation: portrait){
-    .artSticky{padding-bottom:calc(10px + 19.5px * var(--txt, 1) * 1.68 * 1.4);}
+    /* v472: 1.4 → 0.8 lines — the gap read as too large once the taper moved down (below). */
+    .artSticky{padding-bottom:calc(10px + 19.5px * var(--txt, 1) * 1.68 * 0.8);}
+    /* v472: date and name sit slightly lower, and the taper line drops to line up exactly with
+       the bottom edge of the docked corner picture. --taperShift is measured per photo in
+       measureFly() (badge size follows each photo's shape, so the right amount varies). */
+    .artSticky.hasPortrait .ahHead{padding-top:6px;}
+    .artSticky.hasPortrait .ahTaper{margin-top:calc(9px + var(--taperShift, 0px));}
   }
   .ahYear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
   .review-on .ahYear{cursor:pointer;}
@@ -5359,7 +5380,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v471';
+const APP_VERSION = 'v472';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -13394,7 +13415,7 @@ function paintPlayerBackdrop(){
 // during a hard flick.
 const FLY_AREA = 104 * 133;       // target visual footprint of the resting corner badge (same as the old fixed box)
 const FLY_MIN = 70, FLY_MAX = 156; // clamp so extreme photo aspect ratios still produce a sane badge size
-const FLY_OVERHANG = 24;          // how far it rises above the card's top border
+const FLY_OVERHANG = 34;          // how far it rises above the card's top border (v472: 24→34, picture sits a bit higher)
 const FLY_INSET = 20;             // gap from the card's right edge
 const FLY_DELAY = 48;             // scroll this far first, so a nudge doesn't start the flight
 // Where the close button (#artClose) rests when there's no corner portrait to dodge (BASE — must
@@ -13487,6 +13508,25 @@ function measureFly(){
     // off the top — which is what keeps it moving in step with the text.
     dist: Math.max(240, hero.offsetHeight * 0.95)
   };
+  // v472: line the taper under the name up with the bottom edge of the docked picture. The
+  // badge's size depends on the photo's shape, so the gap is measured here rather than fixed in
+  // CSS. The header is sticky at the card's top, so its position doesn't change with scrolling.
+  // Moving the taper changes the header's height, which moves the photo measured above, so when
+  // the shift changes this re-measures once. Never moves the line UP (a short badge just leaves
+  // it where it is), and capped so an unusually tall badge can't push it far down.
+  {
+    const taperEl = document.getElementById('ahTaper');
+    if(taperEl && window.matchMedia('(orientation: portrait)').matches){
+      const cur = parseFloat(sticky.style.getPropertyValue('--taperShift')) || 0;
+      const natural = taperEl.getBoundingClientRect().bottom - cur;
+      const want = Math.max(0, Math.min(60, Math.round(flyGeo.endTop + flyGeo.flyH - natural)));
+      if(Math.abs(want - cur) > 1 && !measureFly._realign){
+        sticky.style.setProperty('--taperShift', want + 'px');
+        measureFly._realign = true;
+        try{ return measureFly(); } finally { measureFly._realign = false; }
+      }
+    }
+  }
   // Lay the flying copy out at the photo's FULL on-screen size and let the transform scale
   // it DOWN into the corner. Sizing it at the small corner dimensions and scaling UP (the
   // previous approach) made the browser rasterise the image at ~135px and then magnify that
