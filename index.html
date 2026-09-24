@@ -1,6 +1,6 @@
 <!--
-VERSION: 469
-DATE: 2026-09-23T19:30:00-05:00
+VERSION: 471
+DATE: 2026-09-24T09:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,34 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v471 — 2026-09-24
+
+**Ask:**
+- Landscape: play button in the bottom-right corner of the article text area.
+- Portrait: the card's rounded top corners showed sharp points where each curve begins.
+
+**Implementation:**
+- syncAudioBarCenter(): in landscape, positions the bar so its right edge meets the text
+  column's right edge; portrait still centers it.
+- The "points" were the timeline's gold era band showing through the two corner gaps outside
+  the card's 34px rounding. New #artCornerMask, a twin of the card's box one layer beneath it
+  (same size, slide, peek position and timing, tracked with body:has(), no JS), paints a 38px
+  navy strip at its top so only the corner gaps show it. Touch devices in portrait only.
+
+## v470 — 2026-09-23
+
+**Ask:**
+- More space after the article text; "From the Sources" should read "Memorable Quote"; more space
+  between that and the next element.
+
+**Implementation:**
+- Heading text "From the Sources" → "Memorable Quote" (display only; data field is still
+  art.quotes).
+- New .arthAfter class on the Memorable Quote and Sources & Further Reading headings (the latter
+  in both the article and the Learn More panel): margin-top 58px × --txt vs. 26px for ordinary
+  section headings. Whichever block comes first after the story gets the gap, so entries without
+  a quote still get it before Sources.
+
 ## v469 — 2026-09-23
 
 **Ask:**
@@ -2708,6 +2736,22 @@ CHANGELOG:END
     }
     #article.overlay.open{transform:translateY(0);}
     #article.overlay.open.peek{transform:translateY(calc(100% - var(--peekH))); overflow:hidden;}
+    /* v471: the card's rounded top corners leave two small gaps at the screen edges where
+       whatever is behind shows through — usually the gold era band of the timeline, which read
+       as sharp gold points sticking out where each curve begins. This mask is a twin of the
+       card's own box (same size, same slide, same timing, one layer beneath it) that paints
+       only a thin strip at its top in the header's dark navy, so the gaps read as background
+       instead of gold spikes. Its classes track the card via body:has(), no JS. */
+    #artCornerMask{ /* id, not class: must beat the later default .artCornerMask{display:none} */
+      display:block; position:fixed; left:0; right:0; bottom:0; z-index:99;
+      height:88vh; pointer-events:none;
+      background:linear-gradient(var(--navy-deep, #070F22), var(--navy-deep, #070F22)) no-repeat top / 100% 38px;
+      transform:translateY(100%);
+      transition:transform .48s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    body:has(#article.overlay.open) .artCornerMask{transform:translateY(0);}
+    body:has(#article.overlay.open.peek) .artCornerMask{transform:translateY(calc(100% - var(--peekH)));}
+    body:has(#article.overlay.expanding) .artCornerMask{transition:transform .78s cubic-bezier(.22,.61,.36,1);}
     /* The peek→full expand (and the full→peek collapse) run slower than the open/close
        slide, so the card's rise reads as a deliberate reveal rather than a snap. The photo
        morph in expandArticle()/collapseArticle() is timed to match. */
@@ -3021,6 +3065,11 @@ CHANGELOG:END
   .artrule{width:min(360px,60%); height:1px; margin:18px auto; background:linear-gradient(90deg,transparent,var(--gold),transparent);}
   .arth{font-family:'Cinzel',serif; font-size:calc(15px * var(--txt)); letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:26px 0 8px; border-bottom:1px solid rgba(201,165,66,.35); padding-bottom:5px;}
   .artp{font-size:calc(19.5px * var(--txt)); line-height:1.68; margin:0 0 14px;}
+  /* v470: the blocks after the story (Memorable Quote, then Sources & Further Reading) get a
+     clearly larger gap above them than an ordinary section heading (26px), so the end of the
+     article reads as the end, and each closing block stands on its own. Scales with Font Size.
+     #aboutPanel .arth's own margin-top:36px rule is less specific, so this wins there too. */
+  .arth.arthAfter, #aboutPanel .arth.arthAfter{margin-top:calc(58px * var(--txt, 1));}
   /* Sentence-level audio-sync cues (v171): applied to spans wrapping matched sentences inside
      .artProse, and directly to .arth headings that got a matching heading cue. Tappable only
      once cues actually loaded (data-cue-idx present); .cuePlaying tracks the audio's current
@@ -3153,6 +3202,8 @@ CHANGELOG:END
   /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
      so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
   .artLandImg, .artLandAnchor{display:none;}
+  .artCornerMask{display:none;}
+  @media (orientation: landscape){ .artCornerMask{display:none !important;} }
   /* v461 reserved a flat 190px (the badge's worst-case size); reverted in v462 as too wide.
      v463 retried with the image's real per-photo width instead of a worst-case guess — narrower,
      but still a PERMANENT reservation for the article's full height, because the badge is fixed
@@ -4537,6 +4588,10 @@ CHANGELOG:END
   </div>
 </div>
 
+<!-- v471: sits directly behind the article card and follows its slide exactly; only its top
+     strip is painted, and only the two corner gaps outside the card's rounded top ever show it.
+     See .artCornerMask CSS. -->
+<div class="artCornerMask" id="artCornerMask" aria-hidden="true"></div>
 <div class="overlay" id="article">
   <div class="audioActiveBar" id="audioActiveBar"></div>
   <!-- Sticky (not absolute) so the close button stays pinned near the top of the card at any
@@ -5304,7 +5359,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v469';
+const APP_VERSION = 'v471';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -11821,14 +11876,14 @@ function fillArticleBody(d, peek){
   });
   html += '</div>'; // #artStoryText
   if(art.quotes && art.quotes.length){
-    html += '<div class="arth">From the Sources</div>';
+    html += '<div class="arth arthAfter">Memorable Quote</div>';
     art.quotes.forEach(q => {
       html += '<div class="artquote">&ldquo;' + esc(q.text) + '&rdquo;' +
         (q.source ? '<span class="qsrc">— ' + esc(q.source) + '</span>' : '') + '</div>';
     });
   }
   if(art.links && art.links.length){
-    html += '<div class="arth">Sources &amp; Further Reading</div><ul class="artsrc">';
+    html += '<div class="arth arthAfter">Sources &amp; Further Reading</div><ul class="artsrc">';
     art.links.forEach(l => {
       if(l.url) html += '<li><a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.label || l.url) + '</a></li>';
     });
@@ -13972,8 +14027,12 @@ function closePhotoView(){
 function syncLandImgWidth(){
   const img = document.getElementById('artLandImg');
   const root = document.documentElement;
-  if(!img || !img.offsetWidth){ root.style.removeProperty('--landImgW'); return; }
+  if(!img || !img.offsetWidth){ root.style.removeProperty('--landImgW'); syncAudioBarCenter(); return; }
   root.style.setProperty('--landImgW', img.offsetWidth + 'px');
+  // v471: the text column's width depends on this measurement, and the play button is placed
+  // relative to that column — so re-place it now. Before, it was positioned once at article
+  // open, often before the picture had loaded, and kept a position based on a placeholder width.
+  syncAudioBarCenter();
 }
 // v461: the fixed bottom play bar used to just sit at 50% of the VIEWPORT — fine when the text
 // fills the viewport, wrong the moment it doesn't (landscape's side photo/facts column, or now
@@ -13994,6 +14053,14 @@ function syncAudioBarCenter(){
   const contentLeft = rect.left + (parseFloat(cs.paddingLeft) || 0);
   const contentRight = rect.right - (parseFloat(cs.paddingRight) || 0);
   if(contentRight <= contentLeft){ bar.style.left = ''; return; } // nothing sane to measure yet
+  // v471: landscape parks the button in the bottom-RIGHT corner of the text column (it sits
+  // beside the picture there, out of the reading line); portrait keeps it centered. The bar
+  // is positioned by its center (translateX(-50%)), hence half its width back from the edge.
+  if(window.matchMedia('(orientation: landscape)').matches){
+    const half = (bar.offsetWidth || 56) / 2;
+    bar.style.left = (contentRight - half) + 'px';
+    return;
+  }
   bar.style.left = ((contentLeft + contentRight) / 2) + 'px';
 }
 // v460: rotating mid-session (vs. opening fresh already in landscape) was leaving a gap between
@@ -16930,7 +16997,7 @@ function renderAboutPanel(category){
     });
   }
   if(art.links && art.links.length){
-    html += '<div class="arth">Sources &amp; Further Reading</div><ul class="artsrc">';
+    html += '<div class="arth arthAfter">Sources &amp; Further Reading</div><ul class="artsrc">';
     art.links.forEach(l => {
       if(l.url) html += '<li><a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.label || l.url) + '</a></li>';
     });
