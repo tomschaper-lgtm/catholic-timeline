@@ -19,6 +19,305 @@ the time.
 
 ---
 
+## v476 — 2026-09-24
+
+**Ask:**
+- The article card still closes too fast; make it more graceful.
+
+**Implementation:**
+- #article (and #artCornerMask) close transition: .52s cubic-bezier(.32,.72,.28,1) →
+  .72s cubic-bezier(.42,0,.22,1) — soft start, even glide, eased finish. Opening, peek/expand,
+  and the deliberate flick-away exit are unchanged.
+
+## v475 — 2026-09-24
+
+**Ask:**
+- Frosted Settings menu should be more transparent and more blurred.
+
+**Implementation:**
+- .hamMenu glass: background rgba(255,255,255,.78) → .56; backdrop blur 24px → 34px;
+  saturate 1.5 → 1.8. Solid-white fallback unchanged.
+
+## v474 — 2026-09-24
+
+**Ask:**
+- Closing the article card should animate gracefully, like the side menus. Opening should also be
+  graceful, ending gently.
+- When returning to a remembered reading spot, position the article at that exact spot first,
+  then gently raise the card.
+
+**Implementation:**
+- Separate open and close curves on #article (and the #artCornerMask twin): close .52s
+  cubic-bezier(.32,.72,.28,1) (the side menus' curve); open .64s cubic-bezier(.22,1,.36,1), set on
+  the .open state so it applies to the rise only.
+- New .preopen hold: openArticle() adds it when rising from closed, renders the story and applies
+  the saved scroll, forces a reflow, then removes it two frames later so the rise starts clean,
+  with content already in place. Previously the heavy render shared the slide's first frame.
+- Remembered positions are no longer animated (jumpAndRevealSection no longer used for them):
+  the exact saved position, applied before the rise.
+- restoreArticleScroll skips measureFly/updateFly while .preopen (card still off-screen);
+  settle() measures after the rise. Safety timeout 700 → 1000ms.
+- Flick exit: its fast transition was declared as .overlay.flick, out-ranked by the #article
+  rules, so it never applied. Now #article.overlay.flick.
+
+## v473 — 2026-09-24
+
+**Ask:**
+- Story text up a little more (portrait).
+- Show the taper line under the name when the card is peeking up.
+
+**Implementation:**
+- Portrait .artSticky padding-bottom: 0.8 → 0.5 story lines.
+- #article.peek .ahTaper{opacity:1 !important} — overrides the inline opacity the photo morph
+  sets (0 at the top of an article with a photo) only while .peek is on.
+
+## v472 — 2026-09-24
+
+**Ask (portrait):**
+- Too much space between the taper line and the text. The bottom of the corner picture and the
+  line under the name should be even: move the picture up a bit, move the line (and the date and
+  name) down a bit, and move the article text up a bit.
+
+**Implementation:**
+- FLY_OVERHANG 24 → 34 (docked picture sits 10px higher).
+- .ahHead padding-top 6px (date/name slightly lower).
+- measureFly() now aligns the taper's bottom with the docked badge's bottom via --taperShift on
+  .artSticky (badge size varies with each photo's shape, so it's measured per photo). Re-measures
+  once when the shift changes, since the header height moves the hero. Never negative, capped 60px.
+- Space under the taper: 1.4 → 0.8 story lines.
+
+## v471 — 2026-09-24
+
+**Ask:**
+- Landscape: play button in the bottom-right corner of the article text area.
+- Portrait: the card's rounded top corners showed sharp points where each curve begins.
+
+**Implementation:**
+- syncAudioBarCenter(): in landscape, positions the bar so its right edge meets the text
+  column's right edge; portrait still centers it.
+- The "points" were the timeline's gold era band showing through the two corner gaps outside
+  the card's 34px rounding. New #artCornerMask, a twin of the card's box one layer beneath it
+  (same size, slide, peek position and timing, tracked with body:has(), no JS), paints a 38px
+  navy strip at its top so only the corner gaps show it. Touch devices in portrait only.
+
+## v470 — 2026-09-23
+
+**Ask:**
+- More space after the article text; "From the Sources" should read "Memorable Quote"; more space
+  between that and the next element.
+
+**Implementation:**
+- Heading text "From the Sources" → "Memorable Quote" (display only; data field is still
+  art.quotes).
+- New .arthAfter class on the Memorable Quote and Sources & Further Reading headings (the latter
+  in both the article and the Learn More panel): margin-top 58px × --txt vs. 26px for ordinary
+  section headings. Whichever block comes first after the story gets the gap, so entries without
+  a quote still get it before Sources.
+
+## v469 — 2026-09-23
+
+**Ask:**
+- Offline Access has never worked. (sw.js turned out not to exist in the repo at all.)
+
+**Implementation:**
+- NEW FILE sw.js (repo root). index.html has registered it since v415 with errors swallowed, so
+  the switch silently did nothing. Strategies: network-first for the page and data.json (keys
+  ignore query strings; update flow unaffected), stale-while-revalidate for images, timing
+  .json and Google Fonts, cache-first for audio with real byte-range support (206 sliced from the
+  saved whole file) since iOS Safari only ever requests audio in ranges. Uncached audio streams
+  from the network while the whole file is saved in the background. Redirected responses are
+  rebuilt before storing/returning (iOS rejects redirected SW responses for page loads).
+  skipWaiting + clients.claim so the first run is controlled.
+- warmMediaCache(): now waits for the service worker to actually control the page before bulk
+  downloading, and doesn't record a run if control never arrives (previously could "complete"
+  uncontrolled, saving nothing, and block retries for 24h). Timestamp key renamed
+  media-warm-last → media-warm-last-v2 so old timestamps from runs that saved nothing don't
+  block the first real download.
+
+## v468 — 2026-09-23
+
+**Ask:**
+- Sticky section headings do more harm than good — remove.
+- Portrait: 1.4 lines more space between the line under the name and the article text.
+- Back navigation: instead of a "← Back" pill on its own line, a small, thick gold arrow on the
+  same line, followed by the year.
+
+**Implementation:**
+- Removed the .audio-playing sticky .arth rules and markStuckSectionHeading() (v461/v467).
+- Portrait .artSticky padding-bottom = 10px + 1.4 × the story's line height (19.5px × --txt ×
+  1.68), so the gap holds while scrolling and scales with Font Size. Header-height consumers all
+  read offsetHeight and follow automatically.
+- .artBackBtn is now an SVG arrow (stroke 3.4, 22px) inside a new .ahYearRow wrapper before
+  .ahYear. Same id and click handling.
+
+## v467 — 2026-09-23
+
+**Ask:**
+- No visible shadow on the play button (a dark ring + gold line instead).
+- White active-sentence line still rises above the divider under the name.
+- Section headings turn dark when Play is pressed.
+- Portrait text should run full width, no blank strip (tested: v466 already does — see reply;
+  the phone appears to be showing a cached older version).
+
+**Implementation:**
+- Play button: the ring was .audioBottomBar's own pill (dark fill, faint gold border, shadow,
+  6px padding) wrapped around the lone button once prev/next were hidden. Wrapper now draws
+  nothing; button gets a two-layer soft drop shadow.
+- White bar: v465's clamp used the wrong coordinate frame (compared content-space top with the
+  header's height, ignoring scrollTop, since the header is sticky) — it never engaged once
+  scrolled. Now clamps to scrollTop + header height, hides if the sentence is entirely under the
+  header, and re-runs on every scroll.
+- Headings: removed v461's flat navy band on every heading. Only the heading currently pinned
+  (.arthStuck via markStuckSectionHeading on scroll) gets a backdrop, and it's the card's own
+  gradient sliced at that height, same technique as the header's backdrop.
+- syncStickyBackdrops() had the same unscoped querySelector('.artwrap') bug fixed elsewhere in
+  v461 — --ahH could land on the wrong element. Scoped to #article.
+
+## v466 — 2026-09-23
+
+**Ask:**
+- Large blank strip running down the right side of the whole article, below the picture (screen-
+  shotted with the empty area circled).
+
+**Implementation:**
+- Root cause: v463's per-image padding-right reservation (following v461's flat-190px attempt)
+  still reserved that space for the article's FULL HEIGHT, not just where the ~300px-tall picture
+  actually sits — everything below it was empty column for no reason. Removed the reservation
+  and the --flyBadgeW plumbing that fed it entirely. Restores the original behavior: the corner
+  badge can occasionally sit over text as you scroll past it, rather than guaranteeing zero
+  overlap at the cost of a permanent, mostly-empty column. A real fix, if still wanted, needs a
+  fundamentally different approach — not a third reservation width.
+
+## v465 — 2026-09-23
+
+**Ask:**
+- The white active-sentence bar was extending above the divider under the article name.
+- The play-button "shadow" read as a hard black ring plus the gold border, not a real shadow.
+- ("Column width" and "glass isn't frosted" reported too — see reply, not both are code changes.)
+
+**Implementation:**
+- updateAudioActiveBar(): #audioActiveBar is #article's first child (a sibling of .artSticky, not
+  nested under it), so a content-space top near 0 renders visually above the header. Root cause
+  traced to the one case that can produce a too-small top: the active cue is a section HEADING
+  that's also sticky right now (.audio-playing's own .arth rule, v461) — a stuck element's
+  getBoundingClientRect() reports its pinned viewport position, which this function's
+  content-space math wasn't written to expect. Rather than chase that coordinate edge case
+  directly, clamped the bar's top to never go above .artSticky's own measured height — an
+  always-correct guarantee regardless of why a raw number came in low. Verified in headless
+  Chromium with a forced edge case: an artificially "stuck near top" cue rect now correctly
+  produces a bar top equal to the header height, not above it.
+- .audBarPlay's shadow (0 6px 16px, 55% black) softened to 0 3px 8px at 35% — the old values
+  were reading as a second hard ring stacked against .audioBottomBar's own existing shadow rather
+  than one soft one.
+
+## v464 — 2026-09-23
+
+**Ask:**
+- Frosted-glass look for the Settings sheet, like Apple's own translucent materials.
+
+**Implementation:**
+- .hamMenu background changed to rgba(255,255,255,.78) + backdrop-filter blur(24px) saturate(1.5)
+  — the same real technique (translucency + blur), not a fake approximation, matching what the
+  bottom audio bar already does elsewhere in the app. Wrapped in an @supports check with the
+  existing solid #fff kept as the fallback for browsers without backdrop-filter.
+  .pRow (each settings row) already has background:none, so it inherits the frosted sheet
+  automatically — no per-row changes needed.
+
+## v463 — 2026-09-23
+
+**Ask:**
+- Text still goes under the picture in portrait.
+- Play bar: just the circle, no prev/next.
+- Scroll-snap was landing on whole SENTENCES, not lines — that's not what was meant.
+- Decent shadow under the play/pause button; button slightly smaller.
+- The tapered line under the name (portrait) should also show in landscape.
+
+**Implementation:**
+- Text-under-picture, take two: v461's flat 190px (the badge's absolute MAX size) was reverted in
+  v462 as too disruptive. v463 reserves the ACTUAL per-image badge width instead of a worst-case
+  guess — measureFly() already computes flyGeo.flyW for this image's real aspect ratio; now
+  published as --flyBadgeW and read by the reservation rule. Most saint portraits are taller than
+  wide, which keeps this well under the old flat guess in practice (measured ~134px against a
+  typical portrait-aspect test image, vs. v461's flat 190px). Still a permanent reservation for
+  the reason v461 already documented (the badge is fixed for the whole scroll, not just the top)
+  — just sized to what this image actually needs.
+- .audBarSide (prev/next) hidden via CSS, not removed — the buttons, handlers, and
+  audJumpSection() are untouched, so restoring them later is one line.
+- Scroll-snap rebuilt on a different, simpler basis: reads whatever element is rendered at the
+  safe-top pixel via elementFromPoint(), takes its own computed line-height, and rounds the
+  scroll position to the nearest multiple of that — a small nudge to the nearest LINE, not a jump
+  to the nearest sentence start. Doesn't need [data-cue-idx] spans or audio timing at all anymore,
+  so it now works on any article, not just ones with synced audio.
+- .audBarPlay: 64px → 56px, added box-shadow (0 6px 16px, 55% black).
+- .ahTaper's opacity is entirely driven by the portrait fly-badge's scroll progress, which never
+  runs in landscape (v458 disabled that whole mechanism there) — that's why it silently never
+  appeared. Forced on unconditionally in landscape, where it's just decoration with no morph to
+  sync to.
+- Verified in headless Chromium: reservation now reads ~134px (not 190px) for a typical
+  portrait-aspect test image; play button 56px with a visible shadow; prev/next hidden; landscape
+  taper opacity reads 1; a synthetic 60-sentence paragraph confirmed the line-snap lands within
+  half a pixel of the exact line boundary at the sticky header's edge.
+
+## v462 — 2026-09-23
+
+**Ask:**
+- v461's portrait fix broke readability ("something went wrong") — text wrapped into very short,
+  cramped lines throughout the whole article.
+
+**Implementation:**
+- Reverted #article.hasPortrait .artwrap's 190px padding-right entirely. Root cause: the badge is
+  position:fixed for the WHOLE scroll (not just near the top), so guaranteeing zero overlap needs
+  a permanent reservation — and 190px on a ~390px phone is nearly half the screen, which cramped
+  every line of the article, not just the ones actually near the badge. Restores pre-v461
+  behavior: the corner badge can sit over text again.
+- Left everything else from v461 in place (sticky section heading, scroll-snap-to-sentence, the
+  play button restyle, its text-column centering) — none of those were implicated and all tested
+  fine independently.
+- A real fix for "text never under the picture" needs the reservation to apply only near the
+  badge's actual screen position (roughly the first screenful), not the article's full height —
+  a proper scroll-aware pass, not a bigger guessed number, if still wanted.
+
+## v461 — 2026-09-23
+
+**Ask:**
+- Section heading sticky while the story is playing.
+- Portrait: text shouldn't scroll under the corner photo badge.
+- Manual scroll release should always settle on a full sentence, not cut one in half.
+- Different play button: solid navy circle, thicker gold border, bigger gold triangle, nothing
+  else. Applies portrait and landscape both. Button always centers on the article text, at the
+  bottom.
+
+**Implementation:**
+- .arth (section heading) gets position:sticky, top:var(--ahH) (the header's own height, already
+  kept live by syncStickyBackdrops() for an unrelated reason) ONLY while .audio-playing is on
+  #article — toggled in startAudioPlayback/stopAudioPlaybackInPlace/the 'ended' handler. Flat
+  navy backdrop rather than a gradient-matched one, for simplicity.
+- Portrait: new #article.hasPortrait .artwrap{padding-right:190px} (FLY_MAX + FLY_INSET + a
+  gap), scoped to @media(orientation:portrait) so it can't collide with landscape's own
+  --landImgW reservation. #flyPortrait is fixed for the whole scroll, not just near the top, so
+  only a permanent reservation actually guarantees text never runs under it.
+- Scroll-snap reuses the [data-cue-idx] sentence spans wireSentenceCues()/applyCueMarkup() already
+  wrap every sentence in — no new markup. On scroll, a 160ms settle timer finds whichever
+  sentence currently straddles the safe-top line (below the sticky header, and the sticky section
+  heading too when one's showing) and glides it flush via the same animateFollowScroll() the
+  audio-follow system already uses. Works independently of playback.
+- .audBarPlay: solid navy fill (was translucent gold), border 1px→2.5px, ICON_PLAY/ICON_PAUSE
+  25px→30px. New syncAudioBarCenter() measures #article's own .artwrap content-box center
+  (border box minus current padding) and sets the bar's left directly — orientation-agnostic,
+  automatically correct whether the narrowing is landscape's photo or portrait's new badge
+  reservation. Synced at the same points as syncLandImgWidth (article open, resize/rotation).
+- Two testing mistakes caught and fixed before shipping, both the same shape: an unscoped
+  `.artwrap` selector (three elements share that class — article, About panel, one more) grabbed
+  the wrong one, first making the portrait padding rule look broken, then making the bar-centering
+  read the wrong box. Both now scoped to `#article.overlay .artwrap` explicitly.
+- Verified in headless Chromium: portrait padding-right reads 190px on the real article element
+  with .hasPortrait; bar center matches the text column's true midpoint in both portrait (110px
+  vs. 195px viewport-center) and landscape (252px vs. 466px viewport-center); a synthetic
+  100-sentence article confirmed a straddling sentence (top 92.75px against a 101px header) is
+  fully resolved (no straddle) after the snap animation completes. Not verified against a real
+  audio-timing file live on site — first real playback is the true test of the sticky-heading
+  interaction with real section lengths.
+
 ## v460 — 2026-09-23
 
 **Ask:**
