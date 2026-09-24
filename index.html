@@ -1,6 +1,6 @@
 <!--
-VERSION: 472
-DATE: 2026-09-24T09:40:00-05:00
+VERSION: 473
+DATE: 2026-09-24T10:10:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,17 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v473 — 2026-09-24
+
+**Ask:**
+- Story text up a little more (portrait).
+- Show the taper line under the name when the card is peeking up.
+
+**Implementation:**
+- Portrait .artSticky padding-bottom: 0.8 → 0.5 story lines.
+- #article.peek .ahTaper{opacity:1 !important} — overrides the inline opacity the photo morph
+  sets (0 at the top of an article with a photo) only while .peek is on.
+
 ## v472 — 2026-09-24
 
 **Ask (portrait):**
@@ -3034,8 +3045,9 @@ CHANGELOG:END
      Everything that measures the header (--ahH, the white audio line's clamp, line-snap's safe
      top) reads offsetHeight, so it all follows automatically. Scales with the Font Size setting. */
   @media (orientation: portrait){
-    /* v472: 1.4 → 0.8 lines — the gap read as too large once the taper moved down (below). */
-    .artSticky{padding-bottom:calc(10px + 19.5px * var(--txt, 1) * 1.68 * 0.8);}
+    /* v472: 1.4 → 0.8 lines — the gap read as too large once the taper moved down (below).
+       v473: 0.8 → 0.5 lines, story text up a little more. */
+    .artSticky{padding-bottom:calc(10px + 19.5px * var(--txt, 1) * 1.68 * 0.5);}
     /* v472: date and name sit slightly lower, and the taper line drops to line up exactly with
        the bottom edge of the docked corner picture. --taperShift is measured per photo in
        measureFly() (badge size follows each photo's shape, so the right amount varies). */
@@ -3053,6 +3065,11 @@ CHANGELOG:END
     transition:opacity .08s linear;
   }
   .artSticky.hasPortrait .ahTaper{width:min(220px, 52%);}
+  /* v473: show the taper under the name while the card is only peeking up from the bottom.
+     Its opacity is otherwise driven inline by the scroll/photo morph (0 at the top of an article
+     with a photo, since the big photo sits right there) — !important beats that inline value
+     only while .peek is on; expanding removes .peek and hands control back to the morph. */
+  #article.peek .ahTaper{opacity:1 !important;}
   /* The flying photo. width/height below are just a pre-JS fallback — measureFly() sets the
      real size per entry to match that photo's own aspect ratio (so the crop never changes
      between the inline photo and this corner badge, and the scroll-driven scale is always
@@ -5380,7 +5397,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v472';
+const APP_VERSION = 'v473';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
