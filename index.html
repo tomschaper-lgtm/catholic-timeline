@@ -1,6 +1,6 @@
 <!--
-VERSION: 489
-DATE: 2026-09-26T12:30:00-05:00
+VERSION: 490
+DATE: 2026-09-26T14:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,23 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v490 — 2026-09-26
+
+**Ask:**
+- The Review Mode buttons (Proof, Audio, Image, Flag) should start the work immediately, not just
+  queue it; and a clear plan for when a run is already going.
+
+**Implementation:**
+- tkQueueQuickTask(): new tasks carry runNow:true; after the save succeeds, tkStartRunNow().
+- tkStartRunNow(): checks GitHub for an orchestrator run in progress/queued. None → starts one
+  (task_type = this task's type, max_tasks = queued runNow tasks of that type) and follows it.
+  One running → starts nothing; the running job picks the task up (orchestrator RUN NOW). The
+  note under the buttons tracks the task from workLog.json: Starting → Running now → Done /
+  ready to review, or the error; a failed start says so and points to Run in the Task List.
+- orchestrator.mjs (server): runNow tasks sorted to the front of the queue; the batch loop body is
+  now runOne(); after its batch, the run re-reads the remote workLog and processes runNow tasks
+  queued meanwhile (any type, up to RUN_NOW_MAX_EXTRA = 10), before finishing.
+
 ## v489 — 2026-09-26
 
 **Ask:**
@@ -5705,7 +5722,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v489';
+const APP_VERSION = 'v490';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -11468,19 +11485,82 @@ async function tkQueueQuickTask(type, entry, btnEl, noteEl, payloadOverride){
   const newTask = {
     id: id, type: type, entityId: entry.id, batchId: null, status: 'queued',
     description: (TK_SERVICES.find(s => s.id === type) || {}).label + ' \u2014 ' + entry.n,
-    payload: payload, result: null, createdAt: nowIso, updatedAt: nowIso, error: null
+    payload: payload, result: null, createdAt: nowIso, updatedAt: nowIso, error: null,
+    runNow: true // v490: goes to the front of the queue and is run right away — see tkStartRunNow()
   };
   wlData.tasks.push(newTask);
   if(btnEl) btnEl.disabled = true;
   if(noteEl) noteEl.textContent = 'Saving\u2026';
   const saved = await saveWorkLog('Queue ' + type + ' task via quick action \u2014 ' + entry.n, [id]);
   if(saved && saved.ok){
-    if(noteEl) noteEl.textContent = 'Queued \u2713 \u2014 switch to Task List and tap Run to process it.';
+    if(noteEl) noteEl.textContent = 'Queued \u2713';
+    tkStartRunNow(type, id, noteEl); // v490: run it now, no trip to the Task List
   } else {
     wlData.tasks = wlData.tasks.filter(t => t.id !== id); // roll back so a retry doesn't double-queue
     if(btnEl) btnEl.disabled = false;
     if(noteEl) noteEl.textContent = 'Could not save: ' + ((saved && saved.error) || 'unknown error');
   }
+}
+// v490: "Run now" for tasks queued from the Review Mode buttons (and Flag Issue). The task is
+// already saved in workLog.json with runNow:true before this runs, so it can't be lost whatever
+// happens here. If no orchestrator run is going, one is started for this task's type (runNow
+// tasks go to the front of the queue, see orchestrator.mjs RUN NOW). If a run IS going, no
+// second run is started — the running job re-checks the queue for runNow tasks before it
+// finishes and picks this one up. Either way the note under the buttons follows the task:
+// Starting → Running → Done / ready to review, or the error.
+function tkRunNowReport(taskId, noteEl){
+  const t = (wlData && wlData.tasks || []).find(x => x.id === taskId);
+  if(!t || !noteEl) return false;
+  const msgs = {
+    in_progress: 'Running now\u2026',
+    awaiting_review: 'Done \u2713 \u2014 ready to review in Task Automation.',
+    proposed: 'Done \u2713 \u2014 ready to review in Task Automation.',
+    done: 'Done \u2713'
+  };
+  if(t.status === 'error'){ noteEl.textContent = 'Failed: ' + String(t.error || 'unknown error').split('\n')[0].slice(0, 160); return true; }
+  if(msgs[t.status]) noteEl.textContent = msgs[t.status];
+  return t.status !== 'queued' && t.status !== 'in_progress';
+}
+async function tkStartRunNow(type, taskId, noteEl){
+  const g = wlGh();
+  const say = (t) => { if(noteEl) noteEl.textContent = t; };
+  const runsUrl = (st) => 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/actions/workflows/' +
+    encodeURIComponent(WL_ORCHESTRATOR_WORKFLOW) + '/runs?status=' + st + '&per_page=1';
+  let busy = false;
+  try{
+    for(const st of ['in_progress', 'queued']){
+      const r = await fetchTimeout(runsUrl(st), { headers: g.hdr, cache: 'no-store' });
+      if(r.ok && ((await r.json()).total_count || 0) > 0) busy = true;
+    }
+  }catch(e){ /* can't tell — try to start one; GitHub will line it up behind any running job */ }
+  // Follow the task in workLog.json until it settles (or ~12 minutes pass, or the article closes).
+  const follow = async (firstDelay) => {
+    for(let i = 0; i < 120; i++){
+      await new Promise(r => setTimeout(r, i === 0 ? firstDelay : 6000));
+      if(noteEl && !document.body.contains(noteEl)) return;
+      try{ await loadWorkLog(); }catch(e){}
+      if(tkRunNowReport(taskId, noteEl)) return;
+    }
+  };
+  if(busy){
+    say('Queued \u2713 \u2014 a job is already running; it will pick this up before it finishes.');
+    await follow(6000);
+    return;
+  }
+  say('Starting now\u2026');
+  let log = document.getElementById('tkRunNowLog');
+  if(!log){ log = document.createElement('div'); log.id = 'tkRunNowLog'; log.hidden = true; document.body.appendChild(log); }
+  const n = Math.max(1, (wlData && wlData.tasks || []).filter(t => t.status === 'queued' && t.runNow && t.type === type).length);
+  await triggerWorkflow(WL_ORCHESTRATOR_WORKFLOW, { max_tasks: String(n), task_type: type }, 'tkRunNowLog', 240,
+    async () => { await loadWorkLog(); tkRunNowReport(taskId, noteEl); });
+  if(tkRunNowReport(taskId, noteEl)) return;
+  if(/^Failed/.test(log.textContent || '')){
+    say('Queued \u2713, but the run couldn\u2019t be started (' + log.textContent.replace(/^Failed:\s*/, '').slice(0, 120) + '). Tap Run in the Task List.');
+    return;
+  }
+  // The run is over (or the watch window ended) but the task hasn't shown a final state yet —
+  // the last workLog write can land a moment after GitHub marks the run complete. Keep checking.
+  await follow(2000);
 }
 document.getElementById('tkAdd').addEventListener('click', async () => {
   const type = document.getElementById('tkNewType').value;
