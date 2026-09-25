@@ -1,6 +1,6 @@
 <!--
-VERSION: 479
-DATE: 2026-09-24T18:00:00-05:00
+VERSION: 481
+DATE: 2026-09-25T17:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,35 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v481 — 2026-09-25
+
+**Ask:**
+- "Go static" for per-saint share previews.
+- Drop the frosted Settings menu; back to the Manage slide-out's off-white.
+- Peek teaser text closer to the name, like the full article; remove the grab handle.
+
+**Implementation:**
+- NEW scripts/build-share-pages.mjs + .github/workflows/share-pages.yml: writes s/<id>.html for
+  every public entry (Open Graph name/description/absolute picture URL, heroLogo fallback,
+  instant redirect to /#<id>), removes pages for deleted entries, only rewrites changed files.
+  Runs on pushes that change data.json, daily, and on demand. shareEntry() shares
+  https://catholictimeline.org/s/<id> (title + url only). functions/s/[id].js should be deleted:
+  if it ever did run, a function would take priority over the static pages at the same address.
+- .hamMenu: frosted @supports block removed; solid #F5F4EE (the Manage panel's --m-bg).
+- .artPeekH margin-top 16px → 0.
+- #artHandle hidden (dragging the header/picture still works).
+
+## v480 — 2026-09-24
+
+**Ask:**
+- The /s/ share page showed a blank white page on the live site; Tom recalls the original share
+  button (before it was switched off) already produced the combined card.
+
+**Implementation:**
+- shareEntry() restored to its pre-v478 behavior exactly: { title: name, text: name, url:
+  origin + path + '#' + id }. shareUrlFor() and functions/s/[id].js left in place, unused, pending
+  the comparison. The button placement (left of the X) and the other v478/v479 changes stay.
+
 ## v479 — 2026-09-24
 
 **Ask:**
@@ -3059,6 +3088,9 @@ CHANGELOG:END
     filter:drop-shadow(0 1px 4px rgba(0,0,0,.6));
   }
   .artShareBtn:hover{color:var(--gold-bright);}
+  /* v481: grab handle removed from the article card — dragging the header (or the picture)
+     still moves/closes the card, the handle was only a visual cue. */
+  #article #artHandle{display:none !important;}
   .artShareBtn svg{width:25px; height:25px;}
   .shareToast{
     position:absolute; top:46px; right:10px; z-index:11;
@@ -3351,7 +3383,9 @@ CHANGELOG:END
     opacity:0; max-height:0; margin:0; pointer-events:none;
     transition: opacity .26s ease, max-height .46s ease .04s, margin .46s ease .04s;
   }
-  .artPeekH{font-family:'Cinzel',serif; font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:16px 0 7px;}
+  /* v481: margin-top 16px → 0 — the header's own bottom padding already provides the gap, so
+     the teaser's first line now sits the same distance under the name as the full article's. */
+  .artPeekH{font-family:'Cinzel',serif; font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:0 0 7px;}
   .artPeekBody{font-size:calc(17.5px * var(--txt)); line-height:1.62; color:var(--parchment);}
   /* Bottom blur/fade mask, shown only while peeking. A true sibling of #article (not a
      descendant), since #article carries its own transform for the slide animation, which
@@ -3789,16 +3823,9 @@ CHANGELOG:END
     background:var(--m-bg); color:var(--m-ink);
     overflow:hidden; /* the overlay itself no longer scrolls — see .mgmtScroll below */
   }
-  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)){
-    /* v475: more see-through (.78 → .56 white) with a stronger blur (24 → 34px) so the
-       timeline reads as soft color behind the glass; extra saturation keeps that color rich
-       rather than muddy. Dark row text still clears ~7:1 contrast over the app's navy. */
-    .hamMenu{
-      background:rgba(255,255,255,.56);
-      -webkit-backdrop-filter:blur(34px) saturate(1.8);
-      backdrop-filter:blur(34px) saturate(1.8);
-    }
-  }
+  /* v481: frosted glass (v464/v475) dropped at Tom's request — solid off-white, the same
+     #F5F4EE the Manage slide-out uses (its --m-bg). */
+  .hamMenu{background:#F5F4EE;}
   /* iOS Safari reliably breaks position:sticky when its scrolling ancestor is also
      position:fixed — which #manage is, since it's a shared .overlay. Splitting the two roles
      across two elements (this one just scrolls; #manage stays fixed + transformed for the
@@ -5531,7 +5558,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v479';
+const APP_VERSION = 'v481';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -6479,9 +6506,10 @@ function showShareToast(msg){
   void t.offsetWidth; // restart animation
   t.classList.add('show');
 }
-// v479: shares ONE link, https://catholictimeline.org/s/<entry-id>. That address is answered
-// by functions/s/[id].js (Cloudflare Pages Function), a tiny page carrying this entry's preview
-// tags (name, short description, picture) that forwards a tapping reader straight to the entry.
+// v479: shares ONE link, https://catholictimeline.org/s/<entry-id>. v481: that address is now a
+// static page, s/<entry-id>.html, generated by scripts/build-share-pages.mjs (the Cloudflare
+// function version never ran on the live site), carrying this entry's preview tags (name, short
+// description, picture) and forwarding a tapping reader straight to the entry.
 // Messages builds its link card from those tags, so the saint's picture and the link arrive as
 // one combined card. v478 attached the picture as a separate file, and iOS always sends a file
 // as its own bubble — plus the link was in both the text and the url field, so it showed twice.
@@ -6490,8 +6518,12 @@ function showShareToast(msg){
 const SHARE_ORIGIN = 'https://catholictimeline.org';
 function shareUrlFor(d){ return SHARE_ORIGIN + '/s/' + encodeURIComponent(d.id); }
 async function shareEntry(d){
+  // v481: shares https://catholictimeline.org/s/<entry-id> — a static preview page (s/<id>.html,
+  // generated from data.json by the "Build share pages" GitHub Action) carrying this entry's name,
+  // description and picture, which forwards the reader straight to the entry. Messages turns it
+  // into one card with the saint's picture. Title + url only: extra text arrives as its own
+  // separate message bubble.
   const url = shareUrlFor(d);
-  // url only: no text (text becomes its own separate message bubble) and no file.
   const shareData = { title: d.n, url: url };
   if(navigator.share){
     try{ await navigator.share(shareData); }
