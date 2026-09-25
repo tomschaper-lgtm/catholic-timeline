@@ -5595,15 +5595,26 @@
       "type": "sentence-reword",
       "entityId": "st-john-the-baptist-30",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. John the Baptist",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "st-john-the-baptist-30",
+        "name": "St. John the Baptist",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-25T22:36:09.682Z",
-      "updatedAt": "2026-09-25T22:37:35.274Z",
+      "updatedAt": "2026-09-25T22:37:43.051Z",
       "error": null
     },
     {
@@ -5669,6 +5680,35 @@
       "createdAt": "2026-09-25T22:36:09.682Z",
       "updatedAt": "2026-09-25T22:37:35.274Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-st-john-the-baptist-30-1790375863051-8036",
+      "type": "sentence-reword",
+      "entityId": "st-john-the-baptist-30",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. John the Baptist",
+      "payload": {},
+      "result": {
+        "name": "St. John the Baptist",
+        "patches": [
+          [
+            "article",
+            "He was the last and greatest of the Old Testament prophets, and the first to point directly at Christ as \"the Lamb of God who takes away the sins of the world.\" John stands at the exact hinge between two covenants.",
+            "U",
+            "He was the last and greatest of the Old Testament prophets. He was the first to point directly at Christ as \"the Lamb of God who takes away the sins of the world.\" John stands at the exact hinge between two covenants."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-25T22:37:43.051Z",
+      "updatedAt": "2026-09-25T22:37:43.051Z"
     }
   ]
 }
