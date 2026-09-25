@@ -1,6 +1,6 @@
 <!--
-VERSION: 483
-DATE: 2026-09-25T18:15:00-05:00
+VERSION: 484
+DATE: 2026-09-25T18:40:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,17 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v484 — 2026-09-25
+
+**Ask:**
+- Add an "At a Glance" section heading above Quick Facts, matching the other sections, and show
+  the box-less Quick Facts to everyone, not just in Review Mode.
+
+**Implementation:**
+- fillArticleBody emits <div class="arth artFactHead" id="artFactHead">At a Glance</div> before
+  #artFactBox. The box-less style is now unscoped (#artFactBox), padding 0, margin 0 0 22px.
+  Heading hidden alongside the box in landscape's no-photo facts-column layout.
+
 ## v483 — 2026-09-25
 
 **Ask:**
@@ -2995,7 +3006,7 @@ CHANGELOG:END
         border:1px solid rgba(201,165,66,.4); border-radius:14px;
         background:rgba(201,165,66,.05); padding:18px 20px; overflow-y:auto;
       }
-      #article.landFactsCol #artFactBox{display:none;}
+      #article.landFactsCol #artFactBox, #article.landFactsCol #artFactHead{display:none;}
       #article.overlay #artHeroImg, #article.overlay .artcap{display:none;}
       #flyPortrait{display:none !important;}
       /* Year and name share one line; the year never breaks, the name may wrap if very long. */
@@ -3686,7 +3697,10 @@ CHANGELOG:END
      between rows stay. Scoped to the in-article box (#artFactBox), so the landscape side-column
      facts panel is unchanged. v483: the v482 right-aligned values were reverted — text
      alignment is back to normal. */
-  body.review-on #artFactBox{background:none; border:none; border-radius:0; padding-left:0; padding-right:0;}
+  /* v484: now for everyone (was Review Mode only), and led by an "At a Glance" section heading
+     (.artFactHead) — so the box's own top/bottom padding and top margin go too; the rows sit
+     under the heading exactly the way paragraphs sit under any other section heading. */
+  #artFactBox{background:none; border:none; border-radius:0; padding:0; margin:0 0 22px;}
   /* Audio player: v205 replaced the old inline sticky scrubber with a fixed bottom bar (below).
      Per Tom's spec: no seek bar (section-jump buttons cover navigation), and it's always
      present once the entry has audio and the full card is up — see updateAudioBarPresence().
@@ -5583,7 +5597,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v483';
+const APP_VERSION = 'v484';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -12057,6 +12071,8 @@ function fillArticleBody(d, peek){
   const factList = (d.facts || []).slice();
   if(d.country) factList.push({label:'Country', value:d.country});
   if(factList.length){
+    // v484: Quick Facts gets a regular section heading, like every other section.
+    html += '<div class="arth artFactHead" id="artFactHead">At a Glance</div>';
     html += '<div class="factbox" id="artFactBox">';
     factList.forEach(f => {
       if(!f || !f.label) return;
