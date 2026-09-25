@@ -1,6 +1,6 @@
 <!--
-VERSION: 484
-DATE: 2026-09-25T18:40:00-05:00
+VERSION: 485
+DATE: 2026-09-26T10:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,27 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v485 — 2026-09-26
+
+**Ask:**
+- Pushing the photo up should coast until the photo docks and lock magnetically at "At a Glance";
+  a harder push locks at the start of the story.
+- Thinner close and share symbols.
+- White labels in At a Glance.
+
+**Implementation:**
+- Magnetic stops (portrait, entries with a photo): stops at 0, p1 = max(photo dock scroll
+  FLY_DELAY+dist, At a Glance heading under the header), p2 = first story heading. On release
+  (existing touchend samples), picks a stop (p2 only for a release ≥ 4.5 px/ms, a real shove;
+  ordinary flicks of 1–4 px/ms lock at p1), halts native momentum (overflow hidden for one frame)
+  and glides with an ease-out-cubic (380–950ms). Pull-backs mirror it. Stops put the heading
+  6px under the header's visible bottom; p1 uses the At a Glance position unless the photo would
+  visibly still be in flight there (dock point wins only if >10% of the flight remains). Rests inside the photo's
+  flight after native momentum are caught in snapToLineBoundary() and glide to the nearest stop.
+  Line snap is suppressed during and just after a glide. A new touch cancels a glide.
+- #artClose: text × → SVG, stroke 1.5. Share icon stroke 2.1 → 1.5.
+- .factlabel color #BFC9EA → #fff.
+
 ## v484 — 2026-09-25
 
 **Ask:**
@@ -3189,6 +3210,8 @@ CHANGELOG:END
     cursor:pointer; text-shadow:0 1px 5px rgba(0,0,0,.65), 0 0 12px rgba(0,0,0,.35);
   }
   .artX:hover{color:var(--gold-bright);}
+  /* v485: the article's X is a thin-stroke SVG (was a text ×, whose weight depended on the font) */
+  #artClose svg{width:26px; height:26px; filter:drop-shadow(0 1px 4px rgba(0,0,0,.65));}
   /* Appears in the sticky header only while there's cross-reference navigation history to
      unwind (see articleBackStack); pops one level per tap, and is gone once the stack is
      empty or the article is closed. touch-action:auto so a tap isn't swallowed by the
@@ -3689,7 +3712,7 @@ CHANGELOG:END
   .reviewStatusSection .reviewActionBar{margin:0 0 4px;}
   .factrow{display:flex; gap:14px; padding:7px 0; border-bottom:1px solid rgba(201,165,66,.14); font-size:calc(17.5px * var(--txt)); line-height:1.5;}
   .factrow:last-child{border-bottom:none;}
-  .factlabel{flex:0 0 38%; max-width:38%; font-family:'Cinzel',serif; font-size:calc(14px * var(--txt)); letter-spacing:.05em; text-transform:uppercase; color:#BFC9EA; padding-top:2px;}
+  .factlabel{flex:0 0 38%; max-width:38%; font-family:'Cinzel',serif; font-size:calc(14px * var(--txt)); letter-spacing:.05em; text-transform:uppercase; color:#fff; padding-top:2px;} /* v485: white (was #BFC9EA) */
   .factval{flex:1;}
   .factval a{color:var(--gold-bright);}
   /* v482: Review Mode only — Quick Facts without its box: no background, no border, no side
@@ -4834,11 +4857,11 @@ CHANGELOG:END
        scroll position, the same way #artHandle already does — see .artTopBar's CSS comment. -->
   <div class="artTopBar" id="artTopBar">
     <div class="draghandle" id="artHandle"></div>
-    <button class="artX" id="artClose" aria-label="Close">×</button>
+    <button class="artX" id="artClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <!-- v478: share lives in the sticky top bar with the X (was a scrolling, hidden button), so it
          stays reachable at any scroll position. Kept just left of the X by setArtXShift(). -->
     <button class="artShareBtn" id="artShareBtn" aria-label="Share">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M12 3.5v11"/>
         <path d="M8 7.5l4-4 4 4"/>
         <path d="M8.5 10.5H7a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6.5a2 2 0 0 0-2-2h-1.5"/>
@@ -5597,7 +5620,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v484';
+const APP_VERSION = 'v485';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -6794,6 +6817,8 @@ function navigateStory(direction){
       navigateStory(dx < 0 ? 1 : -1);
       return;
     }
+    // v485: releasing near the top of an article with a photo glides to a magnetic stop.
+    if(vertical && !wasHeader && magnetAfterRelease(artEl, -v)){ recordGesture('magnet'); return; }
     recordGesture('none (native scroll)');
   }, {passive:true});
 })();
@@ -13329,7 +13354,99 @@ function scheduleScrollSnap(artEl){
   clearTimeout(scrollSnapTimer);
   scrollSnapTimer = setTimeout(() => snapToLineBoundary(artEl), SCROLL_SNAP_SETTLE_MS);
 }
+// v485: magnetic stops at the top of an article with a photo (portrait). Pushing the photo up
+// carries the article all the way until the photo has docked in the corner and "At a Glance"
+// sits under the header; even a hard push decelerates and locks there. A much harder push goes
+// one stop further, to the start of the story, and locks there. Pulling back down works the
+// same way in reverse. Nothing is ever left resting half-way through the photo's flight. Below
+// the story start, scrolling is completely normal (line snap still applies).
+// How: the finger's release speed (the same samples the swipe gestures already take) projects
+// where iOS's own momentum would carry the article; iOS momentum is stopped (overflow briefly
+// hidden, the standard way to halt it on iPhone) and replaced by an eased glide to the chosen
+// stop. A native scroll that comes to rest inside the photo's flight (e.g. momentum from below)
+// is caught by the scroll-settle check in snapToLineBoundary() and glides to the nearest stop.
+let magnetUntil = 0, magnetToken = 0;
+const MAGNET_PROJECT_MS = 450;   // ~how far iOS momentum would carry per px/ms of release speed
+const MAGNET_SLOW = 0.15;        // px/ms: below this a release counts as "let go", not a push
+const MAGNET_FORCE = 4.5;        // px/ms: a release at least this fast from the top goes past At a Glance
+const MAGNET_GAP = 6;            // px of air between the header and the heading at a stop
+function magnetStops(artEl){
+  if(!artEl || !artEl.classList.contains('open') || artEl.classList.contains('peek')) return null;
+  if(!flyGeo || !window.matchMedia('(orientation: portrait)').matches) return null;
+  const sticky = document.getElementById('artSticky');
+  const artTop = artEl.getBoundingClientRect().top;
+  // The header's VISIBLE bottom (it carries a negative top margin, so offsetHeight overstates it).
+  const headerBottom = sticky ? sticky.getBoundingClientRect().bottom - artTop : 0;
+  const at = (el) => el ? Math.round(el.getBoundingClientRect().top - artTop + artEl.scrollTop - headerBottom - MAGNET_GAP) : null;
+  const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
+  const dock = Math.round(FLY_DELAY + flyGeo.dist);
+  const glance = at(document.getElementById('artFactHead'));
+  const story = at(document.querySelector('#artStoryText .arth, #artStoryText .artProse'));
+  // Stop with the heading just under the header. If that comes a little before the photo has
+  // mathematically finished docking (its last few % are an imperceptible ease), keep the heading
+  // position; only if the photo would visibly still be in flight does the dock point win.
+  const first = glance != null ? glance : (story != null ? story : dock);
+  let p1 = (dock - first > flyGeo.dist * 0.1) ? dock : first;
+  let p2 = (glance != null && story != null && story > p1 + 8) ? story : null;
+  p1 = Math.min(p1, max);
+  if(p2 != null) p2 = Math.min(p2, max);
+  return { p1, p2 };
+}
+function magnetScrollTo(artEl, target){
+  const token = ++magnetToken;
+  const start = artEl.scrollTop;
+  const dist = Math.abs(target - start);
+  if(dist < 2){ magnetUntil = Date.now() + 300; return; }
+  const DURATION = Math.max(380, Math.min(950, 300 + dist * 0.55));
+  magnetUntil = Date.now() + DURATION + 400;
+  const t0 = performance.now();
+  const step = (now) => {
+    if(token !== magnetToken) return;
+    if(!artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
+    const raw = Math.min(1, (now - t0) / DURATION);
+    const eased = 1 - Math.pow(1 - raw, 3); // decelerates into the stop
+    artEl.scrollTop = start + (target - start) * eased;
+    syncStickyBackdrops();
+    updateFly();
+    if(raw < 1){ requestAnimationFrame(step); return; }
+    measureFly();
+  };
+  requestAnimationFrame(step);
+}
+// Called from the article's touchend with the release speed (px/ms, positive = article moving
+// toward its end). Returns true if it took over the scroll.
+function magnetAfterRelease(artEl, vScroll){
+  const st = magnetStops(artEl);
+  if(!st) return false;
+  const s = artEl.scrollTop;
+  const { p1, p2 } = st;
+  const last = p2 != null ? p2 : p1;
+  const proj = s + vScroll * MAGNET_PROJECT_MS;
+  let target = null;
+  if(vScroll > MAGNET_SLOW){                         // pushed toward the story
+    if(s < p1 - 2) target = (p2 != null && vScroll >= MAGNET_FORCE && proj >= p2) ? p2 : p1;
+    else if(p2 != null && s < p2 - 2) target = p2;
+  }else if(vScroll < -MAGNET_SLOW){                  // pulled back toward the photo
+    if(s <= p1 + 2) target = 0;
+    else if(s <= last + 2) target = (p2 != null && s > p1 + 2 && -vScroll < MAGNET_FORCE) ? p1 : 0;
+  }else if(s > 2 && s < p1 - 2){                     // let go mid-flight
+    target = s < p1 / 2 ? 0 : p1;
+  }
+  if(target == null) return false;
+  // Halt iOS's own momentum so it doesn't fight the glide.
+  artEl.style.overflowY = 'hidden';
+  requestAnimationFrame(() => { artEl.style.overflowY = ''; magnetScrollTo(artEl, target); });
+  return true;
+}
+document.getElementById('article').addEventListener('touchstart', () => { magnetToken++; }, {passive:true});
+
 function snapToLineBoundary(artEl){
+  if(Date.now() < magnetUntil) return; // v485: just finished (or is running) a magnetic glide
+  { // v485: never leave the article resting mid-way through the photo's flight
+    const st = artEl === document.getElementById('article') ? magnetStops(artEl) : null;
+    const s0 = artEl.scrollTop;
+    if(st && s0 > 2 && s0 < st.p1 - 2){ magnetScrollTo(artEl, s0 < st.p1 / 2 ? 0 : st.p1); return; }
+  }
   if(!artEl || !artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
   const stickyHeader = document.getElementById('artSticky');
   const stickySection = artEl.classList.contains('audio-playing')
