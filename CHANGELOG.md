@@ -19,6 +19,164 @@ the time.
 
 ---
 
+## v487 — 2026-09-26
+
+**Ask:**
+- Line snap (after a manual scroll) should also align section headings and each At a Glance
+  fact label — to the nearest one — in portrait and landscape.
+
+**Implementation:**
+- Root cause found for "line snap only works in landscape": safeTop used the header's
+  offsetHeight, but the header has a negative top margin, so in portrait the probe landed 1px
+  INSIDE the header, hit no text, and did nothing. Now the header's visible bottom.
+- Corrections under 4px are applied directly (animateFollowScroll skips them, which left lines up
+  to ~4px off).
+- snapToLineBoundary(): probe moved from the card's center to 12px inside the text column's left
+  edge (landscape's center could land on the photo/facts column). When the probe isn't on a story
+  paragraph, it snaps the nearest top of a section heading (.arth, all of them) or an At a Glance
+  row (#artFactBox .factrow) to the header line — the row/heading under the line, or the next
+  one if the line is in its lower half; in gaps, the nearest such top within 60px. Story lines
+  keep the existing per-line rounding.
+
+## v486 — 2026-09-26
+
+**Ask:**
+- Remove the magnetic scroll stops added in v485; scrolling back to how it was.
+
+**Implementation:**
+- Removed magnetStops/magnetScrollTo/magnetAfterRelease and related constants, the touchend
+  hook, and the mid-flight check at the top of snapToLineBoundary(). Scrolling is exactly as
+  in v484. v485's thinner close/share icons and white At a Glance labels are kept.
+
+## v485 — 2026-09-26
+
+**Ask:**
+- Pushing the photo up should coast until the photo docks and lock magnetically at "At a Glance";
+  a harder push locks at the start of the story.
+- Thinner close and share symbols.
+- White labels in At a Glance.
+
+**Implementation:**
+- Magnetic stops (portrait, entries with a photo): stops at 0, p1 = max(photo dock scroll
+  FLY_DELAY+dist, At a Glance heading under the header), p2 = first story heading. On release
+  (existing touchend samples), picks a stop (p2 only for a release ≥ 4.5 px/ms, a real shove;
+  ordinary flicks of 1–4 px/ms lock at p1), halts native momentum (overflow hidden for one frame)
+  and glides with an ease-out-cubic (380–950ms). Pull-backs mirror it. Stops put the heading
+  6px under the header's visible bottom; p1 uses the At a Glance position unless the photo would
+  visibly still be in flight there (dock point wins only if >10% of the flight remains). Rests inside the photo's
+  flight after native momentum are caught in snapToLineBoundary() and glide to the nearest stop.
+  Line snap is suppressed during and just after a glide. A new touch cancels a glide.
+- #artClose: text × → SVG, stroke 1.5. Share icon stroke 2.1 → 1.5.
+- .factlabel color #BFC9EA → #fff.
+
+## v484 — 2026-09-25
+
+**Ask:**
+- Add an "At a Glance" section heading above Quick Facts, matching the other sections, and show
+  the box-less Quick Facts to everyone, not just in Review Mode.
+
+**Implementation:**
+- fillArticleBody emits <div class="arth artFactHead" id="artFactHead">At a Glance</div> before
+  #artFactBox. The box-less style is now unscoped (#artFactBox), padding 0, margin 0 0 22px.
+  Heading hidden alongside the box in landscape's no-photo facts-column layout.
+
+## v483 — 2026-09-25
+
+**Ask:**
+- Put the Quick Facts text alignment back as it was.
+
+**Implementation:**
+- Removed v482's .factlabel/.factval text-align rules; values left-aligned again. The Review Mode
+  box removal (no background, border or side padding) stays.
+
+## v482 — 2026-09-25
+
+**Ask:**
+- Review Mode: Quick Facts without background and border; labels left-aligned, values
+  right-aligned.
+
+**Implementation:**
+- body.review-on #artFactBox: no background/border/radius/side padding; .factlabel left,
+  .factval right. Row separators kept. Landscape side-column facts panel unaffected.
+
+## v481 — 2026-09-25
+
+**Ask:**
+- "Go static" for per-saint share previews.
+- Drop the frosted Settings menu; back to the Manage slide-out's off-white.
+- Peek teaser text closer to the name, like the full article; remove the grab handle.
+
+**Implementation:**
+- NEW scripts/build-share-pages.mjs + .github/workflows/share-pages.yml: writes s/<id>.html for
+  every public entry (Open Graph name/description/absolute picture URL, heroLogo fallback,
+  instant redirect to /#<id>), removes pages for deleted entries, only rewrites changed files.
+  Runs on pushes that change data.json, daily, and on demand. shareEntry() shares
+  https://catholictimeline.org/s/<id> (title + url only). functions/s/[id].js should be deleted:
+  if it ever did run, a function would take priority over the static pages at the same address.
+- .hamMenu: frosted @supports block removed; solid #F5F4EE (the Manage panel's --m-bg).
+- .artPeekH margin-top 16px → 0.
+- #artHandle hidden (dragging the header/picture still works).
+
+## v480 — 2026-09-24
+
+**Ask:**
+- The /s/ share page showed a blank white page on the live site; Tom recalls the original share
+  button (before it was switched off) already produced the combined card.
+
+**Implementation:**
+- shareEntry() restored to its pre-v478 behavior exactly: { title: name, text: name, url:
+  origin + path + '#' + id }. shareUrlFor() and functions/s/[id].js left in place, unused, pending
+  the comparison. The button placement (left of the X) and the other v478/v479 changes stay.
+
+## v479 — 2026-09-24
+
+**Ask:**
+- Sharing sent the picture and the link as separate messages (and the link twice); should be one
+  combined card with the picture, as it used to be.
+
+**Implementation:**
+- NEW FILE functions/s/[id].js (Cloudflare Pages Function): answers /s/<entry-id> with a small
+  page carrying that entry's Open Graph tags (name, short description, absolute picture URL,
+  site logo fallback) and an immediate redirect to /#<entry-id>. Reads the site's own data.json.
+- shareEntry(): shares only https://catholictimeline.org/s/<id> (title + url; no text, no file).
+  prepareShareImage() removed. The duplicate link came from the url being in both text and url.
+- index.html <head>: site-wide og:/twitter tags for the plain home link.
+
+## v478 — 2026-09-24
+
+**Ask:**
+- Offline Access public (not behind Owner Tools).
+- Share button to the left of the article's X; share the saint's picture with a link to that page.
+
+**Implementation:**
+- updateManageVisibility(): #offlineRow and #offlineNote always shown.
+- #artShareBtn moved into the sticky .artTopBar next to the X, un-hidden, restyled gold with the
+  X's shadow; setArtXShift() keeps it 54px left of the X as the X slides for the corner photo;
+  landscape !important rules mirror the X's.
+- shareEntry(): shares the picture as a file plus the entry link (#id) when possible, else the
+  link alone, else clipboard. The picture is fetched ahead in openArticle via prepareShareImage(),
+  because iOS Safari rejects share() calls that happen after an async wait. Entries without a
+  picture use Images/heroLogo.jpg.
+
+## v477 — 2026-09-24
+
+**Ask (portrait):**
+- With a photo, the (intentionally hidden) taper leaves a large gap between the name and the
+  photo; make that gap about the same as the side padding.
+- The play button shouldn't appear until Quick Facts nears the top; it was covering the photo.
+
+**Implementation:**
+- #artHeroImg margin-top pulled up so name→photo = 20px (the .artwrap side padding), offsetting
+  the taper margin/height, header bottom padding and --taperShift (now also set on the hero
+  element, so the photo doesn't move when the header grows to align the taper). z-index 16 keeps
+  the inline photo above the header backdrop during the rise.
+- Play-button reveal: Quick Facts top ≤ 40% of the viewport height (was ≤ viewport − 130px).
+- Found while testing: during the card's rise the photo was invisible and popped in at the end.
+  measureFly() could run mid-rise (photo load event), measuring the card at its off-screen
+  position, parking the floating copy there and hiding the inline photo. New .rising class (set
+  when a full card starts rising, cleared in settle()); measureFly() returns early while .rising
+  or .preopen.
+
 ## v476 — 2026-09-24
 
 **Ask:**
