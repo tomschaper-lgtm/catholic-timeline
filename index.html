@@ -1,6 +1,6 @@
 <!--
-VERSION: 486
-DATE: 2026-09-26T10:30:00-05:00
+VERSION: 487
+DATE: 2026-09-26T11:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,25 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v487 — 2026-09-26
+
+**Ask:**
+- Line snap (after a manual scroll) should also align section headings and each At a Glance
+  fact label — to the nearest one — in portrait and landscape.
+
+**Implementation:**
+- Root cause found for "line snap only works in landscape": safeTop used the header's
+  offsetHeight, but the header has a negative top margin, so in portrait the probe landed 1px
+  INSIDE the header, hit no text, and did nothing. Now the header's visible bottom.
+- Corrections under 4px are applied directly (animateFollowScroll skips them, which left lines up
+  to ~4px off).
+- snapToLineBoundary(): probe moved from the card's center to 12px inside the text column's left
+  edge (landscape's center could land on the photo/facts column). When the probe isn't on a story
+  paragraph, it snaps the nearest top of a section heading (.arth, all of them) or an At a Glance
+  row (#artFactBox .factrow) to the header line — the row/heading under the line, or the next
+  one if the line is in its lower half; in gaps, the nearest such top within 60px. Story lines
+  keep the existing per-line rounding.
+
 ## v486 — 2026-09-26
 
 **Ask:**
@@ -5630,7 +5649,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v486';
+const APP_VERSION = 'v487';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -13368,26 +13387,67 @@ function snapToLineBoundary(artEl){
   const stickySection = artEl.classList.contains('audio-playing')
     ? document.querySelector('#artStoryText .arth')
     : null;
-  const headerH = stickyHeader ? stickyHeader.offsetHeight : 0;
+  const artRect = artEl.getBoundingClientRect();
+  // v487: the header's VISIBLE bottom, not offsetHeight — the header carries a negative top
+  // margin and sits sticky, so offsetHeight put the probe 1px inside the header itself in
+  // portrait. elementFromPoint then hit the header, found no text, and quietly did nothing:
+  // that's why line snap only ever worked in landscape.
+  const headerH = stickyHeader ? Math.max(0, stickyHeader.getBoundingClientRect().bottom - artRect.top) : 0;
   const sectionH = (stickySection && getComputedStyle(stickySection).position === 'sticky') ? stickySection.offsetHeight : 0;
   const safeTop = headerH + sectionH;
-  const artRect = artEl.getBoundingClientRect();
-  const probeX = artRect.left + artRect.width / 2;
+  // v487: probe near the LEFT of the text column (where every label, heading and line starts)
+  // instead of the card's center, which in landscape can fall on the photo or facts column.
+  const wrap = artEl.querySelector('.artwrap');
+  const wrapRect = wrap ? wrap.getBoundingClientRect() : artRect;
+  const probeX = wrapRect.left + (wrap ? parseFloat(getComputedStyle(wrap).paddingLeft) || 0 : 0) + 12;
   const probeY = artRect.top + safeTop + 1; // 1px past the line, so it lands IN the row, not on its border
   if(probeY < 0 || probeY > window.innerHeight) return; // safe-top itself is off-screen — nothing to align
+  const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
+  // v487: animateFollowScroll() ignores moves under 4px (sensible for audio-follow), which left
+  // snapped lines/labels up to ~4px off. Tiny corrections are applied directly instead.
+  const settleTo = (t) => {
+    if(Math.abs(artEl.scrollTop - t) < 1) return;
+    if(Math.abs(artEl.scrollTop - t) < 4){ artEl.scrollTop = t; syncStickyBackdrops(); return; }
+    animateFollowScroll(artEl, t);
+  };
   const hit = document.elementFromPoint(probeX, probeY);
-  const textEl = hit ? hit.closest('#artStoryText p, #artStoryText .arth, #artStoryText li') : null;
-  if(!textEl) return;
+  // v487: section headings (all of them — At a Glance, story sections, Memorable Quote, Sources)
+  // and each At a Glance fact row snap to their TOP, so a heading or a fact's label is never left
+  // cut in half under the header. Story lines keep the per-line rounding below. If the probe
+  // lands in a gap between blocks (a heading's margin, the space above a row), the nearest
+  // heading or fact-row top within reach is used.
+  const blockSel = '.arth, #artFactBox .factrow';
+  if(!(hit && hit.closest('#artStoryText p, #artStoryText li'))){
+    const line = probeY;
+    let best = null, bestD = Infinity;
+    const cand = hit && hit.closest(blockSel);
+    const pool = cand ? [cand] : [...artEl.querySelectorAll(blockSel)];
+    for(const el of pool){
+      if(!el.offsetParent) continue; // hidden (e.g. landscape no-photo facts column)
+      const r = el.getBoundingClientRect();
+      // nearest TOP edge: this block's own top, or — when the line sits in its lower half —
+      // the top of whatever follows it (so a long fact row snaps to the next label, not back up)
+      const d = Math.abs(r.top - line);
+      if(d < bestD){ bestD = d; best = r.top; }
+      if(cand && line > r.top + r.height / 2){
+        const next = el.nextElementSibling;
+        if(next){ const nt = next.getBoundingClientRect().top; if(Math.abs(nt - line) < bestD){ bestD = Math.abs(nt - line); best = nt; } }
+      }
+    }
+    if(best == null || (!cand && bestD > 60)) return;
+    const target = Math.min(max, Math.max(0, artEl.scrollTop + (best - line) + 1));
+    settleTo(target);
+    return;
+  }
+  const textEl = hit.closest('#artStoryText p, #artStoryText li');
   let lh = parseFloat(getComputedStyle(textEl).lineHeight);
   if(!lh || isNaN(lh)) lh = parseFloat(getComputedStyle(textEl).fontSize) * 1.3; // 'normal' line-height fallback
   const textRect = textEl.getBoundingClientRect();
   const blockTop = textRect.top - artRect.top + artEl.scrollTop; // this block's own top, in content-space
   const linesIn = Math.round((artEl.scrollTop + safeTop - blockTop) / lh);
   const targetLineTop = blockTop + linesIn * lh;
-  const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
   const target = Math.min(max, Math.max(0, targetLineTop - safeTop));
-  if(Math.abs(artEl.scrollTop - target) < 2) return;
-  animateFollowScroll(artEl, target);
+  settleTo(target);
 }
 document.getElementById('article').addEventListener('scroll', () => scheduleScrollSnap(document.getElementById('article')), {passive:true});
 document.getElementById('aboutPanel').addEventListener('scroll', () => scheduleScrollSnap(document.getElementById('aboutPanel')), {passive:true});
