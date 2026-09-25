@@ -1,6 +1,6 @@
 <!--
-VERSION: 481
-DATE: 2026-09-25T17:30:00-05:00
+VERSION: 483
+DATE: 2026-09-25T18:15:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,25 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v483 — 2026-09-25
+
+**Ask:**
+- Put the Quick Facts text alignment back as it was.
+
+**Implementation:**
+- Removed v482's .factlabel/.factval text-align rules; values left-aligned again. The Review Mode
+  box removal (no background, border or side padding) stays.
+
+## v482 — 2026-09-25
+
+**Ask:**
+- Review Mode: Quick Facts without background and border; labels left-aligned, values
+  right-aligned.
+
+**Implementation:**
+- body.review-on #artFactBox: no background/border/radius/side padding; .factlabel left,
+  .factval right. Row separators kept. Landscape side-column facts panel unaffected.
+
 ## v481 — 2026-09-25
 
 **Ask:**
@@ -3662,6 +3681,12 @@ CHANGELOG:END
   .factlabel{flex:0 0 38%; max-width:38%; font-family:'Cinzel',serif; font-size:calc(14px * var(--txt)); letter-spacing:.05em; text-transform:uppercase; color:#BFC9EA; padding-top:2px;}
   .factval{flex:1;}
   .factval a{color:var(--gold-bright);}
+  /* v482: Review Mode only — Quick Facts without its box: no background, no border, no side
+     padding (labels line up with the article text's left edge). The thin separator lines
+     between rows stay. Scoped to the in-article box (#artFactBox), so the landscape side-column
+     facts panel is unchanged. v483: the v482 right-aligned values were reverted — text
+     alignment is back to normal. */
+  body.review-on #artFactBox{background:none; border:none; border-radius:0; padding-left:0; padding-right:0;}
   /* Audio player: v205 replaced the old inline sticky scrubber with a fixed bottom bar (below).
      Per Tom's spec: no seek bar (section-jump buttons cover navigation), and it's always
      present once the entry has audio and the full card is up — see updateAudioBarPresence().
@@ -5558,7 +5583,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v481';
+const APP_VERSION = 'v483';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
