@@ -4550,13 +4550,13 @@
       "type": "arbitrate",
       "entityId": "st-pancras-304",
       "batchId": null,
-      "status": "in_progress",
+      "status": "error",
       "description": "Proofread articles — St. Pancras",
       "payload": {},
       "result": null,
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-26T14:59:23.600Z",
-      "error": null
+      "updatedAt": "2026-09-26T15:03:53.339Z",
+      "error": "Error: google response failed validation: Finding 0: bad category \"GRAMMAR/PUNCTUATION\"\n\nRaw response:\n{\n  \"verdict\": \"findings\",\n  \"findings\": [\n    {\n      \"severity\": \"ERROR\",\n      \"category\": \"GRAMMAR/PUNCTUATION\",\n      \"section\": \"Legacy\",\n      \"sentence\": \"1\",\n      \"kind\": \"article\",\n      \"before\": \"Though, as with many of the earliest Roman martyrs, few reliable historical details survive beyond his burial place and the fact of his martyrdom.\",\n      \"after\": \"Though, as with many of the earliest Roman martyrs, few reliable historical details survive beyond his burial place and the fact of his martyrdom,\",\n      \"concern\": \"The sentence begins with a concessive dependent clause (\\\"Though...\\\") but prematurely ends with a period, leaving a sentence fragment before the main clause (\\\"Pancras remains venerated...\\\") begins in the next sentence.\",\n      \"suggestedCorrection\": \"Change the period after martyrdom to a comma so the dependent clause properly connects to the main clause.\",\n      \"source\": \"Not externally verified\"\n    }\n  ]\n}\n    at runDebatePass (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/arbitrate.mjs:347:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async Promise.all (index 1)\n    at async runArbitrate (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/arbitrate.mjs:396:26)\n    at async main (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/orchestrator.mjs:514:20)"
     },
     {
       "id": "task-arbitrate-sts-nereus-achilleus-304-1789892704832-245",
