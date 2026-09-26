@@ -4563,12 +4563,55 @@
       "type": "arbitrate",
       "entityId": "sts-nereus-achilleus-304",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — Sts. Nereus & Achilleus",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "Sts. Nereus & Achilleus",
+        "verdict": "findings",
+        "debates": [
+          {
+            "kind": "article",
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Honored in the Roman Mass",
+            "sentence": "2",
+            "before": "Their names were entered together in ancient sacramentaries used for the Mass of their feast, clear evidence of sustained and organized veneration reaching back to the fourth and fifth centuries.",
+            "after": "Their names were entered together in later ancient sacramentaries used for the Mass of their feast, while the fourth-century Roman calendar provides evidence that their commemoration was already established by that period.",
+            "text": "Their names were entered together in ancient sacramentaries used for the Mass of their feast, clear evidence of sustained and organized veneration reaching back to the fourth and fifth centuries.",
+            "concern": "The surviving Roman sacramentaries are later than the fourth and fifth centuries, so they cannot themselves provide evidence reaching back to both of those centuries. Earlier evidence comes from the fourth-century Roman calendar, not from the sacramentaries.",
+            "suggestedCorrection": "Separate the fourth-century calendar evidence from the later sacramentary evidence and avoid dating the sacramentaries themselves to the fourth or fifth century.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "An actual factual correction regarding the dating of surviving sacramentaries versus the fourth-century calendar.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "kind": "article",
+            "severity": "VERIFY",
+            "category": "MEANING/CLARITY",
+            "section": "Legacy",
+            "sentence": "2",
+            "before": "preserves the memory of two soldiers whose conversion led them to abandon violence for Christ",
+            "after": "preserves the memory of two soldiers whose conversion, according to the tradition, led them to renounce military service for Christ",
+            "text": "whose conversion led them to abandon violence for Christ",
+            "concern": "The epitaph tradition describes them as abandoning military service and laying down their weapons, but the wording here broadens that episode into a general claim that they abandoned violence. That can imply a developed doctrine or complete biography not established by the surviving evidence.",
+            "suggestedCorrection": "Use the narrower traditional claim that they renounced military service or laid down their arms.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "A meaningful clarification that attributes the specific narrative to the tradition rather than presenting it as an established biographical certainty.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-26T14:59:23.600Z",
+      "updatedAt": "2026-09-26T15:04:08.970Z",
       "error": null
     },
     {
