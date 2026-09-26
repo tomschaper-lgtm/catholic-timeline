@@ -19,6 +19,64 @@ the time.
 
 ---
 
+## v491 — 2026-09-26
+
+**Ask:**
+- Audio stays locked ("43 Words") on an article already run through sentence-reword ~3 times.
+
+**Implementation:**
+- The app's long-sentence count (used for the Audio lock and the "NN Words" readout) counted
+  every space-separated token, including spaced em dashes, so it could exceed the reword
+  service's real-word count and block Audio on sentences the service rightly left alone. New
+  countSentenceWords(): tokens with at least one letter/digit only. Used by
+  paragraphHasLongSentence() and longestSentenceWordCount().
+
+## v490 — 2026-09-26
+
+**Ask:**
+- The Review Mode buttons (Proof, Audio, Image, Flag) should start the work immediately, not just
+  queue it; and a clear plan for when a run is already going.
+
+**Implementation:**
+- tkQueueQuickTask(): new tasks carry runNow:true; after the save succeeds, tkStartRunNow().
+- tkStartRunNow(): checks GitHub for an orchestrator run in progress/queued. None → starts one
+  (task_type = this task's type, max_tasks = queued runNow tasks of that type) and follows it.
+  One running → starts nothing; the running job picks the task up (orchestrator RUN NOW). The
+  note under the buttons tracks the task from workLog.json: Starting → Running now → Done /
+  ready to review, or the error; a failed start says so and points to Run in the Task List.
+- orchestrator.mjs (server): runNow tasks sorted to the front of the queue; the batch loop body is
+  now runOne(); after its batch, the run re-reads the remote workLog and processes runNow tasks
+  queued meanwhile (any type, up to RUN_NOW_MAX_EXTRA = 10), before finishing.
+
+## v489 — 2026-09-26
+
+**Ask:**
+- A little more space after the At a Glance facts.
+- Replace the Review Mode controls at the bottom of the article with four gold buttons —
+  Proof, Audio, Image, Flag — with the word count and proofread status under Proof (mockup).
+
+**Implementation:**
+- #artFactBox bottom margin 22 → 40px.
+- New .reviewTools block (id reviewStatusSection, so the Review Mode year-tap still scrolls here)
+  replaces the Generate Images / Record Audio bar and the Article Status box: a 4-column grid of
+  .rtBtn gold buttons with line icons, reusing the existing ids/wiring (tkSubmitProofreadBtn,
+  tkQuickAudioBtn, tkQuickImageBtn, tkFlagIssueBtn) and gates; under Proof, the longest-sentence
+  word count and Not Proofed / Proofed / Has Findings / Queued. One shared note line.
+  Placed right after Sources & Further Reading, above "Report an issue".
+
+## v488 — 2026-09-26
+
+**Ask:**
+- "Audio unavailable" flashed while the play button stayed visible. Stop the flash; when the
+  audio link is broken, hide the play button and, in Review Mode only, show a note at the bottom.
+
+**Implementation:**
+- initAudio(): the audio element's 'error' handler no longer shows the toast. It sets audioBroken
+  (reset on every new initAudio), pauses, fills every .audioBrokenNote with the failing file's
+  name, and re-runs updateAudioBarPresence(), which now hides the bar while audioBroken.
+- .audioBrokenNote placeholder emitted above "Report an issue" for entries with audio (article and
+  About panel); displayed only under body.review-on and only after a failure.
+
 ## v487 — 2026-09-26
 
 **Ask:**
