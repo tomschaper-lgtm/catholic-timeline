@@ -4421,12 +4421,37 @@
       "type": "arbitrate",
       "entityId": "st-pachomius-346",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Pachomius",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Pachomius",
+        "verdict": "findings",
+        "debates": [
+          {
+            "kind": "article",
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "Father of a New Kind of Monk",
+            "sentence": "1",
+            "before": "It was translated into Greek and Latin within a generation.",
+            "after": "It was translated into Greek and, later, into Latin.",
+            "concern": "The Greek and Latin translations were not produced within a single generation of Pachomius's death. Jerome's Latin translation dates from roughly the early fifth century, several decades after Pachomius died.",
+            "suggestedCorrection": "Replace the claim with wording that does not imply that both translations appeared within one generation, or verify and state the dates more precisely.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Jerome's Latin translation came significantly later than the Greek, making the original timeline inaccurate.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-26T14:59:23.600Z",
+      "updatedAt": "2026-09-26T15:01:38.425Z",
       "error": null
     },
     {
