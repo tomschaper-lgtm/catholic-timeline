@@ -4255,12 +4255,53 @@
       "type": "arbitrate",
       "entityId": "st-peter-chanel-1841",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Peter Chanel",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Peter Chanel",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "Alone on Futuna",
+            "sentence": "1",
+            "kind": "article",
+            "before": "for nearly five years",
+            "after": "for more than three years",
+            "concern": "Pompallier left Futuna in November 1837 and returned in 1841, approximately three years and five months later, not nearly five years.",
+            "suggestedCorrection": "Change the duration to accurately reflect the interval between Pompallier's departure and return.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Three years and five months is significantly less than 'nearly five years', making the correction meaningful.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "A Slow Path to Recognition",
+            "sentence": "3",
+            "kind": "article",
+            "before": "including the very chief who had ordered his killing, eventually converted to Catholicism",
+            "after": "including members of the chief's family and the island's leading figures, eventually converted to Catholicism",
+            "concern": "The chief who ordered Peter's killing, Niuliki, is not generally identified as having converted; accounts instead describe the subsequent conversion of his son or successor and the wider island community. The present wording attributes a specific conversion to Niuliki and should be corrected or verified.",
+            "suggestedCorrection": "Remove the claim that Niuliki himself converted, or verify it against an authoritative historical source and identify the person accurately.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Niuliki did not convert, so correcting the text regarding his conversion avoids a serious historical error.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-26T14:59:23.600Z",
+      "updatedAt": "2026-09-26T14:59:52.108Z",
       "error": null
     },
     {
