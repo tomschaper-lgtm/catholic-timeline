@@ -4309,12 +4309,69 @@
       "type": "arbitrate",
       "entityId": "st-catherine-of-siena-1380",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Catherine of Siena",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Catherine of Siena",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "MEANING/CLARITY",
+            "section": "A Vow Made at Seven",
+            "sentence": "2",
+            "kind": "article",
+            "before": "He belonged to the city's respectable but unremarkable middle class.",
+            "after": "She belonged to the city's respectable but unremarkable middle class.",
+            "concern": "The masculine pronoun incorrectly changes Catherine's gender and creates a clear factual and grammatical error.",
+            "suggestedCorrection": "Replace \"He\" with \"She.\"",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Corrects an obvious gender mismatch referencing Catherine.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "VERIFY",
+            "category": "FACT",
+            "section": "An Unofficial Ambassador at Avignon",
+            "sentence": "5",
+            "kind": "article",
+            "before": "She made so profound and lasting an impression on Pope Gregory XI himself that he resolved, against the strong protests of the French king and the great majority of his own cardinals, to return the papacy from its decades-long Avignon exile back to Rome.",
+            "after": "Her advocacy was among the influences on Pope Gregory XI's decision, despite opposition from some French political and ecclesiastical interests, to return the papacy from its decades-long Avignon residence to Rome.",
+            "concern": "The sentence presents Catherine as the decisive cause of Gregory XI's return and makes a broad claim about opposition from the French king and the great majority of the cardinals. Her influence was significant, but the decision had multiple political and ecclesiastical causes and should not be reduced to a single dramatic impression.",
+            "suggestedCorrection": "Qualify Catherine's influence and avoid presenting her as the sole or decisive cause unless the stronger claim can be documented.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Provides a more nuanced and historically accurate assessment of the factors leading to the return to Rome.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "JUDGMENT",
+            "category": "MEANING/CLARITY",
+            "section": "Legacy",
+            "sentence": "3",
+            "kind": "article",
+            "before": "Catherine of Siena remains permanent proof.",
+            "after": "Catherine of Siena remains a powerful example.",
+            "concern": "Calling a historical person \"permanent proof\" makes an absolute theological and rhetorical claim rather than a defensible historical conclusion. The following sentence is better framed as an application or example, not as proof of a universal proposition.",
+            "suggestedCorrection": "Replace the absolute formulation with language identifying Catherine as an example of the point being made.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Removes awkward and overly absolute phrasing in favor of natural historical framing.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-26T14:59:23.600Z",
+      "updatedAt": "2026-09-26T15:00:06.248Z",
       "error": null
     },
     {
