@@ -4586,12 +4586,69 @@
       "type": "arbitrate",
       "entityId": "st-pancras-304",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Pancras",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Pancras",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "VERIFY",
+            "category": "FACT",
+            "section": "Widespread and Enduring Devotion",
+            "sentence": "1",
+            "kind": "article",
+            "before": "Pope Gregory the Great sent relics of the young martyr to England as part of the mission that converted the Anglo-Saxons.",
+            "after": "Later tradition associates relics of the young martyr with the Gregorian mission to England, though the surviving evidence for their transfer is uncertain.",
+            "concern": "The direct assertion that Pope Gregory sent Pancras's relics to England may rely on later tradition or uncertain evidence and should not be presented without qualification.",
+            "suggestedCorrection": "Qualify the relic-transfer claim as tradition unless an authoritative historical source securely documents it.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Adding the nuance about uncertain evidence is historically prudent for early relic traditions.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "VERIFY",
+            "category": "FACT",
+            "section": "Widespread and Enduring Devotion",
+            "sentence": "2",
+            "kind": "article",
+            "before": "One of the very first churches built in England, at Canterbury, was dedicated in his honor",
+            "after": "An early church at Canterbury was dedicated in his honor",
+            "concern": "The phrase \"one of the very first churches built in England\" is a broad and potentially misleading historical ranking, especially since the dating and status of early post-Roman churches are difficult to establish precisely.",
+            "suggestedCorrection": "Use the more cautious wording unless a reliable source specifically supports the stronger ranking.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Removing the contested superlative 'one of the very first' avoids unnecessary historical overstatement.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "Legacy",
+            "sentence": "1",
+            "kind": "article",
+            "before": "Though, as with many of the earliest Roman martyrs, few reliable historical details survive beyond his burial place and the fact of his martyrdom.",
+            "after": "As with many of the earliest Roman martyrs, few reliable historical details survive beyond his burial place and the fact of his martyrdom.",
+            "concern": "The sentence begins with 'Though' but lacks a main clause, creating a sentence fragment combined with the following sentence.",
+            "suggestedCorrection": "Remove 'Though' and capitalize 'Pancras' in the following sentence, or connect the clauses properly.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Removing the dangling “Though” corrects a genuine grammatical error and preserves the meaning.",
+            "proposedBy": "gemini-3.5-flash-lite",
+            "arbitratedBy": "gpt-5.6-luna"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-20T08:25:04.832Z",
-      "updatedAt": "2026-09-26T15:13:15.918Z",
+      "updatedAt": "2026-09-26T15:16:04.781Z",
       "error": null
     },
     {
