@@ -1,6 +1,6 @@
 <!--
-VERSION: 490
-DATE: 2026-09-26T14:00:00-05:00
+VERSION: 491
+DATE: 2026-09-26T19:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,18 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v491 — 2026-09-26
+
+**Ask:**
+- Audio stays locked ("43 Words") on an article already run through sentence-reword ~3 times.
+
+**Implementation:**
+- The app's long-sentence count (used for the Audio lock and the "NN Words" readout) counted
+  every space-separated token, including spaced em dashes, so it could exceed the reword
+  service's real-word count and block Audio on sentences the service rightly left alone. New
+  countSentenceWords(): tokens with at least one letter/digit only. Used by
+  paragraphHasLongSentence() and longestSentenceWordCount().
+
 ## v490 — 2026-09-26
 
 **Ask:**
@@ -5722,7 +5734,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v490';
+const APP_VERSION = 'v491';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8642,11 +8654,18 @@ function imageCandidatePool(){
 // this only has to be good enough that the batch list Tom sees roughly matches what will qualify.
 // Reuses tkSplitSentencesForDisplay (defined below — function declarations hoist) so this rough
 // eligibility check and the actual review use the same abbreviation-aware sentence boundaries.
+// v491: a "word" is a space-separated token that contains at least one letter or digit. The old
+// count took EVERY token, so the dashes (—) set off by spaces were counted as words: a sentence
+// of 40 real words with two dashes read as 42. The reword service counts real words, saw nothing
+// to fix, and the app kept blocking Audio — a loop no amount of rewording could clear.
+function countSentenceWords(s){
+  return String(s).trim().split(/\s+/).filter(w => /[A-Za-z0-9\u00C0-\u024F]/.test(w)).length;
+}
 function paragraphHasLongSentence(html){
   if(/href\s*=\s*["']entry:/i.test(html)) return false; // whole paragraph skipped per spec
   const plain = stripHtml(html).replace(/\s+/g, ' ').trim();
   if(!plain) return false;
-  return tkSplitSentencesForDisplay(plain).some(s => s.trim().split(' ').filter(Boolean).length > 40);
+  return tkSplitSentencesForDisplay(plain).some(s => countSentenceWords(s) > 40);
 }
 function entryHasLongSentence(e){
   const sections = (e.art && e.art.sections) || [];
@@ -8664,7 +8683,7 @@ function longestSentenceWordCount(e){
       const plain = stripHtml(p).replace(/\s+/g, ' ').trim();
       if(!plain) return;
       tkSplitSentencesForDisplay(plain).forEach(s => {
-        const n = s.trim().split(' ').filter(Boolean).length;
+        const n = countSentenceWords(s);
         if(n > max) max = n;
       });
     });
