@@ -1,6 +1,6 @@
 <!--
-VERSION: 499
-DATE: 2026-09-27T23:40:00-05:00
+VERSION: 501
+DATE: 2026-09-28T01:10:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,85 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v501 — 2026-09-28
+
+**Ask:**
+- On a slow connection, opening the app waits on the network every time even when nothing
+  changed, because sw.js is network-first for the page. Serve the cached copy instantly instead,
+  check for a real change in the background, and only say something if it's actually different —
+  and if it is different, have the service worker download it in the background too, so the
+  update is already sitting there ready the moment it's applied, not something still to wait for.
+
+**Implementation (sw.js, VERSION bumped to v2):**
+- Page/navigation requests: new cacheFirstPage() replaces networkFirst(). Saved copy answers
+  immediately every time; a background revalidatePage() fetches fresh afterward, off the
+  critical path entirely. First-ever visit (nothing cached yet) still has to wait on the network
+  — no way around that one load.
+- revalidatePage() compares the fresh fetch against what was just served, byte-for-byte. Identical
+  (the common case — most loads change nothing): does nothing further, no cache write, no
+  message. Different: writes it to cache, THEN postMessages every open tab {type:
+  'ct-update-ready', version}. That ordering is deliberate — v1's network-first was chosen
+  specifically so the reload-driven update flow could never race a stale cache; cache-first
+  preserves that same guarantee by making sure the fresh copy is already sitting in cache before
+  anyone is told about it, so acting on the notification immediately is safe.
+- data.json moved from network-first to the existing staleWhileRevalidate() (same treatment as
+  images/timing JSON) rather than getting the same notify-on-change machinery as the page. It's
+  republished many times a day as entries get approved — that's not a "new version" in the sense
+  the update glow means, and tying it to the same notification would make the glow fire
+  constantly for routine content, not actual app updates.
+- Both changes needed a Response cloned BEFORE either copy's body is read anywhere — cache-first
+  page returns the original saved response to the browser while its background revalidation
+  reads a .clone() of it, not the same object twice.
+
+**Implementation (index.html):**
+- New announceNewVersion(version), pulled out of checkVersion()'s own "found a different version"
+  branch so both callers share it rather than duplicating the glow-arming logic.
+- New navigator.serviceWorker 'message' listener: on ct-update-ready, routes straight into
+  announceNewVersion() — the existing hamburger pulse / Settings row glow / pending-reload pill
+  now fires from either checkVersion()'s own throttled menu-open check or the service worker
+  noticing on any page load, one notification system with two triggers instead of two systems.
+  Registered unconditionally; harmless when Offline Access has never been on, since then there's
+  no service worker to ever send the message.
+
+## v500 — 2026-09-28
+
+**Ask:**
+- A "Progress" page replacing Logs in Manage: per-category completion stats computed live, not
+  from task-completion history (a finished reword task doesn't mean a long sentence can't
+  reappear). Word counts and section counts, to spot thin articles. A way to scope by feast-day or
+  year range with category filters and get totals for just that population.
+
+**Implementation:**
+- Removed Logs entirely: the tab button, the panel-logs markup, and ~250 lines of now-dead JS
+  (loadChangelog, the thumb-scrubber, search filtering). Several of those functions had top-level
+  .addEventListener calls on DOM elements that no longer exist once the panel is gone — left
+  unguarded, those would have thrown at page load and broken the whole app's init, not just the
+  Logs tab. Caught and removed rather than just orphaned. The old Logs CSS is still in the file,
+  unused but harmless (interleaved with shared Manage styles — flagged for a later cleanup pass
+  rather than risking a bad extraction under time pressure).
+- New computeProgressStats(entries) + PROGRESS_ROWS: one shared definition of "done" for each of
+  six areas (long sentences, proofread, audio recorded, pronunciation re-record, images, closing
+  prayer), reusing the exact eligibility checks the batch pools already use
+  (entryHasLongSentence, e.qc.proofread, e.audio/e.audioPron/entryPronHits, e.img,
+  e.audioInvocation) — these numbers can't drift from what Add Task would actually queue for that
+  service, and "done" is always read live off current entry data, never off whether a task once
+  completed.
+- Progress tab (Manage → Progress): one row per area — done/total, a percentage bar, a "show
+  remaining" list of names/years, and (when something's pending) a "Batch add…" button
+  (tkOpenAddForCategory) that closes Manage, opens Task Automation, and pre-selects that exact
+  service (and, for the Saints-only closing-prayer row, the Saints category) in the Add Task form.
+- Export tab: discovered — didn't know until reading the code — that mExStatBox already shows a
+  live word-count completeness split, and mXlsxExport already produces a real .xlsx via SheetJS
+  (not CSV-only, which is what I'd told Tom earlier). Word/section/char counts were already in
+  every export unconditionally (articleStats, built for TTS cost estimating). Rather than
+  duplicate Export's existing category/region/year-range/feast-range/search filters with a second
+  picker on Progress, added a Status button next to mExStatBox that runs computeProgressStats
+  against mExportFilteredEntries() — the exact set the CSV/.xlsx would export — read-only (no
+  batch-add: "batch add for this filtered slice" isn't an action the app supports).
+- renderProgressStatsInto(el, stats, idPrefix, allowJump) is the one render function behind both
+  surfaces; idPrefix keeps element ids from colliding if both were ever open at once, allowJump
+  is what makes Progress's rows actionable and Export's read-only.
+
 ## v499 — 2026-09-27
 
 **Ask:**
@@ -4522,6 +4601,32 @@ CHANGELOG:END
     padding:10px 12px; margin:8px 0 12px; font-size:14px; color:var(--m-ink); line-height:1.5;
   }
   .mExStatBox b{color:var(--m-accent);}
+  .progBlock{margin:8px 0 12px;}
+  .progRow{
+    background:var(--m-bg); border:1px solid var(--m-border); border-radius:10px;
+    padding:12px 14px; margin-bottom:10px;
+  }
+  .progRowTop{display:flex; justify-content:space-between; align-items:baseline; gap:10px;}
+  .progLabel{font-size:14.5px; font-weight:600; color:var(--m-ink);}
+  .progPct{font-size:14.5px; font-weight:700; color:var(--m-accent); flex:none;}
+  .progBarTrack{height:7px; border-radius:4px; background:var(--m-border); overflow:hidden; margin:7px 0 6px;}
+  .progBarFill{height:100%; background:var(--m-accent); border-radius:4px;}
+  .progCount{font-size:12.5px; color:var(--m-sub); line-height:1.4;}
+  .progListToggle{
+    background:none; border:none; padding:0; margin:0; font-size:12.5px; color:var(--m-accent);
+    text-decoration:underline; cursor:pointer;
+  }
+  .progActions{margin-top:8px;}
+  .progList{
+    max-height:200px; overflow-y:auto; margin-top:8px; padding:8px 10px;
+    border:1px solid var(--m-border); border-radius:8px; background:#fff; display:none;
+  }
+  .progList.open{display:block;}
+  .progListRow{
+    display:flex; justify-content:space-between; gap:10px; padding:3px 0;
+    font-size:13px; color:var(--m-ink);
+  }
+  .progListRow + .progListRow{border-top:1px solid var(--m-border);}
   /* Export tab search results. Deliberately shows EVERY match, not a top-N slice like the
      timeline search bar — the point here is to confirm exactly what's about to be exported —
      so it's capped by height and scrolls instead of by result count. */
@@ -5399,6 +5504,10 @@ CHANGELOG:END
 
       <div class="mgmtFilterCount" id="mfSummary"></div>
       <div class="mExStatBox" id="mExStatBox"></div>
+      <div class="mtool" style="margin-top:0;">
+        <button class="mbtn sm" id="mExStatusBtn" type="button">Status \u2014 totals for this filter</button>
+      </div>
+      <div class="progBlock" id="mExStatusBox" style="display:none;"></div>
       <div class="mtool">
         <button class="mbtn" id="mJsonAll">JSON &mdash; All</button>
         <button class="mbtn" id="mJsonFiltered">JSON &mdash; Filtered</button>
@@ -5542,23 +5651,11 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
       </div>
     </div>
 
-    <!-- ===== TAB: Logs (changelog.json, fetched privately via the GitHub API) ===== -->
-    <div class="mgmtPanel logPanel" id="panel-logs">
-      <div class="logSearchRow">
-        <div class="logSearchWrap">
-          <input type="text" id="logSearch" autocomplete="off" placeholder="Search version, date, or change text…">
-          <button type="button" class="logSearchClear" id="logSearchClear" aria-label="Clear search">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-          </button>
-        </div>
-      </div>
-      <div class="logCount" id="logCount"></div>
-      <div id="logList"></div>
-      <details class="mHelp logHelp"><summary>What this does</summary>
-        <div class="hint">Every build's header comment (VERSION / DATE / CHANGES) is logged automatically to <code>changelog.json</code> by a GitHub Action when you push a new <code>index.html</code> to <code>main</code>. This tab reads that file straight from GitHub using the same access token as Publish above — <code>changelog.json</code> itself is excluded from the public site via <code>.assetsignore</code>, so this log is only visible to you, here. Kept to a rolling 3 weeks — anything older is trimmed automatically each time this tab loads.</div>
-      </details>
-      <div class="logThumbTrack" id="logThumbTrack"><div class="logThumb" id="logThumb"></div></div>
-      <div class="logThumbLabel" id="logThumbLabel"></div>
+    <!-- ===== TAB: Progress (per-category completion stats, computed live from db.entries — not
+         from task-completion history, since a finished task doesn't guarantee the underlying
+         issue can't recur; see computeProgressStats's own comment) ===== -->
+    <div class="mgmtPanel" id="panel-progress">
+      <div id="progressBody"><p class="tkNote">Loading…</p></div>
     </div>
 
   </div>
@@ -5590,9 +5687,9 @@ Or paste a cross-link list instead — one per line: entryId :: exact text :: ta
    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5l2 2 3.5-3.5M4 13l2 2 3.5-3.5M4 19.5l2 2 3.5-3.5M13 7h7M13 14h7M13 21h7"/></svg>
    <span>Automation</span>
   </button>
-  <button class="mgmtTab" data-tab="logs">
-   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
-   <span>Logs</span>
+  <button class="mgmtTab" data-tab="progress">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10m6.5 10V4m6.5 16v-7"/></svg>
+   <span>Progress</span>
   </button>
  </div>
 </div>
@@ -5934,7 +6031,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v499';
+const APP_VERSION = 'v501';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -5979,9 +6076,10 @@ const IS_ARTIFACT = (typeof window !== 'undefined' && window.storage && typeof w
 // available inside the Claude artifact sandbox regardless — there's no separate sw.js file for
 // the browser to fetch there, and window.storage already gives that environment its own
 // persistence anyway.
-// See sw.js's own comments for the caching strategy — network-first for the page/data.json
-// (chosen specifically so it can't interfere with the reload-driven update flow just above/below
-// this), stale-while-revalidate for images/audio.
+// See sw.js's own comments for the caching strategy — as of v501, cache-first with background
+// revalidation for the page (the fresh copy is confirmed cached before the reload-driven update
+// flow just above/below this is ever told about it, so it can't race a stale cache), stale-
+// while-revalidate for data.json/images/audio.
 let offlineAccessEnabled = false;
 try{ offlineAccessEnabled = localStorage.getItem('offline-access') === '1'; }catch(e){}
 
@@ -8195,256 +8293,6 @@ function ghConfigured(){
   return !!(v('ghOwner') && v('ghRepo') && v('ghToken'));
 }
 document.getElementById('ghPublish').addEventListener('click', publishToGitHub);
-
-// ---- Logs tab: reads changelog.json straight from GitHub (not the deployed site, since the
-// file is deliberately excluded from public serving via .assetsignore). Reuses the same
-// owner/repo/branch/token fields as Publish, so nothing new has to be entered. ----
-let logEntries = [];
-async function loadChangelog(){
-  const v = id => document.getElementById(id).value.trim();
-  const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', token = v('ghToken');
-  const countEl = document.getElementById('logCount');
-  if(!owner || !repo || !token){
-    countEl.textContent = 'Enter your GitHub token under Import → Publish to GitHub first — the Logs tab reads changelog.json using the same credentials.';
-    return;
-  }
-  countEl.textContent = 'Loading…';
-  const api = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/changelog.json?ref=' + encodeURIComponent(branch);
-  const hdr = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' };
-  try{
-    const res = await fetch(api, { headers: hdr, cache: 'no-store' });
-    if(res.status === 404){ logEntries = []; renderLogList(); countEl.textContent = 'No changelog.json yet — it is created the first time a version-comment build is pushed to ' + branch + '.'; return; }
-    if(res.status === 401 || res.status === 403) throw new Error('token rejected (check permissions)');
-    if(!res.ok) throw new Error('fetch failed (' + res.status + ')');
-    const meta = await res.json();
-    const json = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
-    const parsed = JSON.parse(json);
-    logEntries = parsed.entries || [];
-    renderLogList();
-    pruneOldChangelogEntries(meta.sha, owner, repo, branch, token, countEl);
-  }catch(err){
-    countEl.textContent = 'Could not load changelog: ' + err.message;
-  }
-}
-// Rolling 3-week retention: runs automatically after every successful load, committing a
-// trimmed changelog.json back to GitHub if (and only if) anything's actually old enough to
-// drop — a plain read otherwise, no extra commit. Best-effort: a failure here just means next
-// load tries again, so it fails quietly rather than surfacing a hard error over "Loading…".
-const LOG_RETENTION_MS = 21 * 24 * 60 * 60 * 1000;
-async function pruneOldChangelogEntries(sha, owner, repo, branch, token, countEl){
-  const cutoff = Date.now() - LOG_RETENTION_MS;
-  const keep = logEntries.filter(e => { const d = new Date(e.date); return isNaN(d) || d.getTime() >= cutoff; });
-  const removed = logEntries.length - keep.length;
-  if(removed <= 0) return;
-  const api = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/changelog.json';
-  const hdr = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' };
-  const json = JSON.stringify({entries: keep}, null, 1);
-  const content = btoa(unescape(encodeURIComponent(json)));
-  const body = { message: 'Trim changelog.json to the last 3 weeks (-' + removed + ')', content: content, branch: branch, sha: sha };
-  try{
-    const put = await fetch(api, { method: 'PUT', headers: hdr, body: JSON.stringify(body) });
-    if(put.status === 200 || put.status === 201){
-      logEntries = keep;
-      renderLogList();
-      countEl.textContent = 'Removed ' + removed + ' log entr' + (removed === 1 ? 'y' : 'ies') + ' older than 3 weeks.';
-      setTimeout(() => { if(countEl.textContent.indexOf('Removed') === 0) countEl.textContent = ''; }, 6000);
-    }
-  }catch(e){ /* best-effort — see comment above */ }
-}
-// Formats an ISO date string as "Monday 8/8 12:45 PM" — day name, no-leading-zero M/D, 12hr time.
-// Still used for search matching (so typing a day name or date still filters correctly) even
-// though entries no longer display this full string themselves — see logTimeOnly() below.
-function formatLogDate(iso){
-  if(!iso) return '';
-  const d = new Date(iso);
-  if(isNaN(d)) return iso;
-  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  let h = d.getHours();
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12; if(h === 0) h = 12;
-  const min = String(d.getMinutes()).padStart(2, '0');
-  return days[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + '  ' + h + ':' + min + ' ' + ampm;
-}
-const LOG_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const LOG_DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-// Groups changelog entries by calendar day for the sticky date header — cheap string key,
-// no reparsing needed to compare.
-function logDateKey(iso){
-  const d = new Date(iso);
-  if(isNaN(d)) return '';
-  return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
-}
-// "September 12, 2026" — the sticky date header's bold white half.
-function logDateLong(iso){
-  const d = new Date(iso);
-  if(isNaN(d)) return '';
-  return LOG_MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
-}
-// "Wednesday" — the sticky date header's italic tan half.
-function logDayName(iso){
-  const d = new Date(iso);
-  if(isNaN(d)) return '';
-  return LOG_DAYS[d.getDay()];
-}
-// "10:00 AM" — all an individual entry's own header shows now; the date/day live in the
-// sticky group header above it instead of repeating on every entry.
-function logTimeOnly(iso){
-  const d = new Date(iso);
-  if(isNaN(d)) return '';
-  let h = d.getHours();
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12; if(h === 0) h = 12;
-  const min = String(d.getMinutes()).padStart(2, '0');
-  return h + ':' + min + ' ' + ampm;
-}
-// Escapes text for HTML, then wraps any case-insensitive match of the search query in a
-// yellow <mark>. Escaping happens first so the query itself is never treated as markup.
-function highlightLog(raw, q){
-  const safe = esc(raw);
-  if(!q) return safe;
-  const qEsc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return safe.replace(new RegExp('(' + qEsc + ')', 'gi'), '<mark class="logHi">$1</mark>');
-}
-function renderLogList(){
-  const list = document.getElementById('logList');
-  const countEl = document.getElementById('logCount');
-  const q = (document.getElementById('logSearch').value || '').trim().toLowerCase();
-  const filtered = !q ? logEntries : logEntries.filter(e =>
-    (e.version || '').toLowerCase().includes(q) ||
-    formatLogDate(e.date).toLowerCase().includes(q) ||
-    (e.changes || []).some(c => c.toLowerCase().includes(q))
-  );
-  // v289: no longer displays a routine "N of M versions" count — #logCount is reserved for
-  // loadChangelog()'s actual status messages (Loading…, errors, "no changelog.json yet",
-  // missing token). Clearing it here is what dismisses "Loading…" once the list is ready.
-  countEl.textContent = '';
-  let lastDateKey = null;
-  list.innerHTML = filtered.map(e => {
-    const changes = (e.changes || []).map(c => '<li>' + highlightLog(c, q) + '</li>').join('');
-    const key = logDateKey(e.date);
-    let dateHeader = '';
-    if(key && key !== lastDateKey){
-      const longDate = logDateLong(e.date);
-      dateHeader = '<div class="logDateHeader" data-label="' + esc(longDate) + '"><span class="ldhDate">' + esc(longDate) + '</span><em class="ldhDay">' + esc(logDayName(e.date)) + '</em></div>';
-      lastDateKey = key;
-    }
-    return dateHeader + '<div class="logEntry">' +
-      '<div class="logEntryHead"><span class="logVer">v' + highlightLog(e.version || '?', q) + '</span><span class="logDate">' + highlightLog(logTimeOnly(e.date), q) + '</span></div>' +
-      (changes ? '<ol>' + changes + '</ol>' : '') +
-      '</div>';
-  }).join('') || '<div class="hint" style="margin:14px 20px 0;">' + (logEntries.length ? 'No entries match that search.' : '') + '</div>';
-  updateLogThumbVisibility();
-}
-document.getElementById('logSearch').addEventListener('input', () => {
-  document.getElementById('logSearchClear').classList.toggle('show', document.getElementById('logSearch').value.length > 0);
-  renderLogList();
-});
-document.getElementById('logSearchClear').addEventListener('click', () => {
-  const inp = document.getElementById('logSearch');
-  inp.value = '';
-  document.getElementById('logSearchClear').classList.remove('show');
-  renderLogList();
-  inp.focus();
-});
-
-// ---- Logs tab: scrub thumb-slider — same look/feel as the Saints/Browse panels' rail, but
-// wired to .mgmtScroll (the Logs tab's own scrolling context is the whole CMS body, not a
-// small inner list) and simplified — nothing sits under this rail that needs its own tap
-// handling, so any touch on it just starts a drag immediately. ----
-const logThumbTrack = document.getElementById('logThumbTrack');
-const logThumb = document.getElementById('logThumb');
-const logThumbLabel = document.getElementById('logThumbLabel');
-const logPanelEl = document.getElementById('panel-logs');
-const mgmtScrollEl = document.querySelector('.mgmtScroll');
-function logThumbEligible(){
-  return mgmtScrollEl.scrollHeight > mgmtScrollEl.clientHeight + 20;
-}
-function logThumbRange(){
-  return {min: 0, max: Math.max(0, mgmtScrollEl.scrollHeight - mgmtScrollEl.clientHeight)};
-}
-// Fades the thumb to a faint light grey a few seconds after the last time it moved (scroll or
-// drag), and instantly wakes it back to gold the moment it moves again — called from both
-// logSyncThumbPosition() (ordinary scrolling) and logThumbDragTo() (dragging the thumb itself)
-// so either kind of movement counts as "recently touched."
-let logThumbIdleTimer = null;
-function logThumbWake(){
-  logThumb.classList.remove('idle');
-  clearTimeout(logThumbIdleTimer);
-  logThumbIdleTimer = setTimeout(() => logThumb.classList.add('idle'), 2500);
-}
-function logSyncThumbPosition(){
-  const {min, max} = logThumbRange();
-  const usable = Math.max(1, logThumbTrack.clientHeight - logThumb.offsetHeight);
-  const rel = max > min ? (mgmtScrollEl.scrollTop - min) / (max - min) : 0;
-  logThumb.style.top = (Math.max(0, Math.min(1, rel)) * usable) + 'px';
-  logThumbWake();
-}
-// Maps the thumb's proportional position straight to a date header's own data-label, same
-// approach as the Saints panel's spLabelAtRel — independent of how many rows happen to fit
-// per screen.
-function logLabelAtRel(rel){
-  const headers = document.querySelectorAll('#logList .logDateHeader');
-  const total = headers.length;
-  if(!total) return '';
-  const idx = Math.max(0, Math.min(total - 1, Math.round(rel * (total - 1))));
-  return headers[idx] ? (headers[idx].dataset.label || '') : '';
-}
-function logThumbDragTo(clientY){
-  const trackRect = logThumbTrack.getBoundingClientRect();
-  const usable = Math.max(1, trackRect.height - logThumb.offsetHeight);
-  let rel = (clientY - trackRect.top - logThumb.offsetHeight / 2) / usable;
-  rel = Math.max(0, Math.min(1, rel));
-  const {min, max} = logThumbRange();
-  mgmtScrollEl.scrollTop = min + rel * (max - min);
-  logThumb.style.top = (rel * usable) + 'px';
-  logThumbLabel.textContent = logLabelAtRel(rel);
-  logThumbLabel.style.top = Math.max(30, clientY - 30) + 'px';
-  logThumbWake();
-}
-let logThumbDragging = false;
-function logThumbBeginDrag(clientY){
-  logThumbDragging = true;
-  logThumbTrack.classList.add('dragging');
-  logThumbLabel.classList.add('show');
-  logThumbDragTo(clientY);
-}
-function logThumbStart(e){
-  const t = e.touches ? e.touches[0] : e;
-  logThumbBeginDrag(t.clientY);
-  e.preventDefault();
-}
-function logThumbMove(e){
-  if(!logThumbDragging) return;
-  const t = e.touches ? e.touches[0] : e;
-  logThumbDragTo(t.clientY);
-  e.preventDefault();
-}
-function logThumbEnd(){
-  if(!logThumbDragging) return;
-  logThumbDragging = false;
-  logThumbTrack.classList.remove('dragging');
-  logThumbLabel.classList.remove('show');
-}
-if(logThumbTrack){
-  logThumbTrack.addEventListener('touchstart', logThumbStart, {passive:false});
-  logThumbTrack.addEventListener('touchmove', logThumbMove, {passive:false});
-  logThumbTrack.addEventListener('touchend', logThumbEnd);
-  logThumbTrack.addEventListener('touchcancel', logThumbEnd);
-  logThumbTrack.addEventListener('mousedown', logThumbStart);
-  window.addEventListener('mousemove', logThumbMove);
-  window.addEventListener('mouseup', logThumbEnd);
-}
-mgmtScrollEl.addEventListener('scroll', () => {
-  if(logPanelEl.classList.contains('active') && !logThumbDragging) logSyncThumbPosition();
-});
-// Eligibility depends on layout that's only settled after the DOM paints — one frame's worth
-// of defer, same reasoning any post-render measurement needs.
-function updateLogThumbVisibility(){
-  requestAnimationFrame(() => {
-    logPanelEl.classList.toggle('hasThumb', logThumbEligible());
-    logSyncThumbPosition();
-  });
-}
 
 // ==================== Work tab: workLog.json task queue + review cards ====================
 // The in-app half of the orchestrator pipeline. Backend services (GitHub Actions) draft work
@@ -15195,7 +15043,7 @@ const MGMT_TAB_TITLES = {
   entries:  {first: 'Content',     second: ' Edit Entries'},
   export:   {first: 'Content',     second: ' Export Data'},
   import:   {first: 'Content',     second: ' Import Data'},
-  logs:     {first: 'Application', second: ' Change Logs'}
+  progress: {first: 'Content',     second: ' Progress'}
 };
 function switchMgmtTab(tab){
   document.querySelectorAll('.mgmtTab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
@@ -15206,7 +15054,7 @@ function switchMgmtTab(tab){
     document.getElementById('mgmtTitleFirst').textContent = titles.first;
     document.getElementById('mgmtTitleSecond').textContent = titles.second;
   }
-  if(tab === 'logs') loadChangelog();
+  if(tab === 'progress') renderProgressPanel();
 }
 document.querySelectorAll('.mgmtTab[data-tab]').forEach(t => t.addEventListener('click', () => switchMgmtTab(t.dataset.tab)));
 // Automation isn't a Manage tab — it's the same Task Automation panel opened via openTaskPanel(),
@@ -15513,6 +15361,119 @@ function mExportFilteredEntries(){
     mExportMatchesSearch(e, q)
   );
 }
+// v499: shared by the Progress tab (Manage → Progress, whole site) and Export's Status button
+// (whatever mExportFilteredEntries() currently returns) — same eligibility checks the batch pools
+// themselves use for each service, so these numbers can't drift from what tapping Add Task for
+// that service would actually queue. "Done" is always computed live from the current entry data,
+// never from whether a task once completed — a reword task finishing doesn't mean a long sentence
+// can't reappear later (new content, a later edit), which is exactly the drift Tom described
+// losing track of.
+const PROGRESS_ROWS = [
+  { key: 'reword',     label: 'Long sentences',           service: 'sentence-reword',  category: '',
+    inPool: e => articleStats(e).wordCount > 0,
+    done:   e => !entryHasLongSentence(e) },
+  { key: 'proofread',  label: 'Proofread',                 service: 'arbitrate',        category: '',
+    inPool: e => articleStats(e).wordCount > 0,
+    done:   e => !!(e.qc && e.qc.proofread) },
+  { key: 'audio',      label: 'Audio recorded',            service: 'audio-generate',   category: '',
+    inPool: e => articleStats(e).wordCount > 0,
+    done:   e => !!e.audio },
+  { key: 'pron',       label: 'Pronunciation re-record',   service: 'audio-generate',   category: '',
+    inPool: e => !!e.audio && entryPronHits(e).length > 0,
+    done:   e => !!e.audioPron },
+  { key: 'image',      label: 'Images',                    service: 'image-generate',   category: '',
+    inPool: e => articleStats(e).wordCount > 0,
+    done:   e => !!e.img },
+  { key: 'invocation', label: 'Closing prayer (Saints)',   service: 'audio-invocation', category: 's',
+    inPool: e => e.t === 's' && !!e.audio,
+    done:   e => !!e.audioInvocation }
+];
+function computeProgressStats(entries){
+  return PROGRESS_ROWS.map(row => {
+    const pool = entries.filter(row.inPool);
+    const pending = pool.filter(e => !row.done(e));
+    return {
+      key: row.key, label: row.label, service: row.service, category: row.category,
+      done: pool.length - pending.length, total: pool.length,
+      pct: pool.length ? Math.round((pool.length - pending.length) / pool.length * 100) : 100,
+      pending: pending
+    };
+  });
+}
+// Renders one stats block into el — shared by the Progress tab (allowJump: true, whole site) and
+// Export's Status button (allowJump: false, a scoped snapshot of whatever's currently filtered —
+// "batch add for this slice" isn't an action the app supports, so those rows are read-only).
+// idPrefix keeps element ids unique between the two so both could in principle be open at once
+// without colliding.
+function renderProgressStatsInto(el, stats, idPrefix, allowJump){
+  el.innerHTML = stats.map(s => {
+    const listId = idPrefix + '-list-' + s.key;
+    return '<div class="progRow">' +
+      '<div class="progRowTop"><span class="progLabel">' + esc(s.label) + '</span>' +
+      '<span class="progPct">' + s.pct + '%</span></div>' +
+      '<div class="progBarTrack"><div class="progBarFill" style="width:' + s.pct + '%"></div></div>' +
+      '<div class="progCount">' + s.done + ' / ' + s.total + ' done' +
+        (s.pending.length ? ' \u00b7 <button type="button" class="progListToggle" data-list="' + listId + '">show remaining</button>' : '') +
+      '</div>' +
+      (allowJump && s.pending.length ? '<div class="progActions"><button type="button" class="mbtn sm" data-jump="' + s.key + '">Batch add\u2026</button></div>' : '') +
+      '<div class="progList" id="' + listId + '">' +
+        s.pending.map(e => '<div class="progListRow"><span>' + esc(e.n) + '</span><span>AD ' + e.y + '</span></div>').join('') +
+      '</div>' +
+    '</div>';
+  }).join('');
+  el.querySelectorAll('.progListToggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const list = document.getElementById(btn.dataset.list);
+      if(!list) return;
+      list.classList.toggle('open');
+      btn.textContent = list.classList.contains('open') ? 'hide' : 'show remaining';
+    });
+  });
+  if(allowJump){
+    el.querySelectorAll('[data-jump]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const row = PROGRESS_ROWS.find(r => r.key === btn.dataset.jump);
+        if(row) tkOpenAddForCategory(row.service, row.category);
+      });
+    });
+  }
+}
+async function renderProgressPanel(){
+  const body = document.getElementById('progressBody');
+  if(!body) return;
+  body.innerHTML = '<p class="tkNote">Loading\u2026</p>';
+  await tkLoadPronRules(); // the pronunciation-rework row is meaningless until this is loaded
+  renderProgressStatsInto(body, computeProgressStats(db.entries), 'prog', true);
+}
+// Jumps from a Progress/Status row straight into Add Task, pre-selected to that row's service
+// (and, for the Saints-only closing-prayer row, category) — the same Manage-to-Task-Automation
+// handoff mgmtAutomationBtn already does, just landing one screen further in.
+function tkOpenAddForCategory(serviceType, category){
+  manage.classList.remove('open');
+  openTaskPanel();
+  tkView = 'add';
+  const typeSel = document.getElementById('tkNewType');
+  if(typeSel) typeSel.value = serviceType;
+  tkUpdateAddFormMode();
+  const catSel = document.getElementById('tkBatchCategory');
+  if(catSel) catSel.value = category || '';
+  tkUpdateOrderVisibility();
+  renderTaskPanel();
+}
+let mExStatusOpen = false;
+document.getElementById('mExStatusBtn').addEventListener('click', async () => {
+  mExStatusOpen = !mExStatusOpen;
+  const box = document.getElementById('mExStatusBox');
+  const btn = document.getElementById('mExStatusBtn');
+  box.style.display = mExStatusOpen ? 'block' : 'none';
+  btn.textContent = mExStatusOpen ? 'Hide status' : 'Status \u2014 totals for this filter';
+  if(mExStatusOpen){
+    box.innerHTML = '<p class="tkNote">Loading\u2026</p>';
+    await tkLoadPronRules();
+    renderProgressStatsInto(box, computeProgressStats(mExportFilteredEntries()), 'exstat', false);
+  }
+});
+
 // The full list of what the search matched — every row, never a top-N slice, since this is
 // what the reader checks before pressing Export.
 function renderExportSearchList(evs){
@@ -18960,6 +18921,19 @@ function setPendingReload(on){
   updateActionBtn.style.display = on ? 'inline-block' : 'none';
 }
 
+// v501: pulled out of checkVersion()'s own else-branch so sw.js's background page revalidation
+// (see its ct-update-ready postMessage) can arm the exact same "New Version" glow through a
+// second path, instead of needing its own parallel notification UI.
+function announceNewVersion(version){
+  updateLabel.textContent = 'New Version';
+  if(updateCur) updateCur.textContent = version;
+  setPendingReload(true);
+  if(announcedVersion !== version){
+    announcedVersion = version;
+    hamPulseDue = true;
+    rowGlowDue = true;
+  }
+}
 async function checkVersion(auto){
   if(checking) return;
   checking = true;
@@ -18980,14 +18954,7 @@ async function checkVersion(auto){
       if(updateCur) updateCur.textContent = APP_VERSION;
       setPendingReload(false);
     } else {
-      updateLabel.textContent = 'New Version';
-      if(updateCur) updateCur.textContent = m[1];
-      setPendingReload(true);
-      if(announcedVersion !== m[1]){
-        announcedVersion = m[1];
-        hamPulseDue = true;
-        rowGlowDue = true;
-      }
+      announceNewVersion(m[1]);
     }
   }catch(err){
     // A silent background check should not shout about a flaky network; a requested one should
@@ -19007,6 +18974,20 @@ updateBtn.addEventListener('click', (e) => {
   if(pendingReload){ location.reload(); return; }
   checkVersion(false);
 });
+// v501: the service worker's own background revalidation of the page (sw.js's revalidatePage)
+// now detects a real update independently of the fetch above — this just routes that into the
+// SAME announceNewVersion() flow, so there's one "New Version" system with two ways of
+// triggering it (this tab's own throttled menu-open check, or the service worker noticing on
+// any load) rather than two separate ones. Harmless to register even when Offline Access has
+// never been turned on — no service worker means this simply never fires.
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if(!event.data || event.data.type !== 'ct-update-ready') return;
+    lastCheckAt = Date.now();
+    if(event.data.version) announceNewVersion(event.data.version);
+    else checkVersion(true); // sw.js couldn't read a version string back out — ask directly instead
+  });
+}
 
 // ---- App icon override hook ----
 // The icons embedded above are the fallback and always work. To use your own artwork, drop the
