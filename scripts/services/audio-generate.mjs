@@ -150,6 +150,20 @@ export async function ttsWithTimestamps(text, outPath, voiceId, modelId, voiceSe
   });
   if(!res.ok){
     const errText = await res.text().catch(() => '');
+    // 2026-09-27: running out of ElevenLabs credits (or hitting its rate limit) isn't a failure
+    // of this task — throwing with `deferred` makes the orchestrator put the task back in the
+    // queue untouched, stop attempting the rest of the batch, and leave a plain-language notice,
+    // instead of marking every remaining task as a red error.
+    if(/quota_exceeded|insufficient|credits remaining/i.test(errText)){
+      const e = new Error('ElevenLabs credits are used up — run again after they reset or are topped up');
+      e.deferred = true;
+      throw e;
+    }
+    if(res.status === 429){
+      const e = new Error('ElevenLabs is rate-limiting requests right now — run again in a few minutes');
+      e.deferred = true;
+      throw e;
+    }
     throw new Error(`ElevenLabs API ${res.status}: ${errText.slice(0, 300)}`);
   }
   const data = await res.json();
@@ -343,6 +357,9 @@ export async function runAudioGenerate(task, dataJson){
   entry.audioTiming = relTiming;
   // Recorded with the closing prayer (saints only) — "Add closing prayer" skips entries with this.
   if(invocationFor(entry)) entry.audioInvocation = true; else delete entry.audioInvocation;
+  // Recorded with the pronunciation rules applied — the app's "recorded before the pronunciation
+  // fix" check skips entries with this stamp.
+  entry.audioPron = true;
 
   return {
     result: { entityId: entry.id, name: entry.n, audio: relAudio, durationSec, cueCount: cues.length, link: SITE_BASE + '/' + relAudio },
