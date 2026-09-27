@@ -19,6 +19,65 @@ the time.
 
 ---
 
+## v495 — 2026-09-27
+
+**Ask:**
+- A way to find recordings that may have mispronounced Roman numerals (recorded before the
+  pronunciation fix).
+
+**Implementation:**
+- audio-generate.mjs stamps entry.audioPron = true on every new recording (rules applied).
+- Add Task → Record audio: new checkbox "Only re-record entries recorded before the
+  pronunciation fix that contain Roman numerals". Pool: has audio, no audioPron, and
+  entryPronHits() finds a rule match in the name (saints), headings or text — using the same
+  rules file and matching as the audio service (tkLoadPronRules). "Will queue" rows show the
+  numerals found, e.g. "St. John Paul II (2005) — II".
+
+## v494 — 2026-09-27
+
+**Ask:**
+- ElevenLabs showed 13.3K credits of recording today that Tom never intended.
+
+**Implementation:**
+- Cause: the Proofread (Arbitrate) review's "Record audio" checkbox was ticked by default; each
+  approval clears the entry's now-stale audio and queued a re-recording through
+  tkQueueQuickTask(), which v490 made run immediately for every caller. Approving changes
+  therefore re-recorded saints on the spot until the credits ran out.
+- tkQueueQuickTask() gains opts.runNow; only the Review Mode Proof/Audio/Image buttons pass it.
+  Proofread approvals and Flag Issue re-queues only queue (note says to tap Run).
+- tkArbAudioChk now unticked by default.
+
+## v493 — 2026-09-27
+
+**Ask:**
+- Before recording new audio, a way to find every Saint article that's already recorded and add
+  the closing prayer ("…, pray for us.") to the end of its audio.
+
+**Implementation:**
+- New task kind 'audio-invocation' ("Add closing prayer to recorded saints") in TK_SERVICES and
+  TK_BATCH_TYPES. Pool: t === 's', has audio, no entry.audioInvocation, nothing pending. Same
+  Category/Start/Quantity picker; needs a Voice ID; carries the Voice & pacing payload.
+- Server (scripts/services/audio-invocation.mjs, registered in orchestrator.mjs): records only the
+  prayer line, joins existing audio + 1.2s pause + prayer into the next version file, copies the
+  timing file (cues unchanged, new duration), sets entry.audioInvocation. audio-generate.mjs now
+  also sets audioInvocation on new Saint recordings and exports its helpers for the new service.
+
+## v492 — 2026-09-27
+
+**Ask:**
+- After a run finished, the Task panel froze: screen dimmed, nothing tappable, not even the X.
+
+**Implementation:**
+- Diagnosis from the screenshot: a native confirm() dialog drawn without its text (two blank pill
+  buttons at the top, page dimmed). Most likely source: the Task panel's "Reset stuck" button,
+  shown while tasks still sat under Running right after the run. Native dialogs in the iOS
+  home-screen app are unreliable.
+- New appConfirm(message, {okLabel, danger, onOk}) → Promise<boolean>: an in-app, topmost
+  (z-index 12000) light dialog; tapping outside = Cancel. All seven confirm() calls replaced
+  (Reset stuck, save links, two deletes, remove cross-links, restore backup, reset to seed).
+  removeAutoLinkEntries() made async. Restore opens its file picker from inside the OK tap
+  (onOk), as iOS requires.
+
 ## v491 — 2026-09-26
 
 **Ask:**
