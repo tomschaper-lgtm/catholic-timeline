@@ -5511,15 +5511,26 @@
       "type": "sentence-reword",
       "entityId": "st-mary-magdalene-48",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. Mary Magdalene",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "st-mary-magdalene-48",
+        "name": "St. Mary Magdalene",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-27T19:15:17.025Z",
-      "updatedAt": "2026-09-27T19:16:29.155Z",
+      "updatedAt": "2026-09-27T19:16:37.608Z",
       "error": null
     },
     {
@@ -5604,6 +5615,35 @@
       "error": null,
       "createdAt": "2026-09-27T19:16:35.451Z",
       "updatedAt": "2026-09-27T19:16:35.451Z"
+    },
+    {
+      "id": "task-sentence-reword-st-mary-magdalene-48-1790536597608-4693",
+      "type": "sentence-reword",
+      "entityId": "st-mary-magdalene-48",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. Mary Magdalene",
+      "payload": {},
+      "result": {
+        "name": "St. Mary Magdalene",
+        "patches": [
+          [
+            "article",
+            "Jewish burial custom, interrupted by the onset of the Sabbath, had not yet allowed them time to prepare — an act of simple, grieving devotion that would place her, by God's providence, at the very center of the most important event in human history.",
+            "U",
+            "Jewish burial custom, interrupted by the onset of the Sabbath, had not yet allowed them time to prepare. This act of simple, grieving devotion would place her, by God's providence, at the very center of the most important event in human history."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-27T19:16:37.607Z",
+      "updatedAt": "2026-09-27T19:16:37.607Z"
     }
   ]
 }
