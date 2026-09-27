@@ -5456,15 +5456,26 @@
       "type": "sentence-reword",
       "entityId": "st-james-the-greater-44",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. James the Greater",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "st-james-the-greater-44",
+        "name": "St. James the Greater",
+        "sentencesFound": 1,
+        "sentencesReworded": 1,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-27T19:31:03.114Z",
-      "updatedAt": "2026-09-27T19:32:44.661Z",
+      "updatedAt": "2026-09-27T19:32:49.022Z",
       "error": null
     },
     {
@@ -5498,6 +5509,35 @@
       "createdAt": "2026-09-27T19:31:03.114Z",
       "updatedAt": "2026-09-27T19:32:44.661Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-st-james-the-greater-44-1790537569022-9135",
+      "type": "sentence-reword",
+      "entityId": "st-james-the-greater-44",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 1 long sentence — St. James the Greater",
+      "payload": {},
+      "result": {
+        "name": "St. James the Greater",
+        "patches": [
+          [
+            "article",
+            "Their fervent, sometimes impetuous temperament earned them from Christ a memorable nickname, <i>Boanerges</i>, \"sons of thunder.\" The name speaks of a zeal not yet fully tamed by grace, the raw material out of which the Lord would shape one of his most trusted friends.",
+            "U",
+            "Their fervent, sometimes impetuous temperament earned them from Christ a memorable nickname, <i>Boanerges</i>, \"sons of thunder.\" The name speaks of zeal not yet fully tamed by grace. It was the raw material from which the Lord would shape one of his most trusted friends."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-27T19:32:49.022Z",
+      "updatedAt": "2026-09-27T19:32:49.022Z"
     }
   ]
 }
