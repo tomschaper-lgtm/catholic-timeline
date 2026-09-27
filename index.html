@@ -1,6 +1,6 @@
 <!--
-VERSION: 493
-DATE: 2026-09-27T21:30:00-05:00
+VERSION: 494
+DATE: 2026-09-27T22:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,20 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v494 — 2026-09-27
+
+**Ask:**
+- ElevenLabs showed 13.3K credits of recording today that Tom never intended.
+
+**Implementation:**
+- Cause: the Proofread (Arbitrate) review's "Record audio" checkbox was ticked by default; each
+  approval clears the entry's now-stale audio and queued a re-recording through
+  tkQueueQuickTask(), which v490 made run immediately for every caller. Approving changes
+  therefore re-recorded saints on the spot until the credits ran out.
+- tkQueueQuickTask() gains opts.runNow; only the Review Mode Proof/Audio/Image buttons pass it.
+  Proofread approvals and Flag Issue re-queues only queue (note says to tap Run).
+- tkArbAudioChk now unticked by default.
+
 ## v493 — 2026-09-27
 
 **Ask:**
@@ -5790,7 +5804,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v493';
+const APP_VERSION = 'v494';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -10318,7 +10332,7 @@ function renderTaskReview(){
     const proposer = tkArbitrateModelLabel(d.proposedBy), arbiter = tkArbitrateModelLabel(d.arbitratedBy);
     const hasVoiceId = !!document.getElementById('audioVoiceId').value.trim();
     const audioOpt = hasVoiceId
-      ? '<label class="tkCheck"><input type="checkbox" id="tkArbAudioChk" checked><span>Record audio</span></label>'
+      ? '<label class="tkCheck"><input type="checkbox" id="tkArbAudioChk"><span>Record audio</span></label>' // v494: unticked by default
       : '<label class="tkCheck disabled"><input type="checkbox" id="tkArbAudioChk" disabled><span>Record audio<span class="tkCheckNote">Set a Voice ID under Import \u2192 Voice &amp; pacing settings first.</span></span></label>';
     const hasNext = tkDebateIdx < open.length - 1;
     // Catches exactly the failure Tom hit twice: an 'article' debate whose before-text can no
@@ -11589,7 +11603,14 @@ function tkAudioPayload(){
 // Queues a single image-generate or audio-generate task for one entity, used by the Review Mode
 // quick-action buttons on the article view. Same task shape tkAdd's batch path builds (one map()
 // entry, just inlined for a single e), so both routes land identical tasks in workLog.json.
-async function tkQueueQuickTask(type, entry, btnEl, noteEl, payloadOverride){
+// v494: opts.runNow — start processing immediately (v490 behavior). ONLY the explicit Review
+// Mode buttons (Proof, Audio, Image) pass it. Every other caller — the Proofread review's
+// "Record audio" option, Flag Issue's audio/image re-queues — only queues, so nothing records
+// or spends credits as a side effect of approving or flagging something. (v490 ran EVERY task
+// queued through here immediately, which silently re-recorded saints as proofread changes were
+// approved.)
+async function tkQueueQuickTask(type, entry, btnEl, noteEl, payloadOverride, opts){
+  const runNow = !!(opts && opts.runNow);
   const g = wlGh();
   if(!g.owner || !g.repo || !g.token){
     if(noteEl) noteEl.textContent = 'Enter your GitHub token under Manage \u2192 Import \u2192 Publish to GitHub first.';
@@ -11605,15 +11626,19 @@ async function tkQueueQuickTask(type, entry, btnEl, noteEl, payloadOverride){
     id: id, type: type, entityId: entry.id, batchId: null, status: 'queued',
     description: (TK_SERVICES.find(s => s.id === type) || {}).label + ' \u2014 ' + entry.n,
     payload: payload, result: null, createdAt: nowIso, updatedAt: nowIso, error: null,
-    runNow: true // v490: goes to the front of the queue and is run right away — see tkStartRunNow()
+    runNow: runNow || undefined // v490/v494: front of the queue + run right away, explicit buttons only
   };
   wlData.tasks.push(newTask);
   if(btnEl) btnEl.disabled = true;
   if(noteEl) noteEl.textContent = 'Saving\u2026';
   const saved = await saveWorkLog('Queue ' + type + ' task via quick action \u2014 ' + entry.n, [id]);
   if(saved && saved.ok){
-    if(noteEl) noteEl.textContent = 'Queued \u2713';
-    tkStartRunNow(type, id, noteEl); // v490: run it now, no trip to the Task List
+    if(runNow){
+      if(noteEl) noteEl.textContent = 'Queued \u2713';
+      tkStartRunNow(type, id, noteEl); // v490: run it now, no trip to the Task List
+    } else if(noteEl){
+      noteEl.textContent = 'Queued \u2713 \u2014 switch to Task List and tap Run to process it.';
+    }
   } else {
     wlData.tasks = wlData.tasks.filter(t => t.id !== id); // roll back so a retry doesn't double-queue
     if(btnEl) btnEl.disabled = false;
@@ -12548,8 +12573,8 @@ function fillArticleBody(d, peek){
     const quickNoteEl = document.getElementById('tkQuickNote');
     const imgBtn = document.getElementById('tkQuickImageBtn');
     const audioBtn = document.getElementById('tkQuickAudioBtn');
-    if(imgBtn) imgBtn.addEventListener('click', () => tkQueueQuickTask('image-generate', d, imgBtn, quickNoteEl));
-    if(audioBtn) audioBtn.addEventListener('click', () => tkQueueQuickTask('audio-generate', d, audioBtn, quickNoteEl));
+    if(imgBtn) imgBtn.addEventListener('click', () => tkQueueQuickTask('image-generate', d, imgBtn, quickNoteEl, null, { runNow: true }));
+    if(audioBtn) audioBtn.addEventListener('click', () => tkQueueQuickTask('audio-generate', d, audioBtn, quickNoteEl, null, { runNow: true }));
   }
   if(reviewMode && manageUnlocked() && articleStats(d).wordCount > 0){
     const statusNoteEl = document.getElementById('tkStatusNote') || document.getElementById('tkQuickNote'); // v489: one shared note
@@ -12559,7 +12584,7 @@ function fillArticleBody(d, peek){
     if(tools && anchor && anchor.parentNode === tools.parentNode) anchor.parentNode.insertBefore(tools, anchor);
     const proofreadBtn = document.getElementById('tkSubmitProofreadBtn');
     const flagBtn = document.getElementById('tkFlagIssueBtn');
-    if(proofreadBtn) proofreadBtn.addEventListener('click', () => tkQueueQuickTask('arbitrate', d, proofreadBtn, statusNoteEl));
+    if(proofreadBtn) proofreadBtn.addEventListener('click', () => tkQueueQuickTask('arbitrate', d, proofreadBtn, statusNoteEl, null, { runNow: true }));
     if(flagBtn) flagBtn.addEventListener('click', () => openFlagModal(d));
   }
 
