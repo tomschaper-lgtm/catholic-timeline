@@ -47,6 +47,13 @@
 // — a failed workLog push here just costs one visibility update; orchestrator.yml's own trailing
 // commit step is still the final safety net for whatever a per-task push missed.
 //
+// RUN NOW (2026-09-26): a task queued from the app's Review Mode buttons carries `runNow: true`.
+// Such tasks go to the front of the queue, and before this run finishes it re-reads the remote
+// workLog.json and also processes any runNow task queued WHILE it was running (up to
+// RUN_NOW_MAX_EXTRA more, any type). That's how a button tap during a run gets picked up by the
+// run already in progress instead of needing a second, overlapping run — orchestrator.yml's
+// `concurrency: group: orchestrator` already guarantees only one run executes at a time.
+//
 // BATCH CLAIMING: the whole batch is flipped to `in_progress` and committed in ONE shot, BEFORE
 // the loop below processes any of them — not one task at a time as each one's turn starts. This
 // is what lets the app's Running tab show the whole batch (10 → 9 → 8… as each one actually
@@ -138,11 +145,14 @@ import { runSentenceReword } from './services/sentence-reword.mjs';
 import { runAudioGenerate } from './services/audio-generate.mjs';
 import { runArbitrate } from './services/arbitrate.mjs';
 import { runFactResearch } from './services/fact-research.mjs';
+import { runAudioInvocation } from './services/audio-invocation.mjs';
 
 const WORKLOG_PATH = process.env.WORKLOG_PATH || 'workLog.json';
 const DATA_PATH = process.env.DATA_PATH || 'data.json';
 const SUMMARY_PATH = process.env.SUMMARY_PATH || 'scripts/work-summary.txt';
 const MAX_TASKS = parseInt(process.env.MAX_TASKS_PER_RUN || '5', 10);
+// How many extra runNow tasks a run may pick up after its own batch (see RUN NOW above).
+const RUN_NOW_MAX_EXTRA = parseInt(process.env.RUN_NOW_MAX_EXTRA || '10', 10);
 const TASK_TYPE = (process.env.TASK_TYPE || '').trim(); // '' = any service
 // How many dataDirty-flagged entities to accumulate before actually committing data.json — see
 // the DATA.JSON BATCH COMMITS note above. Tom asked for "every 10 articles" specifically.
@@ -173,6 +183,7 @@ const SERVICE_HANDLERS = {
   'audio-generate': runAudioGenerate,
   'arbitrate': runArbitrate,
   'fact-research': runFactResearch,
+  'audio-invocation': runAudioInvocation, // "Add closing prayer" to existing Saint recordings (2026-09-27)
 };
 
 function nowIso(){ return new Date().toISOString(); }
@@ -414,6 +425,8 @@ async function main(){
   const queued = workLog.tasks.filter(t =>
     t.status === 'queued' && (!TASK_TYPE || t.type === TASK_TYPE)
   );
+  // RUN NOW: runNow tasks first, original order otherwise (sort is stable).
+  queued.sort((a, b) => (b.runNow ? 1 : 0) - (a.runNow ? 1 : 0));
   const batch = queued.slice(0, MAX_TASKS);
 
   if(batch.length === 0){
@@ -482,7 +495,9 @@ async function main(){
   commitWorkLog(workLog, 'Claim batch: ' + batch.length + ' task' + (batch.length === 1 ? '' : 's') +
     (TASK_TYPE ? ' (' + TASK_TYPE + ')' : ''));
 
-  for(const task of batch){
+  // One task, start to finish. (Was the body of the batch loop; a function now so the RUN NOW
+  // pick-up below can reuse it exactly.)
+  async function runOne(task){
     const handler = SERVICE_HANDLERS[task.type];
 
     if(!handler){
@@ -491,7 +506,7 @@ async function main(){
       task.updatedAt = nowIso();
       summaryLines.push('\u2717 ' + task.id + ' (' + task.type + '): no handler registered');
       commitWorkLog(workLog, 'No handler for ' + task.id);
-      continue;
+      return;
     }
 
     // Once one task in this batch has deferred, the run's budget is gone — every task from here
@@ -503,7 +518,7 @@ async function main(){
       task.status = 'queued';
       task.updatedAt = nowIso();
       deferredCount++;
-      continue;
+      return;
     }
 
     // Already `in_progress` from the batch-claim commit above — no separate per-task "Start"
@@ -520,7 +535,7 @@ async function main(){
         deferredReason = out.reason || 'the service ran out of budget';
         summaryLines.push('\u23f8 ' + task.id + ' (' + task.type + '): deferred \u2014 ' + deferredReason);
         commitWorkLog(workLog, 'Defer ' + task.id);
-        continue;
+        return;
       }
 
       // Publish whatever this task wrote (data.json fields, image files, audio files) BEFORE
@@ -546,7 +561,7 @@ async function main(){
         task.updatedAt = nowIso();
         summaryLines.push('\u2717 ' + task.id + ' (' + task.type + '): generated but publish failed, see error');
         commitWorkLog(workLog, 'Publish failed for ' + task.id);
-        continue;
+        return;
       }
 
       task.status = out.awaitingReview ? 'awaiting_review' : 'done';
@@ -569,7 +584,7 @@ async function main(){
         deferredReason = err.message || 'the service ran out of budget';
         summaryLines.push('\u23f8 ' + task.id + ' (' + task.type + '): deferred \u2014 ' + deferredReason);
         commitWorkLog(workLog, 'Defer ' + task.id);
-        continue;
+        return;
       }
       task.status = 'error';
       task.error = String((err && err.stack) || err);
@@ -577,6 +592,25 @@ async function main(){
       summaryLines.push('\u2717 ' + task.id + ' (' + task.type + '): ' + err.message);
       commitWorkLog(workLog, 'Error on ' + task.id);
     }
+  }
+
+  for(const task of batch){ delete task.runNow; await runOne(task); }
+
+  // RUN NOW pick-up: before finishing, look for runNow tasks queued while this run was busy (or
+  // left over past MAX_TASKS / outside TASK_TYPE), and do those too. Skipped once anything has
+  // deferred (the budget is gone). Bounded by RUN_NOW_MAX_EXTRA.
+  let extraDone = 0;
+  while(deferredCount === 0 && extraDone < RUN_NOW_MAX_EXTRA){
+    const branch = currentBranch();
+    try{ execSync('git fetch origin ' + branch, { stdio: 'ignore' }); }catch(_e){ break; }
+    mergeWorkLogFromRemote(workLog, readRemoteJson(branch, WORKLOG_PATH));
+    const next = workLog.tasks.filter(t => t.status === 'queued' && t.runNow).slice(0, RUN_NOW_MAX_EXTRA - extraDone);
+    if(!next.length) break;
+    const at = nowIso();
+    next.forEach(t => { t.status = 'in_progress'; t.updatedAt = at; delete t.runNow; });
+    summaryLines.push('', 'Run now: picked up ' + next.length + ' task' + (next.length === 1 ? '' : 's') + ' queued during this run.');
+    commitWorkLog(workLog, 'Claim run-now: ' + next.length + ' task' + (next.length === 1 ? '' : 's'));
+    for(const task of next){ await runOne(task); extraDone++; }
   }
 
   if(deferredCount > 0){
