@@ -49,28 +49,28 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { stripHtml, splitSentences } from '../lib/text.mjs';
 
-const AUDIO_ROOT = 'audio';
+export const AUDIO_ROOT = 'audio';
 // 2026-09-27: was the github.io address; the site is served by Cloudflare at this domain, and
 // GitHub Pages is being switched off, which would have broken the link shown in the Task List.
-const SITE_BASE = 'https://catholictimeline.org';
+export const SITE_BASE = 'https://catholictimeline.org';
 const PRONUNCIATION_FILE = 'pronunciation/catholic-timeline-pronunciation.json';
 // Closing invocation (2026-09-27): Saint entries (t: 's') end with a pause and then
 // "<name>, pray for us." — spoken only; never added to the article text, and given no
 // highlighting cue (there's no text on the page for it to highlight).
-const INVOCATION_PAUSE_SEC = 1.2;
+export const INVOCATION_PAUSE_SEC = 1.2;
 const TYPE_FOLDERS = { s: 'Saints', c: 'Councils', p: 'Persecutions', m: 'Marian', u: 'Eucharistic', e: 'Events' };
 
 // Same format/bitrate rationale as the original: mp3 at this bitrate is plenty for spoken
 // narration and runs roughly 4-5x smaller than the wav this used to produce, with no audible
 // quality loss for voice. Change here (and nowhere else) if a different bitrate/format is wanted.
-const OUTPUT_EXT = 'mp3';
+export const OUTPUT_EXT = 'mp3';
 const OUTPUT_BITRATE = '128k';
 
-function clamp(n, lo, hi){ return Math.min(hi, Math.max(lo, n)); }
+export function clamp(n, lo, hi){ return Math.min(hi, Math.max(lo, n)); }
 
 // ---- Pronunciation (see PRONUNCIATION at the top) -------------------------------------------
 let pronunciationRules = null;
-async function loadPronunciationRules(){
+export async function loadPronunciationRules(){
   if(pronunciationRules) return pronunciationRules;
   try{
     const raw = JSON.parse(await fs.readFile(PRONUNCIATION_FILE, 'utf8'));
@@ -126,7 +126,7 @@ function hasNarratableText(entry){ return sectionParts(entry).length > 0; }
 // "St. John Paul II" → "Saint John Paul II, pray for us." (the pronunciation rules then turn
 // II into "the second"). Abbreviations are spelled out so the voice doesn't say "Street":
 // St. → Saint, Sts. → Saints, Bl. → Blessed; "&" → "and". Saint entries only.
-function invocationFor(entry){
+export function invocationFor(entry){
   if(!entry || entry.t !== 's' || !entry.n) return '';
   const name = String(entry.n).trim()
     .replace(/\bSts\.\s+/g, 'Saints ')
@@ -141,7 +141,7 @@ function round2(n){ return Math.round(n * 100) / 100; }
 
 // Calls ElevenLabs' timestamped endpoint, writes the decoded mp3 to outPath, and returns the
 // character-level alignment for that exact input text.
-async function ttsWithTimestamps(text, outPath, voiceId, modelId, voiceSettings, apiKey){
+export async function ttsWithTimestamps(text, outPath, voiceId, modelId, voiceSettings, apiKey){
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps`;
   const res = await fetch(url, {
     method: 'POST',
@@ -157,7 +157,7 @@ async function ttsWithTimestamps(text, outPath, voiceId, modelId, voiceSettings,
   return data.alignment || null;
 }
 
-function chunkDuration(alignment, mp3Path){
+export function chunkDuration(alignment, mp3Path){
   const ends = alignment && alignment.character_end_times_seconds;
   if(ends && ends.length) return ends[ends.length - 1];
   try{
@@ -166,7 +166,7 @@ function chunkDuration(alignment, mp3Path){
   }catch{ return 0; }
 }
 
-function makeSilence(durationSec, outPath){
+export function makeSilence(durationSec, outPath){
   if(durationSec <= 0) return false;
   execSync(`ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=mono -t ${durationSec.toFixed(2)} -q:a 9 "${outPath}"`, { stdio: 'inherit' });
   return true;
@@ -176,7 +176,7 @@ function makeSilence(durationSec, outPath){
 // the concat demuxer) — tolerates the mp3-vs-silence-mp3 format differences that broke
 // stream-copy concat in testing. Final output is re-encoded (libmp3lame's default encoder for a
 // .mp3 target) rather than stream-copied, since concat's filter graph always re-encodes anyway.
-function concatSegments(files, audioOut, dir){
+export function concatSegments(files, audioOut, dir){
   const rel = files.map(f => path.relative(dir, f));
   const inputs = rel.map(f => `-i "${f}"`).join(' ');
   const filterIn = rel.map((_, i) => `[${i}:a]`).join('');
@@ -273,7 +273,7 @@ async function narrateEntry(entry, dir, baseName, opts, apiKey){
   return { audioPath, durationSec: round2(cumulative), cues, replacements };
 }
 
-function nextVersion(entry){
+export function nextVersion(entry){
   if(!entry.audio) return 1;
   const m = entry.audio.match(/-v(\d+)\.\w+$/);
   if(!m) return 1;
@@ -282,6 +282,23 @@ function nextVersion(entry){
   // recorded audio") before this task was ever queued, so always creating a new version file
   // here (never silently overwriting) is correct regardless of why it happened.
   return parseInt(m[1], 10) + 1;
+}
+
+// Voice/model/settings from a task payload (shared with audio-invocation.mjs).
+export function voiceFromPayload(p){
+  const voiceId = String(p.voiceId || '').trim();
+  if(!voiceId) throw new Error('Task has no voiceId in its payload \u2014 requeue from Add Task with a Voice ID set.');
+  return {
+    voiceId,
+    modelId: p.modelId || 'eleven_multilingual_v2',
+    voiceSettings: {
+      stability: clamp(parseFloat(p.stability ?? 0.5), 0, 1),
+      similarity_boost: clamp(parseFloat(p.similarityBoost ?? 0.75), 0, 1),
+      style: clamp(parseFloat(p.style ?? 0), 0, 1),
+      speed: clamp(parseFloat(p.speed ?? 1), 0.25, 4),
+      use_speaker_boost: p.useSpeakerBoost !== false
+    }
+  };
 }
 
 /**
@@ -300,19 +317,10 @@ export async function runAudioGenerate(task, dataJson){
   }
 
   const p = task.payload || {};
-  const voiceId = String(p.voiceId || '').trim();
-  if(!voiceId) throw new Error('Task has no voiceId in its payload \u2014 requeue from Add Task with a Voice ID set.');
-  const modelId = p.modelId || 'eleven_multilingual_v2';
+  const { voiceId, modelId, voiceSettings } = voiceFromPayload(p);
   const readHeadings = p.readHeadings !== false;
   const headingPauseSec = (parseInt(p.headingPauseMs, 10) || 500) / 1000;
   const sectionPauseSec = (parseInt(p.sectionPauseMs, 10) || 700) / 1000;
-  const voiceSettings = {
-    stability: clamp(parseFloat(p.stability ?? 0.5), 0, 1),
-    similarity_boost: clamp(parseFloat(p.similarityBoost ?? 0.75), 0, 1),
-    style: clamp(parseFloat(p.style ?? 0), 0, 1),
-    speed: clamp(parseFloat(p.speed ?? 1), 0.25, 4),
-    use_speaker_boost: p.useSpeakerBoost !== false
-  };
 
   const folder = TYPE_FOLDERS[entry.t] || 'Other';
   const dir = path.join(AUDIO_ROOT, folder);
@@ -333,6 +341,8 @@ export async function runAudioGenerate(task, dataJson){
 
   entry.audio = relAudio;
   entry.audioTiming = relTiming;
+  // Recorded with the closing prayer (saints only) — "Add closing prayer" skips entries with this.
+  if(invocationFor(entry)) entry.audioInvocation = true; else delete entry.audioInvocation;
 
   return {
     result: { entityId: entry.id, name: entry.n, audio: relAudio, durationSec, cueCount: cues.length, link: SITE_BASE + '/' + relAudio },
