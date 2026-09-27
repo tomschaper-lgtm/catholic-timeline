@@ -1,6 +1,6 @@
 <!--
-VERSION: 497
-DATE: 2026-09-27T22:20:00-05:00
+VERSION: 498
+DATE: 2026-09-27T22:55:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,30 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v498 — 2026-09-27
+
+**Ask:**
+- St. Mary Magdalene's Arbitrate Review still shows "every debate on this entity has been
+  resolved" and stays stuck there after v497 — it never actually goes away.
+
+**Implementation:**
+- Diagnosis: that screen means every debate on the task is already resolved (whether from a real
+  Approve/Override/Edit, or v497's already-applied sweep) but the task's own status/workLog save
+  never landed on GitHub — so it keeps surfacing in review even though there's nothing left to
+  decide. Previously that branch just cleared the lock bar (`lock.innerHTML = ''`) with no button
+  and no feedback: even the wlSetLog() messages from a background flush failure (e.g.
+  tkFlushDeferredPublish, called from tkGoList()/closeTaskPanel() on the way out) were invisible
+  here, same root cause as v496 but on a call path v496 didn't touch.
+- wlSetLog() itself now mirrors to #tkArbNote whenever that element is on screen, not just the
+  direct calls inside tkResolveArbitrateDebate/tkSaveArbitrateEdit — covers every caller,
+  including the background flush, instead of relying on each one to remember.
+- The "every debate resolved" branch is no longer a dead end: it now renders a note line plus a
+  "Save & Continue" button (new tkFinalizeArbitrateTask()), which re-sets status:'done', flushes
+  both halves (content publish, workLog save) through the same tkFlushDeferredPublish() every
+  other exit point already uses, and — now that failures are actually visible — either advances to
+  the next task needing a look or reports why it couldn't and leaves the button re-enabled to
+  retry.
+
 ## v497 — 2026-09-27
 
 **Ask:**
@@ -5882,7 +5906,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v497';
+const APP_VERSION = 'v498';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8436,9 +8460,16 @@ function rawAssetUrl(relPath){
 // the panel is where this system is actually operated, so that's where its feedback belongs.
 function wlSetLog(msg, isErr){
   const el = document.getElementById('tkCount');
-  if(!el) return;
-  el.textContent = msg || '';
-  el.classList.toggle('err', !!isErr);
+  if(el){ el.textContent = msg || ''; el.classList.toggle('err', !!isErr); }
+  // v498: #tkCount lives inside #tkViewList and is invisible while tkView === 'review' (see
+  // tkArbNoteSet's own comment, v496). That fix covered tkResolveArbitrateDebate/
+  // tkSaveArbitrateEdit's own direct messages, but background flushes — tkFlushDeferredPublish(),
+  // called from tkGoList()/closeTaskPanel() on the way out of a queue — call wlSetLog() straight,
+  // not tkArbNoteSet(), so their "publishing…"/"could not publish"/"could not sync" messages were
+  // still landing invisibly if Tom was still on the Arbitrate Review screen when one fired.
+  // Mirroring here, once, covers every caller instead of relying on each one to remember.
+  const arb = document.getElementById('tkArbNote');
+  if(arb){ arb.textContent = msg || ''; arb.classList.toggle('err', !!isErr); }
 }
 // Feedback line under the panel's Add Task form.
 function tkSetAddStatus(msg, isErr){
@@ -9892,6 +9923,36 @@ function tkArbTaskNeedsReview(t){
   tkAutoResolveApplied(t);
   return tkArbitrateOpenDebates((t.result && t.result.debates) || []).length > 0;
 }
+// v498: the explicit "Save & Continue" action for a task whose debates are all already resolved
+// but whose own status/workLog save never landed (see the dead-end branch this button lives in).
+// Re-sets status:'done' defensively (tkAutoResolveApplied already does this when IT is what
+// emptied the task, but a task that got here by Tom resolving debates normally already had this
+// set too — either way, setting it again is harmless) and flushes both halves — content publish,
+// in case an earlier deferred approval never actually went out, and the workLog save itself —
+// through the same tkFlushDeferredPublish() every other exit point uses, with the result actually
+// visible this time (wlSetLog now mirrors to #tkArbNote — see its own v498 comment) instead of
+// silently deferred to whenever the queue is next left.
+async function tkFinalizeArbitrateTask(t){
+  const btn = document.getElementById('tkArbSyncDone');
+  if(btn) btn.disabled = true;
+  t.status = 'done'; t.updatedAt = new Date().toISOString();
+  tkDeferredWorkLogIds.add(t.id);
+  await tkFlushDeferredPublish();
+  if(tkDeferredWorkLogIds.has(t.id)){
+    // Still pending after the flush attempt means it failed — tkFlushDeferredPublish already left
+    // an explanatory message (now visible via #tkArbNote); just re-enable so Tom can retry.
+    if(btn) btn.disabled = false;
+    return;
+  }
+  let next = tkReviewIdx + 1;
+  while(next < tkReviewIds.length){
+    if(tkArbTaskNeedsReview(tkTask(tkReviewIds[next]))) break;
+    next++;
+  }
+  if(next >= tkReviewIds.length){ tkGoList(); return; }
+  tkReviewIdx = next;
+  renderTaskPanel();
+}
 // Actually applies a debate's fix — 'facts'/'quotes' are addressed by position (debate.sentence,
 // 1-based, exactly matching how proofreader-skill.md numbered them going out); 'article' matches
 // debate.before verbatim in that section's raw HTML, same discipline (and same "can't span a tag
@@ -10494,7 +10555,24 @@ function renderTaskReview(){
     tkAutoResolveApplied(t); // v496: same sweep as tkRenderArbitrateReview — keeps this footer in sync if ever called on its own
     const debates = (t.result && t.result.debates) || [];
     const open = tkArbitrateOpenDebates(debates);
-    if(!open.length){ lock.innerHTML = ''; return; }
+    if(!open.length){
+      // v498: every debate here is already resolved (approved/overridden/edited, or swept by
+      // tkAutoResolveApplied as already-applied) but the task itself can still be showing up in
+      // review if the save that should have flipped its status to 'done' never actually landed —
+      // e.g. tkAutoResolveApplied's own save is deferred to whenever the queue is next left
+      // (tkGoList/closeTaskPanel), and if THAT flush fails there was previously no way to see it
+      // or retry from here: this branch just cleared the lock bar and left Tom stuck looking at
+      // "every debate on this entity has been resolved" with nothing to press. Give it its own
+      // explicit, visible save action instead of only ever deferring silently.
+      lock.classList.add('tkArbLock');
+      lock.innerHTML =
+        '<div class="tkArbBottomSticky">' +
+          '<p class="tkNote" id="tkArbNote"></p>' +
+          '<div class="tkLockBtns"><button class="tkBtn go" id="tkArbSyncDone">Save &amp; Continue</button></div>' +
+        '</div>';
+      document.getElementById('tkArbSyncDone').addEventListener('click', () => tkFinalizeArbitrateTask(t));
+      return;
+    }
     if(tkDebateIdx >= open.length) tkDebateIdx = open.length - 1;
     const cur = open[tkDebateIdx];
     const d = cur.debate;
