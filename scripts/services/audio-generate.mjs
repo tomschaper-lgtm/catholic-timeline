@@ -30,6 +30,19 @@
 // Actions — the former is a one-off lookup with no entity/review concept, the latter a
 // maintenance tool for old timing files, neither fitting the per-entity task model this file
 // implements.
+//
+// PRONUNCIATION (2026-09-27): before any text is sent to ElevenLabs, whole-word replacements from
+// pronunciation/catholic-timeline-pronunciation.json are applied here (e.g. "Pius XII" is sent as
+// "Pius the twelfth", "Vatican II" as "Vatican Two"). Done here rather than with an ElevenLabs
+// pronunciation dictionary on purpose: the sentence-highlighting cues are built by mapping each
+// sentence's character positions onto ElevenLabs' character timings, and a swap made on
+// ElevenLabs' side could leave those timings describing text the article doesn't contain. Here,
+// applyPronunciation() records where every character of the original moved to, so the cues are
+// computed against exactly the text that was spoken and then mapped back onto the article's own
+// text — highlighting stays exact. Rules: checked in file order, first match wins (so phrase
+// exceptions like "Vatican II" sit above plain "II"); case-sensitive; whole words only (the
+// characters on either side must not be letters or digits). Edit the JSON file to add or change
+// pronunciations; no ElevenLabs setup involved. Missing file = no replacements.
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -37,7 +50,14 @@ import { execSync } from 'node:child_process';
 import { stripHtml, splitSentences } from '../lib/text.mjs';
 
 const AUDIO_ROOT = 'audio';
-const SITE_BASE = 'https://tomschaper-lgtm.github.io/catholic-timeline';
+// 2026-09-27: was the github.io address; the site is served by Cloudflare at this domain, and
+// GitHub Pages is being switched off, which would have broken the link shown in the Task List.
+const SITE_BASE = 'https://catholictimeline.org';
+const PRONUNCIATION_FILE = 'pronunciation/catholic-timeline-pronunciation.json';
+// Closing invocation (2026-09-27): Saint entries (t: 's') end with a pause and then
+// "<name>, pray for us." — spoken only; never added to the article text, and given no
+// highlighting cue (there's no text on the page for it to highlight).
+const INVOCATION_PAUSE_SEC = 1.2;
 const TYPE_FOLDERS = { s: 'Saints', c: 'Councils', p: 'Persecutions', m: 'Marian', u: 'Eucharistic', e: 'Events' };
 
 // Same format/bitrate rationale as the original: mp3 at this bitrate is plenty for spoken
@@ -47,6 +67,48 @@ const OUTPUT_EXT = 'mp3';
 const OUTPUT_BITRATE = '128k';
 
 function clamp(n, lo, hi){ return Math.min(hi, Math.max(lo, n)); }
+
+// ---- Pronunciation (see PRONUNCIATION at the top) -------------------------------------------
+let pronunciationRules = null;
+async function loadPronunciationRules(){
+  if(pronunciationRules) return pronunciationRules;
+  try{
+    const raw = JSON.parse(await fs.readFile(PRONUNCIATION_FILE, 'utf8'));
+    pronunciationRules = (raw.rules || [])
+      .filter(r => r && r.type === 'alias' && r.string_to_replace && typeof r.alias === 'string')
+      .map(r => ({ from: r.string_to_replace, to: r.alias }));
+  }catch(e){
+    pronunciationRules = []; // no file (or unreadable): narrate the text as written
+  }
+  return pronunciationRules;
+}
+const isWordChar = (ch) => !!ch && /[A-Za-z0-9\u00C0-\u024F]/.test(ch);
+// Returns the text to speak, a position map (map[i] = where original character i starts in the
+// spoken text; map[text.length] = spoken length), and how many replacements were made.
+export function applyPronunciation(text, rules){
+  const map = new Array(text.length + 1);
+  let out = '', count = 0, i = 0;
+  while(i < text.length){
+    let hit = null;
+    if(!isWordChar(text[i - 1])){
+      for(const r of rules){
+        if(text.startsWith(r.from, i) && !isWordChar(text[i + r.from.length])){ hit = r; break; }
+      }
+    }
+    if(hit){
+      for(let k = 0; k < hit.from.length; k++) map[i + k] = out.length;
+      out += hit.to;
+      i += hit.from.length;
+      count++;
+    }else{
+      map[i] = out.length;
+      out += text[i];
+      i++;
+    }
+  }
+  map[text.length] = out.length;
+  return { spoken: out, map, count };
+}
 
 // One {heading, body} pair per section, whitespace-collapsed. Sections with no body text are
 // dropped (nothing to narrate).
@@ -60,6 +122,20 @@ function sectionParts(entry){
     .filter(s => s.body);
 }
 function hasNarratableText(entry){ return sectionParts(entry).length > 0; }
+
+// "St. John Paul II" → "Saint John Paul II, pray for us." (the pronunciation rules then turn
+// II into "the second"). Abbreviations are spelled out so the voice doesn't say "Street":
+// St. → Saint, Sts. → Saints, Bl. → Blessed; "&" → "and". Saint entries only.
+function invocationFor(entry){
+  if(!entry || entry.t !== 's' || !entry.n) return '';
+  const name = String(entry.n).trim()
+    .replace(/\bSts\.\s+/g, 'Saints ')
+    .replace(/\bSt\.\s+/g, 'Saint ')
+    .replace(/\bBl\.\s+/g, 'Blessed ')
+    .replace(/\s*&\s*/g, ' and ')
+    .replace(/[.,;:\s]+$/, '');
+  return name ? name + ', pray for us.' : '';
+}
 
 function round2(n){ return Math.round(n * 100) / 100; }
 
@@ -114,6 +190,8 @@ function concatSegments(files, audioOut, dir){
 // start, end} in seconds — the raw material for the site's sentence-highlighting player.
 async function narrateEntry(entry, dir, baseName, opts, apiKey){
   const { voiceId, modelId, voiceSettings, readHeadings, headingPauseSec, sectionPauseSec } = opts;
+  const rules = await loadPronunciationRules();
+  let replacements = 0;
   const parts = sectionParts(entry);
   const segmentFiles = [];
   const cues = [];
@@ -133,7 +211,9 @@ async function narrateEntry(entry, dir, baseName, opts, apiKey){
 
     if(readHeadings && heading){
       const hPath = tmp();
-      const alignment = await ttsWithTimestamps(heading, hPath, voiceId, modelId, voiceSettings, apiKey);
+      const h = applyPronunciation(heading, rules);
+      replacements += h.count;
+      const alignment = await ttsWithTimestamps(h.spoken, hPath, voiceId, modelId, voiceSettings, apiKey);
       segmentFiles.push(hPath);
       const dur = chunkDuration(alignment, hPath);
       cues.push({ section: si, type: 'heading', text: heading, start: round2(cumulative), end: round2(cumulative + dur) });
@@ -148,14 +228,18 @@ async function narrateEntry(entry, dir, baseName, opts, apiKey){
     }
 
     const bPath = tmp();
-    const alignment = await ttsWithTimestamps(body, bPath, voiceId, modelId, voiceSettings, apiKey);
+    const b = applyPronunciation(body, rules);
+    replacements += b.count;
+    const alignment = await ttsWithTimestamps(b.spoken, bPath, voiceId, modelId, voiceSettings, apiKey);
     segmentFiles.push(bPath);
     const dur = chunkDuration(alignment, bPath);
 
     if(alignment && alignment.characters && alignment.characters.length){
       splitSentences(body).forEach(sen => {
-        const startIdx = Math.max(0, Math.min(sen.start, alignment.characters.length - 1));
-        const endIdx = Math.max(0, Math.min(sen.end - 1, alignment.characters.length - 1));
+        // Sentences are found in the article's own text; b.map moves their positions onto the
+        // spoken text the timings describe. Cue text stays the article's own wording.
+        const startIdx = Math.max(0, Math.min(b.map[sen.start], alignment.characters.length - 1));
+        const endIdx = Math.max(0, Math.min(b.map[sen.end] - 1, alignment.characters.length - 1));
         const start = alignment.character_start_times_seconds[startIdx] ?? 0;
         const end = alignment.character_end_times_seconds[endIdx] ?? dur;
         cues.push({ section: si, type: 'sentence', text: sen.text, start: round2(cumulative + start), end: round2(cumulative + end) });
@@ -167,11 +251,26 @@ async function narrateEntry(entry, dir, baseName, opts, apiKey){
     cumulative += dur;
   }
 
+  // Closing invocation for saints: a pause, then "<name>, pray for us." Spoken only.
+  const invocation = invocationFor(entry);
+  if(invocation){
+    const gap = tmp();
+    makeSilence(INVOCATION_PAUSE_SEC, gap);
+    segmentFiles.push(gap);
+    cumulative += INVOCATION_PAUSE_SEC;
+    const iPath = tmp();
+    const inv = applyPronunciation(invocation, rules);
+    replacements += inv.count;
+    const alignment = await ttsWithTimestamps(inv.spoken, iPath, voiceId, modelId, voiceSettings, apiKey);
+    segmentFiles.push(iPath);
+    cumulative += chunkDuration(alignment, iPath);
+  }
+
   const audioPath = path.join(dir, `${baseName}.${OUTPUT_EXT}`);
   concatSegments(segmentFiles, audioPath, dir);
   await Promise.all(segmentFiles.map(f => fs.unlink(f).catch(() => {})));
 
-  return { audioPath, durationSec: round2(cumulative), cues };
+  return { audioPath, durationSec: round2(cumulative), cues, replacements };
 }
 
 function nextVersion(entry){
@@ -221,7 +320,7 @@ export async function runAudioGenerate(task, dataJson){
 
   const version = nextVersion(entry);
   const baseName = entry.id + '-v' + version;
-  const { audioPath, durationSec, cues } = await narrateEntry(
+  const { audioPath, durationSec, cues, replacements } = await narrateEntry(
     entry, dir, baseName,
     { voiceId, modelId, voiceSettings, readHeadings, headingPauseSec, sectionPauseSec },
     apiKey
@@ -237,7 +336,8 @@ export async function runAudioGenerate(task, dataJson){
 
   return {
     result: { entityId: entry.id, name: entry.n, audio: relAudio, durationSec, cueCount: cues.length, link: SITE_BASE + '/' + relAudio },
-    summary: 'recorded ' + durationSec + 's (' + cues.length + ' cues) \u2014 ' + relAudio,
+    summary: 'recorded ' + durationSec + 's (' + cues.length + ' cues' +
+      (replacements ? ', ' + replacements + ' pronunciation fix' + (replacements === 1 ? '' : 'es') : '') + ') \u2014 ' + relAudio,
     filesToCommit: [relAudio, relTiming, 'data.json']
   };
 }
