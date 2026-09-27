@@ -5484,15 +5484,26 @@
       "type": "sentence-reword",
       "entityId": "st-james-the-greater-44",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Reword long sentences — St. James the Greater",
       "payload": {
         "provider": "openai",
         "autoApprove": false
       },
-      "result": null,
+      "result": {
+        "entityId": "st-james-the-greater-44",
+        "name": "St. James the Greater",
+        "sentencesFound": 2,
+        "sentencesReworded": 2,
+        "skippedTagMismatch": 0,
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
       "createdAt": "2026-09-27T19:15:17.025Z",
-      "updatedAt": "2026-09-27T19:16:29.155Z",
+      "updatedAt": "2026-09-27T19:16:35.451Z",
       "error": null
     },
     {
@@ -5558,6 +5569,41 @@
       "createdAt": "2026-09-27T19:15:17.025Z",
       "updatedAt": "2026-09-27T19:16:29.155Z",
       "error": null
+    },
+    {
+      "id": "task-sentence-reword-st-james-the-greater-44-1790536595451-686",
+      "type": "sentence-reword",
+      "entityId": "st-james-the-greater-44",
+      "batchId": null,
+      "status": "proposed",
+      "description": "Reword 2 long sentences — St. James the Greater",
+      "payload": {},
+      "result": {
+        "name": "St. James the Greater",
+        "patches": [
+          [
+            "article",
+            "Both brothers left everything at once, and their fervent, sometimes impetuous temperament earned them from Christ a memorable nickname, <i>Boanerges</i>, \"sons of thunder.\" The name speaks of a zeal not yet fully tamed by grace, the raw material out of which the Lord would shape one of his most trusted friends.",
+            "U",
+            "Both brothers left everything at once. Their fervent, sometimes impetuous temperament earned them from Christ a memorable nickname, <i>Boanerges</i>, \"sons of thunder.\" The name speaks of a zeal not yet fully tamed by grace, the raw material out of which the Lord would shape one of his most trusted friends."
+          ],
+          [
+            "article",
+            "The Acts of the Apostles records James's death with stark brevity: <b>Herod Agrippa I</b> \"killed James, the brother of John, with the sword.\"  \nAgrippa was seeking to please the Jewish leadership hostile to the young Church, making James, around the year 44, the first of the Twelve to be martyred.",
+            "U",
+            "The Acts of the Apostles records James's death with stark brevity: <b>Herod Agrippa I</b> \"killed James, the brother of John, with the sword.\" Agrippa was seeking to please the Jewish leadership hostile to the young Church. Around the year 44, this made James the first of the Twelve to be martyred."
+          ]
+        ],
+        "apiErrors": 0,
+        "apiErrorSamples": [],
+        "skippedTagMismatch": 0,
+        "linkNotPreserved": 0,
+        "provider": "openai",
+        "providerLabel": "GPT-5.6 Luna"
+      },
+      "error": null,
+      "createdAt": "2026-09-27T19:16:35.451Z",
+      "updatedAt": "2026-09-27T19:16:35.451Z"
     }
   ]
 }
