@@ -1,6 +1,6 @@
 <!--
-VERSION: 494
-DATE: 2026-09-27T22:30:00-05:00
+VERSION: 495
+DATE: 2026-09-27T23:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,20 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v495 — 2026-09-27
+
+**Ask:**
+- A way to find recordings that may have mispronounced Roman numerals (recorded before the
+  pronunciation fix).
+
+**Implementation:**
+- audio-generate.mjs stamps entry.audioPron = true on every new recording (rules applied).
+- Add Task → Record audio: new checkbox "Only re-record entries recorded before the
+  pronunciation fix that contain Roman numerals". Pool: has audio, no audioPron, and
+  entryPronHits() finds a rule match in the name (saints), headings or text — using the same
+  rules file and matching as the audio service (tkLoadPronRules). "Will queue" rows show the
+  numerals found, e.g. "St. John Paul II (2005) — II".
+
 ## v494 — 2026-09-27
 
 **Ask:**
@@ -4919,6 +4933,9 @@ CHANGELOG:END
           <label class="tkLabel" for="tkBatchCount">Quantity</label>
           <input type="number" id="tkBatchCount" inputmode="numeric" value="5">
           <label class="tkCheck" id="tkBatchOverwriteRow"><input type="checkbox" id="tkBatchOverwrite"><span id="tkBatchOverwriteLabel">Regenerate even entries that already have one</span></label>
+          <!-- v495: Record audio only — limits the list to recordings made before the pronunciation
+               fix whose text contains something the fix changes (Roman numerals etc.). -->
+          <label class="tkCheck hidden" id="tkPronFixRow"><input type="checkbox" id="tkPronFix"><span>Only re-record entries recorded before the pronunciation fix that contain Roman numerals</span></label>
           <div id="tkRewordProviderRow" class="hidden">
             <label class="tkLabel" for="tkRewordProvider">Model</label>
             <select id="tkRewordProvider">
@@ -5804,7 +5821,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v494';
+const APP_VERSION = 'v495';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8791,15 +8808,53 @@ function sentenceRewordPool(){
 // mean re-recording it), and no audio yet. Together with sentenceRewordPool this gives two
 // distinct, complementary pools — "still needs reword" vs. "ready to record" — where before
 // there was no selection for either beyond scrolling the full entry list by eye.
+// v495: the audio service's pronunciation rules (pronunciation/catholic-timeline-pronunciation.
+// json), loaded once, matched exactly the way scripts/services/audio-generate.mjs applies them:
+// case-sensitive, whole words, first rule to match at a position wins.
+let tkPronRules = null;
+async function tkLoadPronRules(){
+  if(tkPronRules) return tkPronRules;
+  try{
+    const r = await fetch('pronunciation/catholic-timeline-pronunciation.json?t=' + Date.now(), { cache: 'no-store' });
+    const j = r.ok ? await r.json() : { rules: [] };
+    tkPronRules = (j.rules || []).filter(x => x && x.type === 'alias' && x.string_to_replace).map(x => x.string_to_replace);
+  }catch(e){ tkPronRules = []; }
+  return tkPronRules;
+}
+// Which rule strings occur in what the narration reads: name (the closing prayer, saints),
+// section headings and bodies. Returns unique matches in order found.
+function entryPronHits(e){
+  if(!tkPronRules || !tkPronRules.length) return [];
+  const plain = (h) => String(h || '').replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ');
+  const parts = [e.t === 's' ? e.n : ''];
+  ((e.art && e.art.sections) || []).forEach(sec => { parts.push(plain(sec.h)); parts.push(plain(sec.b)); });
+  const text = parts.join(' \n ');
+  const isW = (ch) => !!ch && /[A-Za-z0-9\u00C0-\u024F]/.test(ch);
+  const found = [];
+  for(let i = 0; i < text.length; i++){
+    if(isW(text[i - 1])) continue;
+    for(const g of tkPronRules){
+      if(text.startsWith(g, i) && !isW(text[i + g.length])){
+        if(!found.includes(g)) found.push(g);
+        i += g.length - 1;
+        break;
+      }
+    }
+  }
+  return found;
+}
 function audioGeneratePool(){
   const category = document.getElementById('tkBatchCategory').value;
   const includeRecorded = document.getElementById('tkBatchOverwrite').checked;
+  const pronFix = !!(document.getElementById('tkPronFix') && document.getElementById('tkPronFix').checked);
   const pool = db.entries
     .filter(e => articleStats(e).wordCount > 0)
     .filter(e => !category || e.t === category)
     .filter(e => !tkHasPendingTask(e.id, ['audio-generate']))
     .filter(e => !entryHasLongSentence(e))
-    .filter(e => includeRecorded || !e.audio)
+    // v495: "recorded before the fix, with numerals" — recorded, not stamped audioPron by the
+    // audio service, and containing something the rules change.
+    .filter(e => pronFix ? (e.audio && !e.audioPron && entryPronHits(e).length > 0) : (includeRecorded || !e.audio))
     .slice();
   if(tkIsFeastMode()){
     return pool.sort((a, b) => {
@@ -8904,7 +8959,10 @@ function tkRenderBatchList(){
         : type === 'image-generate' && e.img ? ' <span class="tkBatchNote">(regenerating)</span>' : '')
       : '';
     const posLabel = feastMode ? fmtMonthDay(feastSortKeyOf(e)) : fmtYear(e.y);
-    return '<div class="tkBatchRow">' + (startIdx + i + 1) + '. ' + esc(e.n) + ' (' + posLabel + ')' + note + '</div>';
+    // v495: in the pronunciation-fix view, show which numerals were found
+    const pron = (type === 'audio-generate' && document.getElementById('tkPronFix').checked)
+      ? ' <span class="tkBatchNote">\u2014 ' + esc(entryPronHits(e).join(', ')) + '</span>' : '';
+    return '<div class="tkBatchRow">' + (startIdx + i + 1) + '. ' + esc(e.n) + ' (' + posLabel + ')' + pron + note + '</div>';
   }).join('');
 }
 function tkRefreshBatchPreview(){
@@ -8930,12 +8988,19 @@ function tkUpdateAddFormMode(){
     if(hasOverwrite) document.getElementById('tkBatchOverwriteLabel').textContent = TK_BATCH_OVERWRITE_LABEL[type];
     document.getElementById('tkBatchOverwrite').checked = false;
     document.getElementById('tkRewordProviderRow').classList.toggle('hidden', type !== 'sentence-reword');
+    document.getElementById('tkPronFixRow').classList.toggle('hidden', type !== 'audio-generate'); // v495
+    document.getElementById('tkPronFix').checked = false;
     tkUpdateOrderVisibility();
     tkUpdateBatchStartMode();
     tkRefreshBatchPreview();
   }
 }
 document.getElementById('tkNewType').addEventListener('change', tkUpdateAddFormMode);
+document.getElementById('tkPronFix').addEventListener('change', async () => {
+  await tkLoadPronRules();
+  tkBatchStartIdx = -1;
+  tkRefreshBatchPreview();
+});
 document.getElementById('tkBatchCategory').addEventListener('change', () => {
   tkBatchStartIdx = -1;
   document.getElementById('tkBatchStart').value = '';
