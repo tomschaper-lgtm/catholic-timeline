@@ -1,6 +1,6 @@
 <!--
-VERSION: 498
-DATE: 2026-09-27T22:55:00-05:00
+VERSION: 499
+DATE: 2026-09-27T23:40:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,34 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v499 — 2026-09-27
+
+**Ask:**
+- On v498, Override still doesn't stick (comes back up later), and Edit's Save doesn't either —
+  editing the text or leaving it as-is, Save should mark the debate resolved and it isn't.
+
+**Implementation:**
+- Diagnosis: both saveWorkLog() (workLog.json) and publishToGitHub() (data.json) do a single
+  GET-sha / merge / PUT with no retry. Both files are also written by the orchestrator while a run
+  is active (workLog.json on every task update, data.json every 10 entities during
+  sentence-reword) — so a PUT whose sha went stale between the GET and the PUT (a 409) was treated
+  as a final failure. The local mutation (debate marked resolved, task status flipped) had already
+  happened before either save ran, so it was never rolled back — just stranded, unpersisted, ready
+  to reappear as if nothing had happened the next time that task got looked at. Edit was hit
+  twice over: its Save calls publishToGitHub() before saveWorkLog(), so either one losing the race
+  was enough to stop it.
+- Split each into a single-attempt helper (saveWorkLogAttempt / publishToGitHubAttempt, returning
+  {ok, retryable, error}) plus a thin retry loop (saveWorkLog / publishToGitHub, unchanged external
+  contracts — same {ok,error} / boolean-plus-#ghStatus shape every existing caller already
+  expects). A 409, a non-404 read failure, or a timeout retries the WHOLE read-merge-write cycle
+  (not just the PUT — the merge itself depends on the freshly-read remote content) up to 3 times
+  with a short backoff. A bad/rejected token (401/403) or any other error still fails immediately
+  — retrying won't fix those, and a stuck bad-token failure should surface right away, not after
+  three silent attempts.
+- If it still fails after 3 tries, the message now says so plainly ("another save kept landing
+  first (a run may be active); try again in a moment") rather than a bare "commit failed 409" —
+  and, via v498's #tkArbNote mirroring, it's actually visible in Arbitrate Review this time.
+
 ## v498 — 2026-09-27
 
 **Ask:**
@@ -5906,7 +5934,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v498';
+const APP_VERSION = 'v499';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8059,6 +8087,59 @@ function saveAudioGenSettings(){
 // locations, documents, carloLinks — still publishes as this session holds it; those aren't part
 // of the concurrent-review workflow today, so they're left as a plain overwrite rather than
 // widening this change further than the actual risk.
+// Single read-merge-write attempt for data.json — split out so publishToGitHub's retry loop
+// below can retry the whole cycle (not just the PUT) on a 409, same reasoning as
+// saveWorkLogAttempt just above. Returns {ok, retryable, error} or {ok:true, mergedWithRemote}.
+async function publishToGitHubAttempt(branch, api, hdr){
+  let sha = null;
+  let remoteEntries = null;
+  // fetchTimeout (defined below — function declarations hoist), not bare fetch: this function
+  // now gets called unattended, repeatedly, by auto-approve's batched publish (see
+  // TK_AUTO_PUBLISH_BATCH_SIZE) over the course of a run that can run for a long time with
+  // nobody watching. A bare fetch() has no timeout — exactly the bug diagnosed in v392 for
+  // loadWorkLog/saveWorkLog/triggerWorkflow, which this function was never brought in line
+  // with because it used to only ever run once per manual tap. Same fix, same reason it matters
+  // now: one stalled connection here would otherwise freeze not just this publish but
+  // tkAutoApproveSentenceRewords's caller (loadWorkLog's poll cycle) right along with it.
+  const g = await fetchTimeout(api + '?ref=' + encodeURIComponent(branch), { headers: hdr, cache: 'no-store' });
+  if(g.status === 200){
+    const meta = await g.json();
+    sha = meta.sha;
+    try{
+      const remoteDb = JSON.parse(decodeURIComponent(escape(atob(meta.content.replace(/\n/g, '')))));
+      if(Array.isArray(remoteDb.entries)) remoteEntries = remoteDb.entries;
+    }catch(e){ remoteEntries = null; } // unparseable remote — fall through and publish this session's copy as-is
+  }
+  else if(g.status === 401 || g.status === 403){ return { ok: false, retryable: false, error: 'token rejected (check permissions)' }; }
+  else if(g.status !== 404){ return { ok: false, retryable: true, error: 'read failed (' + g.status + ')' }; }
+
+  let mergedWithRemote = false;
+  if(remoteEntries && (dirtyEntryIds.size || deletedEntryIds.size)){
+    const byId = {};
+    remoteEntries.forEach(e => { byId[e.id] = e; });
+    dirtyEntryIds.forEach(id => {
+      const local = getEntry(id);
+      if(local) byId[id] = local; // this session's version wins only for what it actually touched
+    });
+    deletedEntryIds.forEach(id => { delete byId[id]; });
+    db.entries = Object.keys(byId).map(k => byId[k]);
+    mergedWithRemote = true;
+  }
+
+  const json = JSON.stringify(db, null, 1);
+  const content = btoa(unescape(encodeURIComponent(json)));
+  const body = { message: 'Update data.json (' + db.entries.length + ' entries) via Content Manager', content: content, branch: branch };
+  if(sha) body.sha = sha;
+  const put = await fetchTimeout(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, hdr), body: JSON.stringify(body) });
+  if(put.status === 200 || put.status === 201){
+    return { ok: true, mergedWithRemote: mergedWithRemote };
+  }
+  let m = ''; try{ m = (await put.json()).message; }catch(e){}
+  // 409 = stale sha, almost always the orchestrator's own data.json commits (it batch-commits
+  // every 10 entities during sentence-reword, among other services) landing between our GET and
+  // PUT — see saveWorkLogAttempt's identical comment. Worth an immediate retry.
+  return { ok: false, retryable: put.status === 409, error: m || ('commit failed ' + put.status) };
+}
 async function publishToGitHub(){
   const v = id => document.getElementById(id).value.trim();
   const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', path = v('ghPath') || 'data.json', token = v('ghToken');
@@ -8069,69 +8150,44 @@ async function publishToGitHub(){
   const api = 'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + path.split('/').map(encodeURIComponent).join('/');
   const hdr = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' };
   st.textContent = 'Publishing…';
-  try{
-    let sha = null;
-    let remoteEntries = null;
-    // fetchTimeout (defined below — function declarations hoist), not bare fetch: this function
-    // now gets called unattended, repeatedly, by auto-approve's batched publish (see
-    // TK_AUTO_PUBLISH_BATCH_SIZE) over the course of a run that can run for a long time with
-    // nobody watching. A bare fetch() has no timeout — exactly the bug diagnosed in v392 for
-    // loadWorkLog/saveWorkLog/triggerWorkflow, which this function was never brought in line
-    // with because it used to only ever run once per manual tap. Same fix, same reason it matters
-    // now: one stalled connection here would otherwise freeze not just this publish but
-    // tkAutoApproveSentenceRewords's caller (loadWorkLog's poll cycle) right along with it.
-    const g = await fetchTimeout(api + '?ref=' + encodeURIComponent(branch), { headers: hdr, cache: 'no-store' });
-    if(g.status === 200){
-      const meta = await g.json();
-      sha = meta.sha;
-      try{
-        const remoteDb = JSON.parse(decodeURIComponent(escape(atob(meta.content.replace(/\n/g, '')))));
-        if(Array.isArray(remoteDb.entries)) remoteEntries = remoteDb.entries;
-      }catch(e){ remoteEntries = null; } // unparseable remote — fall through and publish this session's copy as-is
+  // v499: same retry-on-409 fix as saveWorkLog, and the other real half of why Override/Edit
+  // weren't sticking — Edit's Save goes through THIS function before it ever reaches
+  // saveWorkLog, so fixing only one of the two left Edit still exposed. See
+  // publishToGitHubAttempt's own comment for why 409 specifically is worth retrying rather than
+  // treating as a real conflict.
+  const MAX_ATTEMPTS = 3;
+  let last = { ok: false, error: 'unknown error' };
+  for(let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++){
+    try{
+      last = await publishToGitHubAttempt(branch, api, hdr);
+    }catch(err){
+      last = { ok: false, retryable: err.name === 'AbortError', error: err.name === 'AbortError' ? 'timed out' : err.message };
     }
-    else if(g.status === 401 || g.status === 403){ throw new Error('token rejected (check permissions)'); }
-    else if(g.status !== 404){ throw new Error('read failed (' + g.status + ')'); }
-
-    let mergedWithRemote = false;
-    if(remoteEntries && (dirtyEntryIds.size || deletedEntryIds.size)){
-      const byId = {};
-      remoteEntries.forEach(e => { byId[e.id] = e; });
-      dirtyEntryIds.forEach(id => {
-        const local = getEntry(id);
-        if(local) byId[id] = local; // this session's version wins only for what it actually touched
-      });
-      deletedEntryIds.forEach(id => { delete byId[id]; });
-      db.entries = Object.keys(byId).map(k => byId[k]);
-      mergedWithRemote = true;
-    }
-
-    const json = JSON.stringify(db, null, 1);
-    const content = btoa(unescape(encodeURIComponent(json)));
-    const body = { message: 'Update data.json (' + db.entries.length + ' entries) via Content Manager', content: content, branch: branch };
-    if(sha) body.sha = sha;
-    const put = await fetchTimeout(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, hdr), body: JSON.stringify(body) });
-    if(put.status === 200 || put.status === 201){
-      dirtyEntryIds.clear();
-      deletedEntryIds.clear();
-      // This session's db.entries may now include changes from elsewhere (the merge above) —
-      // reflect that on screen rather than leaving the visible list one publish behind.
-      if(mergedWithRemote){ renderMList(); render(); }
-      // Deliberately AFTER the commit above succeeds, never before: data.json (with entry.audio
-      // already blank — see wlApplyTaskToDb) is live first, so there is no window where a
-      // published entry still points at an audio file this step is about to delete.
-      if(audioPurgeQueue.size){
-        st.textContent = 'Committed \u2713 \u2014 clearing stale audio for reworded entries\u2026';
-        const purged = await purgeStaleAudioFiles();
-        st.textContent = 'Committed \u2713 — your site updates in about a minute.' +
-          (purged.count ? ' Removed ' + purged.count + ' stale audio file(s) from ' + purged.entities +
-            ' entit' + (purged.entities === 1 ? 'y' : 'ies') + '.' : '');
-      }else{
-        st.textContent = 'Committed \u2713 — your site updates in about a minute.';
-      }
-      return true;
-    }
-    else { let m = ''; try{ m = (await put.json()).message; }catch(e){} throw new Error(m || ('commit failed ' + put.status)); }
-  }catch(err){ st.textContent = 'Publish failed: ' + (err.name === 'AbortError' ? 'timed out, will retry next batch' : err.message); return false; }
+    if(last.ok || !last.retryable || attempt === MAX_ATTEMPTS) break;
+    await new Promise(r => setTimeout(r, 350 * attempt));
+  }
+  if(!last.ok){
+    st.textContent = 'Publish failed: ' + last.error + (last.retryable ? ' \u2014 another save kept landing first (a run may be active); try again in a moment' : '');
+    return false;
+  }
+  dirtyEntryIds.clear();
+  deletedEntryIds.clear();
+  // This session's db.entries may now include changes from elsewhere (the merge above) —
+  // reflect that on screen rather than leaving the visible list one publish behind.
+  if(last.mergedWithRemote){ renderMList(); render(); }
+  // Deliberately AFTER the commit above succeeds, never before: data.json (with entry.audio
+  // already blank — see wlApplyTaskToDb) is live first, so there is no window where a
+  // published entry still points at an audio file this step is about to delete.
+  if(audioPurgeQueue.size){
+    st.textContent = 'Committed \u2713 \u2014 clearing stale audio for reworded entries\u2026';
+    const purged = await purgeStaleAudioFiles();
+    st.textContent = 'Committed \u2713 — your site updates in about a minute.' +
+      (purged.count ? ' Removed ' + purged.count + ' stale audio file(s) from ' + purged.entities +
+        ' entit' + (purged.entities === 1 ? 'y' : 'ies') + '.' : '');
+  }else{
+    st.textContent = 'Committed \u2713 — your site updates in about a minute.';
+  }
+  return true;
 }
 // True when enough GitHub detail has been entered for a publish to be worth attempting.
 function ghConfigured(){
@@ -8532,53 +8588,82 @@ async function loadWorkLog(){
 // remote had moved since this session's last load. deletedIds are stripped from the merged
 // result explicitly, after the overlay, so a delete can't get resurrected by a concurrent Action
 // commit the same way an overlay-only approach would let it.
+// Single read-merge-write attempt — split out from saveWorkLog so the retry loop below can call
+// it repeatedly without re-fetching-then-forgetting why a given failure is or isn't worth another
+// try. Returns {ok:true} or {ok:false, retryable, error}.
+async function saveWorkLogAttempt(message, ids, dels, g, api){
+  let sha = wlSha;
+  const g0 = await fetchTimeout(api + '?ref=' + encodeURIComponent(g.branch), { headers: g.hdr, cache: 'no-store' });
+  if(g0.status === 200){
+    const meta = await g0.json();
+    sha = meta.sha;
+    // If the remote moved since we loaded, merge only what THIS call touched onto the remote
+    // copy rather than replacing it wholesale — the Action, or another reviewer, may have
+    // changed tasks we never touched and shouldn't overwrite.
+    if(sha !== wlSha){
+      try{
+        const remote = JSON.parse(decodeURIComponent(escape(atob(meta.content.replace(/\n/g, '')))));
+        if(Array.isArray(remote.tasks)){
+          const byId = {};
+          remote.tasks.forEach(t => { byId[t.id] = t; });
+          wlData.tasks.forEach(t => { if(ids.indexOf(t.id) !== -1) byId[t.id] = t; });
+          dels.forEach(id => { delete byId[id]; });
+          wlData.tasks = Object.keys(byId).map(k => byId[k]);
+        }
+      }catch(e){ /* remote unparseable — fall through and write ours */ }
+    }
+  }else if(g0.status !== 404){
+    return { ok: false, retryable: true, error: 'read failed (' + g0.status + ')' };
+  }else{
+    sha = null;
+  }
+  const json = JSON.stringify(wlData, null, 2) + '\n';
+  const body = { message: message || 'Update workLog.json via Content Manager', content: btoa(unescape(encodeURIComponent(json))), branch: g.branch };
+  if(sha) body.sha = sha;
+  const put = await fetchTimeout(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, g.hdr), body: JSON.stringify(body) });
+  if(put.status === 200 || put.status === 201){
+    const out = await put.json();
+    wlSha = out.content && out.content.sha ? out.content.sha : null;
+    return { ok: true };
+  }
+  let m = ''; try{ m = (await put.json()).message; }catch(e){}
+  // 409 = the sha we just PUT with is already stale — someone else (almost always the
+  // orchestrator, which commits twice per task while a run is active) landed a commit between our
+  // GET and our PUT. Worth an immediate retry: a fresh GET picks up their change, re-merges ours
+  // on top, and tries again with the now-current sha.
+  return { ok: false, retryable: put.status === 409, error: m || ('commit failed ' + put.status) };
+}
 async function saveWorkLog(message, touchedIds, deletedIds){
   const ids = touchedIds || [];
   const dels = deletedIds || [];
   const g = wlGh();
   if(!g.owner || !g.repo || !g.token) return { ok: false, error: 'GitHub token not set' };
   const api = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' + WL_PATH;
-  try{
-    let sha = wlSha;
-    const g0 = await fetchTimeout(api + '?ref=' + encodeURIComponent(g.branch), { headers: g.hdr, cache: 'no-store' });
-    if(g0.status === 200){
-      const meta = await g0.json();
-      sha = meta.sha;
-      // If the remote moved since we loaded, merge only what THIS call touched onto the remote
-      // copy rather than replacing it wholesale — the Action, or another reviewer, may have
-      // changed tasks we never touched and shouldn't overwrite.
-      if(sha !== wlSha){
-        try{
-          const remote = JSON.parse(decodeURIComponent(escape(atob(meta.content.replace(/\n/g, '')))));
-          if(Array.isArray(remote.tasks)){
-            const byId = {};
-            remote.tasks.forEach(t => { byId[t.id] = t; });
-            wlData.tasks.forEach(t => { if(ids.indexOf(t.id) !== -1) byId[t.id] = t; });
-            dels.forEach(id => { delete byId[id]; });
-            wlData.tasks = Object.keys(byId).map(k => byId[k]);
-          }
-        }catch(e){ /* remote unparseable — fall through and write ours */ }
-      }
-    }else if(g0.status !== 404){
-      throw new Error('read failed (' + g0.status + ')');
-    }else{
-      sha = null;
+  // v499: workLog.json is written by two independent actors — this tab, and the orchestrator —
+  // and the previous version treated ANY failed PUT as final, no retry. That's exactly what made
+  // Override/Edit "not stick" while a run was live: the resolved-debate mutation happened locally,
+  // the PUT lost a race it had a real chance of winning on a second try, and the whole save was
+  // simply abandoned with the local mutation left stranded (see tkArbTaskNeedsReview's own
+  // comment on how that then resurfaces the task later as if nothing happened). Retries the WHOLE
+  // read-merge-write cycle, not just the PUT — the merge depends on freshly-read remote content —
+  // up to 3 times with a short backoff, and only gives up for real on a non-retryable error (bad
+  // token, anything that isn't a 409/read hiccup/timeout) or after the last attempt.
+  const MAX_ATTEMPTS = 3;
+  let last = { ok: false, error: 'unknown error' };
+  for(let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++){
+    try{
+      last = await saveWorkLogAttempt(message, ids, dels, g, api);
+    }catch(err){
+      last = { ok: false, retryable: err.name === 'AbortError', error: err.name === 'AbortError' ? 'timed out' : err.message };
     }
-    const json = JSON.stringify(wlData, null, 2) + '\n';
-    const body = { message: message || 'Update workLog.json via Content Manager', content: btoa(unescape(encodeURIComponent(json))), branch: g.branch };
-    if(sha) body.sha = sha;
-    const put = await fetchTimeout(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, g.hdr), body: JSON.stringify(body) });
-    if(put.status === 200 || put.status === 201){
-      const out = await put.json();
-      wlSha = out.content && out.content.sha ? out.content.sha : null;
-      return { ok: true };
-    }
-    let m = ''; try{ m = (await put.json()).message; }catch(e){}
-    throw new Error(m || ('commit failed ' + put.status));
-  }catch(err){
-    return { ok: false, error: err.name === 'AbortError' ? 'timed out' : err.message };
+    if(last.ok) return last;
+    if(!last.retryable || attempt === MAX_ATTEMPTS) break;
+    await new Promise(r => setTimeout(r, 350 * attempt));
   }
+  if(last.retryable) last.error = (last.error || '') + ' \u2014 another save kept landing first (a run may be active); try again in a moment';
+  return { ok: false, error: last.error };
 }
+
 
 // ==================== Task : Automation panel (the review surface) ====================
 // Renders workLog.json as a left-sliding browse panel — same shell, columns, and sticky
