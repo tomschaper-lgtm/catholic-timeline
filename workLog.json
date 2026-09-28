@@ -6181,12 +6181,53 @@
       "type": "arbitrate",
       "entityId": "our-lady-of-akita-1973",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — Our Lady of Akita",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "Our Lady of Akita",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "DATE/CHRONOLOGY",
+            "section": "A Hundred and One Tears",
+            "sentence": "2",
+            "kind": "article",
+            "before": "On at least one occasion in December 1973, the tears were captured on videotape by a Japanese television crew and broadcast nationally.",
+            "after": "The tears were captured on videotape by a Japanese television crew and broadcast nationally.",
+            "concern": "The article dates the beginning of the statue's weeping to January 1975, so a recording of its tears in December 1973 is chronologically impossible. If the intended event concerns an earlier manifestation such as bleeding from the statue's hand, that should be identified accurately; otherwise the December 1973 date should be removed.",
+            "suggestedCorrection": "Verify the date and nature of the televised recording. Do not describe the statue as weeping in December 1973 if the first recorded tears occurred in January 1975.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "The original date of December 1973 directly contradicts the timeline of the statue's weeping starting in 1975.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "FACT",
+            "section": "A Hundred and One Tears",
+            "sentence": "2",
+            "kind": "article",
+            "before": "On at least one occasion in December 1973, the tears were captured on videotape by a Japanese television crew and broadcast nationally.",
+            "after": "On at least one occasion, the tears were captured on television by a Japanese broadcast crew.",
+            "concern": "The Akita statue's weeping began in January 1975, so tears could not have been filmed in December 1973.",
+            "suggestedCorrection": "Correct the date or remove the specific month/year to align with the timeline of the tears beginning in 1975.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "",
+            "proposedBy": "gemini-3.5-flash-lite",
+            "arbitratedBy": "gpt-5.6-luna"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-28T01:37:33.651Z",
-      "updatedAt": "2026-09-28T01:39:43.507Z",
+      "updatedAt": "2026-09-28T01:44:25.619Z",
       "error": null
     }
   ]
