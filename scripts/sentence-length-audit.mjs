@@ -40,6 +40,14 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import path from 'path';
+// v502: word counting and sentence splitting come from ../lib/sentence-rules.cjs (SentenceRules) — the
+// same file index.html embeds and sentence-reword.mjs imports. This script used to carry its own
+// splitter (a fifth definition), which disagreed with the app in both directions: it treated a
+// Roman-numeral ending like "Pope Pius X." or "Clement I." as an initial and merged the next sentence
+// into it, protected "..." even at a real sentence end, and did not break at a <blockquote> — 10
+// entries it called violations are not; it also did not treat . ! ? followed by a lowercase word
+// correctly. Its old abbreviation list, tag-masking and period-protection code is gone.
+import SR from '../lib/sentence-rules.cjs';
 
 // ---- tunables ----------------------------------------------------------
 // All three can be overridden per run via env vars — the workflow passes
@@ -56,7 +64,7 @@ function intEnv(name, fallback) {
 }
 const ENTITIES_PER_BATCH = intEnv('ENTITIES_PER_BATCH', 12); // within the 10–15 range originally requested
 let REVIEW_MIN = intEnv('REVIEW_MIN', 31);     // 31–40 words by default: allowed occasionally, worth a look
-let VIOLATION_MIN = intEnv('VIOLATION_MIN', 41); // 41+ words by default: hard cap exceeded, must fix
+let VIOLATION_MIN = intEnv('VIOLATION_MIN', SR.LIMIT + 1); // 41+ words by default (SR.LIMIT is 40): hard cap exceeded, must fix
 
 // A misconfigured pair (e.g. violation_min set below review_min) would
 // silently make every "review" sentence a "violation" or vice versa —
@@ -83,137 +91,25 @@ function boolEnv(name, fallback) {
 // specifically want already-recorded entries mixed back into the batches.
 const SKIP_RECORDED = boolEnv('SKIP_RECORDED', true);
 
-// Abbreviations whose trailing period must never be read as a sentence end.
-const ABBREVIATIONS = [
-  'st','sts','mr','mrs','ms','dr','fr','frs','rev','msgr','card','bp','abp',
-  'vs','etc','no','vol','ed','eds','pp','al','cf','ca','approx','messrs',
-  'jan','feb','mar','apr','jun','jul','aug','sep','sept','oct','nov','dec',
-  'mt','ft','rd','blvd','ave','sr','jr','gen','col','capt','lt','maj','gov',
-  'assn','dept','univ','co','corp','inc','ltd','bros'
-];
+// ---- per-section audit ---------------------------------------------------
+// One section body at a time. SR.analyzeSection ends a sentence at every blank line and every
+// <li>/<p>/<blockquote> boundary, so a list item is scored as its own unit instead of being
+// dropped (the old stripListsForAudit) — the app's Progress and Add Task count list items too.
 
-// ---- HTML tag masking ---------------------------------------------------
-// Replace every tag with a placeholder BEFORE sentence-splitting, so
-// periods inside href URLs / attributes never get mistaken for sentence
-// ends. Placeholder uses private-use Unicode chars that never occur in
-// real prose, so it can't collide with anything in the article text.
-
-function maskTags(html) {
-  const tags = [];
-  const masked = html.replace(/<[^>]+>/g, (m) => {
-    tags.push(m);
-    return `\uE000${tags.length - 1}\uE001`;
-  });
-  return { masked, tags };
-}
-
-function unmaskTags(text, tags) {
-  return text.replace(/\uE000(\d+)\uE001/g, (_, i) => tags[Number(i)]);
-}
-
-// ---- abbreviation / decimal / initial / ellipsis protection ------------
-// Temporarily swap protected periods for a placeholder char that will
-// never trigger a sentence split, then restore real periods afterward.
-
-const PLACEHOLDER_DOT = '\u2298'; // circled-slash, never appears in prose
-
-function protectPeriods(text) {
-  let out = text;
-  // Ellipses first, so their dots aren't individually caught below.
-  out = out.replace(/\.\.\./g, PLACEHOLDER_DOT.repeat(3));
-  // Known abbreviations, case-insensitive, word-bounded.
-  for (const abbr of ABBREVIATIONS) {
-    const re = new RegExp(`\\b(${abbr})\\.`, 'gi');
-    out = out.replace(re, (_, word) => `${word}${PLACEHOLDER_DOT}`);
-  }
-  // Single-letter initials: "C. S. Lewis", "W. H. Auden".
-  out = out.replace(/\b([A-Z])\./g, `$1${PLACEHOLDER_DOT}`);
-  // Decimal numbers: 3.5, 1.2 million, 40.5%.
-  out = out.replace(/(\d)\.(\d)/g, `$1${PLACEHOLDER_DOT}$2`);
-  return out;
-}
-
-function restorePeriods(text) {
-  return text.split(PLACEHOLDER_DOT).join('.');
-}
-
-// ---- sentence splitting ---------------------------------------------------
-
-function splitSentences(protectedMasked) {
-  // Grab runs of non-terminator chars ending in one-or-more terminators,
-  // optionally followed by a closing quote mark and/or a masked closing
-  // tag (very common right before </blockquote> — "...summarize."</blockquote>),
-  // then whitespace or end of string. Trailing fragment with no terminator
-  // at all is kept too, rather than dropped.
-  const pattern = /[^.!?]*[.!?]+(?:["'\u2019\u201d]|\uE000\d+\uE001)*(?:\s+|$)|[^.!?]+$/g;
-  const raw = protectedMasked.match(pattern) || [];
-  const sentences = raw.map(s => s.trim()).filter(Boolean);
-
-  // Safety net: a terminator immediately followed by something the
-  // pattern above doesn't recognize (unusual punctuation, an edge case
-  // not anticipated here) can otherwise cause a whole leading chunk to be
-  // silently skipped by the regex engine rather than captured. That's
-  // the one failure mode this tool cannot tolerate — missing a real
-  // violation is worse than one oversized combined "sentence" flagged
-  // for a human to look at. Verify reconstruction covers the input; if
-  // not, fail safe by treating the whole paragraph as a single sentence.
-  const reconstructedLen = sentences.join('').replace(/\s/g, '').length;
-  const originalLen = protectedMasked.replace(/\s/g, '').length;
-  if (sentences.length === 0 || reconstructedLen < originalLen * 0.98) {
-    const whole = protectedMasked.trim();
-    return whole ? [whole] : [];
-  }
-
-  return sentences;
-}
-
-// ---- word counting --------------------------------------------------------
-
-function countWords(sentenceText, tags) {
-  const unmasked = unmaskTags(sentenceText, tags).replace(/<[^>]+>/g, ' ');
-  const words = unmasked
-    .replace(/&[a-zA-Z]+;/g, ' ')
-    .split(/\s+/)
-    .filter(w => /[A-Za-z0-9]/.test(w));
-  return words.length;
-}
-
-// ---- per-paragraph audit --------------------------------------------------
-
-function stripListsForAudit(paragraph) {
-  // <ul>/<ol> items are fragments, not narrated sentences in the usual
-  // sense — exclude them from length scoring rather than false-flag them.
-  return paragraph.replace(/<(ul|ol)>[\s\S]*?<\/\1>/g, ' ');
-}
-
-function auditParagraph(paragraph, sectionIndex, sectionHeading) {
-  const forAudit = stripListsForAudit(paragraph);
-  const { masked, tags } = maskTags(forAudit);
-  const protectedText = protectPeriods(masked);
-  const rawSentences = splitSentences(protectedText);
-
+function auditSection(body, sectionIndex, sectionHeading) {
   const results = [];
-  const seenTextCounts = {};
-
-  for (const raw of rawSentences) {
-    const wc = countWords(raw, tags);
+  for (const unit of SR.analyzeSection(body)) {
+    const wc = unit.words;
     if (wc < REVIEW_MIN) continue;
-
-    const restored = restorePeriods(raw);
-    const fullText = unmaskTags(restored, tags).trim();
+    const fullText = unit.html.trim(); // exact verbatim substring, tags included — ready for a patch
     if (!fullText) continue;
-
-    // Track occurrence count of this exact sentence within the section,
-    // so the @N addressing patches need is ready to hand.
-    seenTextCounts[fullText] = (seenTextCounts[fullText] || 0) + 1;
-
     results.push({
       section: sectionIndex,
       heading: sectionHeading,
       text: fullText,
       wordCount: wc,
       severity: wc >= VIOLATION_MIN ? 'violation' : 'review',
-      occurrence: seenTextCounts[fullText],
+      occurrence: 1,
       inBlockquote: /blockquote/.test(fullText)
     });
   }
@@ -226,12 +122,7 @@ function auditEntry(entry) {
 
   const flags = [];
   sections.forEach((section, idx) => {
-    const body = section.b || '';
-    const paragraphs = body.split(/\n\n+/);
-    paragraphs.forEach((para) => {
-      const found = auditParagraph(para, idx + 1, section.h || '');
-      flags.push(...found);
-    });
+    flags.push(...auditSection(section.b || '', idx + 1, section.h || ''));
   });
 
   // Re-number `occurrence` per exact text across the WHOLE article (not
