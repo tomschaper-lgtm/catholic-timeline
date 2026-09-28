@@ -19,6 +19,290 @@ the time.
 
 ---
 
+## v505 — 2026-09-28
+
+**Ask:**
+- Save to GitHub (Publish) sits for a long time and then says it failed: "timed out — another save
+  kept landing first (a run may be active)".
+
+**Implementation:**
+- Cause: publishToGitHubAttempt sent both its requests through fetchTimeout with the 15-second
+  default meant for small workLog.json calls. data.json is over a megabyte, so the PUT uploads about
+  3 MB of base64; on Wi-Fi that is quick, on a weak cellular signal (the screenshot shows 5GE, two
+  bars) it cannot finish in 15 s. All three attempts aborted, and the failure text blamed another
+  save because every timeout was marked retryable.
+- The read now waits 30 s (GH_GET_TIMEOUT_MS; GitHub returns only a sha for a file this size). The
+  write waits ghPutTimeoutMs(size): assumes a worst-case ~30 KB/s upload, never under 60 s or over
+  5 min (about 110 s for 3 MB). The status line says "uploading 2.9 MB (allowing up to N s)" while
+  it works.
+- A timeout is no longer retried (three more slow attempts just tripled the wait) and now says which
+  step timed out, how big the upload was, and to try Wi-Fi. "Another save kept landing first" is
+  shown only for a real 409 (result.conflict). saveWorkLog's identical catch is untouched: its
+  file is small.
+- Not changed, worth knowing: GitHub's contents API returns no file body for files over 1 MB, so the
+  merge-with-remote step in publishToGitHubAttempt (remoteEntries) probably never runs for a file
+  this size and Publish overwrites with this session's copy. See the reply for the risk.
+
+## v504 — 2026-09-28
+
+**Ask:**
+- Add Task showed about 20 entries to reword but Progress showed more. Make the status say how many
+  are LEFT, so there's no subtracting done from total every time.
+
+**Implementation:**
+- computeProgressStats() now also returns left (not done), ready and held. Every Progress row (and
+  Export's Status button) leads with a bold "N left", then the "done / total" fraction it already
+  showed.
+- The two counts differed because Add Task's picker leaves some entries out on purpose. New per-row
+  hold() rules name them: for Long sentences, entries that already have recorded audio (approving a
+  reword erases the recording, so the picker skips them unless "Include entries that already have
+  recorded audio" is ticked) and entries already queued or in review; for Audio recorded, entries
+  that still have a long sentence and entries already queued. A row with held-back entries shows a
+  second line: "20 ready to queue · 24 held back: 24 have recorded audio", with a reminder of the
+  checkbox on the Long sentences row.
+- Add Task's preview line says how many are eligible, and for Reword long sentences how many more
+  are held back, e.g. "Will start at the earliest eligible entry — 20 eligible · 24 more held
+  back (recorded audio or already queued)".
+
+## v503 — 2026-09-28
+
+**Ask:**
+- The "show remaining" lists on Progress are not in order by year. Put them in year order.
+
+**Implementation:**
+- computeProgressStats() now returns each row's pending list sorted by year, oldest first, then by
+  name. It had been left in raw db.entries order (grouped by category), which is why a list read
+  1917, 1263, 67, 67, 379. Every Progress row and Export's Status button use this one function, so
+  they all follow. The Add Task "Will queue" list was already year-sorted (or feast-day sorted for
+  Saints when Order by is set to feast) and is unchanged.
+- Rebuilt on top of the v502 that carries sentence-rules.cjs v3 (straight single quotes handled).
+  The two builds shared the number 502 while differing in that one module; v503 removes the ambiguity.
+
+## v502 — 2026-09-28
+
+**Ask:**
+- Progress, the Add Task list and the reword task didn't agree on which entries still have a long
+  sentence, and about 40 articles wouldn't finish. Build one reliable word counter and use it
+  everywhere: Export, the task queues (Add Task), and the status/Progress screens.
+
+**Implementation:**
+- New shared module SentenceRules (sentence-rules.cjs v3), embedded here between the
+  SENTENCE-RULES:BEGIN/END markers and byte-identical to scripts/lib/sentence-rules.cjs, which
+  scripts/services/sentence-reword.mjs now imports. One definition: a word is a space-separated
+  token with a letter or digit; a sentence ends at . ! ? … plus closing quote/bracket/tag, then a
+  space and a capital/digit/opening quote (a straight ' or " counts as a quote mark both ways), except after abbreviations (St., Dr., c., A.D., initials);
+  every <li>/<p>/<blockquote> boundary and blank line ends a sentence; long means MORE than 40.
+- Why they disagreed (reproduced against the 2026-09-27 export: old rule = 43 entries flagged, exactly
+  Progress's 410/453): (1) paragraphHasLongSentence/longestSentenceWordCount skipped every paragraph
+  containing an entry: link, hiding 26 entries that really have a long sentence; (2) the splitter
+  needed whitespace straight after . ! ? so a sentence ending in a closing quote ("...brother.")
+  merged with the next, and a <ul> list read as one long sentence — 16 false alarms (Gerard
+  Majella, First Lateran Council, Edict of Milan, Bessette, Teresa of Calcutta, ...); (3) the service split RAW html, so a
+  sentence starting with a tag (<a>, <b>) never split, and its wordCount() counted lone dashes that
+  the app's v491 rule ignores. Counting on the same data now gives 53 entries / 195 sentences.
+- countSentenceWords, paragraphHasLongSentence, entryHasLongSentence, longestSentenceWordCount and
+  tkSplitSentencesForDisplay keep their names and now delegate to SentenceRules, so Progress rows,
+  the Proof/Audio 40-word lock, sentenceRewordPool/audioGeneratePool and the review screens are
+  unchanged apart from the numbers. The private SENTENCE_ABBREVIATIONS list is gone.
+- articleStats().wordCount uses the shared rule (Export word counts and the "complete" split follow).
+  Export gets longestSentence and longSentences columns (CSV/XLSX and JSON Filtered) and a stat-box
+  line. Progress's Long sentences list shows each entry's longest sentence; the Add Task preview
+  shows "N long, longest NN words" for Reword long sentences.
+- Expect Progress's Long sentences to move from 410/453 to about 400/453: the 26 hidden entries now
+  count, and the 16 false alarms clear.
+
+## v501 — 2026-09-28
+
+**Ask:**
+- On a slow connection, opening the app waits on the network every time even when nothing
+  changed, because sw.js is network-first for the page. Serve the cached copy instantly instead,
+  check for a real change in the background, and only say something if it's actually different —
+  and if it is different, have the service worker download it in the background too, so the
+  update is already sitting there ready the moment it's applied, not something still to wait for.
+
+**Implementation (sw.js, VERSION bumped to v2):**
+- Page/navigation requests: new cacheFirstPage() replaces networkFirst(). Saved copy answers
+  immediately every time; a background revalidatePage() fetches fresh afterward, off the
+  critical path entirely. First-ever visit (nothing cached yet) still has to wait on the network
+  — no way around that one load.
+- revalidatePage() compares the fresh fetch against what was just served, byte-for-byte. Identical
+  (the common case — most loads change nothing): does nothing further, no cache write, no
+  message. Different: writes it to cache, THEN postMessages every open tab {type:
+  'ct-update-ready', version}. That ordering is deliberate — v1's network-first was chosen
+  specifically so the reload-driven update flow could never race a stale cache; cache-first
+  preserves that same guarantee by making sure the fresh copy is already sitting in cache before
+  anyone is told about it, so acting on the notification immediately is safe.
+- data.json moved from network-first to the existing staleWhileRevalidate() (same treatment as
+  images/timing JSON) rather than getting the same notify-on-change machinery as the page. It's
+  republished many times a day as entries get approved — that's not a "new version" in the sense
+  the update glow means, and tying it to the same notification would make the glow fire
+  constantly for routine content, not actual app updates.
+- Both changes needed a Response cloned BEFORE either copy's body is read anywhere — cache-first
+  page returns the original saved response to the browser while its background revalidation
+  reads a .clone() of it, not the same object twice.
+
+**Implementation (index.html):**
+- New announceNewVersion(version), pulled out of checkVersion()'s own "found a different version"
+  branch so both callers share it rather than duplicating the glow-arming logic.
+- New navigator.serviceWorker 'message' listener: on ct-update-ready, routes straight into
+  announceNewVersion() — the existing hamburger pulse / Settings row glow / pending-reload pill
+  now fires from either checkVersion()'s own throttled menu-open check or the service worker
+  noticing on any page load, one notification system with two triggers instead of two systems.
+  Registered unconditionally; harmless when Offline Access has never been on, since then there's
+  no service worker to ever send the message.
+
+## v500 — 2026-09-28
+
+**Ask:**
+- A "Progress" page replacing Logs in Manage: per-category completion stats computed live, not
+  from task-completion history (a finished reword task doesn't mean a long sentence can't
+  reappear). Word counts and section counts, to spot thin articles. A way to scope by feast-day or
+  year range with category filters and get totals for just that population.
+
+**Implementation:**
+- Removed Logs entirely: the tab button, the panel-logs markup, and ~250 lines of now-dead JS
+  (loadChangelog, the thumb-scrubber, search filtering). Several of those functions had top-level
+  .addEventListener calls on DOM elements that no longer exist once the panel is gone — left
+  unguarded, those would have thrown at page load and broken the whole app's init, not just the
+  Logs tab. Caught and removed rather than just orphaned. The old Logs CSS is still in the file,
+  unused but harmless (interleaved with shared Manage styles — flagged for a later cleanup pass
+  rather than risking a bad extraction under time pressure).
+- New computeProgressStats(entries) + PROGRESS_ROWS: one shared definition of "done" for each of
+  six areas (long sentences, proofread, audio recorded, pronunciation re-record, images, closing
+  prayer), reusing the exact eligibility checks the batch pools already use
+  (entryHasLongSentence, e.qc.proofread, e.audio/e.audioPron/entryPronHits, e.img,
+  e.audioInvocation) — these numbers can't drift from what Add Task would actually queue for that
+  service, and "done" is always read live off current entry data, never off whether a task once
+  completed.
+- Progress tab (Manage → Progress): one row per area — done/total, a percentage bar, a "show
+  remaining" list of names/years, and (when something's pending) a "Batch add…" button
+  (tkOpenAddForCategory) that closes Manage, opens Task Automation, and pre-selects that exact
+  service (and, for the Saints-only closing-prayer row, the Saints category) in the Add Task form.
+- Export tab: discovered — didn't know until reading the code — that mExStatBox already shows a
+  live word-count completeness split, and mXlsxExport already produces a real .xlsx via SheetJS
+  (not CSV-only, which is what I'd told Tom earlier). Word/section/char counts were already in
+  every export unconditionally (articleStats, built for TTS cost estimating). Rather than
+  duplicate Export's existing category/region/year-range/feast-range/search filters with a second
+  picker on Progress, added a Status button next to mExStatBox that runs computeProgressStats
+  against mExportFilteredEntries() — the exact set the CSV/.xlsx would export — read-only (no
+  batch-add: "batch add for this filtered slice" isn't an action the app supports).
+- renderProgressStatsInto(el, stats, idPrefix, allowJump) is the one render function behind both
+  surfaces; idPrefix keeps element ids from colliding if both were ever open at once, allowJump
+  is what makes Progress's rows actionable and Export's read-only.
+
+## v499 — 2026-09-27
+
+**Ask:**
+- On v498, Override still doesn't stick (comes back up later), and Edit's Save doesn't either —
+  editing the text or leaving it as-is, Save should mark the debate resolved and it isn't.
+
+**Implementation:**
+- Diagnosis: both saveWorkLog() (workLog.json) and publishToGitHub() (data.json) do a single
+  GET-sha / merge / PUT with no retry. Both files are also written by the orchestrator while a run
+  is active (workLog.json on every task update, data.json every 10 entities during
+  sentence-reword) — so a PUT whose sha went stale between the GET and the PUT (a 409) was treated
+  as a final failure. The local mutation (debate marked resolved, task status flipped) had already
+  happened before either save ran, so it was never rolled back — just stranded, unpersisted, ready
+  to reappear as if nothing had happened the next time that task got looked at. Edit was hit
+  twice over: its Save calls publishToGitHub() before saveWorkLog(), so either one losing the race
+  was enough to stop it.
+- Split each into a single-attempt helper (saveWorkLogAttempt / publishToGitHubAttempt, returning
+  {ok, retryable, error}) plus a thin retry loop (saveWorkLog / publishToGitHub, unchanged external
+  contracts — same {ok,error} / boolean-plus-#ghStatus shape every existing caller already
+  expects). A 409, a non-404 read failure, or a timeout retries the WHOLE read-merge-write cycle
+  (not just the PUT — the merge itself depends on the freshly-read remote content) up to 3 times
+  with a short backoff. A bad/rejected token (401/403) or any other error still fails immediately
+  — retrying won't fix those, and a stuck bad-token failure should surface right away, not after
+  three silent attempts.
+- If it still fails after 3 tries, the message now says so plainly ("another save kept landing
+  first (a run may be active); try again in a moment") rather than a bare "commit failed 409" —
+  and, via v498's #tkArbNote mirroring, it's actually visible in Arbitrate Review this time.
+
+## v498 — 2026-09-27
+
+**Ask:**
+- St. Mary Magdalene's Arbitrate Review still shows "every debate on this entity has been
+  resolved" and stays stuck there after v497 — it never actually goes away.
+
+**Implementation:**
+- Diagnosis: that screen means every debate on the task is already resolved (whether from a real
+  Approve/Override/Edit, or v497's already-applied sweep) but the task's own status/workLog save
+  never landed on GitHub — so it keeps surfacing in review even though there's nothing left to
+  decide. Previously that branch just cleared the lock bar (`lock.innerHTML = ''`) with no button
+  and no feedback: even the wlSetLog() messages from a background flush failure (e.g.
+  tkFlushDeferredPublish, called from tkGoList()/closeTaskPanel() on the way out) were invisible
+  here, same root cause as v496 but on a call path v496 didn't touch.
+- wlSetLog() itself now mirrors to #tkArbNote whenever that element is on screen, not just the
+  direct calls inside tkResolveArbitrateDebate/tkSaveArbitrateEdit — covers every caller,
+  including the background flush, instead of relying on each one to remember.
+- The "every debate resolved" branch is no longer a dead end: it now renders a note line plus a
+  "Save & Continue" button (new tkFinalizeArbitrateTask()), which re-sets status:'done', flushes
+  both halves (content publish, workLog save) through the same tkFlushDeferredPublish() every
+  other exit point already uses, and — now that failures are actually visible — either advances to
+  the next task needing a look or reports why it couldn't and leaves the button re-enabled to
+  retry.
+
+## v497 — 2026-09-27
+
+**Ask:**
+- Rather than just erroring on "couldn't find this exact wording," check whether the proposed
+  fix's text is already there and mark it resolved automatically.
+
+**Implementation:**
+- New tkDebateAlreadyApplied(entry, debate): true only when the before-text is NOT found (a real
+  pending debate whose before-text is still present is never touched) AND the after-text IS found
+  verbatim (same flexible-whitespace/quote-normalized matching tkApplyDebateText already uses).
+  This is exactly what a v496-class duplicate looks like once its twin gets approved first: both
+  proposed the same change against the same original wording, so one lands and the other's before
+  is gone while its after matches exactly.
+- New tkAutoResolveApplied(t): sweeps a task's open debates, marks any already-applied one
+  resolved (resolution: 'already-applied', kept distinct from approved/overridden/edited so it's
+  never confused with a decision Tom actually made), flips the task to 'done' if that empties it
+  out, and queues the id on the existing deferred-worklog flush — no content changed, so no
+  publishToGitHub() call, just the same workLog save every other resolve action already defers.
+  Called at the top of both places that decide what's open for the on-screen task
+  (tkRenderArbitrateReview, and the footer's isArbitrateReview branch), so a duplicate is swept
+  before Tom ever sees it, not after he taps something.
+- New tkArbTaskNeedsReview(t), replacing all 11 identical inline copies of the "is this task
+  live" check across the look-ahead and step-forward scans in tkResolveImageFinal, tkResolveAudio,
+  tkResolveArbitrateDebate, tkSaveArbitrateEdit, and tkResolveFactResearch. For non-'arbitrate'
+  tasks it's the same check as before; for 'arbitrate' it also runs the sweep and only counts as
+  "needs review" if something real is still open — so a task fully absorbed by duplicates being
+  swept is skipped over while stepping through the queue, the same as one that was never shown.
+- Directly opening an already-fully-swept task from the Task List still shows the existing "every
+  debate on this entity has been resolved" message rather than silently redirecting elsewhere —
+  Tom tapped that specific task on purpose, so landing on an honest "nothing left to do here" felt
+  better than jumping him to something he didn't ask for.
+
+## v496 — 2026-09-27
+
+**Ask:**
+- Arbitrate Review: "couldn't find this exact wording" keeps recurring on the same entities, and
+  when that happens Approve/Override/Edit all appear to do nothing — no error, no movement.
+
+**Implementation:**
+- Root cause #1 (the recurring duplicates): tkQueueQuickTask() — what the Review Mode "Submit to
+  Proofread" button calls — had no guard against queuing a second 'arbitrate' task for an entity
+  that already had one pending. Its only protection was the button's own disabled state, computed
+  from wlData at render time; if wlData was stale or hadn't loaded yet (routine when opening an
+  article without having opened Task Automation first), the button looked enabled and a duplicate
+  task got queued. Two independent tasks proposing fixes against the same article text is exactly
+  what produces the "couldn't find this exact wording" loop: approving one changes the text out
+  from under the other's verbatim match, and that second one can then never be Approved. Added a
+  tkHasPendingTask() check inside tkQueueQuickTask() itself, so every caller is covered (Flag Issue
+  already checked at its own call sites; this backstops the one that didn't).
+- Root cause #2 (Approve/Override/Edit "doing nothing"): wlSetLog()'s only target, #tkCount, lives
+  inside #tkViewList and is invisible while tkView === 'review' (renderTaskPanel only marks
+  #tkViewList 'active' in List view). Every message tkResolveArbitrateDebate/tkSaveArbitrateEdit
+  produced — "couldn't find the original text," "could not publish," "task list didn't sync,"
+  even the plain success line — was landing on a hidden node the whole time Arbitrate Review was
+  open. The function was correctly reporting why and stopping short of advancing rather than
+  silently dropping an unsaved decision; there was just no visible sign of it, so a real failure
+  (a GitHub write conflict, a stale/missing token, a timeout) looked identical to a dead button.
+  New tkArbNoteSet(): writes to both #tkCount and a new #tkArbNote line added to both Arbitrate
+  Review footers (the normal Approve/Override/Edit bar and the Edit textarea's Save/Cancel bar).
+  Every wlSetLog() call in tkResolveArbitrateDebate and tkSaveArbitrateEdit now goes through it.
+
 ## v495 — 2026-09-27
 
 **Ask:**
