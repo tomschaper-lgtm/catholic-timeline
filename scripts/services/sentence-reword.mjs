@@ -29,6 +29,15 @@
 //     in the repo is a cleanup nicety, not a live-site bug). Worth a follow-up if the number of
 //     orphaned files becomes a real nuisance.
 //
+// v502: counting and splitting come from ../lib/sentence-rules.cjs (SentenceRules) — the same file,
+// byte for byte, that index.html embeds for the Add Task picker, Progress, Export and the review
+// screen. One definition of a word (a space-separated token with a letter or digit), of a sentence
+// (ends at . ! ? … + closing quote/bracket/tag, then a space and a capital, digit or opening quote;
+// never after St./Dr./c./A.D.; every <li>/<p>/<blockquote> boundary ends one) and of "long" (MORE
+// than 40 words). Before this, the service split RAW html with a private regex (a sentence that
+// began with an <a> or <b> tag never split, so it read as one giant sentence) and counted lone
+// dashes as words, while index.html skipped whole paragraphs that held an entry: link.
+//
 // Scope, per content-authoring-skill.md's "Sentence length — write for the ear" section:
 //   - `art.sections[].b` only. Never `quotes`, `facts`, or anything else.
 //   - Never exceed 40 words — no exception tier (the old manual chat-based cleanup pass allowed
@@ -65,20 +74,18 @@
 // task actually uses), passed through by orchestrator.yml.
 
 
-import { stripHtml } from '../lib/text.mjs';
+import SR from '../lib/sentence-rules.cjs';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 // A single named constant so bumping the model later is a one-line change.
 const ANTHROPIC_MODEL = 'claude-sonnet-5';
 const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 const OPENAI_MODEL = 'gpt-5.6-luna';
-const MAX_SENTENCE_WORDS = 40;
+const MAX_SENTENCE_WORDS = SR.LIMIT;
 const TRACKED_TAGS = ['b', 'i', 'u', 'blockquote', 'a'];
 
-function wordCount(rawText){
-  const plain = stripHtml(rawText).replace(/\s+/g, ' ').trim();
-  return plain ? plain.split(' ').length : 0;
-}
+// v502: the shared word rule (SentenceRules.countWords) — tags ignored, a word needs a letter or digit.
+const wordCount = SR.countWords;
 
 // Every entry: cross-reference link inside a sentence, as its exact verbatim substring (opening
 // tag through closing </a>, attributes and all). Used two ways: fed into the prompt so Claude
@@ -176,43 +183,9 @@ function applyPatchesToEntry(entry, sentencePatches){
   return { appliedCount, failNotes };
 }
 
-// Titles, honorifics, and other common abbreviations that end in a period but do NOT end a
-// sentence. Lowercase, no trailing period — the check strips it before comparing. Without this,
-// "St. Paul" or "Dr. Smith" splits into two fake sentences (and, worse, could get counted or
-// matched as its own over-length fragment) since a period-space-capital is otherwise
-// indistinguishable from a real sentence boundary. Keep this identical to the same constant in
-// index.html's tkSplitSentencesForDisplay — the review has to mark the same sentence boundaries
-// this handler actually matched against, or what's highlighted won't line up with what changed.
-const SENTENCE_ABBREVIATIONS = new Set([
-  'st','sts','ss','dr','mr','mrs','ms','fr','msgr','bl','ven','abp','card','rev',
-  'gen','col','capt','lt','sgt','maj','adm','prof','pres','gov','sen','rep','hon',
-  'vs','etc','al','no','vol','ch','v','c','ca','ed','eds','tr','pp',
-  'jan','feb','mar','apr','jun','jul','aug','sep','sept','oct','nov','dec',
-  'i.e','e.g','a.d','b.c','a.m','p.m','u.s','u.k'
-]);
-
-// Heuristic sentence boundary: punctuation, then whitespace, then what looks like the start of a
-// new sentence — except when the word right before the punctuation is a known abbreviation
-// (St., Dr., c., etc.), in which case that's not really a boundary and scanning continues. Still
-// imperfect on anything not in the list above, and on mid-sentence quotes — that's acceptable
-// here, since a wrong split just means Claude sees a slightly different chunk than a human would
-// call "one sentence," and every resulting proposal is reviewed before it touches anything.
-function splitIntoSentences(paragraphRaw){
-  const boundary = /[.!?]\s+(?=[A-Z0-9"'\u201C(])/g;
-  const out = [];
-  let start = 0, m;
-  while((m = boundary.exec(paragraphRaw))){
-    const cutAt = m.index + 1; // right after the punctuation mark
-    const wordMatch = /(?:^|[^A-Za-z.])((?:[A-Za-z]\.)*[A-Za-z]+)\.$/.exec(paragraphRaw.slice(start, cutAt));
-    const word = wordMatch ? wordMatch[1].toLowerCase() : '';
-    if(SENTENCE_ABBREVIATIONS.has(word)) continue; // not a real sentence boundary — keep scanning
-    out.push(paragraphRaw.slice(start, cutAt).trim());
-    start = boundary.lastIndex;
-  }
-  const last = paragraphRaw.slice(start).trim();
-  if(last) out.push(last);
-  return out.filter(Boolean);
-}
+// v502: sentence boundaries live in SentenceRules.analyzeSection (../lib/sentence-rules.cjs), which
+// replaced this file's private SENTENCE_ABBREVIATIONS list and splitIntoSentences(). It works on the
+// raw paragraph, keeps every opening/closing tag inside its own sentence, and returns exact offsets.
 
 // A sentence chunk that opens a tracked tag without closing it (or vice versa) means the
 // sentence-boundary regex sliced through a <b>/<i>/<u>/<blockquote> span rather than around it.
@@ -502,13 +475,14 @@ export async function runSentenceReword(task, dataJson){
     let paraOffset = 0;
 
     for(const para of paragraphs){
-      for(const sentence of splitIntoSentences(para)){
-        if(wordCount(sentence) > MAX_SENTENCE_WORDS){
+      for(const unit of SR.analyzeSection(para)){
+        const sentence = unit.html; // exact raw substring of `para`, opening/closing tags included
+        if(unit.words > MAX_SENTENCE_WORDS){
           found++;
           if(!hasBalancedTags(sentence)){
             skippedTagMismatch++;
           }else{
-            const sentIdxInPara = para.indexOf(sentence);
+            const sentIdxInPara = unit.start; // exact position; indexOf() picked the first repeat
             if(sentIdxInPara !== -1){
               const charIndex = sectionOffset + paraOffset + sentIdxInPara;
               const occurrence = occurrenceAt(fullText, sentence, charIndex);
