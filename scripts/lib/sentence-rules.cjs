@@ -1,6 +1,6 @@
 /* ============================================================================
    sentence-rules.cjs
-   VERSION: 2
+   VERSION: 3
    DATE: 2026-09-28
 
    THE one definition of "word", "sentence" and "long sentence" for Catholic
@@ -17,8 +17,9 @@
       &nbsp; ...) are decoded first. (To count unspaced em-dash words as two,
       set SPLIT_EM_DASH = true below; nothing else changes.)
    3. A sentence ends at . ! ? or … (also runs like ?! and ...), followed by
-      any closing quotes / brackets, then a space, then a capital letter,
-      digit or opening quote/bracket. A lowercase next word means the
+      any closing quotes / brackets (including a straight ' or "), then a
+      space, then a capital letter, digit or opening quote/bracket (including
+      a straight ' or ", which this site uses for quotations). A lowercase next word means the
       sentence continues (He asked "Who?" and left.)
    4. Not a sentence end: after an abbreviation (St. Sts. Dr. Fr. Mt. No. vs.
       c. b. d. r. A.D. e.g. i.e. months before a date, single initials).
@@ -39,7 +40,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var VERSION = 2;
+  var VERSION = 3;
   var LIMIT = 40;
   var SPLIT_EM_DASH = false;
   var BREAK = '\u0001';
@@ -120,7 +121,7 @@
   function isLongWords(n) { return n > LIMIT; }
 
   /* ---- sentences ------------------------------------------------------ */
-  var NEXT_OK = /[\p{Lu}\p{N}"\u201c\u2018(\[\u00ab]/u;
+  var NEXT_OK = /[\p{Lu}\p{N}"'\u201c\u2018(\[\u00ab]/u;
 
   function isAbbrev(tok, next) {
     if (!tok) return false;
@@ -133,7 +134,7 @@
   }
 
   function splitSegment(seg, off, out) {
-    var re = /([.!?\u2026]+)(["\u201d\u2019\u00bb)\]]*)(\s+)/g;
+    var re = /([.!?\u2026]+)(["'\u201d\u2019\u00bb)\]]*)(\s+)/g;
     var last = 0, m;
     while ((m = re.exec(seg))) {
       var after = re.lastIndex;
