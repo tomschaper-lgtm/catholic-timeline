@@ -1,6 +1,6 @@
 <!--
-VERSION: 504
-DATE: 2026-09-28T06:58:00-05:00
+VERSION: 505
+DATE: 2026-09-28T07:12:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,30 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v505 — 2026-09-28
+
+**Ask:**
+- Save to GitHub (Publish) sits for a long time and then says it failed: "timed out — another save
+  kept landing first (a run may be active)".
+
+**Implementation:**
+- Cause: publishToGitHubAttempt sent both its requests through fetchTimeout with the 15-second
+  default meant for small workLog.json calls. data.json is over a megabyte, so the PUT uploads about
+  3 MB of base64; on Wi-Fi that is quick, on a weak cellular signal (the screenshot shows 5GE, two
+  bars) it cannot finish in 15 s. All three attempts aborted, and the failure text blamed another
+  save because every timeout was marked retryable.
+- The read now waits 30 s (GH_GET_TIMEOUT_MS; GitHub returns only a sha for a file this size). The
+  write waits ghPutTimeoutMs(size): assumes a worst-case ~30 KB/s upload, never under 60 s or over
+  5 min (about 110 s for 3 MB). The status line says "uploading 2.9 MB (allowing up to N s)" while
+  it works.
+- A timeout is no longer retried (three more slow attempts just tripled the wait) and now says which
+  step timed out, how big the upload was, and to try Wi-Fi. "Another save kept landing first" is
+  shown only for a real 409 (result.conflict). saveWorkLog's identical catch is untouched: its
+  file is small.
+- Not changed, worth knowing: GitHub's contents API returns no file body for files over 1 MB, so the
+  merge-with-remote step in publishToGitHubAttempt (remoteEntries) probably never runs for a file
+  this size and Publish overwrites with this session's copy. See the reply for the risk.
+
 ## v504 — 2026-09-28
 
 **Ask:**
@@ -6347,7 +6371,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v504';
+const APP_VERSION = 'v505';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8504,6 +8528,13 @@ function saveAudioGenSettings(){
 // Single read-merge-write attempt for data.json — split out so publishToGitHub's retry loop
 // below can retry the whole cycle (not just the PUT) on a 409, same reasoning as
 // saveWorkLogAttempt just above. Returns {ok, retryable, error} or {ok:true, mergedWithRemote}.
+// v505: timeouts for the two data.json requests. The read only returns a sha (GitHub sends no file
+// body for files over 1 MB), so 30 s is generous; the write scales with payload size, assuming a
+// worst-case ~30 KB/s upload, never under 60 s and never over 5 minutes.
+const GH_GET_TIMEOUT_MS = 30000;
+function ghPutTimeoutMs(bytes){
+  return Math.min(300000, Math.max(60000, Math.round(bytes / 30000 * 1000) + 15000));
+}
 async function publishToGitHubAttempt(branch, api, hdr){
   let sha = null;
   let remoteEntries = null;
@@ -8515,7 +8546,18 @@ async function publishToGitHubAttempt(branch, api, hdr){
   // with because it used to only ever run once per manual tap. Same fix, same reason it matters
   // now: one stalled connection here would otherwise freeze not just this publish but
   // tkAutoApproveSentenceRewords's caller (loadWorkLog's poll cycle) right along with it.
-  const g = await fetchTimeout(api + '?ref=' + encodeURIComponent(branch), { headers: hdr, cache: 'no-store' });
+  // v505: this used fetchTimeout's 15-second default for BOTH requests here. That default was chosen
+  // for the small workLog.json calls; data.json is now over a megabyte, so the PUT below uploads
+  // roughly 3 MB of base64. On Wi-Fi that finishes in a second or two; on a weak cellular signal
+  // it can't finish in 15 s, so all three attempts aborted and the app blamed "another save".
+  const stEl = document.getElementById('ghStatus');
+  let g;
+  try{
+    g = await fetchTimeout(api + '?ref=' + encodeURIComponent(branch), { headers: hdr, cache: 'no-store' }, GH_GET_TIMEOUT_MS);
+  }catch(err){
+    if(err && err.name === 'AbortError') return { ok: false, retryable: false, error: 'timed out after ' + Math.round(GH_GET_TIMEOUT_MS / 1000) + ' s while checking what is on GitHub \u2014 the connection is too slow or unstable right now' };
+    throw err;
+  }
   if(g.status === 200){
     const meta = await g.json();
     sha = meta.sha;
@@ -8544,7 +8586,19 @@ async function publishToGitHubAttempt(branch, api, hdr){
   const content = btoa(unescape(encodeURIComponent(json)));
   const body = { message: 'Update data.json (' + db.entries.length + ' entries) via Content Manager', content: content, branch: branch };
   if(sha) body.sha = sha;
-  const put = await fetchTimeout(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, hdr), body: JSON.stringify(body) });
+  const putBody = JSON.stringify(body);
+  const putMs = ghPutTimeoutMs(putBody.length);
+  const mb = (putBody.length / 1048576).toFixed(1);
+  if(stEl) stEl.textContent = 'Publishing\u2026 uploading ' + mb + ' MB (allowing up to ' + Math.round(putMs / 1000) + ' s on a slow connection)';
+  let put;
+  try{
+    put = await fetchTimeout(api, { method: 'PUT', headers: Object.assign({'Content-Type':'application/json'}, hdr), body: putBody }, putMs);
+  }catch(err){
+    // Not retried: the upload may or may not have landed, and three more slow attempts would just
+    // make the wait three times longer. The next Publish starts from a fresh read of GitHub.
+    if(err && err.name === 'AbortError') return { ok: false, retryable: false, error: 'the ' + mb + ' MB upload did not finish in ' + Math.round(putMs / 1000) + ' s \u2014 the connection is too slow. Try again on Wi-Fi, or when the signal is stronger' };
+    throw err;
+  }
   if(put.status === 200 || put.status === 201){
     return { ok: true, mergedWithRemote: mergedWithRemote };
   }
@@ -8552,7 +8606,7 @@ async function publishToGitHubAttempt(branch, api, hdr){
   // 409 = stale sha, almost always the orchestrator's own data.json commits (it batch-commits
   // every 10 entities during sentence-reword, among other services) landing between our GET and
   // PUT — see saveWorkLogAttempt's identical comment. Worth an immediate retry.
-  return { ok: false, retryable: put.status === 409, error: m || ('commit failed ' + put.status) };
+  return { ok: false, retryable: put.status === 409, conflict: put.status === 409, error: m || ('commit failed ' + put.status) };
 }
 async function publishToGitHub(){
   const v = id => document.getElementById(id).value.trim();
@@ -8575,13 +8629,14 @@ async function publishToGitHub(){
     try{
       last = await publishToGitHubAttempt(branch, api, hdr);
     }catch(err){
-      last = { ok: false, retryable: err.name === 'AbortError', error: err.name === 'AbortError' ? 'timed out' : err.message };
+      last = { ok: false, retryable: false, error: err.name === 'AbortError' ? 'timed out' : err.message };
     }
     if(last.ok || !last.retryable || attempt === MAX_ATTEMPTS) break;
     await new Promise(r => setTimeout(r, 350 * attempt));
   }
   if(!last.ok){
-    st.textContent = 'Publish failed: ' + last.error + (last.retryable ? ' \u2014 another save kept landing first (a run may be active); try again in a moment' : '');
+    // v505: only a real 409 means another save landed first; a timeout used to get this same text
+    st.textContent = 'Publish failed: ' + last.error + (last.conflict ? ' \u2014 another save kept landing first (a run may be active); try again in a moment' : '');
     return false;
   }
   dirtyEntryIds.clear();
