@@ -1,6 +1,6 @@
 <!--
-VERSION: 501
-DATE: 2026-09-28T01:10:00-05:00
+VERSION: 502
+DATE: 2026-09-28T05:58:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,39 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v502 — 2026-09-28
+
+**Ask:**
+- Progress, the Add Task list and the reword task didn't agree on which entries still have a long
+  sentence, and about 40 articles wouldn't finish. Build one reliable word counter and use it
+  everywhere: Export, the task queues (Add Task), and the status/Progress screens.
+
+**Implementation:**
+- New shared module SentenceRules (sentence-rules.cjs v2), embedded here between the
+  SENTENCE-RULES:BEGIN/END markers and byte-identical to scripts/lib/sentence-rules.cjs, which
+  scripts/services/sentence-reword.mjs now imports. One definition: a word is a space-separated
+  token with a letter or digit; a sentence ends at . ! ? … plus closing quote/bracket/tag, then a
+  space and a capital/digit/opening quote, except after abbreviations (St., Dr., c., A.D., initials);
+  every <li>/<p>/<blockquote> boundary and blank line ends a sentence; long means MORE than 40.
+- Why they disagreed (reproduced against the 2026-09-27 export: old rule = 43 entries flagged, exactly
+  Progress's 410/453): (1) paragraphHasLongSentence/longestSentenceWordCount skipped every paragraph
+  containing an entry: link, hiding 27 entries that really have a long sentence; (2) the splitter
+  needed whitespace straight after . ! ? so a sentence ending in a closing quote ("...brother.")
+  merged with the next, and a <ul> list read as one long sentence — 14 false alarms (Gerard
+  Majella, First Lateran Council, Edict of Milan, ...); (3) the service split RAW html, so a
+  sentence starting with a tag (<a>, <b>) never split, and its wordCount() counted lone dashes that
+  the app's v491 rule ignores. Counting on the same data now gives 56 entries / 198 sentences.
+- countSentenceWords, paragraphHasLongSentence, entryHasLongSentence, longestSentenceWordCount and
+  tkSplitSentencesForDisplay keep their names and now delegate to SentenceRules, so Progress rows,
+  the Proof/Audio 40-word lock, sentenceRewordPool/audioGeneratePool and the review screens are
+  unchanged apart from the numbers. The private SENTENCE_ABBREVIATIONS list is gone.
+- articleStats().wordCount uses the shared rule (Export word counts and the "complete" split follow).
+  Export gets longestSentence and longSentences columns (CSV/XLSX and JSON Filtered) and a stat-box
+  line. Progress's Long sentences list shows each entry's longest sentence; the Add Task preview
+  shows "N long, longest NN words" for Reword long sentences.
+- Expect Progress's Long sentences to move from 410/453 to about 397/453: the 27 hidden entries now
+  count, and the 14 false alarms clear.
+
 ## v501 — 2026-09-28
 
 **Ask:**
@@ -6027,11 +6060,256 @@ const ICONS = {
 const TYPE_BAND_IMG = {s:'', c:'', p:'', e:'', m:'', u:''};
 
 // ================= DATABASE =================
+// SENTENCE-RULES:BEGIN  (sentence-rules.cjs v2 — this block must stay byte-identical to
+// scripts/lib/sentence-rules.cjs, which scripts/services/sentence-reword.mjs imports. It is the ONE
+// definition of "word", "sentence" and "long sentence"; every counter below calls it.)
+/* ============================================================================
+   sentence-rules.cjs
+   VERSION: 2
+   DATE: 2026-09-28
+
+   THE one definition of "word", "sentence" and "long sentence" for Catholic
+   Timeline. Every counter in the app (Add Task picker, reword service, review
+   screen, Progress, Proof section / Audio lock, Export) must call this file
+   and nothing else. Do not write a second splitter anywhere.
+
+   RULES
+   1. Scope: art.sections[].b only. Never quotes, facts, headings, links.
+   2. A word is a piece of text between spaces that contains at least one
+      letter or digit. Hyphenated words, en-dash ranges (64–67) and words
+      joined by an unspaced em dash (districts—a) are ONE word. A lone dash
+      or symbol is not a word. HTML tags are ignored; entities (&amp;
+      &nbsp; ...) are decoded first. (To count unspaced em-dash words as two,
+      set SPLIT_EM_DASH = true below; nothing else changes.)
+   3. A sentence ends at . ! ? or … (also runs like ?! and ...), followed by
+      any closing quotes / brackets, then a space, then a capital letter,
+      digit or opening quote/bracket. A lowercase next word means the
+      sentence continues (He asked "Who?" and left.)
+   4. Not a sentence end: after an abbreviation (St. Sts. Dr. Fr. Mt. No. vs.
+      c. b. d. r. A.D. e.g. i.e. months before a date, single initials).
+      Roman numerals do end a sentence (Pope Pius X. He ...).
+   5. Hard breaks: a blank line, a newline, and every <p> <br> <ul> <ol> <li>
+      <blockquote> boundary end a sentence. A list item is its own unit, so
+      a list is never one long sentence.
+   6. Long means MORE than 40 words. Exactly 40 is fine.
+   7. Colons and semicolons never end a sentence.
+
+   Works in the browser (paste this whole block into index.html, global
+   `SentenceRules`) and in Node (import SR from './sentence-rules.cjs').
+   ============================================================================ */
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.SentenceRules = api;
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var VERSION = 2;
+  var LIMIT = 40;
+  var SPLIT_EM_DASH = false;
+  var BREAK = '\u0001';
+
+  var TAG_AT = /<\/?[A-Za-z][^<>\n]*>/y;
+  var BLOCK_TAG = /^<\/?(ul|ol|li|blockquote|p|br|div|h[1-6])\b/i;
+
+  var ABBR = {};
+  ('St Sts Mt Mts Dr Mr Mrs Ms Fr Bl Bp Abp Msgr Sr Jr Rev Revd Hon Gen Lt Col Capt Sgt ' +
+   'Prof Pres Gov Card Ven Br Sen Rep No Nos Vol Vols Ch Chap Art Sec Fig Pp Pl ' +
+   'vs cf Cf ca ff fl viz approx ' +
+   'Ibid ibid Op op cit')
+    .split(' ').forEach(function (a) { ABBR[a] = 1; });
+  var MONTH = {};
+  'Jan Feb Mar Apr Jun Jul Aug Sept Sep Oct Nov Dec'.split(' ').forEach(function (a) { MONTH[a] = 1; });
+
+  var ENT = {
+    amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0',
+    mdash: '\u2014', ndash: '\u2013', hellip: '\u2026',
+    lsquo: '\u2018', rsquo: '\u2019', ldquo: '\u201c', rdquo: '\u201d'
+  };
+
+  function decodeEntity(name) {
+    if (name.charAt(0) === '#') {
+      var code = name.charAt(1).toLowerCase() === 'x'
+        ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+      if (!isFinite(code) || code <= 0 || code > 0x10ffff) return null;
+      return String.fromCodePoint(code);
+    }
+    return Object.prototype.hasOwnProperty.call(ENT, name.toLowerCase()) ? ENT[name.toLowerCase()] : null;
+  }
+
+  /* raw HTML -> plain text, remembering where every plain character came
+     from in the raw string. Block tags and newlines become BREAK. */
+  function toPlain(raw) {
+    var chars = [], start = [], endp = [];
+    var i = 0, n = raw.length;
+    while (i < n) {
+      var c = raw.charAt(i);
+      if (c === '<') {
+        /* a tag never contains < or >, so a stray "<" (or a broken "</b.") is
+           kept as ordinary text instead of swallowing words up to some later ">" */
+        TAG_AT.lastIndex = i;
+        var tm = TAG_AT.exec(raw);
+        if (tm) {
+          if (BLOCK_TAG.test(tm[0])) { chars.push(BREAK); start.push(i); endp.push(i + tm[0].length); }
+          i += tm[0].length;
+          continue;
+        }
+      }
+      if (c === '\n' || c === '\r') { chars.push(BREAK); start.push(i); endp.push(i + 1); i++; continue; }
+      if (c === '&') {
+        var m = /^&(#x[0-9a-f]+|#\d+|[a-z]+);/i.exec(raw.substr(i, 12));
+        if (m) {
+          var d = decodeEntity(m[1]);
+          if (d !== null) {
+            for (var k = 0; k < d.length; k++) { chars.push(d.charAt(k)); start.push(i); endp.push(i + m[0].length); }
+            i += m[0].length;
+            continue;
+          }
+        }
+      }
+      chars.push(c); start.push(i); endp.push(i + 1); i++;
+    }
+    start.push(n);
+    return { text: chars.join(''), start: start, endp: endp };
+  }
+
+  /* ---- words ---------------------------------------------------------- */
+  var HAS_LD = /[\p{L}\p{N}]/u;
+  function countWords(text) {
+    var plain = toPlain(String(text)).text.split(BREAK).join(' ');
+    var toks = plain.replace(/\u00a0/g, ' ').split(SPLIT_EM_DASH ? /[\s\u2014]+/ : /\s+/);
+    var n = 0;
+    for (var i = 0; i < toks.length; i++) if (HAS_LD.test(toks[i])) n++;
+    return n;
+  }
+  function isLongWords(n) { return n > LIMIT; }
+
+  /* ---- sentences ------------------------------------------------------ */
+  var NEXT_OK = /[\p{Lu}\p{N}"\u201c\u2018(\[\u00ab]/u;
+
+  function isAbbrev(tok, next) {
+    if (!tok) return false;
+    if (ABBR[tok]) return true;
+    if (MONTH[tok] && /[0-9]/.test(next)) return true;
+    if (/^[a-z]$/.test(tok)) return true;                       // b. d. r. c.
+    if (/^[A-Z]$/.test(tok) && !/[IVXLCDM]/.test(tok)) return true;   // initials
+    if (/^(?:[A-Za-z]\.)+[A-Za-z]$/.test(tok)) return true;     // A.D  i.e  e.g  U.S
+    return false;
+  }
+
+  function splitSegment(seg, off, out) {
+    var re = /([.!?\u2026]+)(["\u201d\u2019\u00bb)\]]*)(\s+)/g;
+    var last = 0, m;
+    while ((m = re.exec(seg))) {
+      var after = re.lastIndex;
+      if (after >= seg.length) break;
+      var next = seg.charAt(after);
+      if (!NEXT_OK.test(next)) continue;
+      if (m[1] === '.' && !m[2]) {
+        var pre = seg.slice(last, m.index);
+        var tm = /([^\s"\u201c\u2018(\[]+)$/.exec(pre);
+        if (isAbbrev(tm ? tm[1] : '', next)) continue;
+      }
+      out.push([off + last, off + m.index + m[1].length + m[2].length]);
+      last = after;
+    }
+    out.push([off + last, off + seg.length]);
+  }
+
+  /* Split one raw HTML string. Returns
+     [{ text, html, words, start, end }] where start/end are offsets in `raw`. */
+  var CACHE = new Map(), CACHE_MAX = 6000;
+  function analyzeSection(raw) {
+    raw = raw == null ? '' : String(raw);
+    var hit = CACHE.get(raw);
+    if (!hit) {
+      hit = analyzeSectionUncached(raw);
+      if (CACHE.size >= CACHE_MAX) CACHE.clear();
+      CACHE.set(raw, hit);
+    }
+    return hit.map(function (x) { return { text: x.text, html: x.html, words: x.words, start: x.start, end: x.end }; });
+  }
+  function analyzeSectionUncached(raw) {
+    var p = toPlain(raw), P = p.text, ranges = [], segStart = 0, i;
+    for (i = 0; i <= P.length; i++) {
+      if (i === P.length || P.charAt(i) === BREAK) {
+        if (i > segStart) splitSegment(P.slice(segStart, i), segStart, ranges);
+        segStart = i + 1;
+      }
+    }
+    var res = [];
+    for (i = 0; i < ranges.length; i++) {
+      var a = ranges[i][0], b = ranges[i][1];
+      while (a < b && /\s/.test(P.charAt(a))) a++;
+      while (b > a && /\s/.test(P.charAt(b - 1))) b--;
+      var text = P.slice(a, b);
+      if (!HAS_LD.test(text)) continue;
+      var rs = a > 0 ? p.endp[a - 1] : 0, re2 = p.start[b];
+      res.push({ text: text, html: raw.slice(rs, re2), words: countWords(text), start: rs, end: re2 });
+    }
+    return res;
+  }
+
+  function longestQuotedSpan(text) {
+    var best = 0, re = /[\u201c"]([^\u201d"]+)[\u201d"]/g, m;
+    while ((m = re.exec(text))) best = Math.max(best, countWords(m[1]));
+    return best;
+  }
+
+  /* Whole entry. Only art.sections[].b is counted. */
+  function analyzeEntry(entry) {
+    var secs = (entry && entry.art && entry.art.sections) || [];
+    var sentences = [], words = 0;
+    for (var s = 0; s < secs.length; s++) {
+      var list = analyzeSection(secs[s] && secs[s].b);
+      for (var k = 0; k < list.length; k++) {
+        list[k].sec = s;
+        list[k].quotedWords = longestQuotedSpan(list[k].text);
+        words += list[k].words;
+        sentences.push(list[k]);
+      }
+    }
+    var long = sentences.filter(function (x) { return isLongWords(x.words); });
+    var longest = null;
+    for (var q = 0; q < sentences.length; q++) if (!longest || sentences[q].words > longest.words) longest = sentences[q];
+    return {
+      sentences: sentences, long: long, longest: longest,
+      longestWords: longest ? longest.words : 0,
+      hasLong: long.length > 0,
+      wordCount: words, sectionCount: secs.length
+    };
+  }
+
+  /* Total words in the article body (sections only), same word rule as above.
+     Cheaper than analyzeEntry when only the total is needed. */
+  function articleWordCount(entry) {
+    var secs = (entry && entry.art && entry.art.sections) || [];
+    return countWords(secs.map(function (x) { return x && x.b ? x.b : ''; }).join('\n'));
+  }
+
+  /* convenience names matching the existing app functions */
+  function paragraphHasLongSentence(html) {
+    return analyzeSection(html).some(function (x) { return isLongWords(x.words); });
+  }
+  function entryHasLongSentence(entry) { return analyzeEntry(entry).hasLong; }
+  function splitSentences(html) { return analyzeSection(html).map(function (x) { return x.html; }); }
+
+  return {
+    VERSION: VERSION, LIMIT: LIMIT,
+    countWords: countWords, isLongWords: isLongWords, articleWordCount: articleWordCount,
+    analyzeSection: analyzeSection, analyzeEntry: analyzeEntry,
+    paragraphHasLongSentence: paragraphHasLongSentence,
+    entryHasLongSentence: entryHasLongSentence,
+    splitSentences: splitSentences
+  };
+});
+// SENTENCE-RULES:END
+
 const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v501';
+const APP_VERSION = 'v502';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8763,48 +9041,23 @@ function imageCandidatePool(){
   }
   return pool.sort((a, b) => a.y - b.y);
 }
-// Cheap client-side heuristic, used only to build a sensible Add Task preview list — NOT the
-// authoritative check. The real one (actual HTML-aware word count, the exact verbatim sentence
-// text) happens server-side in scripts/services/sentence-reword.mjs when the task actually runs;
-// this only has to be good enough that the batch list Tom sees roughly matches what will qualify.
-// Reuses tkSplitSentencesForDisplay (defined below — function declarations hoist) so this rough
-// eligibility check and the actual review use the same abbreviation-aware sentence boundaries.
-// v491: a "word" is a space-separated token that contains at least one letter or digit. The old
-// count took EVERY token, so the dashes (—) set off by spaces were counted as words: a sentence
-// of 40 real words with two dashes read as 42. The reword service counts real words, saw nothing
-// to fix, and the app kept blocking Audio — a loop no amount of rewording could clear.
-function countSentenceWords(s){
-  return String(s).trim().split(/\s+/).filter(w => /[A-Za-z0-9\u00C0-\u024F]/.test(w)).length;
-}
-function paragraphHasLongSentence(html){
-  if(/href\s*=\s*["']entry:/i.test(html)) return false; // whole paragraph skipped per spec
-  const plain = stripHtml(html).replace(/\s+/g, ' ').trim();
-  if(!plain) return false;
-  return tkSplitSentencesForDisplay(plain).some(s => countSentenceWords(s) > 40);
-}
-function entryHasLongSentence(e){
-  const sections = (e.art && e.art.sections) || [];
-  return sections.some(sec => String(sec.b || '').split('\n\n').some(p => paragraphHasLongSentence(p)));
-}
-// Same sentence-splitting discipline as paragraphHasLongSentence/entryHasLongSentence above, but
-// returns the actual longest count instead of a >40 boolean — for the Review Mode status readout
-// ("largest sentence: NN words"), not an eligibility check.
-function longestSentenceWordCount(e){
-  const sections = (e.art && e.art.sections) || [];
-  let max = 0;
-  sections.forEach(sec => {
-    String(sec.b || '').split('\n\n').forEach(p => {
-      if(/href\s*=\s*["']entry:/i.test(p)) return; // same skip rule as paragraphHasLongSentence
-      const plain = stripHtml(p).replace(/\s+/g, ' ').trim();
-      if(!plain) return;
-      tkSplitSentencesForDisplay(plain).forEach(s => {
-        const n = countSentenceWords(s);
-        if(n > max) max = n;
-      });
-    });
-  });
-  return max;
-}
+// v502: ONE definition of "word", "sentence" and "long sentence" — SentenceRules (the block near
+// the top of this script, byte-identical to scripts/lib/sentence-rules.cjs, which the reword service
+// also imports). Everything that counts words — this Add Task picker, the reword service, Progress,
+// Export, the Proof/Audio lock, the review screen — goes through it, so they can no longer disagree.
+// The functions below keep their old names so no call site changed. Rules (full text in the module's
+// header): a word is a space-separated token with a letter or digit; a sentence ends at . ! ? … plus
+// any closing quote/bracket/tag, then a space and a capital, digit or opening quote (not after St.,
+// Dr., c., A.D. and the like); every <li>/<p>/<blockquote> boundary and blank line ends one; long
+// means MORE than 40 words. Before v502 this picker skipped every paragraph holding an entry: link
+// (so long sentences beside a link were invisible here and in Progress) and mis-read a sentence
+// ending in a closing quote, or a bulleted list, as one long sentence.
+function countSentenceWords(s){ return SentenceRules.countWords(s); }
+function paragraphHasLongSentence(html){ return SentenceRules.paragraphHasLongSentence(html); }
+function entryHasLongSentence(e){ return SentenceRules.entryHasLongSentence(e); }
+// Actual longest count instead of a >40 boolean — for the Review Mode status readout ("largest
+// sentence: NN words"), not an eligibility check.
+function longestSentenceWordCount(e){ return SentenceRules.analyzeEntry(e).longestWords; }
 function sentenceRewordPool(){
   const category = document.getElementById('tkBatchCategory').value;
   const includeRecorded = document.getElementById('tkBatchOverwrite').checked;
@@ -8987,7 +9240,10 @@ function tkRenderBatchList(){
     // v495: in the pronunciation-fix view, show which numerals were found
     const pron = (type === 'audio-generate' && document.getElementById('tkPronFix').checked)
       ? ' <span class="tkBatchNote">\u2014 ' + esc(entryPronHits(e).join(', ')) + '</span>' : '';
-    return '<div class="tkBatchRow">' + (startIdx + i + 1) + '. ' + esc(e.n) + ' (' + posLabel + ')' + pron + note + '</div>';
+    // v502: for rewording, show what qualified it — same counter the service and Progress use
+    const longNote = (type === 'sentence-reword')
+      ? ' <span class="tkBatchNote">\u2014 ' + SentenceRules.analyzeEntry(e).long.length + ' long, longest ' + longestSentenceWordCount(e) + ' words</span>' : '';
+    return '<div class="tkBatchRow">' + (startIdx + i + 1) + '. ' + esc(e.n) + ' (' + posLabel + ')' + longNote + pron + note + '</div>';
   }).join('');
 }
 function tkRefreshBatchPreview(){
@@ -9519,40 +9775,12 @@ function tkPreviewSentencePatches(sections, patches){
   return { beforeSpans, afterSections, afterSpans };
 }
 
-// Titles, honorifics, and other common abbreviations that end in a period but do NOT end a
-// sentence. Lowercase, no trailing period — the check strips it before comparing. Without this,
-// "St. Paul" or "Dr. Smith" splits into two fake sentences since a period-space-capital is
-// otherwise indistinguishable from a real sentence boundary. Keep this identical to the same
-// constant in scripts/services/sentence-reword.mjs — this is the display-side twin of the split
-// that decides what actually counts as "too long" server-side, and they need to agree on where a
-// sentence really ends or the review would mark something different from what was matched.
-const SENTENCE_ABBREVIATIONS = new Set([
-  'st','sts','ss','dr','mr','mrs','ms','fr','msgr','bl','ven','abp','card','rev',
-  'gen','col','capt','lt','sgt','maj','adm','prof','pres','gov','sen','rep','hon',
-  'vs','etc','al','no','vol','ch','v','c','ca','ed','eds','tr','pp',
-  'jan','feb','mar','apr','jun','jul','aug','sep','sept','oct','nov','dec',
-  'i.e','e.g','a.d','b.c','a.m','p.m','u.s','u.k'
-]);
-
-// Same sentence-boundary heuristic scripts/services/sentence-reword.mjs's own splitIntoSentences
-// uses, so what's outlined here matches what the server actually matched against. A candidate
-// boundary (punctuation, then whitespace, then what looks like a new sentence) is skipped rather
-// than split on when the word right before the punctuation is a known abbreviation.
+// v502: sentence boundaries now come from SentenceRules.splitSentences (the same splitter the
+// counters and scripts/services/sentence-reword.mjs use), replacing this file's private
+// SENTENCE_ABBREVIATIONS list and regex. Returns exact substrings of `text`, trimmed, so the
+// callers' indexOf(sentence, cursor) offset logic keeps working.
 function tkSplitSentencesForDisplay(text){
-  const boundary = /[.!?]\s+(?=[A-Z0-9"'\u201C(])/g;
-  const out = [];
-  let start = 0, m;
-  while((m = boundary.exec(text))){
-    const cutAt = m.index + 1; // right after the punctuation mark
-    const wordMatch = /(?:^|[^A-Za-z.])((?:[A-Za-z]\.)*[A-Za-z]+)\.$/.exec(text.slice(start, cutAt));
-    const word = wordMatch ? wordMatch[1].toLowerCase() : '';
-    if(SENTENCE_ABBREVIATIONS.has(word)) continue; // not a real sentence boundary — keep scanning
-    out.push(text.slice(start, cutAt));
-    start = boundary.lastIndex;
-  }
-  const last = text.slice(start);
-  if(last) out.push(last);
-  return out.filter(Boolean);
+  return SentenceRules.splitSentences(text);
 }
 
 // Renders one (sections, spans) pairing into per-section {html, hasFix} pieces. Called once for
@@ -15417,7 +15645,7 @@ function renderProgressStatsInto(el, stats, idPrefix, allowJump){
       '</div>' +
       (allowJump && s.pending.length ? '<div class="progActions"><button type="button" class="mbtn sm" data-jump="' + s.key + '">Batch add\u2026</button></div>' : '') +
       '<div class="progList" id="' + listId + '">' +
-        s.pending.map(e => '<div class="progListRow"><span>' + esc(e.n) + '</span><span>AD ' + e.y + '</span></div>').join('') +
+        s.pending.map(e => '<div class="progListRow"><span>' + esc(e.n) + '</span><span>' + (s.key === 'reword' ? longestSentenceWordCount(e) + ' words \u00b7 ' : '') + 'AD ' + e.y + '</span></div>').join('') +
       '</div>' +
     '</div>';
   }).join('');
@@ -15524,16 +15752,18 @@ function renderExportSummary(){
     // "Complete" for this count means the article body alone is over 550 words —
     // country/quotes/links don't factor in, just word count.
     const EX_COMPLETE_WORD_MIN = 550;
-    let complete = 0, incomplete = 0, totalWords = 0, totalChars = 0;
+    let complete = 0, incomplete = 0, totalWords = 0, totalChars = 0, withLong = 0;
     evs.forEach(e => {
       const stats = articleStats(e);
+      if(entryHasLongSentence(e)) withLong++; // v502
       if(stats.wordCount > EX_COMPLETE_WORD_MIN) complete++; else incomplete++;
       totalWords += stats.wordCount;
       totalChars += stats.charCount;
     });
     statEl.innerHTML =
       '<b>' + complete + '</b> complete (&gt;' + EX_COMPLETE_WORD_MIN + ' words) · <b>' + incomplete + '</b> incomplete (of ' + evs.length + ' matched)<br>' +
-      'Story text totals — <b>' + totalWords.toLocaleString() + '</b> words · <b>' + totalChars.toLocaleString() + '</b> characters (for TTS cost estimates)';
+      'Story text totals — <b>' + totalWords.toLocaleString() + '</b> words · <b>' + totalChars.toLocaleString() + '</b> characters (for TTS cost estimates)<br>' +
+      '<b>' + withLong + '</b> with a sentence over ' + SentenceRules.LIMIT + ' words (same rule as Progress and Add Task)';
   }
 }
 
@@ -16310,8 +16540,9 @@ function stripHtml(html){
 function articleStats(e){
   const sections = (e.art && e.art.sections) || [];
   const text = sections.map(s => stripHtml(s.b || '')).join(' ').replace(/\s+/g, ' ').trim();
-  const words = text ? text.split(' ') : [];
-  return {sectionCount: sections.length, wordCount: words.length, charCount: text.length};
+  // v502: wordCount is the shared rule (SentenceRules) — a token needs a letter or digit, so a lone
+  // dash no longer counts — and is the same number Progress and the reword service use.
+  return {sectionCount: sections.length, wordCount: SentenceRules.articleWordCount(e), charCount: text.length};
 }
 // Builds the export payload for JSON — Filtered: each entry gets sectionCount/wordCount/charCount
 // added (always, for TTS estimating), and only the schema fields checked on the Export tab are kept.
@@ -16324,6 +16555,9 @@ function buildExportPayload(entries, fields){
     copy.sectionCount = stats.sectionCount;
     copy.wordCount = stats.wordCount;
     copy.charCount = stats.charCount;
+    const sr = SentenceRules.analyzeEntry(e); // v502: same rule as Progress / Add Task / the reword service
+    copy.longestSentence = sr.longestWords;
+    copy.longSentences = sr.long.length;
     return copy;
   });
 }
@@ -16351,7 +16585,7 @@ function buildExportTable(entries, fields){
   if(fields.img) headers.push('imageUrl');
   if(fields.imgCap) headers.push('imageCaption');
   if(fields.audio) headers.push('audioUrl');
-  headers.push('sectionCount', 'wordCount', 'charCount');
+  headers.push('sectionCount', 'wordCount', 'charCount', 'longestSentence', 'longSentences');
   if(fields.art) headers.push('quotesCount', 'linksCount');
   if(fields.facts) headers.push('factsCount');
   if(fields.art) headers.push('article');
@@ -16375,7 +16609,8 @@ function buildExportTable(entries, fields){
     if(fields.img) row.push(e.img || '');
     if(fields.imgCap) row.push(e.imgCap || '');
     if(fields.audio) row.push(e.audio || '');
-    row.push(stats.sectionCount, stats.wordCount, stats.charCount);
+    const sr = SentenceRules.analyzeEntry(e); // v502: shared rule
+    row.push(stats.sectionCount, stats.wordCount, stats.charCount, sr.longestWords, sr.long.length);
     if(fields.art) row.push(((e.art || {}).quotes || []).length, ((e.art || {}).links || []).length);
     if(fields.facts) row.push((e.facts || []).length);
     if(fields.art){
