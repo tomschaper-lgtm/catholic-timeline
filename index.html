@@ -31,20 +31,20 @@ CHANGELOG:BEGIN
   everywhere: Export, the task queues (Add Task), and the status/Progress screens.
 
 **Implementation:**
-- New shared module SentenceRules (sentence-rules.cjs v2), embedded here between the
+- New shared module SentenceRules (sentence-rules.cjs v3), embedded here between the
   SENTENCE-RULES:BEGIN/END markers and byte-identical to scripts/lib/sentence-rules.cjs, which
   scripts/services/sentence-reword.mjs now imports. One definition: a word is a space-separated
   token with a letter or digit; a sentence ends at . ! ? … plus closing quote/bracket/tag, then a
-  space and a capital/digit/opening quote, except after abbreviations (St., Dr., c., A.D., initials);
+  space and a capital/digit/opening quote (a straight ' or " counts as a quote mark both ways), except after abbreviations (St., Dr., c., A.D., initials);
   every <li>/<p>/<blockquote> boundary and blank line ends a sentence; long means MORE than 40.
 - Why they disagreed (reproduced against the 2026-09-27 export: old rule = 43 entries flagged, exactly
   Progress's 410/453): (1) paragraphHasLongSentence/longestSentenceWordCount skipped every paragraph
-  containing an entry: link, hiding 27 entries that really have a long sentence; (2) the splitter
+  containing an entry: link, hiding 26 entries that really have a long sentence; (2) the splitter
   needed whitespace straight after . ! ? so a sentence ending in a closing quote ("...brother.")
-  merged with the next, and a <ul> list read as one long sentence — 14 false alarms (Gerard
-  Majella, First Lateran Council, Edict of Milan, ...); (3) the service split RAW html, so a
+  merged with the next, and a <ul> list read as one long sentence — 16 false alarms (Gerard
+  Majella, First Lateran Council, Edict of Milan, Bessette, Teresa of Calcutta, ...); (3) the service split RAW html, so a
   sentence starting with a tag (<a>, <b>) never split, and its wordCount() counted lone dashes that
-  the app's v491 rule ignores. Counting on the same data now gives 56 entries / 198 sentences.
+  the app's v491 rule ignores. Counting on the same data now gives 53 entries / 195 sentences.
 - countSentenceWords, paragraphHasLongSentence, entryHasLongSentence, longestSentenceWordCount and
   tkSplitSentencesForDisplay keep their names and now delegate to SentenceRules, so Progress rows,
   the Proof/Audio 40-word lock, sentenceRewordPool/audioGeneratePool and the review screens are
@@ -53,8 +53,8 @@ CHANGELOG:BEGIN
   Export gets longestSentence and longSentences columns (CSV/XLSX and JSON Filtered) and a stat-box
   line. Progress's Long sentences list shows each entry's longest sentence; the Add Task preview
   shows "N long, longest NN words" for Reword long sentences.
-- Expect Progress's Long sentences to move from 410/453 to about 397/453: the 27 hidden entries now
-  count, and the 14 false alarms clear.
+- Expect Progress's Long sentences to move from 410/453 to about 400/453: the 26 hidden entries now
+  count, and the 16 false alarms clear.
 
 ## v501 — 2026-09-28
 
@@ -6060,12 +6060,12 @@ const ICONS = {
 const TYPE_BAND_IMG = {s:'', c:'', p:'', e:'', m:'', u:''};
 
 // ================= DATABASE =================
-// SENTENCE-RULES:BEGIN  (sentence-rules.cjs v2 — this block must stay byte-identical to
+// SENTENCE-RULES:BEGIN  (sentence-rules.cjs v3 — this block must stay byte-identical to
 // scripts/lib/sentence-rules.cjs, which scripts/services/sentence-reword.mjs imports. It is the ONE
 // definition of "word", "sentence" and "long sentence"; every counter below calls it.)
 /* ============================================================================
    sentence-rules.cjs
-   VERSION: 2
+   VERSION: 3
    DATE: 2026-09-28
 
    THE one definition of "word", "sentence" and "long sentence" for Catholic
@@ -6082,8 +6082,9 @@ const TYPE_BAND_IMG = {s:'', c:'', p:'', e:'', m:'', u:''};
       &nbsp; ...) are decoded first. (To count unspaced em-dash words as two,
       set SPLIT_EM_DASH = true below; nothing else changes.)
    3. A sentence ends at . ! ? or … (also runs like ?! and ...), followed by
-      any closing quotes / brackets, then a space, then a capital letter,
-      digit or opening quote/bracket. A lowercase next word means the
+      any closing quotes / brackets (including a straight ' or "), then a
+      space, then a capital letter, digit or opening quote/bracket (including
+      a straight ' or ", which this site uses for quotations). A lowercase next word means the
       sentence continues (He asked "Who?" and left.)
    4. Not a sentence end: after an abbreviation (St. Sts. Dr. Fr. Mt. No. vs.
       c. b. d. r. A.D. e.g. i.e. months before a date, single initials).
@@ -6104,7 +6105,7 @@ const TYPE_BAND_IMG = {s:'', c:'', p:'', e:'', m:'', u:''};
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  var VERSION = 2;
+  var VERSION = 3;
   var LIMIT = 40;
   var SPLIT_EM_DASH = false;
   var BREAK = '\u0001';
@@ -6185,7 +6186,7 @@ const TYPE_BAND_IMG = {s:'', c:'', p:'', e:'', m:'', u:''};
   function isLongWords(n) { return n > LIMIT; }
 
   /* ---- sentences ------------------------------------------------------ */
-  var NEXT_OK = /[\p{Lu}\p{N}"\u201c\u2018(\[\u00ab]/u;
+  var NEXT_OK = /[\p{Lu}\p{N}"'\u201c\u2018(\[\u00ab]/u;
 
   function isAbbrev(tok, next) {
     if (!tok) return false;
@@ -6198,7 +6199,7 @@ const TYPE_BAND_IMG = {s:'', c:'', p:'', e:'', m:'', u:''};
   }
 
   function splitSegment(seg, off, out) {
-    var re = /([.!?\u2026]+)(["\u201d\u2019\u00bb)\]]*)(\s+)/g;
+    var re = /([.!?\u2026]+)(["'\u201d\u2019\u00bb)\]]*)(\s+)/g;
     var last = 0, m;
     while ((m = re.exec(seg))) {
       var after = re.lastIndex;
