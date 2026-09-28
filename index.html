@@ -1,6 +1,6 @@
 <!--
-VERSION: 502
-DATE: 2026-09-28T05:58:00-05:00
+VERSION: 504
+DATE: 2026-09-28T06:58:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,41 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v504 — 2026-09-28
+
+**Ask:**
+- Add Task showed about 20 entries to reword but Progress showed more. Make the status say how many
+  are LEFT, so there's no subtracting done from total every time.
+
+**Implementation:**
+- computeProgressStats() now also returns left (not done), ready and held. Every Progress row (and
+  Export's Status button) leads with a bold "N left", then the "done / total" fraction it already
+  showed.
+- The two counts differed because Add Task's picker leaves some entries out on purpose. New per-row
+  hold() rules name them: for Long sentences, entries that already have recorded audio (approving a
+  reword erases the recording, so the picker skips them unless "Include entries that already have
+  recorded audio" is ticked) and entries already queued or in review; for Audio recorded, entries
+  that still have a long sentence and entries already queued. A row with held-back entries shows a
+  second line: "20 ready to queue · 24 held back: 24 have recorded audio", with a reminder of the
+  checkbox on the Long sentences row.
+- Add Task's preview line says how many are eligible, and for Reword long sentences how many more
+  are held back, e.g. "Will start at the earliest eligible entry — 20 eligible · 24 more held
+  back (recorded audio or already queued)".
+
+## v503 — 2026-09-28
+
+**Ask:**
+- The "show remaining" lists on Progress are not in order by year. Put them in year order.
+
+**Implementation:**
+- computeProgressStats() now returns each row's pending list sorted by year, oldest first, then by
+  name. It had been left in raw db.entries order (grouped by category), which is why a list read
+  1917, 1263, 67, 67, 379. Every Progress row and Export's Status button use this one function, so
+  they all follow. The Add Task "Will queue" list was already year-sorted (or feast-day sorted for
+  Saints when Order by is set to feast) and is unchanged.
+- Rebuilt on top of the v502 that carries sentence-rules.cjs v3 (straight single quotes handled).
+  The two builds shared the number 502 while differing in that one module; v503 removes the ambiguity.
+
 ## v502 — 2026-09-28
 
 **Ask:**
@@ -4645,6 +4680,8 @@ CHANGELOG:END
   .progBarTrack{height:7px; border-radius:4px; background:var(--m-border); overflow:hidden; margin:7px 0 6px;}
   .progBarFill{height:100%; background:var(--m-accent); border-radius:4px;}
   .progCount{font-size:12.5px; color:var(--m-sub); line-height:1.4;}
+  .progLeft{color:var(--m-ink); font-weight:700;}
+  .progHeld{font-size:12px; color:var(--m-sub); line-height:1.4; margin-top:3px;}
   .progListToggle{
     background:none; border:none; padding:0; margin:0; font-size:12.5px; color:var(--m-accent);
     text-decoration:underline; cursor:pointer;
@@ -6310,7 +6347,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v502';
+const APP_VERSION = 'v504';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -9214,12 +9251,19 @@ function tkRenderBatchStartPreview(){
   const catVal = document.getElementById('tkBatchCategory').value;
   const catLabel = catVal ? (TYPE_NAMES[catVal] + 's') : 'entries';
   const feastMode = tkIsFeastMode();
-  if(!pool.length){ preview.textContent = 'No ' + catLabel + ' currently eligible.'; tkBatchStartIdx = -1; return; }
-  if(tkBatchStartIdx < 0){ preview.textContent = 'Will start at the earliest eligible ' + (feastMode ? 'feast' : (catVal ? TYPE_NAMES[catVal].toLowerCase() : 'entry')); return; }
+  // v504: for rewording, also say how many still have a long sentence but were left out of this list
+  let heldNote = '';
+  if(document.getElementById('tkNewType').value === 'sentence-reword'){
+    const all = db.entries.filter(e => (!catVal || e.t === catVal) && articleStats(e).wordCount > 0 && entryHasLongSentence(e));
+    const held = all.length - pool.length;
+    if(held > 0) heldNote = ' \u00b7 ' + held + ' more held back (recorded audio or already queued)';
+  }
+  if(!pool.length){ preview.textContent = 'No ' + catLabel + ' currently eligible.' + heldNote; tkBatchStartIdx = -1; return; }
+  if(tkBatchStartIdx < 0){ preview.textContent = 'Will start at the earliest eligible ' + (feastMode ? 'feast' : (catVal ? TYPE_NAMES[catVal].toLowerCase() : 'entry')) + ' \u2014 ' + pool.length + ' eligible' + heldNote; return; }
   if(tkBatchStartIdx >= pool.length) tkBatchStartIdx = pool.length - 1;
   const e = pool[tkBatchStartIdx];
   const posLabel = feastMode ? fmtMonthDay(feastSortKeyOf(e)) : fmtYear(e.y);
-  preview.textContent = e.n + ' (' + posLabel + ') \u2014 #' + (tkBatchStartIdx + 1) + ' of ' + pool.length + ' ' + catLabel + ' eligible';
+  preview.textContent = e.n + ' (' + posLabel + ') \u2014 #' + (tkBatchStartIdx + 1) + ' of ' + pool.length + ' ' + catLabel + ' eligible' + heldNote;
 }
 function tkRenderBatchList(){
   const listEl = document.getElementById('tkBatchList');
@@ -15600,13 +15644,18 @@ function mExportFilteredEntries(){
 const PROGRESS_ROWS = [
   { key: 'reword',     label: 'Long sentences',           service: 'sentence-reword',  category: '',
     inPool: e => articleStats(e).wordCount > 0,
-    done:   e => !entryHasLongSentence(e) },
+    done:   e => !entryHasLongSentence(e),
+    // v504: Add Task's picker leaves these out, so "left" here can exceed its list — say why
+    hold:   e => tkHasPendingTask(e.id, ['sentence-reword']) ? 'already queued or in review'
+               : (e.audio ? 'have recorded audio' : null) },
   { key: 'proofread',  label: 'Proofread',                 service: 'arbitrate',        category: '',
     inPool: e => articleStats(e).wordCount > 0,
     done:   e => !!(e.qc && e.qc.proofread) },
   { key: 'audio',      label: 'Audio recorded',            service: 'audio-generate',   category: '',
     inPool: e => articleStats(e).wordCount > 0,
-    done:   e => !!e.audio },
+    done:   e => !!e.audio,
+    hold:   e => tkHasPendingTask(e.id, ['audio-generate']) ? 'already queued'
+               : (entryHasLongSentence(e) ? 'wait on rewording' : null) },
   { key: 'pron',       label: 'Pronunciation re-record',   service: 'audio-generate',   category: '',
     inPool: e => !!e.audio && entryPronHits(e).length > 0,
     done:   e => !!e.audioPron },
@@ -15621,11 +15670,18 @@ function computeProgressStats(entries){
   return PROGRESS_ROWS.map(row => {
     const pool = entries.filter(row.inPool);
     const pending = pool.filter(e => !row.done(e));
+    // v504: how many are LEFT, and of those how many the Add Task picker will actually offer
+    const reasons = {};
+    let heldTotal = 0;
+    if(row.hold) pending.forEach(e => { const r = row.hold(e); if(r){ reasons[r] = (reasons[r] || 0) + 1; heldTotal++; } });
     return {
       key: row.key, label: row.label, service: row.service, category: row.category,
+      left: pending.length, ready: pending.length - heldTotal, held: { total: heldTotal, reasons: reasons },
       done: pool.length - pending.length, total: pool.length,
       pct: pool.length ? Math.round((pool.length - pending.length) / pool.length * 100) : 100,
-      pending: pending
+      // v503: oldest first (then A–Z). Before this the list came out in raw db.entries order
+      // (grouped by category), so years jumped 1917, 1263, 67, 67, 379 ...
+      pending: pending.slice().sort((a, b) => ((a.y || 0) - (b.y || 0)) || String(a.n).localeCompare(String(b.n)))
     };
   });
 }
@@ -15641,9 +15697,13 @@ function renderProgressStatsInto(el, stats, idPrefix, allowJump){
       '<div class="progRowTop"><span class="progLabel">' + esc(s.label) + '</span>' +
       '<span class="progPct">' + s.pct + '%</span></div>' +
       '<div class="progBarTrack"><div class="progBarFill" style="width:' + s.pct + '%"></div></div>' +
-      '<div class="progCount">' + s.done + ' / ' + s.total + ' done' +
+      '<div class="progCount"><b class="progLeft">' + s.left + ' left</b> \u00b7 ' + s.done + ' / ' + s.total + ' done' +
         (s.pending.length ? ' \u00b7 <button type="button" class="progListToggle" data-list="' + listId + '">show remaining</button>' : '') +
       '</div>' +
+      (s.held && s.held.total ? '<div class="progHeld">' + s.ready + ' ready to queue \u00b7 ' + s.held.total + ' held back: ' +
+        Object.keys(s.held.reasons).map(k => s.held.reasons[k] + ' ' + k).join(', ') +
+        (s.key === 'reword' && s.held.reasons['have recorded audio'] ? '. Tick \u201cInclude entries that already have recorded audio\u201d in Add Task to queue them (approving a fix erases the recording).' : '') +
+        '</div>' : '') +
       (allowJump && s.pending.length ? '<div class="progActions"><button type="button" class="mbtn sm" data-jump="' + s.key + '">Batch add\u2026</button></div>' : '') +
       '<div class="progList" id="' + listId + '">' +
         s.pending.map(e => '<div class="progListRow"><span>' + esc(e.n) + '</span><span>' + (s.key === 'reword' ? longestSentenceWordCount(e) + ' words \u00b7 ' : '') + 'AD ' + e.y + '</span></div>').join('') +
