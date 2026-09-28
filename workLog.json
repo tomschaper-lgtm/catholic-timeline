@@ -5184,12 +5184,53 @@
       "type": "arbitrate",
       "entityId": "st-mary-magdalene-48",
       "batchId": null,
-      "status": "in_progress",
+      "status": "awaiting_review",
       "description": "Proofread articles — St. Mary Magdalene",
       "payload": {},
-      "result": null,
+      "result": {
+        "name": "St. Mary Magdalene",
+        "verdict": "findings",
+        "debates": [
+          {
+            "severity": "ERROR",
+            "category": "MEANING/CLARITY",
+            "section": "Legacy",
+            "sentence": "2",
+            "kind": "article",
+            "before": "This gave her liturgical celebration the rank of a Feast, the rank commonly assigned to celebrations of the Apostles.",
+            "after": "",
+            "concern": "This sentence merely repeats the preceding sentence and creates an apparent drafting error. It also risks implying that the Feast rank is uniquely or routinely assigned to all apostolic celebrations, which is not necessary to the point.",
+            "suggestedCorrection": "Delete the redundant sentence.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "Removing the redundant sentence improves the flow and eliminates the potential confusion over liturgical ranks.",
+            "proposedBy": "gpt-5.6-luna",
+            "arbitratedBy": "gemini-3.5-flash-lite"
+          },
+          {
+            "severity": "ERROR",
+            "category": "INTERNAL CONSISTENCY",
+            "section": "Legacy",
+            "sentence": "1-2",
+            "kind": "article",
+            "before": "In 2016, recognizing the singular dignity of her witness, Pope Francis elevated Mary Magdalene's liturgical celebration to the rank of a Feast. \nThis gave her liturgical celebration the rank of a Feast, the rank commonly assigned to celebrations of the Apostles.",
+            "concern": "Sentences 1 and 2 are almost exact duplicate restatements of each other, creating an awkward redundant loop in the prose.",
+            "after": "In 2016, recognizing the singular dignity of her witness, Pope Francis elevated Mary Magdalene's liturgical celebration from an obligatory memorial to the rank of a Feast, the rank commonly assigned to celebrations of the Apostles.",
+            "suggestedCorrection": "Combine the duplicate statements into a single, cohesive sentence.",
+            "source": "Not externally verified",
+            "winner": "revised",
+            "comment": "",
+            "proposedBy": "gemini-3.5-flash-lite",
+            "arbitratedBy": "gpt-5.6-luna"
+          }
+        ],
+        "models": [
+          "gpt-5.6-luna",
+          "gemini-3.5-flash-lite"
+        ]
+      },
       "createdAt": "2026-09-27T19:17:19.856Z",
-      "updatedAt": "2026-09-28T01:39:43.507Z",
+      "updatedAt": "2026-09-28T01:39:59.449Z",
       "error": null
     },
     {
