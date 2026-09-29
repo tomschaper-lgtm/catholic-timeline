@@ -1,6 +1,6 @@
 <!--
-VERSION: 507
-DATE: 2026-09-29T17:47:45-05:00
+VERSION: 508
+DATE: 2026-09-29T18:05:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,24 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v508 — 2026-09-29
+
+**Ask:**
+- Safari ignores the voice chosen in iOS Accessibility, so add a way to choose the browser voice
+  inside the app. Put it in Settings, and only when Review Mode is on.
+
+**Implementation:**
+- New Settings row "Browser voice" (#ttsVoiceRow, in #ownerGroup right under the Review row) with a
+  native select (#ttsVoiceSel, 16px so iOS doesn't zoom). Shown only while Review Mode is on and the
+  browser has at least one English voice; hidden otherwise. Lists "Automatic (best available)" plus
+  every English voice the browser exposes, alphabetical, with the language code.
+- Choice is stored per device in localStorage 'tts-voice' (voiceURI, falling back to name).
+  ttsRefreshVoices() uses the saved voice if it is still installed, else the automatic pick.
+- Changing the voice speaks a short sample in it (or, mid-playback, restarts the current sentence in
+  the new voice). "Automatic" clears the saved choice.
+- ttsFillVoiceSelect()/ttsUpdateVoiceRow(); updateReviewUI() calls the latter so the row follows
+  Review Mode. The list is rebuilt only when the set of voices changes, so an open dropdown isn't reset.
+
 ## v507 — 2026-09-29
 
 **Ask:**
@@ -2948,6 +2966,14 @@ CHANGELOG:END
     font-size:13.5px; line-height:1.55; color:#7C8598;
   }
   .pNote:empty{display:none;}
+  /* v508: Browser voice row — label above a full-width native select. 16px+ keeps iOS from zooming. */
+  #ttsVoiceRow{cursor:default;}
+  .pVoiceLbl{display:block;}
+  .pVoiceSel{
+    display:block; width:100%; margin-top:6px; padding:9px 10px; font-size:16px;
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; color:#111827;
+    background:#fff; border:1px solid #D5D8E0; border-radius:8px;
+  }
   /* v422: was a full-width button on its own row below (.pUpdateAction) — moved inline, on the
      same row as the label, in place of the version/chevron it replaces while pending (see
      setPendingReload() below). Sized as a pill rather than the old full-row button since it
@@ -5079,6 +5105,11 @@ CHANGELOG:END
           <input type="checkbox" id="reviewModeToggle" autocomplete="off"><i class="sw"></i>
         </label>
       </div>
+      <div class="pRow" id="ttsVoiceRow" style="display:none;">
+        <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/></svg></span>
+        <span class="pName"><span class="pVoiceLbl">Browser voice</span><select id="ttsVoiceSel" class="pVoiceSel" aria-label="Browser voice for read-aloud"></select></span>
+      </div>
+      <p class="pNote" id="ttsVoiceNote" style="display:none;">Read-aloud voice for entries with no recording. Safari does not use the voice set in iOS Accessibility, so choose it here. Saved on this device.</p>
       <button class="pRow" id="manageBtn">
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="2" fill="currentColor" stroke="none"/></svg></span>
         <span class="pName">Manage</span>
@@ -6422,7 +6453,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v507';
+const APP_VERSION = 'v508';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14138,10 +14169,18 @@ function ttsRefreshVoices(){
   if(!TTS_API) return;
   let list = [];
   try{ list = speechSynthesis.getVoices() || []; }catch(e){}
-  const v = list.length ? ttsPickVoice(list) : null;
+  let v = null;
+  if(list.length){
+    let saved = null;
+    try{ saved = localStorage.getItem('tts-voice'); }catch(e){}
+    if(saved) v = list.find(x => (x.voiceURI || x.name) === saved && String(x.lang || '').toLowerCase().indexOf('en') === 0) || null;
+    if(!v) v = ttsPickVoice(list);
+  }
   const was = ttsVoicesReady;
   ttsVoice = v;
   ttsVoicesReady = !!v;
+  ttsFillVoiceSelect(list);
+  ttsUpdateVoiceRow();
   if(ttsVoicesReady && !was) ttsOnAvailable();
 }
 // Voices often arrive a moment AFTER the page loads (Chrome). If a card is already open with no
@@ -14187,6 +14226,63 @@ function ttsSyncReviewMode(){
     updateAudioBarPresence();
   }catch(e){}
 }
+// ---- v508: voice picker (Settings, Review Mode only) ----
+var ttsVoiceSig = '';
+function ttsVoiceId(v){ return v.voiceURI || v.name; }
+function ttsEnglishVoices(list){
+  return (list || []).filter(v => String(v.lang || '').toLowerCase().indexOf('en') === 0)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+}
+function ttsFillVoiceSelect(list){
+  const sel = document.getElementById('ttsVoiceSel');
+  if(!sel) return;
+  const eng = ttsEnglishVoices(list);
+  let saved = ''; try{ saved = localStorage.getItem('tts-voice') || ''; }catch(e){}
+  const sig = eng.map(ttsVoiceId).join('|') + '#' + saved;
+  if(sig === ttsVoiceSig) return;
+  ttsVoiceSig = sig;
+  sel.innerHTML = '';
+  const auto = document.createElement('option');
+  auto.value = ''; auto.textContent = 'Automatic (best available)';
+  sel.appendChild(auto);
+  eng.forEach(v => {
+    const o = document.createElement('option');
+    o.value = ttsVoiceId(v);
+    o.textContent = v.name + ' (' + String(v.lang || '').replace('_', '-') + ')';
+    sel.appendChild(o);
+  });
+  sel.value = eng.some(v => ttsVoiceId(v) === saved) ? saved : '';
+}
+function ttsUpdateVoiceRow(){
+  const row = document.getElementById('ttsVoiceRow');
+  const note = document.getElementById('ttsVoiceNote');
+  if(!row) return;
+  const show = !!TTS_API && ttsVoicesReady && reviewMode === true;
+  row.style.display = show ? '' : 'none';
+  if(note) note.style.display = show ? '' : 'none';
+}
+(function(){
+  const sel = document.getElementById('ttsVoiceSel');
+  if(!sel) return;
+  sel.addEventListener('change', () => {
+    try{
+      if(sel.value) localStorage.setItem('tts-voice', sel.value); else localStorage.removeItem('tts-voice');
+    }catch(e){}
+    ttsVoiceSig = '';               // force the select to re-sync with the stored choice
+    ttsRefreshVoices();
+    if(!ttsVoice) return;
+    if(audioEl && audioEl.isTts && !audioEl.paused){
+      ttsSpeakFrom(audioEl, audioEl._idx);   // playing: hear the new voice from the current sentence
+      return;
+    }
+    // Not playing: a short sample, spoken straight from this tap (iOS needs the gesture).
+    ttsCancel();
+    const u = new SpeechSynthesisUtterance('Saint Augustine, pray for us.');
+    u.voice = ttsVoice; u.lang = ttsVoice.lang; u.rate = TTS_RATE;
+    try{ speechSynthesis.speak(u); }catch(e){}
+  });
+})();
+
 // ---- Pronunciation: reuse the recorder's alias rules so the browser voice says "Pius the Ninth"
 // the same way the recordings do. Case-sensitive, whole words, first rule to match wins — the
 // same matching as tkLoadPronRules()/entryPronHits(). Loaded once; no rules file = text as written.
@@ -16367,6 +16463,7 @@ function updateReviewUI(){
     cnt.textContent = pend + ' review + ' + (total - pend) + ' public = ' + total;
   }
   if(hamBox) hamBox.checked = reviewMode;
+  ttsUpdateVoiceRow(); // v508
   // Always shows a count, including "0 pending" — the row works the same at zero.
   if(hamMeta) hamMeta.textContent = String(pend);
   if(onlyBtn) onlyBtn.classList.toggle('on', reviewOnlyMode);
