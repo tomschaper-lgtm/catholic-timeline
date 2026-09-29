@@ -1,6 +1,6 @@
 <!--
-VERSION: 506
-DATE: 2026-09-29T17:36:00-05:00
+VERSION: 507
+DATE: 2026-09-29T17:47:45-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,20 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v507 — 2026-09-29
+
+**Ask:**
+- The browser voice sounds robotic, so it should only be available in Review Mode. Visitors only
+  get the play button when an entry has recorded audio.
+
+**Implementation:**
+- ttsAvailable() now also requires reviewMode. Nothing else about the v506 browser-voice path
+  changed; it simply never engages outside Review Mode.
+- New ttsSyncReviewMode(), called from setReviewMode(): turning Review Mode on with a card open
+  and no recording wires the browser voice; turning it off while the browser voice is active stops
+  it, unwraps the sentence spans and hides the button. Recorded audio is untouched either way.
+- ttsOnAvailable() (late-arriving voices) is now the shared wiring routine and checks ttsAvailable().
+
 ## v506 — 2026-09-29
 
 **Ask:**
@@ -6408,7 +6422,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v506';
+const APP_VERSION = 'v507';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14094,7 +14108,7 @@ var ttsWatchdog = null;
 var ttsErrStreak = 0;
 var ttsPronRules = null;   // [{from, to}] — the same pronunciation aliases the audio recorder uses
 
-function ttsAvailable(){ return !!TTS_API && ttsVoicesReady; }
+function ttsAvailable(){ return !!TTS_API && ttsVoicesReady && reviewMode === true; } // v507: Review Mode only — the voice is too robotic for visitors
 // True when the entry has something to play in the given host ('article' | 'about'): recorded
 // audio on the entry, or the browser-voice stand-in currently wired to that host.
 function entryNarrated(entry, host){
@@ -14133,6 +14147,7 @@ function ttsRefreshVoices(){
 // Voices often arrive a moment AFTER the page loads (Chrome). If a card is already open with no
 // recorded audio when the first voice shows up, wire it now rather than waiting for the next open.
 function ttsOnAvailable(){
+  if(!ttsAvailable()) return;
   try{
     const art = document.getElementById('article');
     if(currentEntry && art && art.classList.contains('open') && !currentEntry.audio && !audioEl){
@@ -14154,6 +14169,24 @@ function ttsOnAvailable(){
   }catch(e){}
 }
 
+// v507: Review Mode flipped while a card is open. On: wire the browser voice for an entry with no
+// recording. Off: if the browser voice is what's wired, stop it and take its sentence spans out.
+function ttsSyncReviewMode(){
+  try{
+    if(reviewMode){ ttsOnAvailable(); return; }
+    if(audioEl && audioEl.isTts){
+      stopAudio();
+      document.querySelectorAll('#artStoryText .sentCue, #aboutStoryText .sentCue').forEach(sp => {
+        const par = sp.parentNode; if(!par) return;
+        while(sp.firstChild) par.insertBefore(sp.firstChild, sp);
+        par.removeChild(sp); par.normalize();
+      });
+      document.querySelectorAll('#artStoryText [data-cue-idx], #aboutStoryText [data-cue-idx]').forEach(el => el.removeAttribute('data-cue-idx'));
+      ttsResetPlayIcon();
+    }
+    updateAudioBarPresence();
+  }catch(e){}
+}
 // ---- Pronunciation: reuse the recorder's alias rules so the browser voice says "Pius the Ninth"
 // the same way the recordings do. Case-sensitive, whole words, first rule to match wins — the
 // same matching as tkLoadPronRules()/entryPronHits(). Loaded once; no rules file = text as written.
@@ -16316,6 +16349,7 @@ function setReviewMode(on){
   updateReviewUI();
   renderMList(false);
   render();
+  ttsSyncReviewMode(); // v507
 }
 function updateReviewUI(){
   const btn = document.getElementById('reviewToggle');
