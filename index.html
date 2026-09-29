@@ -1,6 +1,6 @@
 <!--
-VERSION: 508
-DATE: 2026-09-29T18:05:00-05:00
+VERSION: 509
+DATE: 2026-09-29T18:42:57-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,20 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v509 — 2026-09-29
+
+**Ask:**
+- The browser voice should also end a Saint's article with "Saint ___, pray for us." like the
+  recordings do.
+
+**Implementation:**
+- initTts() appends one closing cue (type 'invocation') for Saint entries (t === 's') read in the
+  article view; not the About panel. The text comes from ttsSaintName(): St./Sts. become
+  Saint/Saints, & becomes and, and a name with no title gets "Saint" in front (names already
+  starting with Pope, Blessed, Bl., Ven. or Venerable are left as written).
+- The cue has no matching text on the page, so applyCueMarkup() skips it: it is spoken like the rest
+  (including the pronunciation rules) but nothing is highlighted while it plays.
+
 ## v508 — 2026-09-29
 
 **Ask:**
@@ -6453,7 +6467,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v508';
+const APP_VERSION = 'v509';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14497,6 +14511,15 @@ function ttsFail(p, why){
   ttsResetPlayIcon();
   try{ setStatus(why || 'The browser voice couldn\u2019t start'); }catch(e){}
 }
+// v509: the spoken form of a Saint's name for the closing prayer. "St. Augustine" -> "Saint Augustine".
+function ttsSaintName(n){
+  let t = String(n || '').replace(/\s+/g, ' ').trim();
+  if(!t) return '';
+  t = t.replace(/^Sts\.\s+/i, 'Saints ').replace(/\bSts\.\s+/g, 'Saints ').replace(/\bSt\.\s+/g, 'Saint ').replace(/\s*&\s*/g, ' and ');
+  t = t.replace(/^Bl\.\s+/i, 'Blessed ').replace(/^Ven\.\s+/i, 'Venerable ');
+  if(!/^(Saints?|Pope|Blessed|Venerable)\b/i.test(t)) t = 'Saint ' + t;
+  return t;
+}
 // Wires the browser voice to the open article / About panel (the counterpart of
 // initAudio() + wireSentenceCues() for recorded entries). Silent no-op if there is no story text.
 function initTts(d, host){
@@ -14509,6 +14532,10 @@ function initTts(d, host){
   if(!container) return;
   const cues = ttsBuildCues(container);
   if(!cues.length) return;
+  if(audioHost === 'article' && d && d.t === 's'){           // v509: closing prayer, as the recordings have
+    const nm = ttsSaintName(d.n);
+    if(nm) cues.push({ start: cues.length, end: cues.length + 1, type: 'invocation', text: nm + ', pray for us.', section: cues[cues.length - 1].section });
+  }
   ttsLoadPron();
   currentCues = cues;
   cueEls = cues.map(() => []);
