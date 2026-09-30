@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
-kokoro-test.html  VERSION: 2
-DATE: 2026-09-29T20:37:32-05:00
+kokoro-test.html  VERSION: 3
+DATE: 2026-09-30T04:38:19-05:00
 Standalone experiment: can the open-source Kokoro neural voice run on this phone?
 Not part of the Catholic Timeline app. Nothing here touches the app's data.
 -->
@@ -51,6 +51,7 @@ Not part of the Catholic Timeline app. Nothing here touches the app's data.
   <select id="voiceSel" disabled aria-label="Voice"><option>Load the voice first</option></select>
   <textarea id="txt" aria-label="Text to read">Saint Augustine was born in Thagaste in the year 354. He converted in Milan after hearing Ambrose preach. Later he became bishop of Hippo, where he wrote the Confessions and The City of God. Pope Pius the Ninth called the First Vatican Council, and it opened in Rome in 1869. Saint Augustine, pray for us.</textarea>
   <div class="row"><button id="speakBtn" disabled>Speak</button><button id="stopBtn" class="sec" disabled>Stop</button></div>
+  <div class="row"><button id="pronBtn" class="sec">Load pronunciation-markup test</button></div>
 </div>
 
 <div class="card">
@@ -189,6 +190,17 @@ $('copyBtn').addEventListener('click', async () => {
   catch(e){ const r = document.createRange(); r.selectNodeContents($('out')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
 });
 report();
+
+// v3: pronunciation-markup test. Sentences 1 and 3 are plain; 2 and 4 use Kokoro's inline
+// [word](/IPA/) markup. If the markup works, 2 and 4 sound different (and better) than 1 and 3.
+// If it does NOT work here, sentences 2 and 4 will sound garbled, or read out brackets and slashes.
+document.getElementById('pronBtn').addEventListener('click', function(){
+  document.getElementById('txt').value =
+    'Eusebius records that a bronze statue stood at Caesarea Philippi. ' +
+    'Eusebius [records](/\u0279\u1d7bk\u02c8\u0254\u0279dz/) that a bronze statue stood at Caesarea Philippi. ' +
+    'Veronica preached beside Saint Martial near Bordeaux. ' +
+    'Veronica preached beside Saint [Martial](/m\u02c8\u0251\u0279\u0283\u0259l/) near [Bordeaux](/b\u0254\u0279d\u02c8O/).';
+});
 </script>
 </body>
 </html>
