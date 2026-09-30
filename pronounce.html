@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <!--
-pronounce.html  VERSION: 1
-DATE: 2026-09-30T08:45:45-05:00
+pronounce.html  VERSION: 2
+DATE: 2026-09-30T09:21:41-05:00
 Fix a pronunciation by ear. Opened from an article's review tools (pronounce.html?id=<entry-id>).
 Tap the word Kokoro says wrong, listen to candidate pronunciations, pick the right one (or type
 how it sounds), and it is saved as a rule in pronunciation/catholic-timeline-pronunciation.json.
 Candidates are phoneme strings played through the SAME Kokoro model the recorder uses, and the
 exact string you pick is what gets saved, so the recording says it the way you heard it here.
+Review list tab (pronounce.html?review=1), added in v2: walks the pronunciation audit's list
+(pronunciation/names-candidates.json) one word at a time: Original / Guided / Neither / Not sure.
+Choices are kept on the phone until Save, which writes the rules, the decisions file and the
+shortened list in one go.
 Uses the GitHub token and repo settings the app already keeps on this device.
 -->
 <html lang="en">
@@ -45,13 +49,25 @@ Uses the GitHub token and repo settings the app already keeps on this device.
   .cmid{ flex:1; min-width:0; } .clab{ font-size:15px; } .cph{ font-size:13px; color:var(--mut); font-family:ui-monospace,Menlo,monospace; word-break:break-all; }
   .cand button{ padding:8px 11px; font-size:15px; }
   .hint{ color:var(--mut); font-size:14px; line-height:1.4; margin:6px 0 0; }
+  .tabs{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0 0 12px; }
+  .tabs button{ background:transparent; color:var(--fg); border-color:var(--line); }
+  .tabs button.on{ background:var(--gold); color:#fff; border-color:var(--gold); }
+  .bigword{ font-size:34px; font-weight:700; text-align:center; margin:6px 0 2px; word-break:break-word; }
+  .ctx{ font-size:16px; line-height:1.5; margin:8px 0 4px; padding:8px 10px; border-left:3px solid var(--gold); background:var(--bg); border-radius:0 8px 8px 0; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0 0; }
+  .grid2 button{ padding:13px 8px; }
+  .stamp{ display:inline-block; font-size:13px; font-weight:700; padding:2px 8px; border-radius:10px; background:var(--sel); }
+  #saveBar{ position:sticky; bottom:calc(8px + env(safe-area-inset-bottom)); display:none; background:var(--card); border:1px solid var(--gold); border-radius:12px; padding:10px 12px; box-shadow:0 4px 18px rgba(0,0,0,.18); align-items:center; justify-content:space-between; gap:10px; }
+  #revFilter{ width:auto; padding:6px 8px; }
   .hidden{ display:none !important; }
 </style>
 </head>
 <body>
 <div class="row" style="margin:0 0 6px;"><a id="backLink" href="./">&larr; Back to the timeline</a></div>
-<h1>Fix a pronunciation <span class="ver">v1</span></h1>
-<p class="sub">Tap the word the voice says wrong. You'll hear a few ways to say it &mdash; pick the right one and it's saved for every future recording.</p>
+<h1>Fix a pronunciation <span class="ver">v2</span></h1>
+<div class="tabs"><button id="tabArt" class="on">Article</button><button id="tabRev">Review list</button></div>
+<p class="sub" id="subArt">Tap the word the voice says wrong. You'll hear a few ways to say it &mdash; pick the right one and it's saved for every future recording.</p>
+<p class="sub hidden" id="subRev">Words from the pronunciation audit, one at a time. Do a quick pass, mark anything you're unsure of, then come back to those.</p>
 
 <div class="card">
   <h2>Voice</h2>
@@ -64,6 +80,28 @@ Uses the GitHub token and repo settings the app already keeps on this device.
   <h2>Article</h2>
   <input id="search" type="search" placeholder="Search by name&hellip;" autocomplete="off">
   <div id="results"></div>
+</div>
+
+<div class="card hidden" id="revCard">
+  <div class="row" style="margin:0 0 4px;justify-content:space-between;">
+    <h2 id="revProg" style="margin:0;">Review list</h2>
+    <select id="revFilter"><option value="todo">To do</option><option value="notsure">Not sure</option><option value="all">All</option></select>
+  </div>
+  <p class="hint hidden" id="revEmpty"></p>
+  <div id="revBody" class="hidden">
+    <div class="bigword" id="revWord"></div>
+    <div class="hint" id="revMeta" style="text-align:center;"></div>
+    <div class="ctx" id="revCtx"></div>
+    <div class="hint" id="revBible"></div>
+    <div class="grid2"><button class="sec" id="playOrig">&#9654; Original</button><button class="sec" id="playGuide">&#9654; Guided</button></div>
+    <div class="grid2"><button id="pickOrig">Original &#10003;</button><button id="pickGuide">Guided &#10003;</button></div>
+    <div class="grid2"><button class="sec" id="revNeither">Neither</button><button class="sec" id="revNotSure">Not sure</button></div>
+    <div class="row" style="justify-content:space-between;margin-top:12px;">
+      <button class="sec" id="revPrev">&larr; Back</button>
+      <label class="hint" style="margin:0;display:flex;gap:6px;align-items:center;"><input type="checkbox" id="autoPlay" checked style="width:auto;"> Play both</label>
+      <button class="sec" id="revNext">Skip &rarr;</button>
+    </div>
+  </div>
 </div>
 
 <div class="card hidden" id="artCard">
@@ -96,6 +134,8 @@ Uses the GitHub token and repo settings the app already keeps on this device.
   <p class="hint" id="saveNote"></p>
 </div>
 
+<div id="saveBar"><span id="saveCount"></span><button id="revSave">Save</button></div>
+
 <div id="selBar">
   <div class="big" id="selWord"></div>
   <div class="hint" id="selInfo" style="margin:2px 0 0;"></div>
@@ -104,7 +144,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 
 <script>
 'use strict';
-const PAGE_VERSION = 'v1';
+const PAGE_VERSION = 'v2';
 const $ = (id) => document.getElementById(id);
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const KOKORO_CDNS = ['https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/+esm', 'https://esm.sh/kokoro-js@1.2.0'];
@@ -368,8 +408,8 @@ const keyOf = (ph) => ph.replace(/ː/g, '').replace(/\s+/g, '');
 
 // ---------- candidate rounds ----------
 let cands = [], shown = 0, phrase = '', chosen = null;
-async function buildCandidates(p){
-  const list = [], seen = new Set();
+async function buildCandidates(p, exclude){
+  const list = [], seen = new Set((exclude || []).filter(Boolean).map(keyOf));
   const add = (ph, label) => { if(!ph) return; const k = keyOf(ph); if(seen.has(k)) return; seen.add(k); list.push({ ph, label }); };
   const langs = guessLangs(p), readings = [];
   for(const lg of langs){
@@ -494,6 +534,7 @@ $('typeBtn').addEventListener('click', async () => {
 
 // ---------- chosen: hear it in context, then save ----------
 function choose(i){
+  if(revItem){ decide('custom', cands[i].ph); return; }
   chosen = cands[i];
   $('chosenText').innerHTML = '<b>' + esc(phrase) + '</b> \u2014 choice ' + (i + 1) + ' (' + esc(chosen.label) + ')';
   $('chosenPh').textContent = chosen.ph;
@@ -532,32 +573,39 @@ $('sentBtn').addEventListener('click', async () => {
   }catch(e){ say('Could not play the sentence: ' + (e.message || e), 'err'); }
   finally{ b.disabled = false; }
 });
-async function saveRule(p, ipa){
+// Read-change-write a JSON file in the repo, retrying if something else wrote it in between.
+// `fallback` is used when the file does not exist yet.
+async function ghUpdateJson(path, mutate, message, fallback){
   const g = gh();
   if(!g.token) throw new Error('No GitHub token on this phone. Open the app, Manage \u2192 GitHub, enter it there first.');
-  const url = contentsUrl(g, RULES_PATH);
+  const url = contentsUrl(g, path);
   for(let attempt = 1; attempt <= 3; attempt++){
     const r = await fetch(url + '?ref=' + encodeURIComponent(g.branch) + '&t=' + Date.now(), { headers: g.hdr, cache: 'no-store' });
     if(r.status === 401 || r.status === 403) throw new Error('GitHub refused the token (' + r.status + ').');
-    if(!r.ok) throw new Error('Could not read the pronunciation file (' + r.status + ').');
-    const meta = await r.json();
-    const doc = JSON.parse(b64dec(meta.content));
-    const list = doc.rules = doc.rules || [];
-    const i = list.findIndex(x => x && x.string_to_replace === p);
-    if(i >= 0){
-      list[i].kokoro_ipa = ipa;                                    // keep any spelling alias; add/replace the sound
-    }else{
-      const rule = { string_to_replace: p, type: 'alias', alias: p, kokoro_ipa: ipa, case_sensitive: true, word_boundaries: true };
-      // Rules are tried in order: a two-word name must beat the single-word rules, so it goes first;
-      // a single word goes last so it never pre-empts a longer rule such as "Constantinople II".
-      if(/\s/.test(p)) list.unshift(rule); else list.push(rule);
-    }
-    const put = await fetch(url, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/json' }, g.hdr),
-      body: JSON.stringify({ message: 'Pronunciation: ' + p + ' (picked by ear)', content: b64enc(JSON.stringify(doc, null, 2) + '\n'), sha: meta.sha, branch: g.branch }) });
-    if(put.ok){ rules = list; return; }
-    if(put.status !== 409 && put.status !== 422) throw new Error('GitHub did not accept the change (' + put.status + ').');
+    let doc, sha = null;
+    if(r.status === 404 && fallback !== undefined) doc = JSON.parse(JSON.stringify(fallback));
+    else if(!r.ok) throw new Error('Could not read ' + path + ' (' + r.status + ').');
+    else{ const meta = await r.json(); sha = meta.sha; doc = JSON.parse(b64dec(meta.content)); }
+    mutate(doc);
+    const body = { message, content: b64enc(JSON.stringify(doc, null, 2) + '\n'), branch: g.branch };
+    if(sha) body.sha = sha;
+    const put = await fetch(url, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/json' }, g.hdr), body: JSON.stringify(body) });
+    if(put.ok) return doc;
+    if(put.status !== 409 && put.status !== 422) throw new Error('GitHub did not accept the change to ' + path + ' (' + put.status + ').');
   }
   throw new Error('The file kept changing underneath us \u2014 try Save again.');
+}
+function upsertRule(list, p, ipa){
+  const i = list.findIndex(x => x && x.string_to_replace === p);
+  if(i >= 0){ list[i].kokoro_ipa = ipa; return; }                  // keep any spelling alias; add/replace the sound
+  const rule = { string_to_replace: p, type: 'alias', alias: p, kokoro_ipa: ipa, case_sensitive: true, word_boundaries: true };
+  // Rules are tried in order: a two-word name must beat the single-word rules, so it goes first;
+  // a single word goes last so it never pre-empts a longer rule such as "Constantinople II".
+  if(/\s/.test(p)) list.unshift(rule); else list.push(rule);
+}
+async function saveRule(p, ipa){
+  const doc = await ghUpdateJson(RULES_PATH, d => { d.rules = d.rules || []; upsertRule(d.rules, p, ipa); }, 'Pronunciation: ' + p + ' (picked by ear)');
+  rules = doc.rules;
 }
 $('saveBtn').addEventListener('click', async () => {
   if(!chosen) return;
@@ -573,6 +621,196 @@ $('saveBtn').addEventListener('click', async () => {
   }
 });
 
+// ---------- review list ----------
+const CAND_PATH = 'pronunciation/names-candidates.json', DEC_PATH = 'pronunciation/names-decisions.json';
+let revList = [], revPos = 0, revItem = null, revShown = '', revLoaded = false;
+let dec = {};   // name -> { s: 'original' | 'guided' | 'custom' | 'notsure', ph } kept on the phone until Save
+try{ dec = JSON.parse(localStorage.getItem('pron-review') || '{}') || {}; }catch(e){ dec = {}; }
+const saveDec = () => { try{ localStorage.setItem('pron-review', JSON.stringify(dec)); }catch(e){} };
+const DECIDED = ['original', 'guided', 'custom'];
+const STAMP = { original: 'Original', guided: 'Guided', custom: 'Your own choice', notsure: 'Not sure' };
+function statusOf(c){ return dec[c.name] ? dec[c.name].s : (c.notsure ? 'notsure' : ''); }
+function filtered(){
+  const f = $('revFilter').value;
+  return revList.filter(c => f === 'all' ? true : f === 'notsure' ? statusOf(c) === 'notsure' : !statusOf(c));
+}
+// Freshest copy: straight from GitHub when there's a token (the site can lag a minute behind a save).
+async function loadFresh(path){
+  const g = gh();
+  if(g.token){
+    const r = await fetch(contentsUrl(g, path) + '?ref=' + encodeURIComponent(g.branch) + '&t=' + Date.now(),
+      { headers: Object.assign({}, g.hdr, { 'Accept': 'application/vnd.github.raw+json' }), cache: 'no-store' });
+    if(r.status === 404) return null;
+    if(r.ok) return await r.json();
+  }
+  const r = await fetch(path + '?t=' + Date.now(), { cache: 'no-store' });
+  return r.ok ? await r.json() : null;
+}
+async function loadReview(){
+  $('revProg').textContent = 'Loading\u2026';
+  try{
+    const doc = await loadFresh(CAND_PATH);
+    revList = (doc && doc.candidates) || [];
+    const names = new Set(revList.map(c => c.name));
+    Object.keys(dec).forEach(n => { if(!names.has(n)) delete dec[n]; });   // already saved or dropped by a new audit
+    saveDec(); revLoaded = true; revPos = 0; revShown = '';
+    renderRev();
+  }catch(e){ $('revProg').textContent = 'Review list'; $('revEmpty').textContent = 'Could not load the list: ' + (e.message || e); $('revEmpty').classList.remove('hidden'); }
+}
+// First sentence in the articles that uses the word, for context.
+function contextFor(word){
+  const pat = new RegExp('(^|[^\\p{L}\\p{N}])' + word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}\\p{N}])', 'u');
+  let first = null, n = 0;
+  for(const e of entries){
+    // Title, headings and paragraphs searched one by one, so a sentence never runs into the title.
+    // Real sentences are preferred, so the title is only used when nothing else has the word.
+    const parts = [];
+    ((e.art && e.art.sections) || []).forEach(x => { plainText(x.b).split(/\n\s*\n/).forEach(pp => parts.push(pp)); parts.push(plainText(x.h)); });
+    parts.push(e.n || '');
+    const hit = parts.find(pp => pat.test(pp));
+    if(!hit) continue;
+    n++;
+    if(!first) first = { e, sent: splitSentences(hit).find(x => pat.test(x)) || hit };
+  }
+  return first ? { e: first.e, sent: first.sent, n } : null;
+}
+function renderRev(){
+  const list = filtered(), total = revList.length;
+  const done = revList.filter(c => DECIDED.indexOf(statusOf(c)) >= 0).length, unsure = revList.filter(c => statusOf(c) === 'notsure').length;
+  const unsaved = Object.keys(dec).filter(n => DECIDED.indexOf(dec[n].s) >= 0 || dec[n].s === 'notsure').length;
+  $('saveCount').textContent = unsaved + ' choice' + (unsaved === 1 ? '' : 's') + ' not saved yet';
+  $('saveBar').style.display = unsaved && !$('revCard').classList.contains('hidden') ? 'flex' : 'none';
+  if(!total){
+    $('revProg').textContent = 'Review list';
+    $('revBody').classList.add('hidden'); $('revEmpty').classList.remove('hidden');
+    $('revEmpty').textContent = 'Nothing to review. Run the \u201cPronunciation audit\u201d workflow (mode: audit) on GitHub to build the list.';
+    return;
+  }
+  if(revPos >= list.length) revPos = Math.max(0, list.length - 1);
+  const c = list[revPos];
+  $('revProg').textContent = (list.length ? (revPos + 1) + ' of ' + list.length : '0') + ' \u00b7 ' + done + ' done \u00b7 ' + unsure + ' not sure';
+  if(!c){
+    $('revBody').classList.add('hidden'); $('revEmpty').classList.remove('hidden');
+    $('revEmpty').textContent = $('revFilter').value === 'notsure' ? 'No words marked Not sure.' : 'All done in this pass. Switch to \u201cNot sure\u201d to go back through those, then Save.';
+    return;
+  }
+  $('revEmpty').classList.add('hidden'); $('revBody').classList.remove('hidden');
+  revItem = null; $('candCard').classList.add('hidden');
+  const guided = !!c.ipa, st = statusOf(c);
+  $('revWord').textContent = c.name;
+  $('revMeta').innerHTML = esc(c.uses || 0) + ' use' + (c.uses === 1 ? '' : 's') +
+    (guided ? ' \u00b7 guided: <b>' + esc(c.say || c.ipa) + '</b>' : ' \u00b7 not in Kokoro\u2019s dictionary, so it guesses') +
+    (st ? '<br><span class="stamp">' + esc(STAMP[st]) + '</span>' : '');
+  const ctx = entries.length ? contextFor(c.name) : null;
+  if(ctx){
+    const hl = esc(ctx.sent).split(esc(c.name)).join('<b>' + esc(c.name) + '</b>');
+    $('revCtx').innerHTML = hl + '<div class="hint" style="margin:4px 0 0;">\u2014 ' + esc(ctx.e.n || '') +
+      (ctx.n > 1 ? ' (and ' + (ctx.n - 1) + ' more article' + (ctx.n > 2 ? 's' : '') + ')' : '') + '</div>';
+    $('revCtx').classList.remove('hidden');
+  }else $('revCtx').classList.add('hidden');
+  $('revBible').innerHTML = c.bible ? 'Look it up: <b>' + esc(c.bible) + '</b>' : '';
+  ['playGuide', 'pickGuide'].forEach(id => $(id).classList.toggle('hidden', !guided));
+  $('revPrev').disabled = revPos === 0;
+  if($('autoPlay').checked && revShown !== c.name){ revShown = c.name; autoPlayBoth(c); }
+  revShown = c.name;
+}
+function origPh(c){ return c.kokoro || ''; }
+async function playPh(ph){
+  if(!tts){ say('The voice is still loading \u2014 try again in a moment.', 'err'); return; }
+  if(!ph){ say('No recording of this one to play.', 'err'); return; }
+  try{ await play(await audioFor(ph)); }catch(e){ say('Could not play: ' + (e.message || e), 'err'); }
+}
+let autoRun = 0;
+async function autoPlayBoth(c){
+  const run = ++autoRun;
+  if(!tts) return;
+  await playPh(origPh(c));
+  if(run !== autoRun || !c.ipa) return;
+  await new Promise(r => setTimeout(r, 450));
+  if(run === autoRun) await playPh(c.ipa);
+}
+function current(){ return filtered()[revPos] || null; }
+function decide(s, ph){
+  const c = revItem || current(); if(!c) return;
+  const wasTodo = $('revFilter').value === 'todo' || ($('revFilter').value === 'notsure' && s !== 'notsure');
+  dec[c.name] = { s, ph: ph || '' }; saveDec();
+  revItem = null; $('candCard').classList.add('hidden');
+  if(!wasTodo) revPos++;            // in "All" the word stays in the list, so step past it
+  renderRev();
+  $('revCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+$('playOrig').addEventListener('click', () => { unlockAudio(); autoRun++; const c = current(); if(c) playPh(origPh(c)); });
+$('playGuide').addEventListener('click', () => { unlockAudio(); autoRun++; const c = current(); if(c) playPh(c.ipa); });
+$('pickOrig').addEventListener('click', () => { unlockAudio(); const c = current(); if(c) decide('original', origPh(c)); });
+$('pickGuide').addEventListener('click', () => { unlockAudio(); const c = current(); if(c) decide('guided', c.ipa); });
+$('revNotSure').addEventListener('click', () => { unlockAudio(); decide('notsure', ''); });
+$('revNext').addEventListener('click', () => { unlockAudio(); revPos++; renderRev(); });
+$('revPrev').addEventListener('click', () => { unlockAudio(); revPos = Math.max(0, revPos - 1); renderRev(); });
+$('revFilter').addEventListener('change', () => { revPos = 0; revShown = ''; renderRev(); });
+$('revNeither').addEventListener('click', async () => {
+  unlockAudio(); autoRun++;
+  const c = current(); if(!c) return;
+  if(!tts){ say('The voice is still loading \u2014 try again in a moment.', 'err'); return; }
+  revItem = c; phrase = c.name; sel = null;
+  $('revNeither').disabled = true; say('Working out other ways to say \u201c' + c.name + '\u201d\u2026');
+  try{
+    cands = await buildCandidates(c.name, [origPh(c), c.ipa]); shown = 0; chosen = null;
+    $('typeBox').classList.add('hidden'); $('chosenCard').classList.add('hidden');
+    $('candCard').classList.remove('hidden');
+    nextRound();
+    $('candCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    say('Voice ready.', 'ok');
+  }catch(e){ say('Could not build choices: ' + (e.message || e), 'err'); }
+  finally{ $('revNeither').disabled = false; }
+});
+$('revSave').addEventListener('click', async () => {
+  const b = $('revSave'); b.disabled = true; $('saveCount').textContent = 'Saving\u2026';
+  const names = new Set(revList.map(c => c.name));
+  const done = Object.keys(dec).filter(n => names.has(n) && DECIDED.indexOf(dec[n].s) >= 0);
+  const unsure = new Set(Object.keys(dec).filter(n => names.has(n) && dec[n].s === 'notsure'));
+  const fixes = done.filter(n => dec[n].s !== 'original' && dec[n].ph);
+  try{
+    if(fixes.length){
+      const doc = await ghUpdateJson(RULES_PATH, d => { d.rules = d.rules || []; fixes.forEach(n => upsertRule(d.rules, n, dec[n].ph)); },
+        'Pronunciation review: ' + fixes.length + ' fix' + (fixes.length === 1 ? '' : 'es'));
+      rules = doc.rules;
+    }
+    if(done.length){
+      await ghUpdateJson(DEC_PATH, d => { done.forEach(n => { d[n] = dec[n].s === 'original' ? 'kept-original' : dec[n].s === 'guided' ? 'accepted' : 'custom'; }); },
+        'Pronunciation review: ' + done.length + ' decision' + (done.length === 1 ? '' : 's'), {});
+    }
+    const doneSet = new Set(done);
+    await ghUpdateJson(CAND_PATH, d => {
+      d.candidates = (d.candidates || []).filter(c => !doneSet.has(c.name));
+      d.candidates.forEach(c => { if(unsure.has(c.name)) c.notsure = true; });
+    }, 'Pronunciation review: list updated');
+    done.forEach(n => delete dec[n]); unsure.forEach(n => delete dec[n]); saveDec();
+    revList = revList.filter(c => !doneSet.has(c.name)).map(c => (unsure.has(c.name) ? Object.assign({}, c, { notsure: true }) : c));
+    revPos = 0; revShown = '';
+    renderRev();
+    say('Saved ' + done.length + ' word' + (done.length === 1 ? '' : 's') + (fixes.length ? ' (' + fixes.length + ' new fix' + (fixes.length === 1 ? '' : 'es') + ')' : '') + '. Re-record articles to hear the fixes.', 'ok');
+  }catch(e){
+    say('Save failed: ' + (e.message || e) + ' \u2014 your choices are still kept on this phone.', 'err');
+    renderRev();
+  }finally{ b.disabled = false; }
+});
+
+// ---------- tabs ----------
+function showTab(t){
+  const rev = t === 'rev';
+  $('tabArt').classList.toggle('on', !rev); $('tabRev').classList.toggle('on', rev);
+  $('subArt').classList.toggle('hidden', rev); $('subRev').classList.toggle('hidden', !rev);
+  $('revCard').classList.toggle('hidden', !rev);
+  $('pickCard').classList.toggle('hidden', rev || !!entry);
+  $('artCard').classList.toggle('hidden', rev || !entry);
+  $('candCard').classList.add('hidden'); $('chosenCard').classList.add('hidden');
+  revItem = null; autoRun++;
+  if(rev){ $('selBar').style.display = 'none'; if(!revLoaded) loadReview(); else renderRev(); }
+  else{ $('saveBar').style.display = 'none'; showSel(); }
+}
+$('tabArt').addEventListener('click', () => showTab('art'));
+$('tabRev').addEventListener('click', () => { unlockAudio(); showTab('rev'); });
+
 // ---------- start ----------
 (async function start(){
   try{
@@ -580,9 +818,10 @@ $('saveBtn').addEventListener('click', async () => {
     entries = (Array.isArray(data) ? data : (data.entries || [])).filter(e => e && e.id);
     entries.sort((a, b) => (a.y || 0) - (b.y || 0));
     rules = pron.rules || [];
-    const id = new URLSearchParams(location.search).get('id');
+    const qs = new URLSearchParams(location.search), id = qs.get('id');
     entry = id ? entries.find(e => e.id === id) || null : null;
     if(entry) renderArticle(); else showResults();
+    if(qs.get('review')) showTab('rev');
   }catch(e){ say('Could not load the articles: ' + (e.message || e), 'err'); return; }
   try{ await loadVoice(); }
   catch(e){ say('Voice failed to load: ' + (e.message || e), 'err'); }
