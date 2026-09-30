@@ -1,6 +1,6 @@
 <!--
-VERSION: 512
-DATE: 2026-09-30T05:39:27-05:00
+VERSION: 513
+DATE: 2026-09-30T08:49:09-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,21 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v513 — 2026-09-30
+
+**Ask:**
+- When I hear a word mispronounced, press a button, point at the word, hear several ways to say it,
+  pick the right one (or "none of these" for more), and have the fix inserted.
+
+**Implementation:**
+- New "Fix a pronunciation" button under the article's review tools (Review Mode, owner only) opens
+  the new standalone page pronounce.html?id=<entry>. Everything else lives on that page: tap the
+  word (tap the next word too for a two-word name), hear candidates made by the same Kokoro voice
+  model the recorder uses (English, the likely source language, other languages, then stress moved
+  to each syllable), "None of these" for more, then type-how-it-sounds (KRAH-koof) as the last
+  resort. The chosen sound is saved as a kokoro_ipa rule in
+  pronunciation/catholic-timeline-pronunciation.json via the token already stored on the device.
+
 ## v512 — 2026-09-30
 
 **Ask:**
@@ -4268,6 +4283,7 @@ CHANGELOG:END
     font-family:'EB Garamond', Georgia, serif; font-weight:700; font-size:17px;
   }
   .rtBtn svg{width:22px; height:22px; flex:none;}
+  .rtWide{width:100%; margin-top:8px;}   /* v513: full-width "Fix a pronunciation" under the four tools */
   .rtBtn span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .rtBtn:active{filter:brightness(.93);}
   .rtBtn:disabled{opacity:.45; cursor:default;}
@@ -6527,7 +6543,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v512';
+const APP_VERSION = 'v513';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -13340,6 +13356,10 @@ function fillArticleBody(d, peek){
         btn('tkQuickImageBtn', ICON.image, 'Image', imgPending, imgTitle) +
         btn('tkFlagIssueBtn', ICON.flag, 'Flag', false, 'Flag an issue') +
       '</div>' +
+      // v513: opens the standalone pronunciation-fix page for this entry.
+      '<button type="button" class="rtBtn rtWide" id="tkPronFixBtn" title="Tap a mispronounced word and pick the right way to say it">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4 4v-4H5.5A1.5 1.5 0 0 1 4 14.5z"/><path d="M8.5 9.5h7M8.5 12.5h4"/></svg>' +
+        '<span>Fix a pronunciation</span></button>' +
       '<div class="rtProofStat"><b>' + longest + ' Word' + (longest === 1 ? '' : 's') + '</b><span>' + esc(proofLabel) + '</span></div>' +
       '<p class="reviewActionNote" id="tkQuickNote"></p>' +
     '</div>';
@@ -13392,6 +13412,8 @@ function fillArticleBody(d, peek){
     const flagBtn = document.getElementById('tkFlagIssueBtn');
     if(proofreadBtn) proofreadBtn.addEventListener('click', () => tkQueueQuickTask('arbitrate', d, proofreadBtn, statusNoteEl, null, { runNow: true }));
     if(flagBtn) flagBtn.addEventListener('click', () => openFlagModal(d));
+    const pronBtn = document.getElementById('tkPronFixBtn');
+    if(pronBtn) pronBtn.addEventListener('click', () => { location.href = 'pronounce.html?id=' + encodeURIComponent(d.id); });
   }
 
   // Hand the photo to the body-level flying element and cache the geometry the morph

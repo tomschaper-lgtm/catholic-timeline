@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<!--
+pronounce.html  VERSION: 1
+DATE: 2026-09-30T08:45:45-05:00
+Fix a pronunciation by ear. Opened from an article's review tools (pronounce.html?id=<entry-id>).
+Tap the word Kokoro says wrong, listen to candidate pronunciations, pick the right one (or type
+how it sounds), and it is saved as a rule in pronunciation/catholic-timeline-pronunciation.json.
+Candidates are phoneme strings played through the SAME Kokoro model the recorder uses, and the
+exact string you pick is what gets saved, so the recording says it the way you heard it here.
+Uses the GitHub token and repo settings the app already keeps on this device.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fix a pronunciation</title>
+<style>
+  :root{ color-scheme: light dark; --bg:#faf7f0; --fg:#1f2430; --mut:#6b7280; --card:#fff; --line:#e3ddd0; --gold:#a8842c; --sel:#f3e2ab; --bad:#b42318; --ok:#1a7f37; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#15171c; --fg:#e8e6df; --mut:#9aa1ad; --card:#1e2128; --line:#2d323b; --gold:#d4b25a; --sel:#5b4a17; --bad:#ff8a7a; --ok:#6fdc8c; } }
+  html,body{ margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,'Segoe UI',sans-serif; }
+  body{ padding:calc(14px + env(safe-area-inset-top)) 14px calc(40px + env(safe-area-inset-bottom)); max-width:680px; margin:0 auto; }
+  a{ color:var(--gold); }
+  h1{ font-size:20px; margin:4px 0 2px; } .ver{ font-size:14px; font-weight:600; color:var(--mut); white-space:nowrap; }
+  .sub{ color:var(--mut); font-size:14px; margin:0 0 12px; line-height:1.4; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin:0 0 12px; }
+  .card h2{ font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--gold); margin:0 0 8px; }
+  button{ font:inherit; font-size:16px; padding:10px 14px; border-radius:10px; border:1px solid var(--gold); background:var(--gold); color:#fff; cursor:pointer; touch-action:manipulation; }
+  button.sec{ background:transparent; color:var(--fg); border-color:var(--line); }
+  button:disabled{ opacity:.45; }
+  .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0 0; }
+  input,select{ font-size:16px; width:100%; box-sizing:border-box; padding:9px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); font-family:inherit; }
+  #status{ font-size:15px; margin:4px 0 0; min-height:20px; line-height:1.4; } .err{ color:var(--bad); } .ok{ color:var(--ok); }
+  .bar{ height:6px; background:var(--line); border-radius:6px; overflow:hidden; margin-top:6px; } .bar i{ display:block; height:100%; width:0; background:var(--gold); transition:width .15s; }
+  #results div{ padding:9px 2px; border-bottom:1px solid var(--line); cursor:pointer; } #results div span{ color:var(--mut); font-size:14px; }
+  #art{ font-size:17px; line-height:1.75; }
+  #art h3{ font-size:17px; margin:14px 0 4px; } #art p{ margin:0 0 10px; }
+  .w{ border-radius:4px; padding:1px 0; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .w.on{ background:var(--sel); box-shadow:0 0 0 2px var(--sel); }
+  .w.fixed{ text-decoration:underline dotted var(--gold); text-underline-offset:3px; }
+  #selBar{ position:sticky; bottom:calc(8px + env(safe-area-inset-bottom)); display:none; background:var(--card); border:1px solid var(--gold); border-radius:12px; padding:10px 12px; box-shadow:0 4px 18px rgba(0,0,0,.18); }
+  #selBar .big{ font-size:18px; font-weight:600; }
+  .cand{ border:1px solid var(--line); border-radius:10px; padding:9px 10px; margin:0 0 8px; display:flex; gap:10px; align-items:center; }
+  .cand.playing{ border-color:var(--gold); box-shadow:0 0 0 2px var(--gold) inset; }
+  .num{ flex:0 0 30px; height:30px; border-radius:15px; background:var(--gold); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; }
+  .cmid{ flex:1; min-width:0; } .clab{ font-size:15px; } .cph{ font-size:13px; color:var(--mut); font-family:ui-monospace,Menlo,monospace; word-break:break-all; }
+  .cand button{ padding:8px 11px; font-size:15px; }
+  .hint{ color:var(--mut); font-size:14px; line-height:1.4; margin:6px 0 0; }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div class="row" style="margin:0 0 6px;"><a id="backLink" href="./">&larr; Back to the timeline</a></div>
+<h1>Fix a pronunciation <span class="ver">v1</span></h1>
+<p class="sub">Tap the word the voice says wrong. You'll hear a few ways to say it &mdash; pick the right one and it's saved for every future recording.</p>
+
+<div class="card">
+  <h2>Voice</h2>
+  <select id="voiceSel" disabled></select>
+  <div class="bar"><i id="prog"></i></div>
+  <p id="status">Starting&hellip;</p>
+</div>
+
+<div class="card" id="pickCard">
+  <h2>Article</h2>
+  <input id="search" type="search" placeholder="Search by name&hellip;" autocomplete="off">
+  <div id="results"></div>
+</div>
+
+<div class="card hidden" id="artCard">
+  <h2 id="artTitleBar">Article</h2>
+  <div id="art"></div>
+</div>
+
+<div class="card hidden" id="candCard">
+  <h2 id="candTitle">Choices</h2>
+  <p class="hint">Each choice is the word on its own. When you find the right one, tap <b>This one</b>.</p>
+  <div class="row" style="margin:4px 0 10px;"><button id="playAllBtn" class="sec">&#9654; Play all</button></div>
+  <div id="cands"></div>
+  <div class="row"><button id="noneBtn" class="sec">None of these</button></div>
+  <div id="typeBox" class="hidden" style="margin-top:12px;">
+    <p class="hint" style="margin:0 0 6px;">Type how it sounds, split into parts, with the <b>stressed part in capitals</b> &mdash; e.g. <b>KRAH-koof</b>, <b>sez-uh-REE-uh</b>.</p>
+    <input id="typeIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="KRAH-koof">
+    <div class="row"><button id="typeBtn">Hear it</button></div>
+  </div>
+</div>
+
+<div class="card hidden" id="chosenCard">
+  <h2>Your choice</h2>
+  <p id="chosenText" style="margin:0 0 4px;font-size:17px;"></p>
+  <div class="cph" id="chosenPh"></div>
+  <div class="row">
+    <button id="againBtn" class="sec">&#9654; Again</button>
+    <button id="sentBtn" class="sec">&#9654; In the sentence</button>
+  </div>
+  <div class="row"><button id="saveBtn">Save fix</button><button id="backBtn" class="sec">Back to choices</button></div>
+  <p class="hint" id="saveNote"></p>
+</div>
+
+<div id="selBar">
+  <div class="big" id="selWord"></div>
+  <div class="hint" id="selInfo" style="margin:2px 0 0;"></div>
+  <div class="row"><button id="findBtn">Find pronunciations</button><button id="clearBtn" class="sec">Clear</button></div>
+</div>
+
+<script>
+'use strict';
+const PAGE_VERSION = 'v1';
+const $ = (id) => document.getElementById(id);
+const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
+const KOKORO_CDNS = ['https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/+esm', 'https://esm.sh/kokoro-js@1.2.0'];
+const PHON_CDNS = ['https://cdn.jsdelivr.net/npm/phonemizer/+esm', 'https://esm.sh/phonemizer'];
+const RULES_PATH = 'pronunciation/catholic-timeline-pronunciation.json';
+const ROUND = 4;
+
+// Phone has no console, so anything that goes wrong is shown on the page.
+function say(msg, cls){ const s = $('status'); s.textContent = msg; s.className = cls || ''; }
+window.addEventListener('error', (e) => say('Error: ' + (e.message || e), 'err'));
+window.addEventListener('unhandledrejection', (e) => say('Error: ' + ((e.reason && e.reason.message) || e.reason), 'err'));
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// ---------- GitHub (same settings the app keeps on this device) ----------
+function gh(){
+  let c = {};
+  try{ c = JSON.parse(localStorage.getItem('gh-config') || '{}'); }catch(e){}
+  const token = localStorage.getItem('gh-token') || '';
+  return { owner: c.owner || 'tomschaper-lgtm', repo: c.repo || 'catholic-timeline', branch: c.branch || 'main', token,
+           hdr: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' } };
+}
+const b64dec = (b) => new TextDecoder().decode(Uint8Array.from(atob(String(b).replace(/\s/g, '')), c => c.charCodeAt(0)));
+function b64enc(str){
+  const bytes = new TextEncoder().encode(str); let bin = '';
+  for(let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function contentsUrl(g, path){ return 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' + path; }
+
+// ---------- data ----------
+let entries = [], rules = [], entry = null;
+async function loadJson(path){
+  // The live site first (fast); if that fails, the GitHub API (needs the token).
+  try{
+    const r = await fetch(path + '?t=' + Date.now(), { cache: 'no-store' });
+    if(r.ok) return await r.json();
+  }catch(e){}
+  const g = gh();
+  if(!g.token) throw new Error('Could not load ' + path);
+  const r = await fetch(contentsUrl(g, path) + '?ref=' + encodeURIComponent(g.branch) + '&t=' + Date.now(),
+    { headers: Object.assign({}, g.hdr, { 'Accept': 'application/vnd.github.raw+json' }), cache: 'no-store' });
+  if(!r.ok) throw new Error('Could not load ' + path + ' (' + r.status + ')');
+  return await r.json();
+}
+function plainText(html){
+  const t = document.createElement('textarea');
+  t.innerHTML = String(html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '');
+  return t.value;
+}
+// A tapped word without surrounding punctuation or a possessive ending ("Kraków," -> "Kraków",
+// "Thérèse's" -> "Thérèse"). Rules match on word boundaries, so the base word also covers
+// the possessive in the article.
+function cleanWord(w){
+  return String(w).replace(/^[^\p{L}\p{N}]+/u, '').replace(/[^\p{L}\p{N}]+$/u, '').replace(/['\u2019]s$/u, '');
+}
+function ruleFor(phrase){ return rules.find(r => r && r.string_to_replace === phrase) || null; }
+
+// ---------- article view: every word is tappable ----------
+let sentences = [];   // sentences[i] = array of tokens (words only)
+let sel = null;       // { s, a, b } sentence index, first word, last word
+function splitSentences(text){
+  const flat = text.replace(/\s+/g, ' ').trim();
+  if(!flat) return [];
+  const parts = (flat.match(/[^.!?]+[.!?]+["'\u201d)]*(?:\s+|$)|[^.!?]+$/g) || [flat]).map(x => x.trim());
+  const out = [];
+  parts.forEach(p => { if(out.length && /\b(St|Sts|Mt|Fr|Br|Dr|Bl|Mr|Mrs|Ven|Msgr)\.$/.test(out[out.length - 1])) out[out.length - 1] += ' ' + p; else out.push(p); });
+  return out.filter(Boolean);
+}
+function sentenceHtml(text){
+  const words = text.split(/\s+/).filter(Boolean);
+  const si = sentences.length; sentences.push(words);
+  return words.map((w, wi) => {
+    const fixed = ruleFor(cleanWord(w)) ? ' fixed' : '';
+    return '<span class="w' + fixed + '" data-s="' + si + '" data-w="' + wi + '">' + esc(w) + '</span>';
+  }).join(' ');
+}
+function renderArticle(){
+  sentences = []; sel = null;
+  let h = '<h3>' + sentenceHtml(entry.n || '') + '</h3>';
+  ((entry.art && entry.art.sections) || []).forEach(sec => {
+    if(sec.h) h += '<h3>' + sentenceHtml(plainText(sec.h)) + '</h3>';
+    plainText(sec.b).split(/\n\s*\n/).forEach(par => {
+      const ss = splitSentences(par);
+      if(ss.length) h += '<p>' + ss.map(sentenceHtml).join(' ') + '</p>';
+    });
+  });
+  $('art').innerHTML = h;
+  $('artTitleBar').textContent = (entry.y ? entry.y + ' \u00b7 ' : '') + 'Tap the word';
+  $('artCard').classList.remove('hidden'); $('pickCard').classList.add('hidden');
+  $('backLink').href = './#' + encodeURIComponent(entry.id);
+  showSel();
+}
+function selPhrase(){
+  if(!sel) return '';
+  const words = sentences[sel.s].slice(sel.a, sel.b + 1);
+  return cleanWord(words.join(' '));
+}
+function showSel(){
+  document.querySelectorAll('.w.on').forEach(x => x.classList.remove('on'));
+  if(!sel){ $('selBar').style.display = 'none'; return; }
+  for(let i = sel.a; i <= sel.b; i++){
+    const el = document.querySelector('.w[data-s="' + sel.s + '"][data-w="' + i + '"]'); if(el) el.classList.add('on');
+  }
+  const p = selPhrase(), r = ruleFor(p);
+  $('selWord').textContent = p || '(nothing to fix there)';
+  $('selInfo').textContent = r
+    ? (r.kokoro_ipa ? 'Already has a fix (' + r.kokoro_ipa + '). Picking again replaces it.' : 'Has a spelling rule (said as \u201c' + r.alias + '\u201d). Picking here adds a sound fix.')
+    : 'Two-word name? Tap the next word too.';
+  $('findBtn').disabled = !p;
+  $('selBar').style.display = 'block';
+}
+$('art').addEventListener('click', (ev) => {
+  const el = ev.target.closest('.w'); if(!el) return;
+  unlockAudio();
+  const s = +el.dataset.s, w = +el.dataset.w;
+  if(sel && sel.s === s && w >= sel.a && w <= sel.b){
+    sel = (sel.a === sel.b) ? null : { s, a: w, b: w };            // tapping the selection again clears or shrinks it
+  }else if(sel && sel.s === s && (w === sel.b + 1 || w === sel.a - 1) && sel.b - sel.a < 3){
+    sel = { s, a: Math.min(sel.a, w), b: Math.max(sel.b, w) };     // next/previous word: extend to a phrase
+  }else{
+    sel = { s, a: w, b: w };
+  }
+  showSel();
+});
+$('clearBtn').addEventListener('click', () => { sel = null; showSel(); });
+
+// ---------- article picker ----------
+function showResults(){
+  const q = $('search').value.trim().toLowerCase();
+  const hits = (q ? entries.filter(e => (e.n || '').toLowerCase().includes(q)) : entries).slice(0, 40);
+  $('results').innerHTML = hits.map(e => '<div data-id="' + esc(e.id) + '">' + esc(e.n || e.id) + ' <span>' + esc(e.y || '') + '</span></div>').join('');
+}
+$('search').addEventListener('input', showResults);
+$('results').addEventListener('click', (ev) => {
+  const el = ev.target.closest('[data-id]'); if(!el) return;
+  entry = entries.find(e => e.id === el.dataset.id) || null;
+  if(entry){ history.replaceState(null, '', '?id=' + encodeURIComponent(entry.id)); renderArticle(); }
+});
+
+// ---------- Kokoro + phonemizer ----------
+let tts = null, espeak = null, actx = null, curSrc = null;
+const audioCache = new Map();
+function voice(){ return $('voiceSel').value || 'af_heart'; }
+function isBritish(){ return /^b[fm]_/.test(voice()); }
+function unlockAudio(){
+  try{
+    if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if(actx.state === 'suspended') actx.resume();
+  }catch(e){}
+}
+async function importFirst(urls, check){
+  let last = null;
+  for(const u of urls){ try{ const m = await import(u); if(check(m)) return m; }catch(e){ last = e; } }
+  throw new Error('Could not load ' + urls[0].split('/npm/')[1] + (last ? ' (' + last.message + ')' : ''));
+}
+async function loadVoice(){
+  say('Loading the voice\u2026');
+  const [km, pm] = await Promise.all([
+    importFirst(KOKORO_CDNS, m => m && m.KokoroTTS),
+    importFirst(PHON_CDNS, m => m && typeof m.phonemize === 'function')
+  ]);
+  espeak = pm.phonemize;
+  const files = {};
+  tts = await km.KokoroTTS.from_pretrained(MODEL_ID, {
+    dtype: 'q8', device: 'wasm',
+    progress_callback: (p) => {
+      if(!p || !p.file || typeof p.loaded !== 'number' || typeof p.total !== 'number') return;
+      files[p.file] = { l: p.loaded, t: p.total };
+      const tot = Object.values(files).reduce((a, f) => a + f.t, 0), got = Object.values(files).reduce((a, f) => a + f.l, 0);
+      if(tot){ $('prog').style.width = Math.min(100, got / tot * 100).toFixed(0) + '%'; say('Downloading the voice\u2026 ' + (got / 1048576).toFixed(0) + ' of ' + (tot / 1048576).toFixed(0) + ' MB (once)'); }
+    }
+  });
+  if(typeof tts.generate_from_ids !== 'function' || typeof tts.tokenizer !== 'function')
+    throw new Error('This version of the voice library cannot play raw pronunciations.');
+  $('prog').style.width = '100%';
+  const ids = ['af_heart','af_bella','af_nicole','af_sarah','af_sky','am_adam','am_michael','bf_emma','bf_isabella','bm_george','bm_lewis'];
+  const saved = localStorage.getItem('pron-voice') || 'af_heart';
+  $('voiceSel').innerHTML = ids.map(id => '<option value="' + id + '">' + id + '</option>').join('');
+  $('voiceSel').value = ids.indexOf(saved) >= 0 ? saved : 'af_heart';
+  $('voiceSel').disabled = false;
+  say('Voice ready. Use the voice you record with.', 'ok');
+}
+$('voiceSel').addEventListener('change', () => { localStorage.setItem('pron-voice', voice()); audioCache.clear(); if(cands.length) renderRound(); });
+
+// Kokoro's own clean-up of espeak output (same as the library does for English).
+function kokoroFix(ps){
+  return ps.replace(/\([a-z-]+\)/g, '').replace(/ʲ/g, 'j').replace(/r/g, 'ɹ').replace(/x/g, 'k').replace(/ɬ/g, 'l').replace(/\s+/g, ' ').trim();
+}
+// A foreign-language reading turned into sounds an English narrator makes (French r -> English r,
+// French u -> oo, nasal vowels -> vowel + n, Polish ł/ś/cz -> w/sh/ch, pure e/o -> ay/oh ...).
+function anglicize(ps){
+  let s = ps.normalize('NFD').replace(/\([a-z-]+\)/g, '');
+  s = s.replace(/[\u0361\u035c]/g, '');
+  s = s.replace(/tɕ/g, 'ʧ').replace(/dʑ/g, 'ʤ').replace(/tʂ/g, 'ʧ').replace(/dʐ/g, 'ʤ').replace(/tʃ/g, 'ʧ').replace(/dʒ/g, 'ʤ');
+  s = s.replace(/([a-zɑɔɛœɐəɪʊæ])\u0303/g, '$1n');
+  const map = { 'ʁ':'ɹ','ʀ':'ɹ','r':'ɹ','y':'u','ʏ':'ʊ','ø':'ɜ','œ':'ɛ','ɨ':'ɪ','ɯ':'u','ɤ':'ʌ','ɕ':'ʃ','ʑ':'ʒ','ʂ':'ʃ','ʐ':'ʒ',
+    'ç':'h','x':'h','χ':'h','ɣ':'ɡ','β':'b','ɸ':'f','ʎ':'lj','ɲ':'nj','ɫ':'l','ɬ':'l','ʝ':'j','ɟ':'ɡ','c':'k','ɦ':'h','ɒ':'ɑ','g':'ɡ','ʲ':'j' };
+  s = s.split('').map(ch => map[ch] !== undefined ? map[ch] : ch).join('');
+  s = s.replace(/eː/g, 'eɪ').replace(/oː/g, 'oʊ').replace(/e(?![ɪəʊ])/g, 'eɪ').replace(/o(?![ʊ])/g, 'oʊ').replace(/a(?![ɪʊ])/g, 'ɑ');
+  return s.replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+}
+const LANGS = {
+  en: { codes: ['en-us'], gb: ['en-gb', 'en'], label: 'English reading' },
+  fr: { codes: ['fr-fr', 'fr'], label: 'French way' },
+  it: { codes: ['it'], label: 'Italian / Church Latin way' },
+  la: { codes: ['la'], label: 'Classical Latin way' },
+  es: { codes: ['es'], label: 'Spanish way' },
+  pt: { codes: ['pt', 'pt-pt', 'pt-br'], label: 'Portuguese way' },
+  de: { codes: ['de'], label: 'German way' },
+  pl: { codes: ['pl'], label: 'Polish way' },
+  nl: { codes: ['nl'], label: 'Dutch way' },
+  cs: { codes: ['cs'], label: 'Czech way' },
+  hu: { codes: ['hu'], label: 'Hungarian way' },
+  vi: { codes: ['vi'], label: 'Vietnamese way' },
+  el: { codes: ['el'], label: 'Greek way' }
+};
+// Letters that give away a language go first; everything else follows in a fixed order.
+function guessLangs(w){
+  const g = [], lw = w.toLowerCase();
+  if(/[łąęśźżńć]|cz|sz|rz|ów\b|wski\b|wicz\b/.test(lw)) g.push('pl');
+  if(/[éèêëçàâîïôûœ]|eaux?\b|eux\b|ault\b|gne\b|oix\b|ois\b|ais\b|ier\b|ette\b|ille\b|que\b|ac\b/.test(lw)) g.push('fr');
+  if(/[ãõ]|ão\b/.test(lw)) g.push('pt');
+  if(/[ñ]|[áíóú]/.test(lw) && g.indexOf('pl') < 0) g.push('es', 'pt');
+  if(/[äöüß]|sch/.test(lw)) g.push('de');
+  if(/[ơưđũ]|[ạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]/.test(lw)) g.push('vi');
+  if(/[őű]/.test(lw)) g.push('hu');
+  if(/[čřšžě]/.test(lw)) g.push('cs');
+  if(/(us|um|ae|ius|ia)\b/.test(lw)) g.push('la', 'it');
+  if(/(ini|ino|elli|etti|zzi|cci|gli|gn)/.test(lw)) g.push('it');
+  const order = g.concat(['en', 'fr', 'it', 'es', 'la', 'de', 'pl', 'pt']);
+  return order.filter((x, i) => order.indexOf(x) === i);
+}
+async function espeakTry(text, codes){
+  for(const c of codes){
+    try{
+      const r = await espeak(text, c);
+      const s = (Array.isArray(r) ? r.join(' ') : String(r || '')).trim();
+      if(s) return s;
+    }catch(e){}
+  }
+  return '';
+}
+async function readingIn(lang, text){
+  const L = LANGS[lang]; if(!L) return '';
+  const raw = await espeakTry(text, lang === 'en' && isBritish() ? L.gb : L.codes);
+  if(!raw) return '';
+  return lang === 'en' ? kokoroFix(raw) : kokoroFix(anglicize(raw));
+}
+// Vowel groups, so stress can be moved onto each syllable in turn.
+const NUC = /[aeiouyæɑɐɒɔəɚɛɜɝɪʊʌᵻᵊøœɨAIOQWY]+ː?/g;
+function stressVariants(ps){
+  const base = ps.replace(/[ˈˌ]/g, ''), out = [];
+  const spots = []; let m; NUC.lastIndex = 0;
+  while((m = NUC.exec(base))) spots.push(m.index);
+  if(spots.length < 2) return out;
+  spots.forEach((at, i) => out.push({ ph: base.slice(0, at) + 'ˈ' + base.slice(at), n: i + 1 }));
+  return out;
+}
+const ORD = ['', '1st', '2nd', '3rd', '4th', '5th', '6th'];
+const keyOf = (ph) => ph.replace(/ː/g, '').replace(/\s+/g, '');
+
+// ---------- candidate rounds ----------
+let cands = [], shown = 0, phrase = '', chosen = null;
+async function buildCandidates(p){
+  const list = [], seen = new Set();
+  const add = (ph, label) => { if(!ph) return; const k = keyOf(ph); if(seen.has(k)) return; seen.add(k); list.push({ ph, label }); };
+  const langs = guessLangs(p), readings = [];
+  for(const lg of langs){
+    const ph = await readingIn(lg, p);
+    if(ph){ add(ph, LANGS[lg].label); readings.push({ ph, lg }); }
+  }
+  if(!/\s/.test(p)){
+    readings.slice(0, 4).forEach(r => stressVariants(r.ph).forEach(v =>
+      add(v.ph, LANGS[r.lg].label.replace(/ (reading|way)$/, '') + ', stress on the ' + (ORD[v.n] || v.n + 'th') + ' part')));
+  }
+  return list;
+}
+$('findBtn').addEventListener('click', async () => {
+  unlockAudio();
+  if(!tts){ say('The voice is still loading \u2014 try again in a moment.', 'err'); return; }
+  phrase = selPhrase(); if(!phrase) return;
+  $('findBtn').disabled = true; say('Working out ways to say \u201c' + phrase + '\u201d\u2026');
+  try{
+    cands = await buildCandidates(phrase); shown = 0; chosen = null;
+    $('chosenCard').classList.add('hidden'); $('typeBox').classList.add('hidden');
+    $('candCard').classList.remove('hidden');
+    nextRound();
+    $('candCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    say('Voice ready.', 'ok');
+  }catch(e){ say('Could not build choices: ' + (e.message || e), 'err'); }
+  finally{ $('findBtn').disabled = false; }
+});
+function nextRound(){
+  shown = Math.min(cands.length, shown + ROUND);
+  renderRound();
+  if(shown >= cands.length){ $('noneBtn').textContent = 'None of these \u2014 let me type it'; }
+  else $('noneBtn').textContent = 'None of these';
+}
+function renderRound(){
+  const from = Math.floor((shown - 1) / ROUND) * ROUND;
+  const round = cands.slice(from, shown);
+  $('candTitle').textContent = 'Ways to say \u201c' + phrase + '\u201d';
+  $('cands').innerHTML = round.map((c, i) =>
+    '<div class="cand" data-i="' + (from + i) + '"><div class="num">' + (from + i + 1) + '</div>' +
+    '<div class="cmid"><div class="clab">' + esc(c.label) + '</div><div class="cph">' + esc(c.ph) + '</div></div>' +
+    '<button class="sec" data-act="play" disabled>&#9654;</button><button data-act="pick">This one</button></div>').join('') ||
+    '<p class="hint">No ways found for this word \u2014 type how it sounds below.</p>';
+  if(!round.length) $('typeBox').classList.remove('hidden');
+  prepare(round.map((c, i) => from + i));
+}
+// Generate each choice's audio in turn, so Play is instant once it's ready.
+async function prepare(idxs){
+  for(const i of idxs){
+    try{ await audioFor(cands[i].ph); }catch(e){ say('Could not make audio: ' + (e.message || e), 'err'); }
+    const b = document.querySelector('.cand[data-i="' + i + '"] [data-act="play"]'); if(b) b.disabled = false;
+  }
+}
+async function speakPhonemes(ph){
+  const { input_ids } = tts.tokenizer(ph, { truncation: true });
+  const a = await tts.generate_from_ids(input_ids, { voice: voice(), speed: 0.9 });
+  return { samples: a.audio, rate: a.sampling_rate || 24000 };
+}
+async function audioFor(ph){
+  const k = voice() + '|' + ph;
+  if(!audioCache.has(k)) audioCache.set(k, speakPhonemes(ph));
+  return audioCache.get(k);
+}
+function stopPlay(){ try{ if(curSrc){ curSrc.onended = null; curSrc.stop(); } }catch(e){} curSrc = null; }
+function play(a){
+  return new Promise((resolve) => {
+    unlockAudio(); stopPlay();
+    const buf = actx.createBuffer(1, a.samples.length, a.rate); buf.getChannelData(0).set(a.samples);
+    const src = actx.createBufferSource(); src.buffer = buf; src.connect(actx.destination);
+    curSrc = src; src.onended = () => { curSrc = null; resolve(); }; src.start();
+  });
+}
+let playAllRun = 0;
+$('cands').addEventListener('click', async (ev) => {
+  const b = ev.target.closest('button'); if(!b) return;
+  const i = +b.closest('.cand').dataset.i;
+  if(b.dataset.act === 'play'){ playAllRun++; await play(await audioFor(cands[i].ph)); }
+  else choose(i);
+});
+$('playAllBtn').addEventListener('click', async () => {
+  const run = ++playAllRun;
+  for(const el of document.querySelectorAll('#cands .cand')){
+    if(run !== playAllRun) break;
+    el.classList.add('playing');
+    try{ await play(await audioFor(cands[+el.dataset.i].ph)); }catch(e){}
+    el.classList.remove('playing');
+    await new Promise(r => setTimeout(r, 650));
+  }
+});
+$('noneBtn').addEventListener('click', () => {
+  if(shown < cands.length) nextRound();
+  else{ $('typeBox').classList.remove('hidden'); $('typeIn').focus(); }
+});
+
+// "KRAH-koof": each part read as English, stress placed on the part in capitals.
+async function fromRespelling(txt){
+  const parts = txt.trim().split(/[-\s\u2010-\u2014]+/).filter(Boolean);
+  if(!parts.length) return '';
+  let stressAt = parts.findIndex(p => /\p{Lu}/u.test(p) && p === p.toUpperCase());
+  if(stressAt < 0) stressAt = 0;
+  const codes = isBritish() ? LANGS.en.gb : LANGS.en.codes;
+  const phs = [];
+  for(const p of parts){ phs.push(kokoroFix(await espeakTry(p.toLowerCase(), codes)).replace(/[ˈˌ\s]/g, '')); }
+  NUC.lastIndex = 0;
+  const m = NUC.exec(phs[stressAt]);
+  if(m) phs[stressAt] = phs[stressAt].slice(0, m.index) + 'ˈ' + phs[stressAt].slice(m.index);
+  return phs.join('');
+}
+$('typeBtn').addEventListener('click', async () => {
+  unlockAudio();
+  const t = $('typeIn').value; if(!t.trim()) return;
+  $('typeBtn').disabled = true;
+  try{
+    const ph = await fromRespelling(t);
+    if(!ph) throw new Error('could not read that spelling');
+    cands.push({ ph, label: 'Your spelling: ' + t.trim() });
+    shown = cands.length;
+    renderRound();
+    await play(await audioFor(ph));
+  }catch(e){ say('Could not use that: ' + (e.message || e), 'err'); }
+  finally{ $('typeBtn').disabled = false; }
+});
+
+// ---------- chosen: hear it in context, then save ----------
+function choose(i){
+  chosen = cands[i];
+  $('chosenText').innerHTML = '<b>' + esc(phrase) + '</b> \u2014 choice ' + (i + 1) + ' (' + esc(chosen.label) + ')';
+  $('chosenPh').textContent = chosen.ph;
+  $('saveNote').textContent = ''; $('saveBtn').disabled = false;
+  $('chosenCard').classList.remove('hidden');
+  $('chosenCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+$('againBtn').addEventListener('click', async () => { if(chosen) await play(await audioFor(chosen.ph)); });
+$('backBtn').addEventListener('click', () => { $('chosenCard').classList.add('hidden'); $('candCard').scrollIntoView({ behavior: 'smooth' }); });
+// Spelling rules (St. -> Saint ...) applied to the rest of the sentence, so the preview reads
+// like the recording will.
+function applyAliases(text){
+  let out = text;
+  rules.filter(r => r && r.type === 'alias' && r.string_to_replace && r.alias !== r.string_to_replace).forEach(r => {
+    const pat = r.string_to_replace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp('(^|[^\\p{L}\\p{N}])' + pat + '(?![\\p{L}\\p{N}])', 'gu'), (m0, pre) => pre + r.alias);
+  });
+  return out;
+}
+$('sentBtn').addEventListener('click', async () => {
+  if(!chosen || !sel) return;
+  const b = $('sentBtn'); b.disabled = true; say('Preparing the sentence (a few seconds)\u2026');
+  try{
+    const words = sentences[sel.s];
+    const codes = isBritish() ? LANGS.en.gb : LANGS.en.codes;
+    const before = applyAliases(words.slice(0, sel.a).join(' '));
+    const tail = words.slice(sel.b + 1).join(' ');
+    const lastWord = words[sel.b];
+    const trailing = (lastWord.match(/[^\p{L}\p{N}]+$/u) || [''])[0].replace(/['\u2019]s.*$/u, '');
+    const after = applyAliases(tail);
+    const pb = before ? kokoroFix(await espeakTry(before, codes)) : '';
+    const pa = after ? kokoroFix(await espeakTry(after, codes)) : '';
+    const ps = [pb, chosen.ph + (/[,.;:!?]/.test(trailing) ? trailing.replace(/[^,.;:!?]/g, '').slice(0, 1) : ''), pa].filter(Boolean).join(' ');
+    await play(await speakPhonemes(ps));
+    say('Voice ready.', 'ok');
+  }catch(e){ say('Could not play the sentence: ' + (e.message || e), 'err'); }
+  finally{ b.disabled = false; }
+});
+async function saveRule(p, ipa){
+  const g = gh();
+  if(!g.token) throw new Error('No GitHub token on this phone. Open the app, Manage \u2192 GitHub, enter it there first.');
+  const url = contentsUrl(g, RULES_PATH);
+  for(let attempt = 1; attempt <= 3; attempt++){
+    const r = await fetch(url + '?ref=' + encodeURIComponent(g.branch) + '&t=' + Date.now(), { headers: g.hdr, cache: 'no-store' });
+    if(r.status === 401 || r.status === 403) throw new Error('GitHub refused the token (' + r.status + ').');
+    if(!r.ok) throw new Error('Could not read the pronunciation file (' + r.status + ').');
+    const meta = await r.json();
+    const doc = JSON.parse(b64dec(meta.content));
+    const list = doc.rules = doc.rules || [];
+    const i = list.findIndex(x => x && x.string_to_replace === p);
+    if(i >= 0){
+      list[i].kokoro_ipa = ipa;                                    // keep any spelling alias; add/replace the sound
+    }else{
+      const rule = { string_to_replace: p, type: 'alias', alias: p, kokoro_ipa: ipa, case_sensitive: true, word_boundaries: true };
+      // Rules are tried in order: a two-word name must beat the single-word rules, so it goes first;
+      // a single word goes last so it never pre-empts a longer rule such as "Constantinople II".
+      if(/\s/.test(p)) list.unshift(rule); else list.push(rule);
+    }
+    const put = await fetch(url, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/json' }, g.hdr),
+      body: JSON.stringify({ message: 'Pronunciation: ' + p + ' (picked by ear)', content: b64enc(JSON.stringify(doc, null, 2) + '\n'), sha: meta.sha, branch: g.branch }) });
+    if(put.ok){ rules = list; return; }
+    if(put.status !== 409 && put.status !== 422) throw new Error('GitHub did not accept the change (' + put.status + ').');
+  }
+  throw new Error('The file kept changing underneath us \u2014 try Save again.');
+}
+$('saveBtn').addEventListener('click', async () => {
+  if(!chosen) return;
+  const b = $('saveBtn'); b.disabled = true; $('saveNote').textContent = 'Saving\u2026'; $('saveNote').className = 'hint';
+  try{
+    await saveRule(phrase, chosen.ph);
+    $('saveNote').innerHTML = 'Saved. Every article with \u201c' + esc(phrase) + '\u201d uses it on its next recording. ' +
+      'To hear it here, go <a href="./#' + encodeURIComponent(entry.id) + '">back to the article</a> and tap <b>Audio</b> to re-record.';
+    $('saveNote').className = 'hint ok';
+    const at = sel; renderArticle(); sel = at; showSel();
+  }catch(e){
+    $('saveNote').textContent = e.message || String(e); $('saveNote').className = 'hint err'; b.disabled = false;
+  }
+});
+
+// ---------- start ----------
+(async function start(){
+  try{
+    const [data, pron] = await Promise.all([loadJson('data.json'), loadJson(RULES_PATH).catch(() => ({ rules: [] }))]);
+    entries = (Array.isArray(data) ? data : (data.entries || [])).filter(e => e && e.id);
+    entries.sort((a, b) => (a.y || 0) - (b.y || 0));
+    rules = pron.rules || [];
+    const id = new URLSearchParams(location.search).get('id');
+    entry = id ? entries.find(e => e.id === id) || null : null;
+    if(entry) renderArticle(); else showResults();
+  }catch(e){ say('Could not load the articles: ' + (e.message || e), 'err'); return; }
+  try{ await loadVoice(); }
+  catch(e){ say('Voice failed to load: ' + (e.message || e), 'err'); }
+})();
+</script>
+</body>
+</html>
