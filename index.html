@@ -1,6 +1,6 @@
 <!--
-VERSION: 510
-DATE: 2026-09-29T23:26:58-05:00
+VERSION: 511
+DATE: 2026-09-29T23:48:55-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,20 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v511 — 2026-09-30
+
+**Ask:**
+- A dropdown for choosing the narration voice instead of typing the voice into a text field.
+
+**Implementation:**
+- New "Voice" dropdown at the top of Voice & pacing settings: ElevenLabs, or one of 11 Kokoro voices
+  (American / British, female / male). It only writes into the existing Voice ID field, so queued
+  tasks, saving and the payload are unchanged: Kokoro picks store "kokoro:<voice>"; picking ElevenLabs
+  restores the ElevenLabs Voice ID last used on this device. On load the dropdown is set from the saved
+  Voice ID; an unlisted "kokoro:xyz" shows as a Custom option.
+- With a Kokoro voice chosen, the ElevenLabs-only fields (Voice ID, Model ID, Stability, Similarity
+  Boost, Style, Speaker Boost) are greyed out, since Kokoro ignores them.
+
 ## v510 — 2026-09-30
 
 **Ask:**
@@ -5757,6 +5771,25 @@ CHANGELOG:END
 
       <details class="ghbox" id="audioRecordDetails">
         <summary>Voice &amp; pacing settings (for Record Audio Narration)</summary>
+        <div class="mfield"><label for="audioVoicePick">Voice</label>
+          <select id="audioVoicePick">
+            <option value="elevenlabs">ElevenLabs (uses the Voice ID below)</option>
+            <optgroup label="Kokoro — free, recorded on GitHub">
+              <option value="kokoro:af_heart">Heart — American, female</option>
+              <option value="kokoro:af_bella">Bella — American, female</option>
+              <option value="kokoro:af_nicole">Nicole — American, female</option>
+              <option value="kokoro:af_sarah">Sarah — American, female</option>
+              <option value="kokoro:af_sky">Sky — American, female</option>
+              <option value="kokoro:am_adam">Adam — American, male</option>
+              <option value="kokoro:am_michael">Michael — American, male</option>
+              <option value="kokoro:bf_emma">Emma — British, female</option>
+              <option value="kokoro:bf_isabella">Isabella — British, female</option>
+              <option value="kokoro:bm_george">George — British, male</option>
+              <option value="kokoro:bm_lewis">Lewis — British, male</option>
+            </optgroup>
+          </select>
+          <div class="hint" id="audioVoiceHint" style="display:none;">Kokoro ignores the ElevenLabs-only settings, so they are greyed out. Speed and the pauses still apply.</div>
+        </div>
         <div class="mgrid2">
           <div class="mfield"><label>ElevenLabs Voice ID</label><input type="text" id="audioVoiceId" placeholder="e.g. DrIa8xWRu2s3gTbGhVO4"></div>
           <div class="mfield"><label>Model ID</label><input type="text" id="audioModelId" value="eleven_multilingual_v2"></div>
@@ -6480,7 +6513,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v510';
+const APP_VERSION = 'v511';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8611,6 +8644,47 @@ function prefillAudioGen(){
   // First run on this device, nothing saved yet — prefill with the project's current voice.
   const voiceEl = document.getElementById('audioVoiceId');
   if(voiceEl && !voiceEl.value) voiceEl.value = 'DrIa8xWRu2s3gTbGhVO4';
+  audioSyncVoicePick();
+}
+// ---- Voice dropdown (v511): a friendlier front for the Voice ID field. audioVoiceId stays the
+// single source of truth (tkAudioPayload, saving and the task payload all still read it), so the
+// dropdown only ever WRITES that field; nothing downstream knows the dropdown exists. ----
+const AUDIO_EL_DEFAULT_VOICE = 'DrIa8xWRu2s3gTbGhVO4';
+const AUDIO_EL_ONLY_FIELDS = ['audioVoiceId', 'audioModelId', 'audioStability', 'audioSimilarity', 'audioStyle', 'audioSpeakerBoost'];
+function audioSyncVoicePick(){
+  const pick = document.getElementById('audioVoicePick'), idEl = document.getElementById('audioVoiceId');
+  if(!pick || !idEl) return;
+  const cur = idEl.value.trim();
+  const isKokoro = /^kokoro:/i.test(cur);
+  // Remember the last real ElevenLabs id so switching back to ElevenLabs restores it.
+  if(cur && !isKokoro){ try{ localStorage.setItem('audio-el-voiceid', cur); }catch(e){} }
+  Array.prototype.slice.call(pick.querySelectorAll('option[data-custom]')).forEach(o => o.remove());
+  if(!isKokoro){
+    pick.value = 'elevenlabs';
+  }else{
+    const want = 'kokoro:' + cur.slice(7).trim().toLowerCase();
+    if(!Array.prototype.some.call(pick.options, o => o.value === want)){
+      const o = document.createElement('option');
+      o.value = want; o.textContent = 'Custom \u2014 ' + want; o.setAttribute('data-custom', '1');
+      pick.appendChild(o);
+    }
+    pick.value = want;
+  }
+  AUDIO_EL_ONLY_FIELDS.forEach(id => { const el = document.getElementById(id); if(el) el.disabled = isKokoro; });
+  const hint = document.getElementById('audioVoiceHint');
+  if(hint) hint.style.display = isKokoro ? '' : 'none';
+}
+function audioVoicePickChanged(){
+  const pick = document.getElementById('audioVoicePick'), idEl = document.getElementById('audioVoiceId');
+  if(pick.value === 'elevenlabs'){
+    let last = '';
+    try{ last = localStorage.getItem('audio-el-voiceid') || ''; }catch(e){}
+    idEl.value = last || AUDIO_EL_DEFAULT_VOICE;
+  }else{
+    idEl.value = pick.value;
+  }
+  audioSyncVoicePick();
+  saveAudioGenSettings(); // remembered for next time, same as typing in the field
 }
 function saveAudioGenSettings(){
   const c = {};
@@ -12431,7 +12505,7 @@ document.getElementById('tkAdd').addEventListener('click', async () => {
 
   if(TK_BATCH_TYPES[type]){
     if((type === 'audio-generate' || type === 'audio-invocation') && !document.getElementById('audioVoiceId').value.trim()){
-      tkSetAddStatus('Enter an ElevenLabs Voice ID under Import \u2192 Voice & pacing settings first.', true);
+      tkSetAddStatus('Choose a voice (or enter an ElevenLabs Voice ID) under Import \u2192 Voice & pacing settings first.', true);
       return;
     }
     const pool = tkBatchPool();
@@ -12969,6 +13043,9 @@ Object.keys(AUDIO_GEN_FIELDS).forEach(id => {
   const el = document.getElementById(id);
   if(el) el.addEventListener(AUDIO_GEN_FIELDS[id] === 'checkbox' ? 'change' : 'input', saveAudioGenSettings);
 });
+// v511: typing a Voice ID by hand keeps the Voice dropdown in step (e.g. typing kokoro:bm_lewis).
+document.getElementById('audioVoiceId').addEventListener('input', audioSyncVoicePick);
+document.getElementById('audioVoicePick').addEventListener('change', audioVoicePickChanged);
 
 
 // ================= ARTICLE VIEW (from DB) =================
