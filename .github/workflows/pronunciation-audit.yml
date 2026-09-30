@@ -1,0 +1,91 @@
+# Pronunciation audit — run by hand from the Actions tab ("Run workflow").
+#
+# mode = audit  : compares how Kokoro says each name in pronunciation/names-reference.json (the ones
+#                 that appear in your articles) with the reference pronunciation. Mismatches are
+#                 spoken into audio/_tests/pronunciation-audition.mp3 (each twice: Kokoro now, then
+#                 proposed) with a numbered list in audio/_tests/pronunciation-audition.txt.
+# mode = apply  : turns every proposed name into a pronunciation rule EXCEPT the numbers you list
+#                 in "reject". Leave reject blank to approve them all.
+#
+# Touches only files under pronunciation/ and audio/_tests/. Safe to run while nothing is recording.
+name: Pronunciation audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'audit = make the audition list; apply = save the approved ones as rules'
+        required: true
+        default: 'audit'
+        type: choice
+        options: [audit, apply]
+      reject:
+        description: 'apply only: numbers that sounded WRONG, e.g. 3, 7, 12 (blank = approve all)'
+        required: false
+        default: ''
+      voice:
+        description: 'Kokoro voice to audition with (use the one you record with)'
+        required: false
+        default: 'af_heart'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pronunciation-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: ${{ github.event.inputs.mode == 'audit' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ffmpeg and espeak-ng
+        if: ${{ github.event.inputs.mode == 'audit' }}
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg espeak-ng
+
+      - name: Cache pip and Kokoro model
+        if: ${{ github.event.inputs.mode == 'audit' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/huggingface
+          key: kokoro-py311-v1
+
+      - name: Install Kokoro (CPU)
+        if: ${{ github.event.inputs.mode == 'audit' }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install "kokoro>=0.9.4"
+          python -m spacy download en_core_web_sm
+
+      - name: Run
+        env:
+          MODE: ${{ github.event.inputs.mode }}
+          REJECT: ${{ github.event.inputs.reject }}
+          VOICE: ${{ github.event.inputs.voice }}
+        run: python3 scripts/pron/pron_audit.py
+
+      - name: Commit results
+        run: |
+          git config user.name "pronunciation-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A pronunciation audio/_tests
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit"
+          else
+            git commit -m "Pronunciation ${{ github.event.inputs.mode }}: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git pull --rebase
+            git push
+          fi
