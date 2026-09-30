@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
-kokoro-test.html  VERSION: 3
-DATE: 2026-09-30T04:38:19-05:00
+kokoro-test.html  VERSION: 4
+DATE: 2026-09-30T04:47:07-05:00
 Standalone experiment: can the open-source Kokoro neural voice run on this phone?
 Not part of the Catholic Timeline app. Nothing here touches the app's data.
 -->
@@ -31,7 +31,7 @@ Not part of the Catholic Timeline app. Nothing here touches the app's data.
 </style>
 </head>
 <body>
-<h1>Kokoro voice test</h1>
+<h1>Kokoro voice test <span style="font-size:14px;font-weight:600;color:var(--mut);white-space:nowrap;">v4</span></h1>
 <p class="sub">Checks whether a free neural voice runs on this device. Step 1 downloads the voice (about 90&nbsp;MB, once). Step 2 reads a paragraph and reports how fast it generated.</p>
 
 <div class="card">
@@ -87,7 +87,7 @@ window.addEventListener('unhandledrejection', (e) => say('Error: ' + ((e.reason 
 
 function report(extra){
   const l = [];
-  l.push('Kokoro test v2  ' + new Date().toISOString());
+  l.push('Kokoro test v4  ' + new Date().toISOString());
   l.push(R.device);
   l.push('Library: ' + (R.cdn || 'not loaded') + ' | model ' + MODEL_ID + ' | ' + R.dtype + ' on ' + R.backend);
   l.push('Load time: ' + (R.loadMs == null ? 'n/a' : (R.loadMs / 1000).toFixed(1) + ' s'));
