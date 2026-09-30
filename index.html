@@ -1,6 +1,6 @@
 <!--
-VERSION: 509
-DATE: 2026-09-29T18:42:57-05:00
+VERSION: 510
+DATE: 2026-09-29T23:26:58-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,18 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v510 — 2026-09-30
+
+**Ask:**
+- A button in the Task List that clears every task, in all the tabs (All, Queued, Running, Review).
+
+**Implementation:**
+- New "Clear all (N)" button in the Task List bar, next to Reset stuck. Asks first, spelling out how
+  many tasks are queued / running / waiting for review, then removes every task in one save through
+  saveWorkLog's existing deletedIds path (same merge-safe route the single-task swipe delete uses).
+  Rolls the local list back if the save fails. Ignores the type filter and the active tab on purpose.
+- Deleting a task never undoes work already applied: approved edits, images and audio stay as they are.
+
 ## v509 — 2026-09-29
 
 **Ask:**
@@ -5374,6 +5386,7 @@ CHANGELOG:END
         <input type="number" class="tkRunCount" id="tkRunCount" value="5" min="1" max="50" inputmode="numeric" aria-label="How many tasks to process">
         <select class="tkRunType" id="tkRunType" aria-label="Which service to run"></select>
         <button class="tkBtn" id="tkUnstick" style="display:none;">Reset stuck</button>
+        <button class="tkBtn no" id="tkClearAll" style="display:none;">Clear all</button>
       </div>
       <div class="tkBar" style="padding-top:0; padding-bottom:6px;">
         <label class="tkAutoApproveChk" for="tkAutoApprove">
@@ -6467,7 +6480,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v509';
+const APP_VERSION = 'v510';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -9699,6 +9712,7 @@ document.getElementById('tkRunCount').addEventListener('input', tkUpdateUpNext);
 function renderTaskList(){
   tkUpdateUpNext();
   tkSyncUnstickBtn();
+  tkSyncClearAllBtn();
   renderTkTypeFilterBtn();
   // Status has no header cell of its own — just a spacer the width of the icon column, so
   // "Task" starts over the task text rather than over the glyph.
@@ -12192,6 +12206,48 @@ async function tkUnstickTasks(){
   renderWorkLog();
 }
 document.getElementById('tkUnstick').addEventListener('click', tkUnstickTasks);
+// Clear all (v510): removes EVERY task from workLog.json — every tab (All/Queued/Running/Review),
+// ignoring the type filter. Same save route as tkDeleteTask (deletedIds), just for all ids at once.
+async function tkClearAllTasks(){
+  if(!wlData || !Array.isArray(wlData.tasks) || !wlData.tasks.length) return;
+  const all = wlData.tasks.slice();
+  const n = st => all.filter(t => st.indexOf(t.status) !== -1).length;
+  const queued = n(['queued']), running = n(['in_progress']), review = n(['proposed', 'awaiting_review']);
+  const finished = all.length - queued - running - review;
+  const parts = [];
+  if(queued) parts.push(queued + ' queued');
+  if(running) parts.push(running + ' running');
+  if(review) parts.push(review + ' waiting for review');
+  if(finished) parts.push(finished + ' finished');
+  let msg = 'Remove all ' + all.length + ' task' + (all.length === 1 ? '' : 's') + ' (' + parts.join(', ') + ')?\n\n' +
+    'Queued tasks will never run, and anything waiting for review is discarded unreviewed. ' +
+    'Work already applied (approved edits, images, audio) is not undone.';
+  if(running) msg += '\n\nSome tasks are marked Running. If a run is really in progress, wait for it to finish first.';
+  if(!(await appConfirm(msg, { okLabel: 'Clear all', danger: true }))) return;
+  tkCloseSwipedRow();
+  const before = wlData.tasks.slice();
+  const ids = all.map(t => t.id);
+  wlData.tasks = [];
+  renderTaskList();
+  wlSetLog('Clearing ' + ids.length + ' task(s)…');
+  const saved = await saveWorkLog('Cleared all ' + ids.length + ' task(s)', [], ids);
+  if(!saved || saved.ok === false){
+    wlData.tasks = before;
+    renderTaskList();
+    wlSetLog('Could not clear the tasks: ' + ((saved && saved.error) || 'save failed') + ' — tap Refresh and try again.', true);
+    return;
+  }
+  wlSetLog('Cleared ' + ids.length + ' task' + (ids.length === 1 ? '' : 's') + '.');
+  renderWorkLog();
+}
+document.getElementById('tkClearAll').addEventListener('click', tkClearAllTasks);
+function tkSyncClearAllBtn(){
+  const btn = document.getElementById('tkClearAll');
+  if(!btn) return;
+  const n = ((wlData && wlData.tasks) || []).length;
+  btn.style.display = n ? '' : 'none';
+  btn.textContent = 'Clear all (' + n + ')';
+}
 function tkSyncUnstickBtn(){
   const btn = document.getElementById('tkUnstick');
   if(!btn) return;
