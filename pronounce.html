@@ -1,12 +1,20 @@
 <!DOCTYPE html>
 <!--
-pronounce.html  VERSION: 2
-DATE: 2026-09-30T09:21:41-05:00
+pronounce.html  VERSION: 6
+DATE: 2026-09-30T15:03:33-05:00
 Fix a pronunciation by ear. Opened from an article's review tools (pronounce.html?id=<entry-id>).
 Tap the word Kokoro says wrong, listen to candidate pronunciations, pick the right one (or type
 how it sounds), and it is saved as a rule in pronunciation/catholic-timeline-pronunciation.json.
 Candidates are phoneme strings played through the SAME Kokoro model the recorder uses, and the
 exact string you pick is what gets saved, so the recording says it the way you heard it here.
+v6: intro text under the tabs removed; the voice status line sits above the voice picker.
+v5: typed spellings (KRAH-koof) are turned into one smooth pronunciation guide instead of being sounded
+out part by part; every choice is shown as a readable guide with an Edit button; the typing box is open
+from the start; playback at normal speed (1.0); "Hear in a story" reads your last five picks in sentences.
+v4: Review card keeps a fixed layout (nothing shifts as you step through words; Back/Skip sit at the
+top), and the decision buttons show your choice: the picked one turns solid gold with a check.
+v3: the voice download retries by itself once, then offers a Retry button; the choice buttons stay
+locked until the voice has loaded, so nothing can be picked without hearing it.
 Review list tab (pronounce.html?review=1), added in v2: walks the pronunciation audit's list
 (pronunciation/names-candidates.json) one word at a time: Original / Guided / Neither / Not sure.
 Choices are kept on the phone until Save, which writes the rules, the decisions file and the
@@ -48,15 +56,24 @@ Uses the GitHub token and repo settings the app already keeps on this device.
   .num{ flex:0 0 30px; height:30px; border-radius:15px; background:var(--gold); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; }
   .cmid{ flex:1; min-width:0; } .clab{ font-size:15px; } .cph{ font-size:13px; color:var(--mut); font-family:ui-monospace,Menlo,monospace; word-break:break-all; }
   .cand button{ padding:8px 11px; font-size:15px; }
+  .cand .cguide{ font-size:18px; font-weight:700; letter-spacing:.02em; }
   .hint{ color:var(--mut); font-size:14px; line-height:1.4; margin:6px 0 0; }
   .tabs{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0 0 12px; }
   .tabs button{ background:transparent; color:var(--fg); border-color:var(--line); }
   .tabs button.on{ background:var(--gold); color:#fff; border-color:var(--gold); }
-  .bigword{ font-size:34px; font-weight:700; text-align:center; margin:6px 0 2px; word-break:break-word; }
-  .ctx{ font-size:16px; line-height:1.5; margin:8px 0 4px; padding:8px 10px; border-left:3px solid var(--gold); background:var(--bg); border-radius:0 8px 8px 0; }
+  /* v4: every region of the review card has a fixed height, so the buttons never move between words. */
+  .bigword{ font-size:34px; font-weight:700; text-align:center; margin:8px 0 2px; height:48px; line-height:48px; white-space:nowrap; overflow:hidden; }
+  #revMeta{ height:22px; line-height:22px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0; }
+  #revBible{ height:22px; line-height:22px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:4px 0 0; }
+  #revProg{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1; }
+  .navrow{ display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:center; margin:8px 0 0; }
+  .navrow #revNext{ justify-self:end; } .navrow #revPrev{ justify-self:start; }
+  .navrow button{ padding:11px 16px; }
+  button.sec.chosen{ background:var(--gold); color:#fff; border-color:var(--gold); }
+  .keep-space{ visibility:hidden; }
+  .ctx{ font-size:16px; line-height:1.5; margin:8px 0 4px; padding:8px 10px; border-left:3px solid var(--gold); background:var(--bg); border-radius:0 8px 8px 0; height:132px; box-sizing:border-box; overflow-y:auto; }
   .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0 0; }
   .grid2 button{ padding:13px 8px; }
-  .stamp{ display:inline-block; font-size:13px; font-weight:700; padding:2px 8px; border-radius:10px; background:var(--sel); }
   #saveBar{ position:sticky; bottom:calc(8px + env(safe-area-inset-bottom)); display:none; background:var(--card); border:1px solid var(--gold); border-radius:12px; padding:10px 12px; box-shadow:0 4px 18px rgba(0,0,0,.18); align-items:center; justify-content:space-between; gap:10px; }
   #revFilter{ width:auto; padding:6px 8px; }
   .hidden{ display:none !important; }
@@ -64,16 +81,15 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 </head>
 <body>
 <div class="row" style="margin:0 0 6px;"><a id="backLink" href="./">&larr; Back to the timeline</a></div>
-<h1>Fix a pronunciation <span class="ver">v2</span></h1>
+<h1>Fix a pronunciation <span class="ver">v6</span></h1>
 <div class="tabs"><button id="tabArt" class="on">Article</button><button id="tabRev">Review list</button></div>
-<p class="sub" id="subArt">Tap the word the voice says wrong. You'll hear a few ways to say it &mdash; pick the right one and it's saved for every future recording.</p>
-<p class="sub hidden" id="subRev">Words from the pronunciation audit, one at a time. Do a quick pass, mark anything you're unsure of, then come back to those.</p>
 
 <div class="card">
   <h2>Voice</h2>
+  <p id="status" style="margin:0 0 8px;">Starting&hellip;</p>
   <select id="voiceSel" disabled></select>
   <div class="bar"><i id="prog"></i></div>
-  <p id="status">Starting&hellip;</p>
+  <div class="row hidden" id="retryRow"><button id="retryBtn">Retry loading the voice</button></div>
 </div>
 
 <div class="card" id="pickCard">
@@ -89,18 +105,19 @@ Uses the GitHub token and repo settings the app already keeps on this device.
   </div>
   <p class="hint hidden" id="revEmpty"></p>
   <div id="revBody" class="hidden">
+    <div class="navrow">
+      <button class="sec" id="revPrev">&larr; Back</button>
+      <label class="hint" style="margin:0;display:flex;gap:6px;align-items:center;"><input type="checkbox" id="autoPlay" checked style="width:auto;"> Play both</label>
+      <button class="sec" id="revNext">Skip &rarr;</button>
+    </div>
     <div class="bigword" id="revWord"></div>
     <div class="hint" id="revMeta" style="text-align:center;"></div>
     <div class="ctx" id="revCtx"></div>
     <div class="hint" id="revBible"></div>
     <div class="grid2"><button class="sec" id="playOrig">&#9654; Original</button><button class="sec" id="playGuide">&#9654; Guided</button></div>
-    <div class="grid2"><button id="pickOrig">Original &#10003;</button><button id="pickGuide">Guided &#10003;</button></div>
+    <div class="grid2"><button class="sec" id="pickOrig">Pick Original</button><button class="sec" id="pickGuide">Pick Guided</button></div>
     <div class="grid2"><button class="sec" id="revNeither">Neither</button><button class="sec" id="revNotSure">Not sure</button></div>
-    <div class="row" style="justify-content:space-between;margin-top:12px;">
-      <button class="sec" id="revPrev">&larr; Back</button>
-      <label class="hint" style="margin:0;display:flex;gap:6px;align-items:center;"><input type="checkbox" id="autoPlay" checked style="width:auto;"> Play both</label>
-      <button class="sec" id="revNext">Skip &rarr;</button>
-    </div>
+    <div class="row" style="margin-top:14px;"><button class="sec" id="storyBtn" style="width:100%;">&#9654; Hear my last picks in a story</button></div>
   </div>
 </div>
 
@@ -111,13 +128,14 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 
 <div class="card hidden" id="candCard">
   <h2 id="candTitle">Choices</h2>
-  <p class="hint">Each choice is the word on its own. When you find the right one, tap <b>This one</b>.</p>
+  <p class="hint">Each choice is the word on its own. Tap <b>This one</b> when it's right, or <b>Edit</b> to tweak a close one below.</p>
   <div class="row" style="margin:4px 0 10px;"><button id="playAllBtn" class="sec">&#9654; Play all</button></div>
   <div id="cands"></div>
   <div class="row"><button id="noneBtn" class="sec">None of these</button></div>
-  <div id="typeBox" class="hidden" style="margin-top:12px;">
-    <p class="hint" style="margin:0 0 6px;">Type how it sounds, split into parts, with the <b>stressed part in capitals</b> &mdash; e.g. <b>KRAH-koof</b>, <b>sez-uh-REE-uh</b>.</p>
+  <div id="typeBox" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
+    <p class="hint" style="margin:0 0 6px;"><b>Or type how it sounds</b>, in parts, with the <b>stressed part in capitals</b> &mdash; e.g. <b>KRAH-koof</b>, <b>sez-uh-REE-uh</b>. Sounds: uh, ay, ee, eye, oh, oo, ah, aw, ih, eh, er, ow, oy &middot; th, sh, zh, ch, j, ng.</p>
     <input id="typeIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="KRAH-koof">
+    <div class="hint" id="typePrev" style="min-height:20px;"></div>
     <div class="row"><button id="typeBtn">Hear it</button></div>
   </div>
 </div>
@@ -144,7 +162,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 
 <script>
 'use strict';
-const PAGE_VERSION = 'v2';
+const PAGE_VERSION = 'v6';
 const $ = (id) => document.getElementById(id);
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const KOKORO_CDNS = ['https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/+esm', 'https://esm.sh/kokoro-js@1.2.0'];
@@ -320,12 +338,34 @@ async function loadVoice(){
   if(typeof tts.generate_from_ids !== 'function' || typeof tts.tokenizer !== 'function')
     throw new Error('This version of the voice library cannot play raw pronunciations.');
   $('prog').style.width = '100%';
+  $('voiceSel').disabled = false;
+  say('Voice ready. Use the voice you record with.', 'ok');
+  voiceReady();
+}
+function fillVoices(){
   const ids = ['af_heart','af_bella','af_nicole','af_sarah','af_sky','am_adam','am_michael','bf_emma','bf_isabella','bm_george','bm_lewis'];
   const saved = localStorage.getItem('pron-voice') || 'af_heart';
   $('voiceSel').innerHTML = ids.map(id => '<option value="' + id + '">' + id + '</option>').join('');
   $('voiceSel').value = ids.indexOf(saved) >= 0 ? saved : 'af_heart';
-  $('voiceSel').disabled = false;
-  say('Voice ready. Use the voice you record with.', 'ok');
+}
+// The first download is about 90 MB; on cellular it can drop part-way ("Load failed").
+// Try once more by itself, then offer a Retry button. After one full download the phone keeps it.
+async function startVoice(){
+  $('retryRow').classList.add('hidden');
+  for(let attempt = 1; attempt <= 2; attempt++){
+    try{ await loadVoice(); return; }
+    catch(e){
+      tts = null;
+      if(attempt === 1){ say('Download interrupted \u2014 trying again\u2026'); await new Promise(r => setTimeout(r, 1500)); continue; }
+      say('Voice failed to load: ' + (e.message || e) + '. The first download is about 90 MB and can drop on cellular \u2014 Wi-Fi is more reliable. Once it downloads fully, the phone keeps it.', 'err');
+      $('retryRow').classList.remove('hidden');
+    }
+  }
+}
+$('retryBtn').addEventListener('click', () => { $('prog').style.width = '0'; startVoice(); });
+// Choices need the voice: nothing can be picked without hearing it first.
+function voiceReady(){
+  if(!$('revCard').classList.contains('hidden')) renderRev();
 }
 $('voiceSel').addEventListener('change', () => { localStorage.setItem('pron-voice', voice()); audioCache.clear(); if(cands.length) renderRound(); });
 
@@ -340,7 +380,7 @@ function anglicize(ps){
   s = s.replace(/[\u0361\u035c]/g, '');
   s = s.replace(/tɕ/g, 'ʧ').replace(/dʑ/g, 'ʤ').replace(/tʂ/g, 'ʧ').replace(/dʐ/g, 'ʤ').replace(/tʃ/g, 'ʧ').replace(/dʒ/g, 'ʤ');
   s = s.replace(/([a-zɑɔɛœɐəɪʊæ])\u0303/g, '$1n');
-  const map = { 'ʁ':'ɹ','ʀ':'ɹ','r':'ɹ','y':'u','ʏ':'ʊ','ø':'ɜ','œ':'ɛ','ɨ':'ɪ','ɯ':'u','ɤ':'ʌ','ɕ':'ʃ','ʑ':'ʒ','ʂ':'ʃ','ʐ':'ʒ',
+  const map = { 'ʁ':'ɹ','ʀ':'ɹ','r':'ɹ','ɾ':'ɹ','ɽ':'ɹ','ɻ':'ɹ','y':'u','ʏ':'ʊ','ø':'ɜ','œ':'ɛ','ɨ':'ɪ','ɯ':'u','ɤ':'ʌ','ɕ':'ʃ','ʑ':'ʒ','ʂ':'ʃ','ʐ':'ʒ',
     'ç':'h','x':'h','χ':'h','ɣ':'ɡ','β':'b','ɸ':'f','ʎ':'lj','ɲ':'nj','ɫ':'l','ɬ':'l','ʝ':'j','ɟ':'ɡ','c':'k','ɦ':'h','ɒ':'ɑ','g':'ɡ','ʲ':'j' };
   s = s.split('').map(ch => map[ch] !== undefined ? map[ch] : ch).join('');
   s = s.replace(/eː/g, 'eɪ').replace(/oː/g, 'oʊ').replace(/e(?![ɪəʊ])/g, 'eɪ').replace(/o(?![ʊ])/g, 'oʊ').replace(/a(?![ɪʊ])/g, 'ɑ');
@@ -429,7 +469,7 @@ $('findBtn').addEventListener('click', async () => {
   $('findBtn').disabled = true; say('Working out ways to say \u201c' + phrase + '\u201d\u2026');
   try{
     cands = await buildCandidates(phrase); shown = 0; chosen = null;
-    $('chosenCard').classList.add('hidden'); $('typeBox').classList.add('hidden');
+    $('chosenCard').classList.add('hidden');
     $('candCard').classList.remove('hidden');
     nextRound();
     $('candCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -449,10 +489,9 @@ function renderRound(){
   $('candTitle').textContent = 'Ways to say \u201c' + phrase + '\u201d';
   $('cands').innerHTML = round.map((c, i) =>
     '<div class="cand" data-i="' + (from + i) + '"><div class="num">' + (from + i + 1) + '</div>' +
-    '<div class="cmid"><div class="clab">' + esc(c.label) + '</div><div class="cph">' + esc(c.ph) + '</div></div>' +
-    '<button class="sec" data-act="play" disabled>&#9654;</button><button data-act="pick">This one</button></div>').join('') ||
+    '<div class="cmid"><div class="cguide">' + esc(guideOf(c.ph)) + '</div><div class="cph">' + esc(c.label) + '</div></div>' +
+    '<button class="sec" data-act="play" disabled>&#9654;</button><button class="sec" data-act="edit">Edit</button><button data-act="pick">This one</button></div>').join('') ||
     '<p class="hint">No ways found for this word \u2014 type how it sounds below.</p>';
-  if(!round.length) $('typeBox').classList.remove('hidden');
   prepare(round.map((c, i) => from + i));
 }
 // Generate each choice's audio in turn, so Play is instant once it's ready.
@@ -464,7 +503,7 @@ async function prepare(idxs){
 }
 async function speakPhonemes(ph){
   const { input_ids } = tts.tokenizer(ph, { truncation: true });
-  const a = await tts.generate_from_ids(input_ids, { voice: voice(), speed: 0.9 });
+  const a = await tts.generate_from_ids(input_ids, { voice: voice(), speed: 1 });
   return { samples: a.audio, rate: a.sampling_rate || 24000 };
 }
 async function audioFor(ph){
@@ -486,6 +525,10 @@ $('cands').addEventListener('click', async (ev) => {
   const b = ev.target.closest('button'); if(!b) return;
   const i = +b.closest('.cand').dataset.i;
   if(b.dataset.act === 'play'){ playAllRun++; await play(await audioFor(cands[i].ph)); }
+  else if(b.dataset.act === 'edit'){
+    $('typeIn').value = guideOf(cands[i].ph); typePreview();
+    $('typeBox').scrollIntoView({ behavior: 'smooth', block: 'center' }); $('typeIn').focus();
+  }
   else choose(i);
 });
 $('playAllBtn').addEventListener('click', async () => {
@@ -500,29 +543,111 @@ $('playAllBtn').addEventListener('click', async () => {
 });
 $('noneBtn').addEventListener('click', () => {
   if(shown < cands.length) nextRound();
-  else{ $('typeBox').classList.remove('hidden'); $('typeIn').focus(); }
+  else{ $('typeBox').scrollIntoView({ behavior: 'smooth', block: 'center' }); $('typeIn').focus(); }
 });
 
-// "KRAH-koof": each part read as English, stress placed on the part in capitals.
-async function fromRespelling(txt){
-  const parts = txt.trim().split(/[-\s\u2010-\u2014]+/).filter(Boolean);
-  if(!parts.length) return '';
-  let stressAt = parts.findIndex(p => /\p{Lu}/u.test(p) && p === p.toUpperCase());
-  if(stressAt < 0) stressAt = 0;
-  const codes = isBritish() ? LANGS.en.gb : LANGS.en.codes;
-  const phs = [];
-  for(const p of parts){ phs.push(kokoroFix(await espeakTry(p.toLowerCase(), codes)).replace(/[ˈˌ\s]/g, '')); }
-  NUC.lastIndex = 0;
-  const m = NUC.exec(phs[stressAt]);
-  if(m) phs[stressAt] = phs[stressAt].slice(0, m.index) + 'ˈ' + phs[stressAt].slice(m.index);
-  return phs.join('');
+// ---------- pronunciation guides (KRAH-koof) <-> sounds ----------
+// Typed guide -> one continuous sound string, like the guided pronunciations, so a three-part word is
+// said as one word (the old route sounded out each part separately, which came out choppy).
+// Conventions are the usual lector-guide ones; the part in CAPITALS is stressed, and "uh" in an
+// unstressed part is the quick, reduced vowel.
+const R2P_V = [ // spelling, stressed sound, unstressed sound (longest spellings first)
+  ['eye','I','I'],['igh','I','I'],['air','ɛɹ','ɛɹ'],['eer','ɪɹ','ɪɹ'],['ear','ɪɹ','ɪɹ'],['oor','ʊɹ','ʊɹ'],['uu','ʊ','ʊ'],
+  ['ay','A','A'],['ai','A','A'],['ee','i','i'],['ea','i','i'],['oo','u','u'],['ew','ju','ju'],['ou','W','W'],['ow','W','W'],
+  ['oh','O','O'],['oa','O','O'],['oy','Y','Y'],['oi','Y','Y'],['aw','ɔ','ɔ'],['au','ɔ','ɔ'],['ah','ɑ','ɑ'],['uh','ʌ','ə'],
+  ['ih','ɪ','ɪ'],['eh','ɛ','ɛ'],['er','ɜɹ','əɹ'],['ur','ɜɹ','əɹ'],['ir','ɜɹ','əɹ'],['ar','ɑɹ','ɑɹ'],['or','ɔɹ','ɔɹ'],
+  ['a','æ','æ'],['e','ɛ','ɛ'],['i','ɪ','ɪ'],['o','ɑ','ɑ'],['u','ʌ','ə']
+];
+const R2P_C = [['tch','ʧ'],['ch','ʧ'],['sh','ʃ'],['zh','ʒ'],['th','θ'],['dh','ð'],['ng','ŋ'],['ph','f'],['ck','k'],['qu','kw'],
+  ['wh','w'],['kh','k'],['j','ʤ'],['g','ɡ'],['c','k'],['x','ks'],['r','ɹ'],['b','b'],['d','d'],['f','f'],['h','h'],['k','k'],
+  ['l','l'],['m','m'],['n','n'],['p','p'],['s','s'],['t','t'],['v','v'],['w','w'],['z','z']];
+const LONG = { a: 'ay', i: 'eye', y: 'eye', o: 'oh', u: 'oo' };
+function respellPart(part, stressed){
+  let p = part.toLowerCase().replace(/[^a-z]/g, '');
+  // Silent e: "vyte", "kite" -> long vowel ("vyte" = v + eye + t).
+  const m = p.match(/^(.*?)([aiouy])(ch|sh|th|[bcdfgjklmnpstvz])e$/);
+  if(m && !/[aeiouy]$/.test(m[1])) p = m[1] + LONG[m[2]] + m[3];
+  let out = '', stressPut = false, i = 0;
+  while(i < p.length){
+    let hit = null;
+    const isVowelAt = (k) => /[aeiou]/.test(p[k] || '');
+    if(p[i] === 'y'){
+      if(i > 0 && p[i + 1] === 'e' && !isVowelAt(i + 2)){ hit = { len: 2, ph: 'I', v: true }; }          // "tye", "pye"
+      else if(i === 0 || isVowelAt(i + 1)){ hit = { len: 1, ph: 'j', v: false }; }                          // "yoo", "yes"
+      else hit = { len: 1, ph: (i === p.length - 1 ? 'i' : 'ɪ'), v: true };                                 // "SIN-y"
+    }
+    if(!hit) for(const [sp, st, un] of R2P_V){ if(p.startsWith(sp, i)){ hit = { len: sp.length, ph: stressed ? st : un, v: true }; break; } }
+    if(!hit) for(const [sp, ph] of R2P_C){ if(p.startsWith(sp, i)){ hit = { len: sp.length, ph, v: false }; break; } }
+    if(!hit){ i++; continue; }
+    if(hit.v && stressed && !stressPut){ out += 'ˈ'; stressPut = true; }
+    out += hit.ph; i += hit.len;
+  }
+  return out;
 }
+function guideToPhonemes(txt){
+  const parts = String(txt || '').trim().split(/[-\s\u2010-\u2014]+/).filter(x => /[a-z]/i.test(x));
+  if(!parts.length) return '';
+  let stressAt = parts.findIndex(x => /[A-Z]/.test(x) && x === x.toUpperCase());
+  if(stressAt < 0) stressAt = 0;
+  // Doubled consonants across parts ("MES-suh") are one sound.
+  return parts.map((x, k) => respellPart(x, k === stressAt)).join('').replace(/([bdfhklmnpstvwzɡɹʃʒθðŋʧʤ])\1/g, '$1');
+}
+// Sounds -> readable guide, for showing each choice and for Edit.
+const P2R_V = [['eɪ','ay'],['aɪ','eye'],['aʊ','ow'],['oʊ','oh'],['ɔɪ','oy'],['əʊ','oh'],['ɜɹ','er'],['ɜː','er'],['ɑɹ','ar'],['ɔɹ','or'],
+  ['ɛɹ','air'],['eə','air'],['ɪɹ','eer'],['ɪə','eer'],['ʊɹ','oor'],['ɚ','er'],['A','ay'],['I','eye'],['W','ow'],['O','oh'],['Y','oy'],
+  ['Q','oh'],['i','ee'],['ɪ','ih'],['ᵻ','ih'],['ɛ','eh'],['e','ay'],['æ','a'],['a','ah'],['ɑ','ah'],['ɒ','ah'],['ɔ','aw'],['o','oh'],
+  ['ʊ','uu'],['u','oo'],['ʌ','uh'],['ə','uh'],['ᵊ','uh'],['ɐ','uh'],['ɜ','er'],['ɨ','ih'],['y','oo'],['ø','er'],['œ','eh'],['ɯ','oo']];
+const P2R_C = { 'θ':'th','ð':'th','ʃ':'sh','ʒ':'zh','ʧ':'ch','ʤ':'j','ŋ':'ng','ɡ':'g','g':'g','ɹ':'r','r':'r','ɾ':'t','j':'y','ʔ':'',
+  'x':'k','ç':'h','ʁ':'r','ɲ':'ny','ʎ':'ly','ɫ':'l','ɬ':'l','β':'b','ɣ':'g','χ':'h','ʂ':'sh','ʐ':'zh','ɕ':'sh','ʑ':'zh' };
+function guideOf(ph){
+  const src = String(ph || '').replace(/[ː\s]/g, '').replace(/ˌ/g, '');
+  const items = []; let stressNext = false, i = 0;
+  while(i < src.length){
+    if(src[i] === 'ˈ'){ stressNext = true; i++; continue; }
+    let v = null;
+    for(const [u, r] of P2R_V){ if(src.startsWith(u, i)){ v = { t: r, v: true, len: u.length, eye: r === 'eye' }; break; } }
+    if(v){ v.stress = stressNext; stressNext = false; items.push(v); i += v.len; continue; }
+    const ch = src[i]; const r = P2R_C[ch] !== undefined ? P2R_C[ch] : (/[a-z]/.test(ch) ? ch : '');
+    items.push({ t: r, v: false }); i++;
+  }
+  const vi = items.map((x, k) => x.v ? k : -1).filter(k => k >= 0);
+  if(!vi.length) return items.map(x => x.t).join('');
+  // Split between vowels: a lone consonant starts the next part; of two or more, the first stays behind.
+  const cuts = [];
+  for(let k = 1; k < vi.length; k++){
+    const between = vi[k] - vi[k - 1] - 1;
+    cuts.push(between <= 1 ? vi[k] - between : vi[k - 1] + 2);
+  }
+  const bounds = [0].concat(cuts, [items.length]), sylls = [];
+  for(let k = 0; k < bounds.length - 1; k++){
+    const seg = items.slice(bounds[k], bounds[k + 1]);
+    const vk = seg.findIndex(x => x.v);
+    let txt = '';
+    seg.forEach((x, n) => {
+      if(n === vk && x.eye){
+        const onset = seg.slice(0, n).map(y => y.t).join(''), coda = seg.slice(n + 1).map(y => y.t).join('');
+        if(onset){ txt = onset + 'y' + (coda ? coda + 'e' : 'e'); return; }
+      }
+      if(vk >= 0 && seg[vk].eye && seg.slice(0, vk).some(y => y.t) && n !== vk) return;
+      txt += x.t;
+    });
+    sylls.push(vk >= 0 && seg[vk].stress ? txt.toUpperCase() : txt);
+  }
+  return sylls.join('-');
+}
+function typePreview(){
+  const t = $('typeIn').value.trim();
+  if(!t){ $('typePrev').textContent = ''; return; }
+  const ph = guideToPhonemes(t);
+  $('typePrev').textContent = ph ? 'Will say: ' + guideOf(ph) : 'Could not read that \u2014 use letters and hyphens.';
+}
+$('typeIn').addEventListener('input', typePreview);
 $('typeBtn').addEventListener('click', async () => {
   unlockAudio();
   const t = $('typeIn').value; if(!t.trim()) return;
   $('typeBtn').disabled = true;
   try{
-    const ph = await fromRespelling(t);
+    const ph = guideToPhonemes(t);
     if(!ph) throw new Error('could not read that spelling');
     cands.push({ ph, label: 'Your spelling: ' + t.trim() });
     shown = cands.length;
@@ -573,6 +698,22 @@ $('sentBtn').addEventListener('click', async () => {
   }catch(e){ say('Could not play the sentence: ' + (e.message || e), 'err'); }
   finally{ b.disabled = false; }
 });
+// A sentence with one word said a given way: the rest is read normally (with the spelling rules),
+// the word itself uses the chosen sounds.
+async function sentencePhonemes(sentence, word, wordPh){
+  const codes = isBritish() ? LANGS.en.gb : LANGS.en.codes;
+  const pat = new RegExp('(^|[^\\p{L}\\p{N}])(' + word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(?![\\p{L}\\p{N}])', 'u');
+  const m = pat.exec(sentence);
+  let before = sentence, after = '';
+  if(m){ const at = m.index + m[1].length; before = sentence.slice(0, at); after = sentence.slice(at + m[2].length); }
+  const lead = (after.match(/^['\u2019]s\b/u) || [''])[0];
+  after = after.slice(lead.length);
+  const punct = (after.match(/^[,.;:!?]/) || [''])[0];
+  after = after.slice(punct.length);
+  const pb = before.trim() ? kokoroFix(await espeakTry(applyAliases(before.trim()), codes)) : '';
+  const pa = after.trim() ? kokoroFix(await espeakTry(applyAliases(after.trim()), codes)) : '';
+  return [pb, wordPh + (lead ? 'z' : '') + punct, pa].filter(Boolean).join(' ');
+}
 // Read-change-write a JSON file in the repo, retrying if something else wrote it in between.
 // `fallback` is used when the file does not exist yet.
 async function ghUpdateJson(path, mutate, message, fallback){
@@ -628,7 +769,6 @@ let dec = {};   // name -> { s: 'original' | 'guided' | 'custom' | 'notsure', ph
 try{ dec = JSON.parse(localStorage.getItem('pron-review') || '{}') || {}; }catch(e){ dec = {}; }
 const saveDec = () => { try{ localStorage.setItem('pron-review', JSON.stringify(dec)); }catch(e){} };
 const DECIDED = ['original', 'guided', 'custom'];
-const STAMP = { original: 'Original', guided: 'Guided', custom: 'Your own choice', notsure: 'Not sure' };
 function statusOf(c){ return dec[c.name] ? dec[c.name].s : (c.notsure ? 'notsure' : ''); }
 function filtered(){
   const f = $('revFilter').value;
@@ -698,21 +838,37 @@ function renderRev(){
   revItem = null; $('candCard').classList.add('hidden');
   const guided = !!c.ipa, st = statusOf(c);
   $('revWord').textContent = c.name;
+  fitWord();
   $('revMeta').innerHTML = esc(c.uses || 0) + ' use' + (c.uses === 1 ? '' : 's') +
-    (guided ? ' \u00b7 guided: <b>' + esc(c.say || c.ipa) + '</b>' : ' \u00b7 not in Kokoro\u2019s dictionary, so it guesses') +
-    (st ? '<br><span class="stamp">' + esc(STAMP[st]) + '</span>' : '');
+    (guided ? ' \u00b7 guided: <b>' + esc(c.say || c.ipa) + '</b>' : ' \u00b7 not in Kokoro\u2019s dictionary');
   const ctx = entries.length ? contextFor(c.name) : null;
   if(ctx){
     const hl = esc(ctx.sent).split(esc(c.name)).join('<b>' + esc(c.name) + '</b>');
     $('revCtx').innerHTML = hl + '<div class="hint" style="margin:4px 0 0;">\u2014 ' + esc(ctx.e.n || '') +
       (ctx.n > 1 ? ' (and ' + (ctx.n - 1) + ' more article' + (ctx.n > 2 ? 's' : '') + ')' : '') + '</div>';
-    $('revCtx').classList.remove('hidden');
-  }else $('revCtx').classList.add('hidden');
-  $('revBible').innerHTML = c.bible ? 'Look it up: <b>' + esc(c.bible) + '</b>' : '';
-  ['playGuide', 'pickGuide'].forEach(id => $(id).classList.toggle('hidden', !guided));
+  }else $('revCtx').innerHTML = '<span class="hint">Not found in an article.</span>';
+  $('revCtx').scrollTop = 0;
+  $('revBible').innerHTML = c.bible ? 'Look it up: <b>' + esc(c.bible) + '</b>' : '&nbsp;';
+  // Hidden but still taking up room, so the buttons below stay put for words with no guided version.
+  ['playGuide', 'pickGuide'].forEach(id => $(id).classList.toggle('keep-space', !guided));
+  // Your choice shows on its button: solid gold with a check.
+  const pickBtn = { original: 'pickOrig', guided: 'pickGuide', custom: 'revNeither', notsure: 'revNotSure' };
+  const labels = { pickOrig: 'Pick Original', pickGuide: 'Pick Guided', revNeither: 'Neither', revNotSure: 'Not sure' };
+  Object.keys(labels).forEach(id => {
+    const on = pickBtn[st] === id;
+    $(id).classList.toggle('chosen', on);
+    $(id).textContent = (on ? '\u2713 ' : '') + (on && id === 'revNeither' ? 'Your own choice' : labels[id]);
+  });
+  ['playOrig', 'playGuide', 'pickOrig', 'pickGuide', 'revNeither'].forEach(id => { $(id).disabled = !tts; });
   $('revPrev').disabled = revPos === 0;
   if($('autoPlay').checked && revShown !== c.name){ revShown = c.name; autoPlayBoth(c); }
   revShown = c.name;
+}
+// Long names shrink to fit on one line instead of wrapping (which would push everything down).
+function fitWord(){
+  const el = $('revWord'); let size = 34;
+  el.style.fontSize = size + 'px';
+  while(el.scrollWidth > el.clientWidth && size > 16){ size -= 2; el.style.fontSize = size + 'px'; }
 }
 function origPh(c){ return c.kokoro || ''; }
 async function playPh(ph){
@@ -733,7 +889,7 @@ function current(){ return filtered()[revPos] || null; }
 function decide(s, ph){
   const c = revItem || current(); if(!c) return;
   const wasTodo = $('revFilter').value === 'todo' || ($('revFilter').value === 'notsure' && s !== 'notsure');
-  dec[c.name] = { s, ph: ph || '' }; saveDec();
+  dec[c.name] = { s, ph: ph || '', t: Date.now() }; saveDec();
   revItem = null; $('candCard').classList.add('hidden');
   if(!wasTodo) revPos++;            // in "All" the word stays in the list, so step past it
   renderRev();
@@ -755,7 +911,7 @@ $('revNeither').addEventListener('click', async () => {
   $('revNeither').disabled = true; say('Working out other ways to say \u201c' + c.name + '\u201d\u2026');
   try{
     cands = await buildCandidates(c.name, [origPh(c), c.ipa]); shown = 0; chosen = null;
-    $('typeBox').classList.add('hidden'); $('chosenCard').classList.add('hidden');
+    $('chosenCard').classList.add('hidden');
     $('candCard').classList.remove('hidden');
     nextRound();
     $('candCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -795,11 +951,45 @@ $('revSave').addEventListener('click', async () => {
   }finally{ b.disabled = false; }
 });
 
+// ---------- hear the last picks in a story ----------
+const STORY_TEMPLATES = ['Many pilgrims have spoken of {w}.', 'The old chronicle names {w} more than once.',
+  'Few people today remember {w}.', 'It was there that {w} was mentioned again.', 'And so the story comes to {w}.'];
+let storyRun = 0;
+$('storyBtn').addEventListener('click', async () => {
+  unlockAudio(); autoRun++;
+  if(!tts){ say('The voice is still loading \u2014 try again in a moment.', 'err'); return; }
+  if(storyRun % 2 === 1){ storyRun++; stopPlay(); $('storyBtn').innerHTML = '&#9654; Hear my last picks in a story'; say('Stopped.', 'ok'); return; }
+  const onList = new Set(revList.map(c => c.name));
+  const picks = Object.keys(dec).filter(n => onList.has(n) && dec[n].ph && dec[n].s !== 'notsure')
+    .sort((a, b) => (dec[b].t || 0) - (dec[a].t || 0)).slice(0, 5).reverse();
+  if(!picks.length){ say('Pick a few words first \u2014 the story uses your last five picks.', 'err'); return; }
+  const run = ++storyRun; $('storyBtn').innerHTML = '&#9632; Stop the story';
+  const lines = picks.map((n, k) => {
+    const ctx = contextFor(n);
+    const real = ctx && ctx.sent && ctx.sent.split(/\s+/).length <= 30 ? ctx.sent : '';
+    return { n, text: real || STORY_TEMPLATES[k % STORY_TEMPLATES.length].replace('{w}', n) };
+  });
+  const make = async (k) => speakPhonemes(await sentencePhonemes(lines[k].text, lines[k].n, dec[lines[k].n].ph));
+  try{
+    let next = make(0);
+    for(let k = 0; k < lines.length; k++){
+      say('Story: sentence ' + (k + 1) + ' of ' + lines.length + ' \u2014 ' + lines[k].n);
+      const audio = await next;
+      if(run !== storyRun) return;
+      if(k + 1 < lines.length) next = make(k + 1);          // prepare the next while this one plays
+      await play(audio);
+      if(run !== storyRun) return;
+      await new Promise(r => setTimeout(r, 350));
+    }
+    say('Story finished: ' + picks.join(', ') + '.', 'ok');
+  }catch(e){ say('Could not play the story: ' + (e.message || e), 'err'); }
+  finally{ if(run === storyRun){ storyRun++; $('storyBtn').innerHTML = '&#9654; Hear my last picks in a story'; } }
+});
+
 // ---------- tabs ----------
 function showTab(t){
   const rev = t === 'rev';
   $('tabArt').classList.toggle('on', !rev); $('tabRev').classList.toggle('on', rev);
-  $('subArt').classList.toggle('hidden', rev); $('subRev').classList.toggle('hidden', !rev);
   $('revCard').classList.toggle('hidden', !rev);
   $('pickCard').classList.toggle('hidden', rev || !!entry);
   $('artCard').classList.toggle('hidden', rev || !entry);
@@ -813,6 +1003,7 @@ $('tabRev').addEventListener('click', () => { unlockAudio(); showTab('rev'); });
 
 // ---------- start ----------
 (async function start(){
+  fillVoices();
   try{
     const [data, pron] = await Promise.all([loadJson('data.json'), loadJson(RULES_PATH).catch(() => ({ rules: [] }))]);
     entries = (Array.isArray(data) ? data : (data.entries || [])).filter(e => e && e.id);
@@ -823,8 +1014,7 @@ $('tabRev').addEventListener('click', () => { unlockAudio(); showTab('rev'); });
     if(entry) renderArticle(); else showResults();
     if(qs.get('review')) showTab('rev');
   }catch(e){ say('Could not load the articles: ' + (e.message || e), 'err'); return; }
-  try{ await loadVoice(); }
-  catch(e){ say('Voice failed to load: ' + (e.message || e), 'err'); }
+  await startVoice();
 })();
 </script>
 </body>
