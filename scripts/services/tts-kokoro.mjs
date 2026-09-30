@@ -86,6 +86,20 @@ function pieces(text, maxChars = 350){
   return out;
 }
 
+// Kokoro pads each clip with a little silence at both ends. That padding stacks on top of the
+// pause we add between sentences, which is what made the gaps feel too long. Trim anything below a
+// very quiet threshold from both ends, keeping a short natural pad so words aren't clipped.
+const TRIM_THRESHOLD = 0.004;      // ~ -48 dB; real speech sits far above this
+const TRIM_KEEP_SEC = 0.05;
+export function trimSilence(f32){
+  let a = 0, b = f32.length;
+  while(a < b && Math.abs(f32[a]) < TRIM_THRESHOLD) a++;
+  while(b > a && Math.abs(f32[b - 1]) < TRIM_THRESHOLD) b--;
+  if(a >= b) return f32; // all quiet: leave it alone rather than return nothing
+  const keep = Math.round(TRIM_KEEP_SEC * RATE);
+  return f32.subarray(Math.max(0, a - keep), Math.min(f32.length, b + keep));
+}
+
 // ---- A recording held in memory ---------------------------------------------------------------
 export class Track {
   constructor(){ this.chunks = []; this.length = 0; }
@@ -113,7 +127,7 @@ export async function speakInto(track, text, voice, speed){
     const rate = out && (out.sampling_rate || out.sampleRate);
     if(!samples || !samples.length) throw new Error('Kokoro returned no audio for: ' + bits[i].slice(0, 60));
     if(rate && rate !== RATE) throw new Error('Kokoro returned ' + rate + ' Hz audio; expected ' + RATE);
-    track.addSamples(samples);
+    track.addSamples(trimSilence(samples));
     if(i < bits.length - 1) track.addSilence(0.15);
   }
 }

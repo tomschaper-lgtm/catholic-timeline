@@ -295,6 +295,32 @@ async function narrateEntry(entry, dir, baseName, opts, apiKey){
   return { audioPath, durationSec: round2(cumulative), cues, replacements };
 }
 
+// The sentence splitter can cut after an abbreviation ("...beside St." / "Martial. Another..."),
+// which the Kokoro path would speak as two separate pieces with a pause between them. Glue those
+// back together. Uses the original character offsets when the splitter provides them, so the cue
+// text stays exactly what is on the page; otherwise joins with one space (the page's own spacing).
+const ABBREV_END = /(?:\b(?:St|Sts|Mt|Mr|Mrs|Ms|Dr|Fr|Bl|Ven|Msgr|Jr|Sr|Gen|Rev|Hon|Prof|vs|cf|ca|approx|no|vol|ch)\.|\b[A-Z]\.)$/;
+const DATE_ABBREV_END = /\b(?:A\.D|B\.C|C\.E|B\.C\.E|A\.M|P\.M)\.$/;
+function mergeAbbrevSplits(list, body){
+  const out = [];
+  for(const cur of list){
+    const prev = out[out.length - 1];
+    const next = String(cur.text || '');
+    const glue = prev && (
+      ABBREV_END.test(prev.text) ||
+      (DATE_ABBREV_END.test(prev.text) && /^[0-9a-z]/.test(next))
+    );
+    if(glue){
+      const hasOffsets = Number.isFinite(prev.start) && Number.isFinite(cur.end) && cur.end > prev.start;
+      prev.text = hasOffsets ? body.slice(prev.start, cur.end).trim() : (prev.text + ' ' + next).trim();
+      if(Number.isFinite(cur.end)) prev.end = cur.end;
+    }else{
+      out.push(Object.assign({}, cur, { text: next }));
+    }
+  }
+  return out;
+}
+
 // Kokoro version of narrateEntry(): same order of things (heading, pause, body, section gap,
 // closing prayer) and the same cue shape, but the whole recording is built in memory. Every
 // sentence is its own Kokoro call, so its start/end come straight from the audio length so far —
@@ -329,7 +355,7 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
     }
 
     const sentences = splitSentences(body);
-    const list = sentences && sentences.length ? sentences : [{ text: body }];
+    const list = sentences && sentences.length ? mergeAbbrevSplits(sentences, body) : [{ text: body }];
     for(let k = 0; k < list.length; k++){
       const start = track.seconds;
       await say(list[k].text);
@@ -410,7 +436,7 @@ export async function runAudioGenerate(task, dataJson){
   const { audioPath, durationSec, cues, replacements } = kokoro
     ? await narrateEntryKokoro(entry, dir, baseName, {
         voiceId, speed: kokoroSpeed(p), readHeadings, headingPauseSec, sectionPauseSec,
-        sentencePauseSec: (parseInt(process.env.KOKORO_SENTENCE_PAUSE_MS, 10) || 300) / 1000
+        sentencePauseSec: (parseInt(process.env.KOKORO_SENTENCE_PAUSE_MS, 10) || 200) / 1000
       })
     : await narrateEntry(
         entry, dir, baseName,
