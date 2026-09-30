@@ -31,6 +31,13 @@
 // maintenance tool for old timing files, neither fitting the per-entity task model this file
 // implements.
 //
+// VOICE ENGINE (2026-09-30): a Voice ID written as  kokoro:<voice>  (e.g. kokoro:af_heart) records with
+// the free Kokoro voice on the runner instead of ElevenLabs — see tts-kokoro.mjs and narrateEntryKokoro()
+// below. Same sections, headings, pronunciation rules, closing prayer, pauses, cue format and
+// versioned filenames; no ELEVENLABS_API_KEY needed. Every recording now stamps entry.audioEngine
+// ("kokoro:af_heart" / "elevenlabs:<voiceId>") so a later "re-record everything made with the old
+// engine" pass has something to filter on.
+//
 // PRONUNCIATION (2026-09-27): before any text is sent to ElevenLabs, whole-word replacements from
 // pronunciation/catholic-timeline-pronunciation.json are applied here (e.g. "Pius XII" is sent as
 // "Pius the twelfth", "Vatican II" as "Vatican Two"). Done here rather than with an ElevenLabs
@@ -48,6 +55,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { stripHtml, splitSentences } from '../lib/text.mjs';
+import { isKokoroVoice, kokoroVoiceName, kokoroSpeed, Track, speakInto, trackToMp3 } from './tts-kokoro.mjs';
 
 export const AUDIO_ROOT = 'audio';
 // 2026-09-27: was the github.io address; the site is served by Cloudflare at this domain, and
@@ -287,6 +295,61 @@ async function narrateEntry(entry, dir, baseName, opts, apiKey){
   return { audioPath, durationSec: round2(cumulative), cues, replacements };
 }
 
+// Kokoro version of narrateEntry(): same order of things (heading, pause, body, section gap,
+// closing prayer) and the same cue shape, but the whole recording is built in memory. Every
+// sentence is its own Kokoro call, so its start/end come straight from the audio length so far —
+// exact by construction. Cue text is the article's own wording; pronunciation rules change only
+// what is spoken.
+async function narrateEntryKokoro(entry, dir, baseName, opts){
+  const { voiceId, speed, readHeadings, headingPauseSec, sectionPauseSec, sentencePauseSec } = opts;
+  const voice = kokoroVoiceName(voiceId);
+  const rules = await loadPronunciationRules();
+  const parts = sectionParts(entry);
+  const track = new Track();
+  const cues = [];
+  let replacements = 0;
+  let spokenCount = 0;
+  const t0 = Date.now();
+  const say = async (text) => {
+    const r = applyPronunciation(text, rules);
+    replacements += r.count;
+    await speakInto(track, r.spoken, voice, speed);
+    if(++spokenCount % 10 === 0) console.log('[kokoro] ' + entry.id + ': ' + spokenCount + ' pieces, ' + round2(track.seconds) + 's of audio, ' + Math.round((Date.now() - t0) / 1000) + 's elapsed');
+  };
+
+  for(let si = 0; si < parts.length; si++){
+    const { heading, body } = parts[si];
+    if(si > 0) track.addSilence(sectionPauseSec);
+
+    if(readHeadings && heading){
+      const start = track.seconds;
+      await say(heading);
+      cues.push({ section: si, type: 'heading', text: heading, start: round2(start), end: round2(track.seconds) });
+      track.addSilence(headingPauseSec);
+    }
+
+    const sentences = splitSentences(body);
+    const list = sentences && sentences.length ? sentences : [{ text: body }];
+    for(let k = 0; k < list.length; k++){
+      const start = track.seconds;
+      await say(list[k].text);
+      cues.push({ section: si, type: 'sentence', text: list[k].text, start: round2(start), end: round2(track.seconds) });
+      if(k < list.length - 1) track.addSilence(sentencePauseSec);
+    }
+  }
+
+  // Closing invocation for saints: a pause, then "<name>, pray for us." Spoken only, no cue.
+  const invocation = invocationFor(entry);
+  if(invocation){
+    track.addSilence(INVOCATION_PAUSE_SEC);
+    await say(invocation);
+  }
+
+  const audioPath = path.join(dir, `${baseName}.${OUTPUT_EXT}`);
+  await trackToMp3(track, audioPath);
+  return { audioPath, durationSec: round2(track.seconds), cues, replacements };
+}
+
 export function nextVersion(entry){
   if(!entry.audio) return 1;
   const m = entry.audio.match(/-v(\d+)\.\w+$/);
@@ -319,8 +382,9 @@ export function voiceFromPayload(p){
  * Handler signature expected by scripts/orchestrator.mjs: (task, dataJson) => outcome
  */
 export async function runAudioGenerate(task, dataJson){
+  const kokoro = isKokoroVoice((task.payload || {}).voiceId);
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  if(!apiKey) throw new Error('Missing ELEVENLABS_API_KEY secret (add it under repo Settings \u2192 Secrets \u2192 Actions).');
+  if(!kokoro && !apiKey) throw new Error('Missing ELEVENLABS_API_KEY secret (add it under repo Settings \u2192 Secrets \u2192 Actions).');
 
   const entry = (dataJson.entries || []).find(e => e.id === task.entityId);
   if(!entry){
@@ -342,19 +406,26 @@ export async function runAudioGenerate(task, dataJson){
 
   const version = nextVersion(entry);
   const baseName = entry.id + '-v' + version;
-  const { audioPath, durationSec, cues, replacements } = await narrateEntry(
-    entry, dir, baseName,
-    { voiceId, modelId, voiceSettings, readHeadings, headingPauseSec, sectionPauseSec },
-    apiKey
-  );
+  const engine = kokoro ? 'kokoro:' + kokoroVoiceName(voiceId) : 'elevenlabs:' + voiceId;
+  const { audioPath, durationSec, cues, replacements } = kokoro
+    ? await narrateEntryKokoro(entry, dir, baseName, {
+        voiceId, speed: kokoroSpeed(p), readHeadings, headingPauseSec, sectionPauseSec,
+        sentencePauseSec: (parseInt(process.env.KOKORO_SENTENCE_PAUSE_MS, 10) || 300) / 1000
+      })
+    : await narrateEntry(
+        entry, dir, baseName,
+        { voiceId, modelId, voiceSettings, readHeadings, headingPauseSec, sectionPauseSec },
+        apiKey
+      );
 
   const relAudio = path.join(AUDIO_ROOT, folder, path.basename(audioPath)).split(path.sep).join('/');
   const relTiming = relAudio.replace(new RegExp('\\.' + OUTPUT_EXT + '$'), '.json');
   const timingPath = audioPath.replace(new RegExp('\\.' + OUTPUT_EXT + '$'), '.json');
-  await fs.writeFile(timingPath, JSON.stringify({ id: entry.id, audio: relAudio, durationSec, cues }, null, 1));
+  await fs.writeFile(timingPath, JSON.stringify({ id: entry.id, audio: relAudio, engine, durationSec, cues }, null, 1));
 
   entry.audio = relAudio;
   entry.audioTiming = relTiming;
+  entry.audioEngine = engine;
   // Recorded with the closing prayer (saints only) — "Add closing prayer" skips entries with this.
   if(invocationFor(entry)) entry.audioInvocation = true; else delete entry.audioInvocation;
   // Recorded with the pronunciation rules applied — the app's "recorded before the pronunciation
@@ -363,7 +434,7 @@ export async function runAudioGenerate(task, dataJson){
 
   return {
     result: { entityId: entry.id, name: entry.n, audio: relAudio, durationSec, cueCount: cues.length, link: SITE_BASE + '/' + relAudio },
-    summary: 'recorded ' + durationSec + 's (' + cues.length + ' cues' +
+    summary: 'recorded ' + durationSec + 's with ' + engine + ' (' + cues.length + ' cues' +
       (replacements ? ', ' + replacements + ' pronunciation fix' + (replacements === 1 ? '' : 'es') : '') + ') \u2014 ' + relAudio,
     filesToCommit: [relAudio, relTiming, 'data.json']
   };

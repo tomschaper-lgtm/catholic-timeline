@@ -26,6 +26,7 @@ import {
   ttsWithTimestamps, makeSilence, concatSegments, invocationFor, loadPronunciationRules,
   applyPronunciation, nextVersion, voiceFromPayload, INVOCATION_PAUSE_SEC, SITE_BASE, OUTPUT_EXT
 } from './audio-generate.mjs';
+import { isKokoroVoice } from './tts-kokoro.mjs';
 
 function round2(n){ return Math.round(n * 100) / 100; }
 function probeDuration(file){
@@ -42,6 +43,12 @@ function repoPathOf(ref){
 }
 
 export async function runAudioInvocation(task, dataJson){
+  // 2026-09-30: this service patches an existing ElevenLabs recording with a prayer in the SAME
+  // voice. New Kokoro recordings already include the prayer, so there is nothing for Kokoro to do
+  // here — and splicing a different voice onto the end of a recording would sound wrong.
+  if(isKokoroVoice((task.payload || {}).voiceId)){
+    return { result: null, summary: 'skipped — Kokoro recordings already include the closing prayer; to patch an older ElevenLabs recording, queue this with an ElevenLabs Voice ID' };
+  }
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if(!apiKey) throw new Error('Missing ELEVENLABS_API_KEY secret (add it under repo Settings \u2192 Secrets \u2192 Actions).');
 
