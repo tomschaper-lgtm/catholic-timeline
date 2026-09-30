@@ -1,11 +1,10 @@
 # Pronunciation audit — run by hand from the Actions tab ("Run workflow").
 #
-# mode = audit  : compares how Kokoro says each name in pronunciation/names-reference.json (the ones
-#                 that appear in your articles) with the reference pronunciation. Mismatches are
-#                 spoken into audio/_tests/pronunciation-audition.mp3 (each twice: Kokoro now, then
-#                 proposed) with a numbered list in audio/_tests/pronunciation-audition.txt.
-# mode = apply  : turns every proposed name into a pronunciation rule EXCEPT the numbers you list
-#                 in "reject". Leave reject blank to approve them all.
+# mode = audit  : builds the review list (pronunciation/names-candidates.json): names from
+#                 pronunciation/names-reference.json that Kokoro says differently from the reference,
+#                 plus words from your articles Kokoro has to guess (up to max_guess). Review them on
+#                 your phone at catholictimeline.org/pronounce.html?review=1.
+# mode = apply  : older route: turns every proposed name into a rule EXCEPT the numbers in "reject".
 #
 # Touches only files under pronunciation/ and audio/_tests/. Safe to run while nothing is recording.
 name: Pronunciation audit
@@ -24,9 +23,13 @@ on:
         required: false
         default: ''
       voice:
-        description: 'Kokoro voice to audition with (use the one you record with)'
+        description: 'Kokoro voice (use the one you record with)'
         required: false
         default: 'af_heart'
+      max_guess:
+        description: 'audit only: how many words Kokoro has to guess to add to the list'
+        required: false
+        default: '200'
 
 permissions:
   contents: write
@@ -49,9 +52,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install ffmpeg and espeak-ng
+      - name: Install espeak-ng
         if: ${{ github.event.inputs.mode == 'audit' }}
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg espeak-ng
+        run: sudo apt-get update && sudo apt-get install -y espeak-ng
 
       - name: Cache pip and Kokoro model
         if: ${{ github.event.inputs.mode == 'audit' }}
@@ -75,6 +78,7 @@ jobs:
           MODE: ${{ github.event.inputs.mode }}
           REJECT: ${{ github.event.inputs.reject }}
           VOICE: ${{ github.event.inputs.voice }}
+          MAX_GUESS: ${{ github.event.inputs.max_guess }}
         run: python3 scripts/pron/pron_audit.py
 
       - name: Commit results
