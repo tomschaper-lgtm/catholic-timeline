@@ -82,6 +82,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           KOKORO_CACHE_DIR: ${{ runner.temp }}/kokoro-cache
+          KOKORO_SENTENCE_PAUSE_MS: '200'   # gap between sentences, in milliseconds; lower = tighter
 
       - name: Commit updated work log
         run: |
