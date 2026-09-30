@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<!--
+kokoro-test.html  VERSION: 1
+DATE: 2026-09-29T20:32:05-05:00
+Standalone experiment: can the open-source Kokoro neural voice run on this phone?
+Not part of the Catholic Timeline app. Nothing here touches the app's data.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kokoro voice test</title>
+<style>
+  :root{ color-scheme: light dark; --bg:#faf7f0; --fg:#1f2430; --mut:#6b7280; --card:#fff; --line:#e3ddd0; --gold:#a8842c; --bad:#b42318; --ok:#1a7f37; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#15171c; --fg:#e8e6df; --mut:#9aa1ad; --card:#1e2128; --line:#2d323b; --gold:#d4b25a; --bad:#ff8a7a; --ok:#6fdc8c; } }
+  html,body{ margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,'Segoe UI',sans-serif; }
+  body{ padding:calc(14px + env(safe-area-inset-top)) 14px calc(30px + env(safe-area-inset-bottom)); max-width:640px; margin:0 auto; }
+  h1{ font-size:20px; margin:4px 0 2px; } .sub{ color:var(--mut); font-size:14px; margin:0 0 14px; line-height:1.4; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin:0 0 12px; }
+  .card h2{ font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--gold); margin:0 0 8px; }
+  button{ font:inherit; font-size:16px; padding:11px 16px; border-radius:10px; border:1px solid var(--gold); background:var(--gold); color:#fff; cursor:pointer; touch-action:manipulation; }
+  button.sec{ background:transparent; color:var(--fg); border-color:var(--line); }
+  button:disabled{ opacity:.45; }
+  .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0 0; }
+  select,textarea{ font-size:16px; width:100%; box-sizing:border-box; padding:9px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); font-family:inherit; }
+  textarea{ min-height:150px; line-height:1.45; }
+  .bar{ height:8px; background:var(--line); border-radius:6px; overflow:hidden; margin-top:8px; } .bar i{ display:block; height:100%; width:0; background:var(--gold); transition:width .15s; }
+  .kv{ display:grid; grid-template-columns:auto 1fr; gap:3px 12px; font-size:14px; } .kv b{ color:var(--mut); font-weight:500; }
+  #status{ font-size:15px; margin:6px 0 0; min-height:20px; } .err{ color:var(--bad); } .ok{ color:var(--ok); }
+  pre{ margin:0; white-space:pre-wrap; word-break:break-word; font-size:13px; line-height:1.45; font-family:ui-monospace,Menlo,monospace; }
+</style>
+</head>
+<body>
+<h1>Kokoro voice test</h1>
+<p class="sub">Checks whether a free neural voice runs on this device. Step 1 downloads the voice (about 90&nbsp;MB, once). Step 2 reads a paragraph and reports how fast it generated.</p>
+
+<div class="card">
+  <h2>This device</h2>
+  <div class="kv" id="env"></div>
+</div>
+
+<div class="card">
+  <h2>Step 1 &middot; Load the voice</h2>
+  <div class="row"><button id="loadBtn">Load voice</button></div>
+  <div class="bar"><i id="prog"></i></div>
+  <div id="status"></div>
+</div>
+
+<div class="card">
+  <h2>Step 2 &middot; Read aloud</h2>
+  <select id="voiceSel" disabled aria-label="Voice"><option>Load the voice first</option></select>
+  <textarea id="txt" aria-label="Text to read">Saint Augustine was born in Thagaste in the year 354. He converted in Milan after hearing Ambrose preach. Later he became bishop of Hippo, where he wrote the Confessions and The City of God. Pope Pius the Ninth called the First Vatican Council, and it opened in Rome in 1869. Saint Augustine, pray for us.</textarea>
+  <div class="row"><button id="speakBtn" disabled>Speak</button><button id="stopBtn" class="sec" disabled>Stop</button></div>
+</div>
+
+<div class="card">
+  <h2>Results <span style="text-transform:none;letter-spacing:0;color:var(--mut)">(screenshot or copy this for Claude)</span></h2>
+  <pre id="out">Nothing yet.</pre>
+  <div class="row"><button id="copyBtn" class="sec">Copy results</button></div>
+</div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
+const CDNS = ['https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/+esm', 'https://esm.sh/kokoro-js@1.2.0'];
+const R = { device: '', loadMs: null, cdn: '', dtype: 'q8', backend: 'wasm', lines: [] };
+let tts = null, stopFlag = false, ctx = null, curSrc = null;
+
+// Phone has no console, so anything that goes wrong is shown on the page.
+function say(msg, cls){ const s = $('status'); s.textContent = msg; s.className = cls || ''; }
+window.addEventListener('error', (e) => say('Error: ' + (e.message || e), 'err'));
+window.addEventListener('unhandledrejection', (e) => say('Error: ' + ((e.reason && e.reason.message) || e.reason), 'err'));
+
+(function env(){
+  const rows = [
+    ['Browser', navigator.userAgent.replace(/^Mozilla\/5\.0 /, '').slice(0, 90)],
+    ['WebGPU', navigator.gpu ? 'yes' : 'no'],
+    ['Threads (cross-origin isolated)', window.crossOriginIsolated ? 'yes' : 'no (single-thread, slower)'],
+    ['CPU cores', String(navigator.hardwareConcurrency || '?')],
+    ['Memory hint (GB)', String(navigator.deviceMemory || 'not reported')]
+  ];
+  $('env').innerHTML = rows.map(r => '<b>' + r[0] + '</b><span>' + r[1].replace(/</g, '&lt;') + '</span>').join('');
+  R.device = rows.map(r => r[0] + ': ' + r[1]).join('\n');
+})();
+
+function report(extra){
+  const l = [];
+  l.push('Kokoro test v1  ' + new Date().toISOString());
+  l.push(R.device);
+  l.push('Library: ' + (R.cdn || 'not loaded') + ' | model ' + MODEL_ID + ' | ' + R.dtype + ' on ' + R.backend);
+  l.push('Load time: ' + (R.loadMs == null ? 'n/a' : (R.loadMs / 1000).toFixed(1) + ' s'));
+  if(R.lines.length){ l.push(''); l.push('Sentence | generate | audio | gen/audio | stall'); R.lines.forEach(x => l.push(x)); }
+  if(extra) l.push('', extra);
+  $('out').textContent = l.join('\n');
+}
+
+$('loadBtn').addEventListener('click', async () => {
+  const btn = $('loadBtn'); btn.disabled = true; $('prog').style.width = '0%';
+  const t0 = performance.now();
+  try{
+    say('Loading the library…');
+    let mod = null, lastErr = null;
+    for(const url of CDNS){
+      try{ mod = await import(url); R.cdn = url; break; }catch(e){ lastErr = e; }
+    }
+    if(!mod || !mod.KokoroTTS) throw new Error('Could not load the library from either CDN' + (lastErr ? ' (' + lastErr.message + ')' : ''));
+    say('Downloading the voice model… this can take a minute on cellular.');
+    const files = {};
+    tts = await mod.KokoroTTS.from_pretrained(MODEL_ID, {
+      dtype: R.dtype, device: R.backend,
+      progress_callback: (p) => {
+        if(!p) return;
+        if(p.file && typeof p.loaded === 'number' && typeof p.total === 'number') files[p.file] = { l: p.loaded, t: p.total };
+        const tot = Object.values(files).reduce((a, f) => a + f.t, 0), got = Object.values(files).reduce((a, f) => a + f.l, 0);
+        if(tot){ $('prog').style.width = Math.min(100, got / tot * 100).toFixed(0) + '%'; say('Downloading… ' + (got / 1048576).toFixed(0) + ' of ' + (tot / 1048576).toFixed(0) + ' MB'); }
+      }
+    });
+    R.loadMs = performance.now() - t0;
+    $('prog').style.width = '100%';
+    // English voices only (ids start af_/am_/bf_/bm_)
+    const all = tts.list_voices ? tts.list_voices() : {};
+    const ids = Array.isArray(all) ? all.map(v => v.id || v) : Object.keys(all);
+    const eng = ids.filter(id => /^(af|am|bf|bm)_/.test(id));
+    const sel = $('voiceSel'); sel.innerHTML = '';
+    (eng.length ? eng : ids).forEach(id => { const o = document.createElement('option'); o.value = id; o.textContent = (all[id] && all[id].name ? all[id].name : id) + ' (' + id + ')'; sel.appendChild(o); });
+    if(eng.indexOf('af_heart') >= 0) sel.value = 'af_heart';
+    sel.disabled = false; $('speakBtn').disabled = false;
+    say('Voice loaded in ' + (R.loadMs / 1000).toFixed(1) + ' s. Pick a voice and tap Speak.', 'ok');
+    report();
+  }catch(e){
+    say('Failed: ' + (e && e.message ? e.message : e), 'err');
+    R.loadMs = null; report('Load failed: ' + (e && e.message ? e.message : e));
+  }finally{ btn.disabled = false; }
+});
+
+function splitSentences(text){
+  const flat = text.replace(/\s+/g, ' ').trim();
+  const parts = (flat.match(/[^.!?]+[.!?]+["'”]?(?:\s+|$)|[^.!?]+$/g) || [flat]).map(x => x.trim());   // no lookbehind: older Safari rejects it
+  const out = [];
+  parts.forEach(p => { if(out.length && /\b(St|Sts|Mt|Fr|Br|Dr|Bl|Mr|Mrs)\.$/.test(out[out.length - 1])) out[out.length - 1] += ' ' + p; else out.push(p); });
+  return out.filter(Boolean);
+}
+function playBuffer(c, samples, rate){
+  return new Promise((resolve) => {
+    const buf = c.createBuffer(1, samples.length, rate); buf.getChannelData(0).set(samples);
+    const src = c.createBufferSource(); src.buffer = buf; src.connect(c.destination);
+    curSrc = src; src.onended = () => { curSrc = null; resolve(); }; src.start();
+  });
+}
+
+$('speakBtn').addEventListener('click', async () => {
+  if(!tts) return;
+  stopFlag = false; R.lines = []; report();
+  $('speakBtn').disabled = true; $('stopBtn').disabled = false;
+  try{
+    // Created inside the tap so iOS allows sound.
+    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+    if(ctx.state !== 'running') await ctx.resume();
+    const sentences = splitSentences($('txt').value);
+    const voice = $('voiceSel').value;
+    const gen = async (i) => { const t = performance.now(); const a = await tts.generate(sentences[i], { voice }); return { a, genMs: performance.now() - t, readyAt: performance.now() }; };
+    let next = gen(0), prevEnd = performance.now();
+    for(let i = 0; i < sentences.length && !stopFlag; i++){
+      say('Sentence ' + (i + 1) + ' of ' + sentences.length + '…');
+      const cur = await next;
+      const samples = cur.a.audio, rate = cur.a.sampling_rate || 24000;
+      const audioSec = samples.length / rate;
+      const stall = Math.max(0, cur.readyAt - prevEnd);
+      R.lines.push((i + 1) + ' | ' + (cur.genMs / 1000).toFixed(1) + ' s | ' + audioSec.toFixed(1) + ' s | ' + (cur.genMs / 1000 / audioSec).toFixed(2) + 'x | ' + (stall / 1000).toFixed(1) + ' s');
+      report();
+      if(i + 1 < sentences.length) next = gen(i + 1);   // generate the next one while this one plays
+      await playBuffer(ctx, samples, rate);
+      prevEnd = performance.now();
+    }
+    const sum = R.lines.length;
+    say(stopFlag ? 'Stopped.' : 'Done.', stopFlag ? '' : 'ok');
+    report('Reading: gen/audio under 1.0x means it generates faster than it speaks. Stall is the silence you would hear before a sentence.');
+  }catch(e){ say('Failed: ' + (e && e.message ? e.message : e), 'err'); report('Speak failed: ' + (e && e.message ? e.message : e)); }
+  finally{ $('speakBtn').disabled = false; $('stopBtn').disabled = true; }
+});
+$('stopBtn').addEventListener('click', () => { stopFlag = true; try{ if(curSrc) curSrc.stop(); }catch(e){} });
+$('copyBtn').addEventListener('click', async () => {
+  try{ await navigator.clipboard.writeText($('out').textContent); $('copyBtn').textContent = 'Copied'; setTimeout(() => $('copyBtn').textContent = 'Copy results', 1500); }
+  catch(e){ const r = document.createRange(); r.selectNodeContents($('out')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+});
+report();
+</script>
+</body>
+</html>
