@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
-kokoro-test.html  VERSION: 1
-DATE: 2026-09-29T20:32:05-05:00
+kokoro-test.html  VERSION: 2
+DATE: 2026-09-29T20:37:32-05:00
 Standalone experiment: can the open-source Kokoro neural voice run on this phone?
 Not part of the Catholic Timeline app. Nothing here touches the app's data.
 -->
@@ -86,7 +86,7 @@ window.addEventListener('unhandledrejection', (e) => say('Error: ' + ((e.reason 
 
 function report(extra){
   const l = [];
-  l.push('Kokoro test v1  ' + new Date().toISOString());
+  l.push('Kokoro test v2  ' + new Date().toISOString());
   l.push(R.device);
   l.push('Library: ' + (R.cdn || 'not loaded') + ' | model ' + MODEL_ID + ' | ' + R.dtype + ' on ' + R.backend);
   l.push('Load time: ' + (R.loadMs == null ? 'n/a' : (R.loadMs / 1000).toFixed(1) + ' s'));
@@ -118,12 +118,16 @@ $('loadBtn').addEventListener('click', async () => {
     });
     R.loadMs = performance.now() - t0;
     $('prog').style.width = '100%';
-    // English voices only (ids start af_/am_/bf_/bm_)
-    const all = tts.list_voices ? tts.list_voices() : {};
-    const ids = Array.isArray(all) ? all.map(v => v.id || v) : Object.keys(all);
+    // Voice list. In kokoro-js, list_voices() only prints to the console and returns nothing (v1 of
+    // this page died on that), so read the .voices property and fall back to the known English ids.
+    let all = null;
+    try{ all = tts.voices; }catch(e){}
+    if(!all || typeof all !== 'object'){ try{ all = tts.list_voices ? tts.list_voices() : null; }catch(e){} }
+    let ids = all ? (Array.isArray(all) ? all.map(v => v.id || v) : Object.keys(all)) : [];
+    if(!ids.length){ ids = ['af_heart','af_bella','af_nicole','af_sarah','af_sky','am_adam','am_michael','bf_emma','bf_isabella','bm_george','bm_lewis']; all = {}; }
     const eng = ids.filter(id => /^(af|am|bf|bm)_/.test(id));
     const sel = $('voiceSel'); sel.innerHTML = '';
-    (eng.length ? eng : ids).forEach(id => { const o = document.createElement('option'); o.value = id; o.textContent = (all[id] && all[id].name ? all[id].name : id) + ' (' + id + ')'; sel.appendChild(o); });
+    (eng.length ? eng : ids).forEach(id => { const o = document.createElement('option'); o.value = id; o.textContent = (all && all[id] && all[id].name ? all[id].name : id) + ' (' + id + ')'; sel.appendChild(o); });
     if(eng.indexOf('af_heart') >= 0) sel.value = 'af_heart';
     sel.disabled = false; $('speakBtn').disabled = false;
     say('Voice loaded in ' + (R.loadMs / 1000).toFixed(1) + ' s. Pick a voice and tap Speak.', 'ok');
