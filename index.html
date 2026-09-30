@@ -1,6 +1,6 @@
 <!--
-VERSION: 511
-DATE: 2026-09-29T23:48:55-05:00
+VERSION: 512
+DATE: 2026-09-30T05:39:27-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,20 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v512 — 2026-09-30
+
+**Ask:**
+- Build pronunciation guides for biblical names into the recording pipeline instead of waiting to
+  hear each mistake.
+
+**Implementation:**
+- App side only: the "pronunciation re-record" pool (Add Task → Record Audio → only entries recorded
+  before the pronunciation fix) now ignores rules whose alias is the word itself. Those are
+  Kokoro-only rules (kokoro_ipa) added by the new pronunciation-audit workflow; they change nothing
+  for ElevenLabs recordings, so they must not flag old recordings for re-recording.
+- The audit itself lives in the repo: scripts/pron/pron_audit.py, .github/workflows/
+  pronunciation-audit.yml, pronunciation/names-reference.json.
+
 ## v511 — 2026-09-30
 
 **Ask:**
@@ -6513,7 +6527,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v511';
+const APP_VERSION = 'v512';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -9371,7 +9385,9 @@ async function tkLoadPronRules(){
   try{
     const r = await fetch('pronunciation/catholic-timeline-pronunciation.json?t=' + Date.now(), { cache: 'no-store' });
     const j = r.ok ? await r.json() : { rules: [] };
-    tkPronRules = (j.rules || []).filter(x => x && x.type === 'alias' && x.string_to_replace).map(x => x.string_to_replace);
+    // v512: skip Kokoro-only rules (alias === the word itself, with kokoro_ipa) — they change nothing
+    // in an ElevenLabs recording, so they must not pull old recordings into the re-record pool.
+    tkPronRules = (j.rules || []).filter(x => x && x.type === 'alias' && x.string_to_replace && x.alias !== x.string_to_replace).map(x => x.string_to_replace);
   }catch(e){ tkPronRules = []; }
   return tkPronRules;
 }
