@@ -19,6 +19,138 @@ the time.
 
 ---
 
+## v513 — 2026-09-30
+
+**Ask:**
+- When I hear a word mispronounced, press a button, point at the word, hear several ways to say it,
+  pick the right one (or "none of these" for more), and have the fix inserted.
+
+**Implementation:**
+- New "Fix a pronunciation" button under the article's review tools (Review Mode, owner only) opens
+  the new standalone page pronounce.html?id=<entry>. Everything else lives on that page: tap the
+  word (tap the next word too for a two-word name), hear candidates made by the same Kokoro voice
+  model the recorder uses (English, the likely source language, other languages, then stress moved
+  to each syllable), "None of these" for more, then type-how-it-sounds (KRAH-koof) as the last
+  resort. The chosen sound is saved as a kokoro_ipa rule in
+  pronunciation/catholic-timeline-pronunciation.json via the token already stored on the device.
+
+## v512 — 2026-09-30
+
+**Ask:**
+- Build pronunciation guides for biblical names into the recording pipeline instead of waiting to
+  hear each mistake.
+
+**Implementation:**
+- App side only: the "pronunciation re-record" pool (Add Task → Record Audio → only entries recorded
+  before the pronunciation fix) now ignores rules whose alias is the word itself. Those are
+  Kokoro-only rules (kokoro_ipa) added by the new pronunciation-audit workflow; they change nothing
+  for ElevenLabs recordings, so they must not flag old recordings for re-recording.
+- The audit itself lives in the repo: scripts/pron/pron_audit.py, .github/workflows/
+  pronunciation-audit.yml, pronunciation/names-reference.json.
+
+## v511 — 2026-09-30
+
+**Ask:**
+- A dropdown for choosing the narration voice instead of typing the voice into a text field.
+
+**Implementation:**
+- New "Voice" dropdown at the top of Voice & pacing settings: ElevenLabs, or one of 11 Kokoro voices
+  (American / British, female / male). It only writes into the existing Voice ID field, so queued
+  tasks, saving and the payload are unchanged: Kokoro picks store "kokoro:<voice>"; picking ElevenLabs
+  restores the ElevenLabs Voice ID last used on this device. On load the dropdown is set from the saved
+  Voice ID; an unlisted "kokoro:xyz" shows as a Custom option.
+- With a Kokoro voice chosen, the ElevenLabs-only fields (Voice ID, Model ID, Stability, Similarity
+  Boost, Style, Speaker Boost) are greyed out, since Kokoro ignores them.
+
+## v510 — 2026-09-30
+
+**Ask:**
+- A button in the Task List that clears every task, in all the tabs (All, Queued, Running, Review).
+
+**Implementation:**
+- New "Clear all (N)" button in the Task List bar, next to Reset stuck. Asks first, spelling out how
+  many tasks are queued / running / waiting for review, then removes every task in one save through
+  saveWorkLog's existing deletedIds path (same merge-safe route the single-task swipe delete uses).
+  Rolls the local list back if the save fails. Ignores the type filter and the active tab on purpose.
+- Deleting a task never undoes work already applied: approved edits, images and audio stay as they are.
+
+## v509 — 2026-09-29
+
+**Ask:**
+- The browser voice should also end a Saint's article with "Saint ___, pray for us." like the
+  recordings do.
+
+**Implementation:**
+- initTts() appends one closing cue (type 'invocation') for Saint entries (t === 's') read in the
+  article view; not the About panel. The text comes from ttsSaintName(): St./Sts. become
+  Saint/Saints, & becomes and, and a name with no title gets "Saint" in front (names already
+  starting with Pope, Blessed, Bl., Ven. or Venerable are left as written).
+- The cue has no matching text on the page, so applyCueMarkup() skips it: it is spoken like the rest
+  (including the pronunciation rules) but nothing is highlighted while it plays.
+
+## v508 — 2026-09-29
+
+**Ask:**
+- Safari ignores the voice chosen in iOS Accessibility, so add a way to choose the browser voice
+  inside the app. Put it in Settings, and only when Review Mode is on.
+
+**Implementation:**
+- New Settings row "Browser voice" (#ttsVoiceRow, in #ownerGroup right under the Review row) with a
+  native select (#ttsVoiceSel, 16px so iOS doesn't zoom). Shown only while Review Mode is on and the
+  browser has at least one English voice; hidden otherwise. Lists "Automatic (best available)" plus
+  every English voice the browser exposes, alphabetical, with the language code.
+- Choice is stored per device in localStorage 'tts-voice' (voiceURI, falling back to name).
+  ttsRefreshVoices() uses the saved voice if it is still installed, else the automatic pick.
+- Changing the voice speaks a short sample in it (or, mid-playback, restarts the current sentence in
+  the new voice). "Automatic" clears the saved choice.
+- ttsFillVoiceSelect()/ttsUpdateVoiceRow(); updateReviewUI() calls the latter so the row follows
+  Review Mode. The list is rebuilt only when the set of voices changes, so an open dropdown isn't reset.
+
+## v507 — 2026-09-29
+
+**Ask:**
+- The browser voice sounds robotic, so it should only be available in Review Mode. Visitors only
+  get the play button when an entry has recorded audio.
+
+**Implementation:**
+- ttsAvailable() now also requires reviewMode. Nothing else about the v506 browser-voice path
+  changed; it simply never engages outside Review Mode.
+- New ttsSyncReviewMode(), called from setReviewMode(): turning Review Mode on with a card open
+  and no recording wires the browser voice; turning it off while the browser voice is active stops
+  it, unwraps the sentence spans and hides the button. Recorded audio is untouched either way.
+- ttsOnAvailable() (late-arriving voices) is now the shared wiring routine and checks ttsAvailable().
+
+## v506 — 2026-09-29
+
+**Ask:**
+- If the browser has a built-in text-to-speech voice, use it to read entries that have no recorded
+  audio. The play button shows only when there is recorded audio or a browser voice; no voice, no
+  button. Play highlights the first sentence with the white bar, speaks it, moves the bar to the
+  next sentence, and so on. If stopped, tapping a sentence moves the bar there and resumes from it.
+- Recorded audio: the play button's border glows slightly. Browser voice: no glow.
+
+**Implementation:**
+- New block after stopAudio(): ttsAvailable() (speechSynthesis + at least one English voice; voices
+  load late in Chrome, so it re-checks on voiceschanged and at 0.3/1.2/3 s, and wires an
+  already-open card when the first voice appears), ttsPickVoice(), ttsSplitSentences() (abbreviation
+  and initial aware: St., Fr., Mt., Pius IX., A.D.), ttsChunks() (clause-sized utterances for very
+  long sentences), ttsBuildCues(), makeTtsPlayer(), initTts().
+- The sentences are handed to the existing cue system (currentCues/applyCueMarkup/setActiveCue), so
+  the white bar, follow-scroll and tap-to-seek are unchanged. audioEl is a stand-in object whose
+  currentTime is the sentence number, so seekToCue(), startAudioPlayback(), stopAudioPlaybackInPlace(),
+  the tap-to-pause and double-tap-to-play gestures work on it as-is. Pause cancels speech and keeps
+  the sentence; Play resumes from its start.
+- Pronunciation: ttsSpeakable() applies the alias rules from pronunciation/catholic-timeline-
+  pronunciation.json (same matching as the recorder) if that file loads.
+- entryNarrated() replaces the entry.audio checks in updateAudioBarPresence() and
+  checkAudioBarScrollReveal(). openArticle's and renderAboutPanel's audio hooks fall through to
+  initTts() when there is no recorded audio; the bottom spacer follows the same rule.
+- .audioBottomBar gets a 'recorded' class (set in updateAudioBarPresence) that adds a soft gold glow
+  to .audBarPlay.
+- Sentence tap while paused: the click that starts playback is no longer immediately undone by the
+  article-level tap-to-pause handler (cueTapStartedAt).
+- saveCurrentCardPosition() does not store an audio position for browser-voice playback.
+
 ## v505 — 2026-09-28
 
 **Ask:**
