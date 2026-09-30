@@ -1,0 +1,96 @@
+# Kokoro (Python) proof of concept — run by hand from the Actions tab ("Run workflow").
+#
+# Purpose: prove, before building anything bigger, that (1) Python Kokoro installs and runs on a
+# GitHub runner, (2) inline [word](/IPA/) pronunciation markup works, (3) how fast it generates.
+# It is self-contained: it does NOT touch workLog.json, entries, or the real recording pipeline.
+# It writes audio/_tests/kokoro-poc.mp3 and audio/_tests/kokoro-poc-report.txt and commits them.
+#
+# Listen at  <your site>/audio/_tests/kokoro-poc.mp3  once the site has redeployed. The report file
+# shows the timing per line and the exact phonemes Kokoro used.
+name: Kokoro proof of concept
+
+on:
+  workflow_dispatch:
+    inputs:
+      text:
+        description: 'Text to speak. One line = one utterance. Use [word](/IPA/) to force a pronunciation.'
+        required: false
+        default: ''
+      voice:
+        description: 'Kokoro voice (af_heart, am_adam, bm_george, ...)'
+        required: false
+        default: 'af_heart'
+      speed:
+        description: 'Speed (1.0 = normal)'
+        required: false
+        default: '1.0'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kokoro-poc
+  cancel-in-progress: false
+
+jobs:
+  poc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ffmpeg and espeak-ng
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg espeak-ng
+
+      # Keeps the pip downloads and the ~330 MB voice model between runs so later runs are fast.
+      - name: Cache pip and Kokoro model
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/huggingface
+          key: kokoro-poc-py311-v1
+
+      - name: Install Kokoro (CPU)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install "kokoro>=0.9.4"
+          python -m spacy download en_core_web_sm
+
+      - name: Run Kokoro
+        env:
+          TEXT_INPUT: ${{ github.event.inputs.text }}
+          VOICE: ${{ github.event.inputs.voice }}
+          SPEED: ${{ github.event.inputs.speed }}
+        run: |
+          if [ -z "$TEXT_INPUT" ]; then
+            TEXT="Eusebius records that a bronze statue stood at Caesarea Philippi.
+          Eusebius [records](/ɹᵻkˈɔɹdz/) that a bronze statue stood at Caesarea Philippi.
+          The church records are kept in the old archive.
+          Veronica preached beside Saint Martial near Bordeaux.
+          Veronica preached beside Saint [Martial](/mˈɑɹʃəl/) near [Bordeaux](/bɔɹdˈO/)."
+          else
+            TEXT="$TEXT_INPUT"
+          fi
+          export TEXT
+          python scripts/kokoro_poc.py
+
+      - name: Commit results
+        run: |
+          git config user.name "kokoro-poc-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add audio/_tests/kokoro-poc.mp3 audio/_tests/kokoro-poc-report.txt
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit"
+          else
+            git commit -m "Kokoro proof of concept: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git pull --rebase
+            git push
+          fi
