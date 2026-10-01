@@ -19,6 +19,27 @@ the time.
 
 ---
 
+## v515 — 2026-09-30
+
+**Ask:**
+- Find mispronounced names faster: play a silly story full of the hard names, flag only the ones
+  that sound off, and work on just those.
+
+**Implementation:**
+- New first button in Manage → Import: "Listen for mispronunciations" (opens pronounce.html on its
+  new Listen tab, v7). The story itself is built and recorded by the new "Pronunciation story"
+  GitHub workflow (scripts/pron/pron_story.py).
+
+## v514 — 2026-09-30
+
+**Ask:**
+- A button in Manage that opens the pronunciation page, instead of typing URLs.
+
+**Implementation:**
+- Two buttons at the top of Manage → Import: "Review pronunciation list" (opens pronounce.html
+  on its Review list tab) and "Fix a word in an article" (opens it on the Article tab with a search
+  box). Plain links, same tab; the page has "Back to the timeline" to return.
+
 ## v513 — 2026-09-30
 
 **Ask:**
