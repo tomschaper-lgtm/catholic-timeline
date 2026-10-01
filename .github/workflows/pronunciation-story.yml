@@ -1,0 +1,86 @@
+# Pronunciation story — run by hand from the Actions tab ("Run workflow").
+#
+# Collects the hard names from every article (words Kokoro has to guess, accented names, and
+# reference names it says differently), gives each its best known pronunciation (reference list,
+# Claude's hints, Wiktionary, else Kokoro's own), writes short silly sentences with 2-3 names each,
+# most-used names first, and records them in chapters with the chosen voice.
+# Listen on your phone: app → Manage → Import → "Listen for mispronunciations"
+# (or catholictimeline.org/pronounce.html?story=1).
+#
+# Writes only pronunciation/story/ (story.json + chapter-NN.mp3). Re-running replaces the story;
+# words you've already finished (marked fine or fixed) are left out next time.
+name: Pronunciation story
+
+on:
+  workflow_dispatch:
+    inputs:
+      voice:
+        description: 'Kokoro voice (the one you record with)'
+        required: false
+        default: 'am_adam'
+      chapter_size:
+        description: 'Names per chapter (120 is about 4 minutes)'
+        required: false
+        default: '120'
+      max_words:
+        description: 'Most names to include, most-used first (0 = all of them)'
+        required: false
+        default: '0'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pronunciation-story
+  cancel-in-progress: false
+
+jobs:
+  story:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install espeak-ng and ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y espeak-ng ffmpeg
+
+      - name: Cache pip and Kokoro model
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/huggingface
+          key: kokoro-py311-v1
+
+      - name: Install Kokoro (CPU)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install "kokoro>=0.9.4"
+          python -m spacy download en_core_web_sm
+
+      - name: Build and record the story
+        env:
+          VOICE: ${{ github.event.inputs.voice }}
+          CHAPTER_SIZE: ${{ github.event.inputs.chapter_size }}
+          MAX_WORDS: ${{ github.event.inputs.max_words }}
+        run: python3 scripts/pron/pron_story.py
+
+      - name: Commit the story
+        run: |
+          git config user.name "pronunciation-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A pronunciation/story
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit"
+          else
+            git commit -m "Pronunciation story: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git pull --rebase
+            git push
+          fi
