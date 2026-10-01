@@ -1,6 +1,6 @@
 <!--
-VERSION: 514
-DATE: 2026-09-30T09:30:05-05:00
+VERSION: 515
+DATE: 2026-09-30T19:51:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,17 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v515 — 2026-09-30
+
+**Ask:**
+- Find mispronounced names faster: play a silly story full of the hard names, flag only the ones
+  that sound off, and work on just those.
+
+**Implementation:**
+- New first button in Manage → Import: "Listen for mispronunciations" (opens pronounce.html on its
+  new Listen tab, v7). The story itself is built and recorded by the new "Pronunciation story"
+  GitHub workflow (scripts/pron/pron_story.py).
+
 ## v514 — 2026-09-30
 
 **Ask:**
@@ -5787,6 +5798,7 @@ CHANGELOG:END
     <div class="mgmtPanel" id="panel-import">
       <!-- v514: the pronunciation page (pronounce.html), so it never needs a typed URL. -->
       <div class="mtool" style="margin:0 0 12px;">
+        <a class="mbtn" id="mPronStoryBtn" href="pronounce.html?story=1" style="text-align:center;text-decoration:none;display:block;">Listen for mispronunciations</a>
         <a class="mbtn" id="mPronReviewBtn" href="pronounce.html?review=1" style="text-align:center;text-decoration:none;display:block;">Review pronunciation list</a>
         <a class="mbtn" id="mPronFixBtn" href="pronounce.html" style="text-align:center;text-decoration:none;display:block;">Fix a word in an article</a>
       </div>
@@ -6558,7 +6570,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v514';
+const APP_VERSION = 'v515';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;

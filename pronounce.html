@@ -1,12 +1,17 @@
 <!DOCTYPE html>
 <!--
-pronounce.html  VERSION: 6
-DATE: 2026-09-30T15:03:33-05:00
+pronounce.html  VERSION: 7
+DATE: 2026-09-30T19:51:00-05:00
 Fix a pronunciation by ear. Opened from an article's review tools (pronounce.html?id=<entry-id>).
 Tap the word Kokoro says wrong, listen to candidate pronunciations, pick the right one (or type
 how it sounds), and it is saved as a rule in pronunciation/catholic-timeline-pronunciation.json.
 Candidates are phoneme strings played through the SAME Kokoro model the recorder uses, and the
 exact string you pick is what gets saved, so the recording says it the way you heard it here.
+v7: new Listen tab (pronounce.html?story=1): plays the "Pronunciation story" (short silly sentences full of
+hard names, recorded on GitHub in chapters) in big text; touch and hold a name that sounded off to flag it.
+Save chapter: flagged names go to the top of the Review list; the rest are marked fine, and the ones read
+from a guide are saved as rules. The Listen tab plays MP3s, so it doesn't download the voice.
+Typed guides: "nyeh" is now n + y + eh (was read as "nye-h").
 v6: intro text under the tabs removed; the voice status line sits above the voice picker.
 v5: typed spellings (KRAH-koof) are turned into one smooth pronunciation guide instead of being sounded
 out part by part; every choice is shown as a readable guide with an Edit button; the typing box is open
@@ -58,7 +63,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
   .cand button{ padding:8px 11px; font-size:15px; }
   .cand .cguide{ font-size:18px; font-weight:700; letter-spacing:.02em; }
   .hint{ color:var(--mut); font-size:14px; line-height:1.4; margin:6px 0 0; }
-  .tabs{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:0 0 12px; }
+  .tabs{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin:0 0 12px; }
   .tabs button{ background:transparent; color:var(--fg); border-color:var(--line); }
   .tabs button.on{ background:var(--gold); color:#fff; border-color:var(--gold); }
   /* v4: every region of the review card has a fixed height, so the buttons never move between words. */
@@ -76,15 +81,34 @@ Uses the GitHub token and repo settings the app already keeps on this device.
   .grid2 button{ padding:13px 8px; }
   #saveBar{ position:sticky; bottom:calc(8px + env(safe-area-inset-bottom)); display:none; background:var(--card); border:1px solid var(--gold); border-radius:12px; padding:10px 12px; box-shadow:0 4px 18px rgba(0,0,0,.18); align-items:center; justify-content:space-between; gap:10px; }
   #revFilter{ width:auto; padding:6px 8px; }
+  /* v7: Listen tab */
+  #stText{ font-size:26px; line-height:1.5; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; padding:0 0 8px; }
+  #stText p{ margin:0 0 4px; padding:6px 8px; border-radius:10px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  #stText p.cur{ background:var(--sel); }
+  .nm{ font-weight:700; border-bottom:2px dotted var(--gold); }
+  .nm.hold{ background:var(--gold); color:#fff; border-radius:6px; }
+  .nm.flag{ background:var(--bad); color:#fff; border-radius:6px; padding:0 4px; border-bottom:none; }
+  #stPlayer{ position:fixed; left:0; right:0; bottom:0; z-index:20; background:var(--card); border-top:1px solid var(--line);
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom)); box-shadow:0 -4px 18px rgba(0,0,0,.12); }
+  #stPlayer .in{ max-width:680px; margin:0 auto; display:flex; gap:8px; align-items:center; }
+  #stPlayer button{ padding:12px 14px; font-size:18px; }
+  #stPlay{ min-width:96px; }
+  #stTime{ flex:1; text-align:center; font-variant-numeric:tabular-nums; color:var(--mut); font-size:15px; }
+  #stRate{ width:auto; padding:8px; }
+  #stSpacer{ height:96px; }
+  #stSheet{ position:fixed; inset:0; z-index:30; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; }
+  #stSheet .in{ background:var(--card); width:100%; max-width:680px; margin:0 auto; border-radius:16px 16px 0 0;
+    padding:16px 16px calc(18px + env(safe-area-inset-bottom)); box-sizing:border-box; }
+  #stSheet .in > button{ width:100%; padding:15px; font-size:18px; margin:10px 0 0; }
   .hidden{ display:none !important; }
 </style>
 </head>
 <body>
 <div class="row" style="margin:0 0 6px;"><a id="backLink" href="./">&larr; Back to the timeline</a></div>
-<h1>Fix a pronunciation <span class="ver">v6</span></h1>
-<div class="tabs"><button id="tabArt" class="on">Article</button><button id="tabRev">Review list</button></div>
+<h1>Fix a pronunciation <span class="ver">v7</span></h1>
+<div class="tabs"><button id="tabArt" class="on">Article</button><button id="tabRev">Review list</button><button id="tabSt">Listen</button></div>
 
-<div class="card">
+<div class="card" id="voiceCard">
   <h2>Voice</h2>
   <p id="status" style="margin:0 0 8px;">Starting&hellip;</p>
   <select id="voiceSel" disabled></select>
@@ -120,6 +144,34 @@ Uses the GitHub token and repo settings the app already keeps on this device.
     <div class="row" style="margin-top:14px;"><button class="sec" id="storyBtn" style="width:100%;">&#9654; Hear my last picks in a story</button></div>
   </div>
 </div>
+
+<div class="card hidden" id="stCard">
+  <div class="row" style="margin:0 0 6px;justify-content:space-between;"><h2 style="margin:0;">Listen for mistakes</h2><span class="hint" id="stFlagCount" style="margin:0;"></span></div>
+  <select id="stChap"></select>
+  <p class="hint" id="stStatus">Play the chapter. When a name sounds off, <b>touch and hold</b> it. Tap a sentence to hear it again.</p>
+</div>
+<div id="stText" class="hidden"></div>
+<div class="card hidden" id="stDone">
+  <h2 id="stDoneTitle">Finished this chapter?</h2>
+  <p class="hint" id="stSum" style="margin:0 0 8px;"></p>
+  <button id="stSaveBtn" style="width:100%;">Save this chapter</button>
+  <p class="hint" id="stSaveNote"></p>
+  <div class="row hidden" id="stNextRow"><button class="sec" id="stNext" style="width:100%;">Next chapter &rarr;</button></div>
+</div>
+<div id="stSpacer" class="hidden"></div>
+<div id="stPlayer" class="hidden"><div class="in">
+  <button class="sec" id="stBack" aria-label="Back 5 seconds">&#8634; 5</button>
+  <button id="stPlay">&#9654; Play</button>
+  <span id="stTime">0:00</span>
+  <select id="stRate"><option value="1">1&times;</option><option value="0.9">0.9&times;</option><option value="0.8">0.8&times;</option></select>
+</div></div>
+<div id="stSheet" class="hidden"><div class="in">
+  <div class="bigword" id="shWord"></div>
+  <p class="hint" id="shInfo" style="text-align:center;margin:0;"></p>
+  <button id="shFlag">Yes &mdash; it sounded off</button>
+  <div class="grid2"><button class="sec" id="shReplay">&#9654; Hear the sentence</button><button class="sec" id="shCancel">Cancel</button></div>
+</div></div>
+<audio id="stAudio" preload="auto"></audio>
 
 <div class="card hidden" id="artCard">
   <h2 id="artTitleBar">Article</h2>
@@ -162,7 +214,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 
 <script>
 'use strict';
-const PAGE_VERSION = 'v6';
+const PAGE_VERSION = 'v7';
 const $ = (id) => document.getElementById(id);
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const KOKORO_CDNS = ['https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/+esm', 'https://esm.sh/kokoro-js@1.2.0'];
@@ -171,7 +223,10 @@ const RULES_PATH = 'pronunciation/catholic-timeline-pronunciation.json';
 const ROUND = 4;
 
 // Phone has no console, so anything that goes wrong is shown on the page.
-function say(msg, cls){ const s = $('status'); s.textContent = msg; s.className = cls || ''; }
+function say(msg, cls){
+  const s = $('status'); s.textContent = msg; s.className = cls || '';
+  const st = $('stCard'); if(st && !st.classList.contains('hidden') && cls === 'err') stSay(msg, cls);
+}
 window.addEventListener('error', (e) => say('Error: ' + (e.message || e), 'err'));
 window.addEventListener('unhandledrejection', (e) => say('Error: ' + ((e.reason && e.reason.message) || e.reason), 'err'));
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -572,7 +627,7 @@ function respellPart(part, stressed){
     let hit = null;
     const isVowelAt = (k) => /[aeiou]/.test(p[k] || '');
     if(p[i] === 'y'){
-      if(i > 0 && p[i + 1] === 'e' && !isVowelAt(i + 2)){ hit = { len: 2, ph: 'I', v: true }; }          // "tye", "pye"
+      if(i > 0 && p[i + 1] === 'e' && !isVowelAt(i + 2) && p[i + 2] !== 'h'){ hit = { len: 2, ph: 'I', v: true }; }   // "tye", "pye" (but "nyeh" = n + y + eh)
       else if(i === 0 || isVowelAt(i + 1)){ hit = { len: 1, ph: 'j', v: false }; }                          // "yoo", "yes"
       else hit = { len: 1, ph: (i === p.length - 1 ? 'i' : 'ɪ'), v: true };                                 // "SIN-y"
     }
@@ -840,7 +895,8 @@ function renderRev(){
   $('revWord').textContent = c.name;
   fitWord();
   $('revMeta').innerHTML = esc(c.uses || 0) + ' use' + (c.uses === 1 ? '' : 's') +
-    (guided ? ' \u00b7 guided: <b>' + esc(c.say || c.ipa) + '</b>' : ' \u00b7 not in Kokoro\u2019s dictionary');
+    (guided ? ' \u00b7 guided: <b>' + esc(c.say || guideOf(c.ipa)) + '</b>' + (c.hint && SRC_LABEL[c.hint] ? ' (' + SRC_LABEL[c.hint] + ')' : '') : ' \u00b7 not in Kokoro\u2019s dictionary') +
+    (c.kind === 'story' ? ' \u00b7 sounded off in the story' : '');
   const ctx = entries.length ? contextFor(c.name) : null;
   if(ctx){
     const hl = esc(ctx.sent).split(esc(c.name)).join('<b>' + esc(c.name) + '</b>');
@@ -986,20 +1042,242 @@ $('storyBtn').addEventListener('click', async () => {
   finally{ if(run === storyRun){ storyRun++; $('storyBtn').innerHTML = '&#9654; Hear my last picks in a story'; } }
 });
 
+
+// ---------- listen: the pronunciation story (v7) ----------
+// The "Pronunciation story" workflow writes short silly sentences full of hard names and records
+// them in chapters. Listen, touch and hold any name that sounds off, then Save the chapter:
+// flagged names go to the top of the Review list; the rest are marked fine, and the ones that
+// were read from a guide (reference list, Claude's hints, Wiktionary) become rules, so every
+// recording says them the way they sounded here.
+const STORY_PATH = 'pronunciation/story/story.json';
+const SRC_LABEL = { reference: 'reference list', claude: 'Claude\u2019s guide', wiktionary: 'Wiktionary', kokoro: 'Kokoro\u2019s own guess' };
+let story = null, stCh = null, stCur = -1, stLoaded = false, stHoldScroll = 0, stWasPlaying = false, stSheetAt = null;
+let stState = { flags: {}, done: {}, id: '' };
+try{ stState = Object.assign(stState, JSON.parse(localStorage.getItem('pron-story') || '{}') || {}); }catch(e){}
+const stKeep = () => { try{ localStorage.setItem('pron-story', JSON.stringify(stState)); }catch(e){} };
+function stSay(msg, cls){ $('stStatus').textContent = msg; $('stStatus').className = 'hint' + (cls ? ' ' + cls : ''); }
+const mmss = (t) => { t = Math.max(0, Math.floor(t || 0)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+const chapNames = (c) => Array.from(new Set([].concat(...c.sentences.map(s => s.names))));
+
+async function loadStory(){
+  stSay('Loading the story\u2026');
+  try{ story = await loadFresh(STORY_PATH); }catch(e){ story = null; }
+  if(!story || !story.chapters || !story.chapters.length){
+    stSay('No story yet. On GitHub, open Actions \u2192 \u201cPronunciation story\u201d \u2192 Run workflow. When it finishes, come back here.', 'err');
+    return;
+  }
+  if(stState.id !== story.created){ stState.done = {}; stState.id = story.created; }
+  Object.keys(stState.flags).forEach(n => { if(!story.words[n]) delete stState.flags[n]; });
+  stKeep(); stLoaded = true;
+  fillChapters();
+  const first = story.chapters.find(c => !stState.done[c.n]) || story.chapters[0];
+  openChapter(first.n);
+  stSay('Play the chapter. When a name sounds off, touch and hold it. Tap a sentence to hear it again.');
+}
+function fillChapters(){
+  $('stChap').innerHTML = story.chapters.map(c => '<option value="' + c.n + '">' + (stState.done[c.n] ? '\u2713 ' : '') +
+    'Chapter ' + c.n + ' of ' + story.chapters.length + ' \u00b7 ' + chapNames(c).length + ' names' +
+    (c.seconds ? ' \u00b7 ' + Math.max(1, Math.round(c.seconds / 60)) + ' min' : '') + '</option>').join('');
+  if(stCh) $('stChap').value = String(stCh.n);
+}
+function openChapter(n){
+  stCh = story.chapters.find(c => c.n === n) || story.chapters[0]; stCur = -1;
+  $('stChap').value = String(stCh.n);
+  const a = $('stAudio'); a.pause();
+  a.src = stCh.audio + '?v=' + encodeURIComponent(story.created);
+  a.load();
+  $('stText').innerHTML = stCh.sentences.map((s, i) => '<p data-i="' + i + '">' + s.parts.map(p => typeof p === 'string' ? esc(p) :
+    '<span class="nm' + (stState.flags[p.w] ? ' flag' : '') + '" data-w="' + esc(p.w) + '">' + esc(p.w) + '</span>').join('') + '</p>').join('');
+  $('stNextRow').classList.add('hidden'); $('stSaveNote').textContent = '';
+  $('stDone').classList.toggle('hidden', $('stCard').classList.contains('hidden'));
+  renderStDone(); stPlayBtn(); stTime();
+  window.scrollTo(0, 0);
+}
+function renderStDone(){
+  if(!stCh) return;
+  const names = chapNames(stCh), W = story.words;
+  const flagged = names.filter(n => stState.flags[n]), fine = names.filter(n => !stState.flags[n]);
+  const guided = fine.filter(n => W[n] && W[n].src !== 'kokoro' && W[n].ipa);
+  $('stFlagCount').textContent = flagged.length ? flagged.length + ' flagged' : '';
+  $('stDoneTitle').textContent = stState.done[stCh.n] ? 'Chapter ' + stCh.n + ' saved \u2713' : 'Finished chapter ' + stCh.n + '?';
+  $('stSum').innerHTML = '<b>' + flagged.length + '</b> flagged' + (flagged.length ? ' (' + flagged.map(esc).join(', ') + ')' : '') +
+    ' \u2014 these go to the top of the Review list.<br><b>' + fine.length + '</b> sounded fine and will be marked done' +
+    (guided.length ? '; <b>' + guided.length + '</b> of them were read from a guide and become rules, so recordings say them this way.' : '.');
+  $('stSaveBtn').textContent = stState.done[stCh.n] ? 'Save chapter ' + stCh.n + ' again' : 'Save chapter ' + stCh.n;
+}
+function stPlayBtn(){ $('stPlay').innerHTML = $('stAudio').paused ? '&#9654; Play' : '&#10074;&#10074; Pause'; }
+function stTime(){ const a = $('stAudio'); $('stTime').textContent = mmss(a.currentTime) + ' / ' + mmss(isFinite(a.duration) ? a.duration : (stCh && stCh.seconds)); }
+function sentAt(t){
+  const ss = stCh ? stCh.sentences : []; let k = ss.length ? 0 : -1;     // the short lead-in counts as sentence 1
+  for(let i = 0; i < ss.length; i++){ if((ss[i].s || 0) <= t + 0.05) k = i; else break; }
+  return k;
+}
+function stMark(k, follow){
+  if(k === stCur) return;
+  const box = $('stText'), old = box.querySelector('p.cur'); if(old) old.classList.remove('cur');
+  stCur = k;
+  const el = box.querySelector('p[data-i="' + k + '"]'); if(!el) return;
+  el.classList.add('cur');
+  if(follow && Date.now() > stHoldScroll) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+async function stPlayFrom(t){
+  const a = $('stAudio');
+  try{
+    if(typeof t === 'number'){
+      // A jump made before the recording has loaded is ignored by the browser, so wait for it first.
+      if(a.readyState < 1) await new Promise(r => { a.addEventListener('loadedmetadata', r, { once: true }); setTimeout(r, 5000); });
+      a.currentTime = t;
+    }
+    a.playbackRate = parseFloat($('stRate').value) || 1;
+    await a.play();
+  }catch(e){ stSay('Could not play the recording. If the story was just made, the site may still be updating \u2014 try again in a minute.', 'err'); }
+}
+const stA = $('stAudio');
+stA.addEventListener('timeupdate', () => { stTime(); if(stCh) stMark(sentAt(stA.currentTime), !stA.paused); });
+stA.addEventListener('loadedmetadata', () => { stA.playbackRate = parseFloat($('stRate').value) || 1; stTime(); });
+['play', 'pause', 'ended'].forEach(ev => stA.addEventListener(ev, stPlayBtn));
+stA.addEventListener('ended', () => { $('stDone').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+stA.addEventListener('error', () => { if(stA.getAttribute('src')) stSay('The recording for this chapter did not load. If the story was just made, the site may still be updating \u2014 try again in a minute.', 'err'); });
+$('stPlay').addEventListener('click', () => { if(stA.paused) stPlayFrom(); else stA.pause(); });
+$('stBack').addEventListener('click', () => { stA.currentTime = Math.max(0, stA.currentTime - 5); if(stA.paused) stPlayFrom(); });
+$('stRate').addEventListener('change', () => { stA.playbackRate = parseFloat($('stRate').value) || 1; });
+$('stChap').addEventListener('change', () => openChapter(parseInt($('stChap').value, 10)));
+// Scrolling by hand pauses the follow-along for a few seconds.
+window.addEventListener('touchmove', () => { stHoldScroll = Date.now() + 5000; }, { passive: true });
+
+// Touch and hold a name -> "Sounded off?"; a plain tap on a sentence replays it.
+let stHold = null, stSkipClick = false;
+const box = $('stText');
+box.addEventListener('pointerdown', (e) => {
+  const nm = e.target.closest('.nm'); if(!nm) return;
+  stHoldScroll = Date.now() + 5000;           // don't let the follow-along scroll the name out from under the finger
+  stHold = { nm, x: e.clientX, y: e.clientY, t: setTimeout(() => {
+    if(!stHold) return;
+    stSkipClick = true; nm.classList.remove('hold');
+    const i = parseInt(nm.closest('p').dataset.i, 10); stHold = null;
+    if(navigator.vibrate) try{ navigator.vibrate(15); }catch(err){}
+    openSheet(nm.dataset.w, i);
+  }, 450) };
+  nm.classList.add('hold');
+});
+function stHoldEnd(){ if(stHold){ clearTimeout(stHold.t); stHold.nm.classList.remove('hold'); stHold = null; } }
+box.addEventListener('pointermove', (e) => { if(stHold && (Math.abs(e.clientX - stHold.x) > 10 || Math.abs(e.clientY - stHold.y) > 10)) stHoldEnd(); });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => box.addEventListener(ev, stHoldEnd));
+box.addEventListener('contextmenu', (e) => e.preventDefault());
+box.addEventListener('click', (e) => {
+  if(stSkipClick){ stSkipClick = false; return; }
+  const p = e.target.closest('p[data-i]'); if(!p || !stCh) return;
+  const s = stCh.sentences[parseInt(p.dataset.i, 10)];
+  stMark(parseInt(p.dataset.i, 10), false);
+  stPlayFrom(s.s || 0);
+});
+
+function openSheet(name, i){
+  stWasPlaying = !stA.paused; stA.pause();
+  stSheetAt = { name, i };
+  const w = story.words[name] || {};
+  $('shWord').textContent = name;
+  fitBig($('shWord'));
+  $('shInfo').innerHTML = 'Read using ' + esc(SRC_LABEL[w.src] || 'Kokoro') + (w.say ? ': <b>' + esc(w.say) + '</b>' : '') +
+    ' \u00b7 ' + (w.uses || 0) + ' use' + (w.uses === 1 ? '' : 's') + ' in the articles';
+  const on = !!stState.flags[name];
+  $('shFlag').textContent = on ? 'Unflag \u2014 it was fine' : 'Yes \u2014 it sounded off';
+  $('shFlag').className = on ? 'sec' : '';
+  $('stSheet').classList.remove('hidden');
+}
+function fitBig(el){ let size = 34; el.style.fontSize = size + 'px'; while(el.scrollWidth > el.clientWidth && size > 16){ size -= 2; el.style.fontSize = size + 'px'; } }
+function closeSheet(resume){ $('stSheet').classList.add('hidden'); stSheetAt = null; if(resume && stWasPlaying) stPlayFrom(); }
+$('shFlag').addEventListener('click', () => {
+  if(!stSheetAt) return;
+  const n = stSheetAt.name;
+  if(stState.flags[n]) delete stState.flags[n]; else stState.flags[n] = true;
+  stKeep();
+  box.querySelectorAll('.nm').forEach(el => { if(el.dataset.w === n) el.classList.toggle('flag', !!stState.flags[n]); });
+  renderStDone();
+  closeSheet(true);
+});
+$('shReplay').addEventListener('click', () => {
+  if(!stSheetAt || !stCh) return;
+  const s = stCh.sentences[stSheetAt.i];
+  stWasPlaying = false;
+  stPlayFrom(s.s || 0);
+});
+$('shCancel').addEventListener('click', () => closeSheet(true));
+$('stSheet').addEventListener('click', (e) => { if(e.target === $('stSheet')) closeSheet(true); });
+
+$('stSaveBtn').addEventListener('click', async () => {
+  if(!stCh) return;
+  const ch = stCh, names = chapNames(ch), W = story.words;
+  const flagged = names.filter(n => stState.flags[n]), fine = names.filter(n => !stState.flags[n]);
+  const guided = fine.filter(n => W[n] && W[n].src !== 'kokoro' && W[n].ipa);
+  const b = $('stSaveBtn'); b.disabled = true; $('stSaveNote').className = 'hint'; $('stSaveNote').textContent = 'Saving\u2026';
+  const tag = 'Pronunciation story, chapter ' + ch.n + ': ';
+  try{
+    if(guided.length){
+      const doc = await ghUpdateJson(RULES_PATH, d => { d.rules = d.rules || []; guided.forEach(n => upsertRule(d.rules, n, W[n].ipa)); },
+        tag + guided.length + ' guided name' + (guided.length === 1 ? '' : 's') + ' sounded right');
+      rules = doc.rules;
+    }
+    if(fine.length){
+      await ghUpdateJson(DEC_PATH, d => { fine.forEach(n => { d[n] = 'story-ok'; }); }, tag + fine.length + ' name' + (fine.length === 1 ? '' : 's') + ' sounded right', {});
+    }
+    await ghUpdateJson(CAND_PATH, d => {
+      const fineSet = new Set(fine);
+      let list = (d.candidates || []).filter(c => !fineSet.has(c.name));
+      const have = new Set(list.map(c => c.name));
+      let top = list.reduce((m, c) => Math.max(m, c.n || 0), 0);
+      const add = flagged.filter(n => !have.has(n)).map(n => ({
+        n: ++top, name: n, kind: 'story', ipa: W[n].src !== 'kokoro' ? (W[n].ipa || '') : '', say: W[n].say || '',
+        kokoro: W[n].kokoro || '', bible: W[n].bible || '', uses: W[n].uses || 0, hint: W[n].src || 'kokoro' }));
+      const flaggedSet = new Set(flagged);                   // heard wrong in the story: first in line
+      d.candidates = add.concat(list.filter(c => flaggedSet.has(c.name)), list.filter(c => !flaggedSet.has(c.name)));
+    }, tag + flagged.length + ' name' + (flagged.length === 1 ? '' : 's') + ' sounded off', { candidates: [] });
+    stState.done[ch.n] = true;
+    flagged.forEach(n => delete stState.flags[n]);
+    stKeep();
+    revLoaded = false;                                       // the Review list reloads with the new words
+    fillChapters(); renderStDone();
+    box.querySelectorAll('.nm.flag').forEach(el => el.classList.remove('flag'));
+    $('stSaveNote').className = 'hint ok';
+    $('stSaveNote').textContent = 'Saved. ' + flagged.length + ' sent to the Review list, ' + fine.length + ' marked fine' +
+      (guided.length ? ', ' + guided.length + ' saved as rules' : '') + '.';
+    const next = story.chapters.find(c => !stState.done[c.n]);
+    $('stNextRow').classList.toggle('hidden', !next);
+    if(next) $('stNext').dataset.n = String(next.n);
+  }catch(e){
+    $('stSaveNote').className = 'hint err';
+    $('stSaveNote').textContent = 'Save failed: ' + (e.message || e) + ' \u2014 your flags are still kept on this phone.';
+  }finally{ b.disabled = false; }
+});
+$('stNext').addEventListener('click', () => openChapter(parseInt($('stNext').dataset.n, 10)));
+
 // ---------- tabs ----------
 function showTab(t){
-  const rev = t === 'rev';
-  $('tabArt').classList.toggle('on', !rev); $('tabRev').classList.toggle('on', rev);
+  const rev = t === 'rev', st = t === 'st';
+  $('tabArt').classList.toggle('on', t === 'art'); $('tabRev').classList.toggle('on', rev); $('tabSt').classList.toggle('on', st);
   $('revCard').classList.toggle('hidden', !rev);
-  $('pickCard').classList.toggle('hidden', rev || !!entry);
-  $('artCard').classList.toggle('hidden', rev || !entry);
+  $('pickCard').classList.toggle('hidden', rev || st || !!entry);
+  $('artCard').classList.toggle('hidden', rev || st || !entry);
+  $('voiceCard').classList.toggle('hidden', st);
+  ['stCard', 'stText', 'stSpacer', 'stPlayer'].forEach(id => $(id).classList.toggle('hidden', !st));
+  $('stDone').classList.toggle('hidden', !st || !stCh);
   $('candCard').classList.add('hidden'); $('chosenCard').classList.add('hidden');
   revItem = null; autoRun++;
+  if(st){
+    $('selBar').style.display = 'none'; $('saveBar').style.display = 'none';
+    if(!stLoaded) loadStory();
+    return;
+  }
+  $('stAudio').pause(); ensureVoice();
   if(rev){ $('selBar').style.display = 'none'; if(!revLoaded) loadReview(); else renderRev(); }
   else{ $('saveBar').style.display = 'none'; showSel(); }
 }
 $('tabArt').addEventListener('click', () => showTab('art'));
 $('tabRev').addEventListener('click', () => { unlockAudio(); showTab('rev'); });
+$('tabSt').addEventListener('click', () => showTab('st'));
+// The Listen tab plays recordings, so the 90 MB voice is only fetched when another tab needs it.
+let voiceStarted = false;
+function ensureVoice(){ if(!voiceStarted){ voiceStarted = true; startVoice(); } }
 
 // ---------- start ----------
 (async function start(){
@@ -1012,9 +1290,10 @@ $('tabRev').addEventListener('click', () => { unlockAudio(); showTab('rev'); });
     const qs = new URLSearchParams(location.search), id = qs.get('id');
     entry = id ? entries.find(e => e.id === id) || null : null;
     if(entry) renderArticle(); else showResults();
+    if(qs.get('story')){ showTab('st'); return; }
     if(qs.get('review')) showTab('rev');
-  }catch(e){ say('Could not load the articles: ' + (e.message || e), 'err'); return; }
-  await startVoice();
+  }catch(e){ say('Could not load the articles: ' + (e.message || e), 'err'); if(new URLSearchParams(location.search).get('story')) showTab('st'); return; }
+  ensureVoice();
 })();
 </script>
 </body>
