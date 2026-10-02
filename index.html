@@ -1,6 +1,6 @@
 <!--
-VERSION: 518
-DATE: 2026-10-01T08:10:00-05:00
+VERSION: 520
+DATE: 2026-10-01T09:40:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,30 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v520 — 2026-10-01
+
+**Ask:**
+- Tapping a sentence to start there always cut off its first word.
+
+**Implementation:**
+- seekToCue() jumped to the exact start of the first word, and the phone's audio takes a moment to
+  start, so the word's beginning was lost. Recorded audio now starts up to 0.35 s early, inside the
+  silent pause before the sentence, but never before the previous sentence's end (so nothing of it
+  is heard). The tapped sentence stays highlighted through that lead-in (cueSeekHold). The browser
+  voice is unaffected (its "time" is a sentence number).
+
+## v519 — 2026-10-01
+
+**Ask:**
+- Be able to tweak the gap between sentences and the space before section headings.
+
+**Implementation:**
+- Manage → Import → Voice & pacing settings now has four clearly named pauses, in the order they
+  happen in a recording: "Pause after the name" (new, default 1300 ms), "Pause after a heading"
+  (was "Heading Pause", 500), "Pause between sentences" (new, 200) and "Pause before a new section"
+  (was "Section Pause", 700). All are saved on the device and sent with each recording task
+  (titlePauseMs / sentencePauseMs added to the payload); audio-generate.mjs reads them, 0 allowed.
+
 ## v518 — 2026-10-01
 
 **Ask:**
@@ -5931,9 +5955,13 @@ CHANGELOG:END
         </div>
         <div class="mgrid2">
           <div class="mfield"><label>Speaker Boost</label><select id="audioSpeakerBoost"><option value="true">On</option><option value="false">Off</option></select></div>
-          <div class="mfield"><label>Heading Pause (ms)</label><input type="number" id="audioHeadingPause" min="0" step="50" value="500"></div>
+          <div class="mfield"><label>Pause after the name (ms)</label><input type="number" id="audioTitlePause" min="0" step="50" value="1300"></div>
         </div>
-        <div class="mfield"><label>Section Pause (ms)</label><input type="number" id="audioSectionPause" min="0" step="50" value="700"></div>
+        <div class="mgrid2">
+          <div class="mfield"><label>Pause after a heading (ms)</label><input type="number" id="audioHeadingPause" min="0" step="50" value="500"></div>
+          <div class="mfield"><label>Pause between sentences (ms)</label><input type="number" id="audioSentencePause" min="0" step="50" value="200"></div>
+        </div>
+        <div class="mfield"><label>Pause before a new section (ms)</label><input type="number" id="audioSectionPause" min="0" step="50" value="700"></div>
         <div class="mfield"><label><input type="checkbox" id="audioReadHeadings" checked style="width:auto; margin-right:6px;">Narrate section headings</label></div>
         <details class="mHelp"><summary>What this does</summary>
           <div class="hint">These settings are captured into every "Record audio narration" task the moment it's queued — from Task : Automation's own Add Task screen (Category/Start/Quantity, same picker every batch service uses, with "Regenerate even entries that already have audio" to include ones already recorded), or automatically when you check "Record audio" after approving a sentence-reword fix. Each task remembers the settings it was queued with, even if you change these fields before it actually runs. Remembered on this device, so you only need to set them once.</div>
@@ -6640,7 +6668,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v518';
+const APP_VERSION = 'v520';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8757,6 +8785,7 @@ const AUDIO_GEN_FIELDS = {
   audioVoiceId: 'text', audioModelId: 'text', audioSpeed: 'text',
   audioStability: 'text', audioSimilarity: 'text', audioStyle: 'text',
   audioSpeakerBoost: 'text', audioHeadingPause: 'text', audioSectionPause: 'text',
+  audioSentencePause: 'text', audioTitlePause: 'text',   // v519
   audioReadHeadings: 'checkbox'
 };
 function prefillAudioGen(){
@@ -12542,7 +12571,9 @@ function tkAudioPayload(){
     useSpeakerBoost: v('audioSpeakerBoost') !== 'false',
     readHeadings: checked('audioReadHeadings'),
     headingPauseMs: v('audioHeadingPause'),
-    sectionPauseMs: v('audioSectionPause')
+    sectionPauseMs: v('audioSectionPause'),
+    sentencePauseMs: v('audioSentencePause'),   // v519 (Kokoro recordings)
+    titlePauseMs: v('audioTitlePause')
   };
 }
 // Queues a single image-generate or audio-generate task for one entity, used by the Review Mode
@@ -15096,6 +15127,10 @@ function cueIndexForTime(t){
 }
 function updateActiveCue(t){
   if(!currentCues.length) return;
+  if(cueSeekHold){                                    // v520: still in the lead-in before the tapped sentence
+    if(t < cueSeekHold.until && t >= cueSeekHold.until - CUE_LEAD_SEC - 0.05){ setActiveCue(cueSeekHold.idx); return; }
+    cueSeekHold = null;
+  }
   setActiveCue(cueIndexForTime(t));
 }
 const SENTENCE_VISIBLE_MARGIN = 16;
@@ -15294,10 +15329,20 @@ document.getElementById('article').addEventListener('scroll', () => scheduleScro
 document.getElementById('aboutPanel').addEventListener('scroll', () => scheduleScrollSnap(document.getElementById('aboutPanel')), {passive:true});
 
 var cueTapStartedAt = 0; // v506: when a sentence tap just started playback — see the article tap-to-pause handler
+// v520: start a little before the sentence, in the silent pause, so the phone's audio start-up
+// doesn't swallow the first word. Never earlier than the previous sentence's end.
+const CUE_LEAD_SEC = 0.35;
+let cueSeekHold = null;   // { idx, until } — keep the tapped sentence lit during the lead-in
 function seekToCue(idx){
   const cue = currentCues[idx];
   if(!cue || !audioEl) return;
-  audioEl.currentTime = cue.start;
+  if(audioEl.isTts){ audioEl.currentTime = cue.start; }
+  else{
+    const prev = currentCues[idx - 1];
+    const floor = prev && isFinite(prev.end) ? prev.end : 0;
+    audioEl.currentTime = Math.max(floor, cue.start - CUE_LEAD_SEC, 0);
+    cueSeekHold = { idx, until: cue.start };
+  }
   if(audioEl.paused){
     audioEl.play();
     if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PAUSE; apPlayBtn.setAttribute('aria-label','Stop'); }
