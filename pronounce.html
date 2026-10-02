@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <!--
-pronounce.html  VERSION: 7
-DATE: 2026-09-30T19:51:00-05:00
+pronounce.html  VERSION: 8
+DATE: 2026-10-01T10:30:00-05:00
 Fix a pronunciation by ear. Opened from an article's review tools (pronounce.html?id=<entry-id>).
 Tap the word Kokoro says wrong, listen to candidate pronunciations, pick the right one (or type
 how it sounds), and it is saved as a rule in pronunciation/catholic-timeline-pronunciation.json.
 Candidates are phoneme strings played through the SAME Kokoro model the recorder uses, and the
 exact string you pick is what gets saved, so the recording says it the way you heard it here.
+v8: typed guides with more than one word ("GODZ WIL" for the noun in "God's will") now give each word its
+own stress and keep a space between the words; before, the second word lost its stress and the words ran
+together. Guides with several words are also shown word by word.
 v7: new Listen tab (pronounce.html?story=1): plays the "Pronunciation story" (short silly sentences full of
 hard names, recorded on GitHub in chapters) in big text; touch and hold a name that sounded off to flag it.
 Save chapter: flagged names go to the top of the Review list; the rest are marked fine, and the ones read
@@ -105,7 +108,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 </head>
 <body>
 <div class="row" style="margin:0 0 6px;"><a id="backLink" href="./">&larr; Back to the timeline</a></div>
-<h1>Fix a pronunciation <span class="ver">v7</span></h1>
+<h1>Fix a pronunciation <span class="ver">v8</span></h1>
 <div class="tabs"><button id="tabArt" class="on">Article</button><button id="tabRev">Review list</button><button id="tabSt">Listen</button></div>
 
 <div class="card" id="voiceCard">
@@ -214,7 +217,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 
 <script>
 'use strict';
-const PAGE_VERSION = 'v7';
+const PAGE_VERSION = 'v8';
 const $ = (id) => document.getElementById(id);
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const KOKORO_CDNS = ['https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/+esm', 'https://esm.sh/kokoro-js@1.2.0'];
@@ -640,7 +643,13 @@ function respellPart(part, stressed){
   return out;
 }
 function guideToPhonemes(txt){
-  const parts = String(txt || '').trim().split(/[-\s\u2010-\u2014]+/).filter(x => /[a-z]/i.test(x));
+  // v8: a space separates WORDS ("GODZ WIL"); each word gets its own stress and keeps its own
+  // sounds, joined by a space. Hyphens separate syllables inside one word ("KRAH-koof").
+  const words = String(txt || '').trim().split(/\s+/).map(guideWordToPhonemes).filter(Boolean);
+  return words.join(' ');
+}
+function guideWordToPhonemes(word){
+  const parts = String(word || '').split(/[-\u2010-\u2014]+/).filter(x => /[a-z]/i.test(x));
   if(!parts.length) return '';
   let stressAt = parts.findIndex(x => /[A-Z]/.test(x) && x === x.toUpperCase());
   if(stressAt < 0) stressAt = 0;
@@ -655,6 +664,12 @@ const P2R_V = [['eɪ','ay'],['aɪ','eye'],['aʊ','ow'],['oʊ','oh'],['ɔɪ','oy'
 const P2R_C = { 'θ':'th','ð':'th','ʃ':'sh','ʒ':'zh','ʧ':'ch','ʤ':'j','ŋ':'ng','ɡ':'g','g':'g','ɹ':'r','r':'r','ɾ':'t','j':'y','ʔ':'',
   'x':'k','ç':'h','ʁ':'r','ɲ':'ny','ʎ':'ly','ɫ':'l','ɬ':'l','β':'b','ɣ':'g','χ':'h','ʂ':'sh','ʐ':'zh','ɕ':'sh','ʑ':'zh' };
 function guideOf(ph){
+  // v8: several words ("ɡˈɑdz wˈɪl") are shown word by word, with a space between.
+  const words = String(ph || '').trim().split(/\s+/).filter(Boolean);
+  if(words.length > 1) return words.map(guideOfWord).join(' ');
+  return guideOfWord(words[0] || '');
+}
+function guideOfWord(ph){
   const src = String(ph || '').replace(/[ː\s]/g, '').replace(/ˌ/g, '');
   const items = []; let stressNext = false, i = 0;
   while(i < src.length){
