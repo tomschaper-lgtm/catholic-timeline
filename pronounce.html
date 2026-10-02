@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <!--
-pronounce.html  VERSION: 11
-DATE: 2026-10-01T14:30:00-05:00
+pronounce.html  VERSION: 12
+DATE: 2026-10-01T15:10:00-05:00
 Fix a pronunciation by ear. Opened from an article's review tools (pronounce.html?id=<entry-id>).
 Tap the word Kokoro says wrong, listen to candidate pronunciations, pick the right one (or type
 how it sounds), and it is saved as a rule in pronunciation/catholic-timeline-pronunciation.json.
 Candidates are phoneme strings played through the SAME Kokoro model the recorder uses, and the
 exact string you pick is what gets saved, so the recording says it the way you heard it here.
+v12: an × in the top-right corner of the "Your choice" card, the Choices card and the bottom selection bar.
+On the cards it closes the fixing steps and goes back to the word in the article; on the bar it clears the
+selection (same as Clear).
 v11: saved fixes are read fresh from GitHub when the page opens (they came from the site copy, which
 lags a minute or more behind a save, so a fix just saved looked missing). A word that already has a fix
 now says so plainly — "✓ Already fixed — said KRAH-koof" — with a ▶ Hear it button, and Find
@@ -77,6 +80,13 @@ Uses the GitHub token and repo settings the app already keeps on this device.
   .w.hit{ background:rgba(168,132,44,.22); }
   .w.hitCur{ background:var(--gold); color:#fff; }
   .w.fixed{ text-decoration:underline dotted var(--gold); text-underline-offset:3px; }
+  /* v12: close (×) in the top-right corner of a card or the selection bar */
+  #chosenCard, #candCard{ position:relative; }
+  #chosenCard h2, #candCard h2, #selWord{ padding-right:40px; }
+  .xBtn{ position:absolute; top:6px; right:6px; width:38px; height:38px; padding:0; border:0; border-radius:50%;
+    background:transparent; color:var(--mut); font-size:28px; line-height:38px; text-align:center; cursor:pointer;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .xBtn:active{ background:var(--line); }
   #selBar{ position:sticky; bottom:calc(8px + env(safe-area-inset-bottom)); display:none; background:var(--card); border:1px solid var(--gold); border-radius:12px; padding:10px 12px; box-shadow:0 4px 18px rgba(0,0,0,.18); }
   #selBar .big{ font-size:18px; font-weight:600; }
   .cand{ border:1px solid var(--line); border-radius:10px; padding:9px 10px; margin:0 0 8px; display:flex; gap:10px; align-items:center; }
@@ -128,7 +138,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 </head>
 <body>
 <div class="row" style="margin:0 0 6px;"><a id="backLink" href="./">&larr; Back to the timeline</a></div>
-<h1>Fix a pronunciation <span class="ver">v11</span></h1>
+<h1>Fix a pronunciation <span class="ver">v12</span></h1>
 <div class="tabs"><button id="tabArt" class="on">Article</button><button id="tabRev">Review list</button><button id="tabSt">Listen</button></div>
 
 <div class="card" id="voiceCard">
@@ -208,6 +218,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 </div>
 
 <div class="card hidden" id="candCard">
+  <button type="button" class="xBtn" data-close="fix" aria-label="Close">&times;</button>
   <h2 id="candTitle">Choices</h2>
   <p class="hint">Each choice is the word on its own. Tap <b>This one</b> when it's right, or <b>Edit</b> to tweak a close one below.</p>
   <div class="row" style="margin:4px 0 10px;"><button id="playAllBtn" class="sec">&#9654; Play all</button></div>
@@ -222,6 +233,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 </div>
 
 <div class="card hidden" id="chosenCard">
+  <button type="button" class="xBtn" data-close="fix" aria-label="Close">&times;</button>
   <h2>Your choice</h2>
   <p id="chosenText" style="margin:0 0 4px;font-size:17px;"></p>
   <div class="cph" id="chosenPh"></div>
@@ -236,6 +248,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 <div id="saveBar"><span id="saveCount"></span><button id="revSave">Save</button></div>
 
 <div id="selBar">
+  <button type="button" class="xBtn" data-close="sel" aria-label="Close">&times;</button>
   <div class="big" id="selWord"></div>
   <div class="hint" id="selInfo" style="margin:2px 0 0;"></div>
   <div class="row"><button id="hearFixBtn" class="sec hidden">&#9654; Hear it</button><button id="findBtn">Find pronunciations</button><button id="clearBtn" class="sec">Clear</button></div>
@@ -243,7 +256,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 
 <script>
 'use strict';
-const PAGE_VERSION = 'v11';
+const PAGE_VERSION = 'v12';
 const $ = (id) => document.getElementById(id);
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const KOKORO_CDNS = ['https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/+esm', 'https://esm.sh/kokoro-js@1.2.0'];
@@ -440,6 +453,17 @@ $('art').addEventListener('click', (ev) => {
   showSel();
 });
 $('clearBtn').addEventListener('click', () => { sel = null; showSel(); });
+// v12: × buttons. On the Choices / Your choice cards: stop any sound, close the fixing steps and go
+// back to the selected word in the article. On the selection bar: clear the selection.
+document.addEventListener('click', (ev) => {
+  const x = ev.target.closest('.xBtn'); if(!x) return;
+  ev.preventDefault(); ev.stopPropagation();
+  if(x.dataset.close === 'sel'){ sel = null; showSel(); return; }
+  try{ playAllRun++; stopPlay(); }catch(e){}
+  $('chosenCard').classList.add('hidden'); $('candCard').classList.add('hidden');
+  const on = document.querySelector('#art .w.on');
+  if(on) on.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}, true);
 
 // ---------- article picker ----------
 function showResults(){
