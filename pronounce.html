@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <!--
-pronounce.html  VERSION: 9
-DATE: 2026-10-01T12:15:00-05:00
+pronounce.html  VERSION: 10
+DATE: 2026-10-01T13:00:00-05:00
 Fix a pronunciation by ear. Opened from an article's review tools (pronounce.html?id=<entry-id>).
 Tap the word Kokoro says wrong, listen to candidate pronunciations, pick the right one (or type
 how it sounds), and it is saved as a rule in pronunciation/catholic-timeline-pronunciation.json.
 Candidates are phoneme strings played through the SAME Kokoro model the recorder uses, and the
 exact string you pick is what gets saved, so the recording says it the way you heard it here.
+v10: opened from the app's triple-tap picker ("Mispronounced — fix this word") as
+pronounce.html?id=<entry>&word=<phrase>&n=<k>: the k-th occurrence of that word or phrase in the story
+text is selected and scrolled into view, ready for Find pronunciations. If it can't be found exactly,
+the phrase is put in the find box instead.
 v9: "Find a word" box at the top of the article (stays in view while scrolling): highlights every match,
 shows "2 of 5", and the arrows / Return jump between them. Accents, capitals and apostrophes don't matter
 (Krakow finds Kraków, gods will finds God's will), and a phrase works too. Tap a highlighted word to fix it
@@ -120,7 +124,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 </head>
 <body>
 <div class="row" style="margin:0 0 6px;"><a id="backLink" href="./">&larr; Back to the timeline</a></div>
-<h1>Fix a pronunciation <span class="ver">v9</span></h1>
+<h1>Fix a pronunciation <span class="ver">v10</span></h1>
 <div class="tabs"><button id="tabArt" class="on">Article</button><button id="tabRev">Review list</button><button id="tabSt">Listen</button></div>
 
 <div class="card" id="voiceCard">
@@ -235,7 +239,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 
 <script>
 'use strict';
-const PAGE_VERSION = 'v9';
+const PAGE_VERSION = 'v10';
 const $ = (id) => document.getElementById(id);
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const KOKORO_CDNS = ['https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/+esm', 'https://esm.sh/kokoro-js@1.2.0'];
@@ -331,6 +335,25 @@ function renderArticle(){
   $('artCard').classList.remove('hidden'); $('pickCard').classList.add('hidden');
   $('backLink').href = './#' + encodeURIComponent(entry.id);
   showSel();
+}
+// ---------- v10: arrive with a word already selected (from the app's triple-tap picker) ----------
+// Counts occurrences over the story text only (paragraphs, not the title or headings), splitting on
+// spaces and comparing letters/digits — the same way the app counted when it built the link.
+function preselectWord(phrase, n){
+  const terms = String(phrase || '').split(/\s+/).map(findNorm).filter(Boolean);
+  if(!terms.length) return;
+  const list = Array.from(document.querySelectorAll('#art p .w')).map(el => ({ el, w: findNorm(el.textContent) })).filter(x => x.w);
+  const hits = [];
+  for(let i = 0; i + terms.length <= list.length; i++){
+    if(terms.every((t, k) => list[i + k].w === t)) hits.push(list.slice(i, i + terms.length).map(x => x.el));
+  }
+  const pick = hits[n] || hits[0];
+  if(!pick){ $('findBox').value = phrase; runFind(true); return; }   // not found exactly: search for it instead
+  const first = pick[0], last = pick[pick.length - 1];
+  const s = +first.dataset.s;
+  sel = { s, a: +first.dataset.w, b: (+last.dataset.s === s) ? +last.dataset.w : +first.dataset.w };
+  showSel();
+  setTimeout(() => first.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
 }
 // ---------- v9: find a word in the article ----------
 let findHits = [], findAt = -1;   // findHits[i] = the word elements of match i
@@ -1365,6 +1388,7 @@ function ensureVoice(){ if(!voiceStarted){ voiceStarted = true; startVoice(); } 
     const qs = new URLSearchParams(location.search), id = qs.get('id');
     entry = id ? entries.find(e => e.id === id) || null : null;
     if(entry) renderArticle(); else showResults();
+    if(entry && qs.get('word')) preselectWord(qs.get('word'), parseInt(qs.get('n'), 10) || 0);   // v10
     if(qs.get('story')){ showTab('st'); return; }
     if(qs.get('review')) showTab('rev');
   }catch(e){ say('Could not load the articles: ' + (e.message || e), 'err'); if(new URLSearchParams(location.search).get('story')) showTab('st'); return; }
