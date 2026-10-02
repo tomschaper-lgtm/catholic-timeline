@@ -1,6 +1,6 @@
 <!--
-VERSION: 522
-DATE: 2026-10-01T13:00:00-05:00
+VERSION: 524
+DATE: 2026-10-01T14:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,31 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v524 — 2026-10-01
+
+**Ask:**
+- When a triple-tapped word has already been fixed, say so right in the picker and show how it is
+  said, so there's no need to open the pronunciation page just to check (no sound, just the guide).
+
+**Implementation:**
+- The triple-tap picker shows "✓ Already fixed — said KRAH-koof" above the button when the word or
+  phrase (whatever the arrows have widened it to) has a saved fix, and the button then reads
+  "Change the pronunciation". A spelling-only rule shows "said as …". The fixes are read fresh from
+  GitHub (the stored token) each time the picker opens, falling back to the site copy, so a fix saved
+  a moment ago shows up. The readable guide uses the same converter as pronounce.html (lpGuideOf).
+
+## v523 — 2026-10-01
+
+**Ask:**
+- Every Settings item on one line: the Browser voice row had a full-width drop-down under its label
+  and a paragraph of explanation below it.
+
+**Implementation:**
+- The row now reads "Browser voice … Samantha ⌄" on one line like the others (the chosen voice's
+  short name, in the same black as the version number, with a small down arrow). The native select
+  is laid invisibly over the whole row, so a tap anywhere on it opens the phone's own picker. The
+  explanatory note (#ttsVoiceNote) is gone.
+
 ## v522 — 2026-10-01
 
 **Ask:**
@@ -3166,13 +3191,15 @@ CHANGELOG:END
     font-size:13.5px; line-height:1.55; color:#7C8598;
   }
   .pNote:empty{display:none;}
-  /* v508: Browser voice row — label above a full-width native select. 16px+ keeps iOS from zooming. */
-  #ttsVoiceRow{cursor:default;}
-  .pVoiceLbl{display:block;}
+  /* v523: Browser voice on one line — "Browser voice … Samantha ⌄". The native select covers the
+     whole row invisibly, so a tap anywhere opens the phone's own picker. 16px keeps iOS from zooming. */
+  #ttsVoiceRow{position:relative; cursor:pointer;}
+  .pVoiceVal{flex:0 1 auto; min-width:0; display:flex; align-items:center; gap:6px; color:#111827;}
+  .pVoiceVal span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:9.5em;}
+  .pVoiceVal svg{flex:0 0 auto; width:15px; height:15px; color:#9AA1B0;}
   .pVoiceSel{
-    display:block; width:100%; margin-top:6px; padding:9px 10px; font-size:16px;
-    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; color:#111827;
-    background:#fff; border:1px solid #D5D8E0; border-radius:8px;
+    position:absolute; inset:0; width:100%; height:100%; opacity:0; font-size:16px;
+    -webkit-appearance:none; appearance:none; border:0; cursor:pointer;
   }
   /* v422: was a full-width button on its own row below (.pUpdateAction) — moved inline, on the
      same row as the label, in place of the version/chevron it replaces while pending (see
@@ -4340,6 +4367,9 @@ CHANGELOG:END
   .lpBtnOk{background:var(--gold); color:var(--navy-deep); border-color:var(--gold);}
   .lpBtnOk:disabled{opacity:.35; cursor:default;}
   .lpBtnPron{display:block; width:100%; margin:0 0 10px; background:rgba(201,165,66,.12); color:var(--gold);}
+  .lpPronStatus{margin:0 0 8px; text-align:center; font-size:15px; color:#9fd6a8;}
+  .lpPronStatus:empty{display:none;}
+  .lpPronStatus b{color:#fff; letter-spacing:.02em;}
   /* Quick Facts panel */
   .factbox{border:1px solid rgba(201,165,66,.4); border-radius:10px; background:rgba(201,165,66,.05); padding:14px 18px; margin:22px 0;}
   /* v440: the landscape narrowing moved OFF .artwrap and onto the article sheet itself
@@ -5322,9 +5352,10 @@ CHANGELOG:END
       </div>
       <div class="pRow" id="ttsVoiceRow" style="display:none;">
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/></svg></span>
-        <span class="pName"><span class="pVoiceLbl">Browser voice</span><select id="ttsVoiceSel" class="pVoiceSel" aria-label="Browser voice for read-aloud"></select></span>
+        <span class="pName">Browser voice</span>
+        <span class="pVoiceVal"><span id="ttsVoiceVal">Automatic</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+        <select id="ttsVoiceSel" class="pVoiceSel" aria-label="Browser voice for read-aloud (used for entries with no recording)"></select>
       </div>
-      <p class="pNote" id="ttsVoiceNote" style="display:none;">Read-aloud voice for entries with no recording. Safari does not use the voice set in iOS Accessibility, so choose it here. Saved on this device.</p>
       <button class="pRow" id="manageBtn">
         <span class="pTile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="17" r="2" fill="currentColor" stroke="none"/></svg></span>
         <span class="pName">Manage</span>
@@ -5715,6 +5746,7 @@ CHANGELOG:END
       <button type="button" class="lpClear" id="lpClearBtn" aria-label="Clear search">&times;</button>
     </div>
     <div class="lpResults" id="lpResults"></div>
+    <div class="lpPronStatus" id="lpPronStatus"></div>
     <button type="button" class="lpBtn lpBtnPron" id="lpPron">Mispronounced &mdash; fix this word</button>
     <div class="lpBtns">
       <button type="button" class="lpBtn lpBtnCancel" id="lpCancel">Cancel</button>
@@ -6702,7 +6734,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v522';
+const APP_VERSION = 'v524';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14765,6 +14797,14 @@ function ttsFillVoiceSelect(list){
     sel.appendChild(o);
   });
   sel.value = eng.some(v => ttsVoiceId(v) === saved) ? saved : '';
+  ttsShowVoiceVal();
+}
+// v523: the one-line row shows the chosen voice's short name ("Samantha", not "Samantha (en-US)").
+function ttsShowVoiceVal(){
+  const sel = document.getElementById('ttsVoiceSel'), out = document.getElementById('ttsVoiceVal');
+  if(!sel || !out) return;
+  const o = sel.options[sel.selectedIndex];
+  out.textContent = !o || !o.value ? 'Automatic' : o.textContent.replace(/\s*\([^)]*\)\s*$/, '');
 }
 function ttsUpdateVoiceRow(){
   const row = document.getElementById('ttsVoiceRow');
@@ -14778,6 +14818,7 @@ function ttsUpdateVoiceRow(){
   const sel = document.getElementById('ttsVoiceSel');
   if(!sel) return;
   sel.addEventListener('change', () => {
+    ttsShowVoiceVal();
     try{
       if(sel.value) localStorage.setItem('tts-voice', sel.value); else localStorage.removeItem('tts-voice');
     }catch(e){}
@@ -16118,6 +16159,7 @@ function openLinkPicker(x, y){
   document.getElementById('lpSearch').value = initialWord;
   lpRenderPhrase();
   lpRunSearch(initialWord);
+  lpLoadFixes().then(lpUpdatePronStatus);   // v524
   document.getElementById('linkPicker').classList.add('open');
   document.getElementById('lpOk').disabled = true;
 }
@@ -16126,9 +16168,96 @@ function lpCurrentPhrase(){
   const { node, tokens, lo, hi } = lpState;
   return node.textContent.slice(tokens[lo].start, tokens[hi].end);
 }
+// v524: show whether the picked word/phrase already has a pronunciation fix, and how it's said.
+// Read fresh from GitHub each time the picker opens (the site copy lags a minute after a save).
+let lpFixes = null;   // Map: exact text -> { ipa, alias }
+async function lpLoadFixes(){
+  let j = null;
+  try{
+    const g = wlGh();
+    if(g.owner && g.repo && g.token){
+      const r = await fetch('https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/pronunciation/catholic-timeline-pronunciation.json?ref=' +
+        encodeURIComponent(g.branch) + '&t=' + Date.now(), { headers: Object.assign({}, g.hdr, { 'Accept': 'application/vnd.github.raw+json' }), cache: 'no-store' });
+      if(r.ok) j = await r.json();
+    }
+  }catch(e){}
+  if(!j){
+    try{ const r = await fetch('pronunciation/catholic-timeline-pronunciation.json?t=' + Date.now(), { cache: 'no-store' }); if(r.ok) j = await r.json(); }catch(e){}
+  }
+  if(!j) return;
+  lpFixes = new Map();
+  (j.rules || []).forEach(x => { if(x && x.string_to_replace) lpFixes.set(x.string_to_replace, { ipa: x.kokoro_ipa || '', alias: x.alias || '' }); });
+}
+const lpGuideOf = (function(){
+const P2R_V = [['eɪ','ay'],['aɪ','eye'],['aʊ','ow'],['oʊ','oh'],['ɔɪ','oy'],['əʊ','oh'],['ɜɹ','er'],['ɜː','er'],['ɑɹ','ar'],['ɔɹ','or'],
+  ['ɛɹ','air'],['eə','air'],['ɪɹ','eer'],['ɪə','eer'],['ʊɹ','oor'],['ɚ','er'],['A','ay'],['I','eye'],['W','ow'],['O','oh'],['Y','oy'],
+  ['Q','oh'],['i','ee'],['ɪ','ih'],['ᵻ','ih'],['ɛ','eh'],['e','ay'],['æ','a'],['a','ah'],['ɑ','ah'],['ɒ','ah'],['ɔ','aw'],['o','oh'],
+  ['ʊ','uu'],['u','oo'],['ʌ','uh'],['ə','uh'],['ᵊ','uh'],['ɐ','uh'],['ɜ','er'],['ɨ','ih'],['y','oo'],['ø','er'],['œ','eh'],['ɯ','oo']];
+const P2R_C = { 'θ':'th','ð':'th','ʃ':'sh','ʒ':'zh','ʧ':'ch','ʤ':'j','ŋ':'ng','ɡ':'g','g':'g','ɹ':'r','r':'r','ɾ':'t','j':'y','ʔ':'',
+  'x':'k','ç':'h','ʁ':'r','ɲ':'ny','ʎ':'ly','ɫ':'l','ɬ':'l','β':'b','ɣ':'g','χ':'h','ʂ':'sh','ʐ':'zh','ɕ':'sh','ʑ':'zh' };
+function guideOf(ph){
+  // v8: several words ("ɡˈɑdz wˈɪl") are shown word by word, with a space between.
+  const words = String(ph || '').trim().split(/\s+/).filter(Boolean);
+  if(words.length > 1) return words.map(guideOfWord).join(' ');
+  return guideOfWord(words[0] || '');
+}
+function guideOfWord(ph){
+  const src = String(ph || '').replace(/[ː\s]/g, '').replace(/ˌ/g, '');
+  const items = []; let stressNext = false, i = 0;
+  while(i < src.length){
+    if(src[i] === 'ˈ'){ stressNext = true; i++; continue; }
+    let v = null;
+    for(const [u, r] of P2R_V){ if(src.startsWith(u, i)){ v = { t: r, v: true, len: u.length, eye: r === 'eye' }; break; } }
+    if(v){ v.stress = stressNext; stressNext = false; items.push(v); i += v.len; continue; }
+    const ch = src[i]; const r = P2R_C[ch] !== undefined ? P2R_C[ch] : (/[a-z]/.test(ch) ? ch : '');
+    items.push({ t: r, v: false }); i++;
+  }
+  const vi = items.map((x, k) => x.v ? k : -1).filter(k => k >= 0);
+  if(!vi.length) return items.map(x => x.t).join('');
+  // Split between vowels: a lone consonant starts the next part; of two or more, the first stays behind.
+  const cuts = [];
+  for(let k = 1; k < vi.length; k++){
+    const between = vi[k] - vi[k - 1] - 1;
+    cuts.push(between <= 1 ? vi[k] - between : vi[k - 1] + 2);
+  }
+  const bounds = [0].concat(cuts, [items.length]), sylls = [];
+  for(let k = 0; k < bounds.length - 1; k++){
+    const seg = items.slice(bounds[k], bounds[k + 1]);
+    const vk = seg.findIndex(x => x.v);
+    let txt = '';
+    seg.forEach((x, n) => {
+      if(n === vk && x.eye){
+        const onset = seg.slice(0, n).map(y => y.t).join(''), coda = seg.slice(n + 1).map(y => y.t).join('');
+        if(onset){ txt = onset + 'y' + (coda ? coda + 'e' : 'e'); return; }
+      }
+      if(vk >= 0 && seg[vk].eye && seg.slice(0, vk).some(y => y.t) && n !== vk) return;
+      txt += x.t;
+    });
+    sylls.push(vk >= 0 && seg[vk].stress ? txt.toUpperCase() : txt);
+  }
+  return sylls.join('-');
+}
+
+  return guideOf;
+})();
+function lpCleanPhrase(t){
+  return String(t || '').trim().replace(/^[^\p{L}\p{N}]+/u, '').replace(/[^\p{L}\p{N}]+$/u, '').replace(/['\u2019]s$/u, '');
+}
+function lpUpdatePronStatus(){
+  const out = document.getElementById('lpPronStatus'), btn = document.getElementById('lpPron');
+  if(!out || !btn) return;
+  const key = lpCleanPhrase(lpCurrentPhrase());
+  const fx = lpFixes && key ? lpFixes.get(key) : null;
+  let txt = '';
+  if(fx && fx.ipa){ let g = ''; try{ g = lpGuideOf(fx.ipa); }catch(e){} txt = '\u2713 Already fixed \u2014 said <b>' + esc(g || fx.ipa) + '</b>'; }
+  else if(fx && fx.alias && fx.alias !== key) txt = '\u2713 Already fixed \u2014 said as \u201c<b>' + esc(fx.alias) + '</b>\u201d';
+  out.innerHTML = txt;
+  btn.textContent = txt ? 'Change the pronunciation' : 'Mispronounced \u2014 fix this word';
+}
 function lpRenderPhrase(){
   if(!lpState) return;
   document.getElementById('lpPhrase').textContent = lpCurrentPhrase();
+  lpUpdatePronStatus();
   document.getElementById('lpLeft').disabled = lpState.lo <= 0;
   document.getElementById('lpRight').disabled = lpState.hi >= lpState.tokens.length - 1;
 }

@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <!--
-pronounce.html  VERSION: 10
-DATE: 2026-10-01T13:00:00-05:00
+pronounce.html  VERSION: 11
+DATE: 2026-10-01T14:30:00-05:00
 Fix a pronunciation by ear. Opened from an article's review tools (pronounce.html?id=<entry-id>).
 Tap the word Kokoro says wrong, listen to candidate pronunciations, pick the right one (or type
 how it sounds), and it is saved as a rule in pronunciation/catholic-timeline-pronunciation.json.
 Candidates are phoneme strings played through the SAME Kokoro model the recorder uses, and the
 exact string you pick is what gets saved, so the recording says it the way you heard it here.
+v11: saved fixes are read fresh from GitHub when the page opens (they came from the site copy, which
+lags a minute or more behind a save, so a fix just saved looked missing). A word that already has a fix
+now says so plainly — "✓ Already fixed — said KRAH-koof" — with a ▶ Hear it button, and Find
+pronunciations reads "Change it".
 v10: opened from the app's triple-tap picker ("Mispronounced — fix this word") as
 pronounce.html?id=<entry>&word=<phrase>&n=<k>: the k-th occurrence of that word or phrase in the story
 text is selected and scrolled into view, ready for Find pronunciations. If it can't be found exactly,
@@ -124,7 +128,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 </head>
 <body>
 <div class="row" style="margin:0 0 6px;"><a id="backLink" href="./">&larr; Back to the timeline</a></div>
-<h1>Fix a pronunciation <span class="ver">v10</span></h1>
+<h1>Fix a pronunciation <span class="ver">v11</span></h1>
 <div class="tabs"><button id="tabArt" class="on">Article</button><button id="tabRev">Review list</button><button id="tabSt">Listen</button></div>
 
 <div class="card" id="voiceCard">
@@ -234,12 +238,12 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 <div id="selBar">
   <div class="big" id="selWord"></div>
   <div class="hint" id="selInfo" style="margin:2px 0 0;"></div>
-  <div class="row"><button id="findBtn">Find pronunciations</button><button id="clearBtn" class="sec">Clear</button></div>
+  <div class="row"><button id="hearFixBtn" class="sec hidden">&#9654; Hear it</button><button id="findBtn">Find pronunciations</button><button id="clearBtn" class="sec">Clear</button></div>
 </div>
 
 <script>
 'use strict';
-const PAGE_VERSION = 'v10';
+const PAGE_VERSION = 'v11';
 const $ = (id) => document.getElementById(id);
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const KOKORO_CDNS = ['https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/+esm', 'https://esm.sh/kokoro-js@1.2.0'];
@@ -409,9 +413,16 @@ function showSel(){
   }
   const p = selPhrase(), r = ruleFor(p);
   $('selWord').textContent = p || '(nothing to fix there)';
-  $('selInfo').textContent = r
-    ? (r.kokoro_ipa ? 'Already has a fix (' + r.kokoro_ipa + '). Picking again replaces it.' : 'Has a spelling rule (said as \u201c' + r.alias + '\u201d). Picking here adds a sound fix.')
-    : 'Two-word name? Tap the next word too.';
+  // v11: say plainly that it's already fixed, how, and let it be heard.
+  if(r && r.kokoro_ipa){
+    $('selInfo').innerHTML = '<span style="color:var(--ok,#2e7d32);font-weight:600;">\u2713 Already fixed</span> \u2014 said <b>' + esc(guideOf(r.kokoro_ipa)) + '</b>';
+  }else if(r && r.alias && r.alias !== r.string_to_replace){
+    $('selInfo').innerHTML = '<span style="color:var(--ok,#2e7d32);font-weight:600;">\u2713 Has a spelling rule</span> \u2014 said as \u201c' + esc(r.alias) + '\u201d. Picking here adds a sound fix.';
+  }else{
+    $('selInfo').textContent = 'Two-word name? Tap the next word too.';
+  }
+  $('hearFixBtn').classList.toggle('hidden', !(r && r.kokoro_ipa));
+  $('findBtn').textContent = (r && r.kokoro_ipa) ? 'Change it' : 'Find pronunciations';
   $('findBtn').disabled = !p;
   $('selBar').style.display = 'block';
 }
@@ -603,6 +614,13 @@ async function buildCandidates(p, exclude){
   }
   return list;
 }
+$('hearFixBtn').addEventListener('click', async () => {
+  const r = ruleFor(selPhrase());
+  if(!r || !r.kokoro_ipa) return;
+  unlockAudio();
+  if(!tts){ say('The voice is still loading \u2014 try again in a moment.', 'err'); return; }
+  try{ await play(await audioFor(r.kokoro_ipa)); }catch(e){ say('Could not play it: ' + (e.message || e), 'err'); }
+});
 $('findBtn').addEventListener('click', async () => {
   unlockAudio();
   if(!tts){ say('The voice is still loading \u2014 try again in a moment.', 'err'); return; }
@@ -1381,7 +1399,9 @@ function ensureVoice(){ if(!voiceStarted){ voiceStarted = true; startVoice(); } 
 (async function start(){
   fillVoices();
   try{
-    const [data, pron] = await Promise.all([loadJson('data.json'), loadJson(RULES_PATH).catch(() => ({ rules: [] }))]);
+    // v11: fixes straight from GitHub (loadFresh), so one saved a moment ago is already here.
+    const [data, pron] = await Promise.all([loadJson('data.json'),
+      loadFresh(RULES_PATH).then(d => d || loadJson(RULES_PATH)).catch(() => loadJson(RULES_PATH).catch(() => ({ rules: [] })))]);
     entries = (Array.isArray(data) ? data : (data.entries || [])).filter(e => e && e.id);
     entries.sort((a, b) => (a.y || 0) - (b.y || 0));
     rules = pron.rules || [];
