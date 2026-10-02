@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <!--
-pronounce.html  VERSION: 8
-DATE: 2026-10-01T10:30:00-05:00
+pronounce.html  VERSION: 9
+DATE: 2026-10-01T12:15:00-05:00
 Fix a pronunciation by ear. Opened from an article's review tools (pronounce.html?id=<entry-id>).
 Tap the word Kokoro says wrong, listen to candidate pronunciations, pick the right one (or type
 how it sounds), and it is saved as a rule in pronunciation/catholic-timeline-pronunciation.json.
 Candidates are phoneme strings played through the SAME Kokoro model the recorder uses, and the
 exact string you pick is what gets saved, so the recording says it the way you heard it here.
+v9: "Find a word" box at the top of the article (stays in view while scrolling): highlights every match,
+shows "2 of 5", and the arrows / Return jump between them. Accents, capitals and apostrophes don't matter
+(Krakow finds Kraków, gods will finds God's will), and a phrase works too. Tap a highlighted word to fix it
+as usual. Words that already have a saved fix are underlined with gold dots.
 v8: typed guides with more than one word ("GODZ WIL" for the noun in "God's will") now give each word its
 own stress and keep a space between the words; before, the second word lost its stress and the words ran
 together. Guides with several words are also shown word by word.
@@ -56,6 +60,14 @@ Uses the GitHub token and repo settings the app already keeps on this device.
   #art h3{ font-size:17px; margin:14px 0 4px; } #art p{ margin:0 0 10px; }
   .w{ border-radius:4px; padding:1px 0; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .w.on{ background:var(--sel); box-shadow:0 0 0 2px var(--sel); }
+  /* v9: find a word */
+  .findRow{ position:sticky; top:0; z-index:5; display:flex; gap:6px; align-items:center; background:var(--card);
+    margin:0 -14px 8px; padding:8px 14px; border-bottom:1px solid var(--line); }
+  .findRow input{ flex:1; min-width:0; }
+  .findRow button{ padding:8px 12px; flex:none; }
+  #findCount{ font-size:14px; color:var(--mut); white-space:nowrap; min-width:3.5em; text-align:center; }
+  .w.hit{ background:rgba(168,132,44,.22); }
+  .w.hitCur{ background:var(--gold); color:#fff; }
   .w.fixed{ text-decoration:underline dotted var(--gold); text-underline-offset:3px; }
   #selBar{ position:sticky; bottom:calc(8px + env(safe-area-inset-bottom)); display:none; background:var(--card); border:1px solid var(--gold); border-radius:12px; padding:10px 12px; box-shadow:0 4px 18px rgba(0,0,0,.18); }
   #selBar .big{ font-size:18px; font-weight:600; }
@@ -108,7 +120,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 </head>
 <body>
 <div class="row" style="margin:0 0 6px;"><a id="backLink" href="./">&larr; Back to the timeline</a></div>
-<h1>Fix a pronunciation <span class="ver">v8</span></h1>
+<h1>Fix a pronunciation <span class="ver">v9</span></h1>
 <div class="tabs"><button id="tabArt" class="on">Article</button><button id="tabRev">Review list</button><button id="tabSt">Listen</button></div>
 
 <div class="card" id="voiceCard">
@@ -178,6 +190,12 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 
 <div class="card hidden" id="artCard">
   <h2 id="artTitleBar">Article</h2>
+  <div class="findRow">
+    <input id="findBox" type="search" placeholder="Find a word&hellip;" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
+    <span id="findCount"></span>
+    <button class="sec" id="findPrev" aria-label="Previous match">&#8593;</button>
+    <button class="sec" id="findNext" aria-label="Next match">&#8595;</button>
+  </div>
   <div id="art"></div>
 </div>
 
@@ -217,7 +235,7 @@ Uses the GitHub token and repo settings the app already keeps on this device.
 
 <script>
 'use strict';
-const PAGE_VERSION = 'v8';
+const PAGE_VERSION = 'v9';
 const $ = (id) => document.getElementById(id);
 const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 const KOKORO_CDNS = ['https://cdn.jsdelivr.net/npm/kokoro-js@1.2.0/+esm', 'https://esm.sh/kokoro-js@1.2.0'];
@@ -308,11 +326,53 @@ function renderArticle(){
     });
   });
   $('art').innerHTML = h;
+  findHits = []; findAt = -1; runFind(false);   // v9: keep the search after a redraw
   $('artTitleBar').textContent = (entry.y ? entry.y + ' \u00b7 ' : '') + 'Tap the word';
   $('artCard').classList.remove('hidden'); $('pickCard').classList.add('hidden');
   $('backLink').href = './#' + encodeURIComponent(entry.id);
   showSel();
 }
+// ---------- v9: find a word in the article ----------
+let findHits = [], findAt = -1;   // findHits[i] = the word elements of match i
+// Letters and digits only: accents, capitals and apostrophes don't matter ("gods will" finds "God's will").
+const findNorm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^\p{L}\p{N}]+/gu, '');
+function runFind(jump){
+  document.querySelectorAll('.w.hit, .w.hitCur').forEach(x => x.classList.remove('hit', 'hitCur'));
+  findHits = []; findAt = -1;
+  const terms = String($('findBox').value || '').trim().split(/\s+/).map(findNorm).filter(Boolean);
+  if(!terms.length){ $('findCount').textContent = ''; return; }
+  const els = Array.from(document.querySelectorAll('#art .w'));
+  for(let i = 0; i < els.length; i++){
+    const group = [];
+    for(let k = 0; k < terms.length; k++){
+      const el = els[i + k];
+      if(!el || (k && el.dataset.s !== els[i].dataset.s)) break;   // a phrase stays inside one sentence
+      const w = findNorm(el.textContent), t = terms[k], last = k === terms.length - 1;
+      const ok = terms.length === 1 ? (t.length >= 3 ? w.includes(t) : w.startsWith(t))
+        : (k === 0 ? w.endsWith(t) || w === t : (last ? w.startsWith(t) : w === t));
+      if(!ok) break;
+      group.push(el);
+    }
+    if(group.length === terms.length) findHits.push(group);
+  }
+  findHits.forEach(g => g.forEach(el => el.classList.add('hit')));
+  if(!findHits.length){ $('findCount').textContent = 'none'; return; }
+  findGo(0, jump);
+}
+function findGo(i, jump){
+  if(!findHits.length) return;
+  if(findAt >= 0) findHits[findAt].forEach(el => { el.classList.remove('hitCur'); el.classList.add('hit'); });
+  findAt = (i + findHits.length) % findHits.length;
+  findHits[findAt].forEach(el => { el.classList.remove('hit'); el.classList.add('hitCur'); });
+  $('findCount').textContent = (findAt + 1) + ' of ' + findHits.length;
+  if(jump !== false) findHits[findAt][0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+$('findBox').addEventListener('input', () => runFind(true));
+$('findBox').addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); findGo(findAt + 1); $('findBox').blur(); } });
+$('findNext').addEventListener('click', () => findGo(findAt + 1));
+$('findPrev').addEventListener('click', () => findGo(findAt - 1));
+
 function selPhrase(){
   if(!sel) return '';
   const words = sentences[sel.s].slice(sel.a, sel.b + 1);
