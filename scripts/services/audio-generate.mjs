@@ -98,6 +98,18 @@ export async function loadPronunciationRules(){
 const isWordChar = (ch) => !!ch && /[A-Za-z0-9\u00C0-\u024F]/.test(ch);
 // Returns the text to speak, a position map (map[i] = where original character i starts in the
 // spoken text; map[text.length] = spoken length), and how many replacements were made.
+// Kokoro's markup gives a multi-word override's sound to the FIRST word only and treats the rest
+// unreliably, so a phrase fix ("God's will" -> "ɡˈɑdz wˈɪl") is written as one override per word:
+// "[God's](/ɡˈɑdz/) [will](/wˈɪl/)". The fix still applies only where the whole phrase appears.
+// When the sounds can't be split word for word (a phrase fix saved as one run of sounds), the
+// phrase is left to Kokoro's own reading rather than sent as a multi-word override. (2026-10-01)
+export function kokoroMarkup(from, ipa){
+  const words = String(from).split(/\s+/).filter(Boolean);
+  if(words.length <= 1) return '[' + from + '](/' + ipa + '/)';
+  const sounds = String(ipa).trim().split(/\s+/).filter(Boolean);
+  if(sounds.length !== words.length) return from;
+  return words.map((w, k) => '[' + w + '](/' + sounds[k] + '/)').join(' ');
+}
 export function applyPronunciation(text, rules, useIpa){
   const map = new Array(text.length + 1);
   let out = '', count = 0, i = 0;
@@ -111,7 +123,7 @@ export function applyPronunciation(text, rules, useIpa){
     if(hit){
       for(let k = 0; k < hit.from.length; k++) map[i + k] = out.length;
       // Kokoro: [word](/sounds/) markup when the rule has kokoro_ipa; otherwise the alias text.
-      out += (useIpa && hit.ipa) ? '[' + hit.from + '](/' + hit.ipa + '/)' : hit.to;
+      out += (useIpa && hit.ipa) ? kokoroMarkup(hit.from, hit.ipa) : hit.to;
       i += hit.from.length;
       count++;
     }else{
