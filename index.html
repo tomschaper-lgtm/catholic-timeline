@@ -1,6 +1,6 @@
 <!--
-VERSION: 520
-DATE: 2026-10-01T09:40:00-05:00
+VERSION: 521
+DATE: 2026-10-01T11:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,17 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v521 — 2026-10-01
+
+**Ask:**
+- Slow the closing prayer down a little (0.9).
+
+**Implementation:**
+- New "Prayer speed" setting next to Speed in Voice & pacing settings (default 0.9), saved on the
+  device and sent with each recording task as prayerSpeed. The recorder reads the prayer at that
+  speed and everything else at Speed (audio-generate.mjs, tts-kokoro.mjs and kokoro_synth.py now
+  allow a speed per piece).
+
 ## v520 — 2026-10-01
 
 **Ask:**
@@ -5947,6 +5958,9 @@ CHANGELOG:END
         </div>
         <div class="mgrid2">
           <div class="mfield"><label>Speed</label><input type="number" id="audioSpeed" step="0.05" min="0.25" max="4" value="1.0"></div>
+          <div class="mfield"><label>Prayer speed</label><input type="number" id="audioPrayerSpeed" step="0.05" min="0.5" max="2" value="0.9"></div>
+        </div>
+        <div class="mgrid2">
           <div class="mfield"><label>Stability</label><input type="number" id="audioStability" step="0.05" min="0" max="1" value="0.5"></div>
         </div>
         <div class="mgrid2">
@@ -6668,7 +6682,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v520';
+const APP_VERSION = 'v521';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8782,7 +8796,7 @@ function prefillGh(){
 // per-device via localStorage, so the owner only has to set them up once (see triggerWorkflow's
 // `inputs` param below for how these become the workflow_dispatch inputs). ----
 const AUDIO_GEN_FIELDS = {
-  audioVoiceId: 'text', audioModelId: 'text', audioSpeed: 'text',
+  audioVoiceId: 'text', audioModelId: 'text', audioSpeed: 'text', audioPrayerSpeed: 'text',
   audioStability: 'text', audioSimilarity: 'text', audioStyle: 'text',
   audioSpeakerBoost: 'text', audioHeadingPause: 'text', audioSectionPause: 'text',
   audioSentencePause: 'text', audioTitlePause: 'text',   // v519
@@ -12568,6 +12582,7 @@ function tkAudioPayload(){
     similarityBoost: v('audioSimilarity'),
     style: v('audioStyle'),
     speed: v('audioSpeed'),
+    prayerSpeed: v('audioPrayerSpeed'),   // v521: the closing prayer's own pace (Kokoro)
     useSpeakerBoost: v('audioSpeakerBoost') !== 'false',
     readHeadings: checked('audioReadHeadings'),
     headingPauseMs: v('audioHeadingPause'),
