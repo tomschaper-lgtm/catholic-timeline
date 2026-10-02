@@ -1,6 +1,6 @@
 <!--
-VERSION: 516
-DATE: 2026-10-01T06:55:00-05:00
+VERSION: 518
+DATE: 2026-10-01T08:10:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,41 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v518 — 2026-10-01
+
+**Ask:**
+- A small speaker icon after the name at the top of an article that says the name (hard saints'
+  names especially), taken from the article's own recording, without "pray for us".
+- A custom closing prayer per article: end the text with "[prayer] Holy Mary, our Blessed Mother,
+  pray for us." It is spoken at the end but never shown; without it, the default is used.
+
+**Implementation:**
+- Recordings (audio-generate.mjs, same date) now start with the article's name, then a 0.8 s pause,
+  and store where the name ends as entry.audioTitleEnd. The header shows a speaker button when the
+  entry has it; tapping plays the recording from 0 to that point on its own player (pausing the
+  narration if it's playing).
+- "[prayer]" and everything after it is left out of what readers see and of every count/check:
+  readingEntry() feeds the article view, articleStats, the 40-word check, the longest-sentence count
+  and Progress. The shared SentenceRules block is untouched (it must match the server copy). The
+  browser voice ends with the custom prayer when there is one, else the saint default as before.
+- syncAudioStatusFromGitHub() also copies audioTitleEnd with a new recording's link.
+
+## v517 — 2026-10-01
+
+**Ask:**
+- Recorded Blessed Virgin Mary from the Audio button; the MP3 landed on GitHub but the article
+  didn't pick up the new recording.
+
+**Implementation:**
+- The recorder commits the MP3, its timing file and data.json (with the new audio link), but an
+  app that was already open never re-read data.json, so the article kept showing no recording
+  until a full restart. Now, whenever the task list shows an audio task as done whose link this
+  session doesn't have, the app pulls the links from GitHub (syncAudioStatusFromGitHub, retried
+  for about a minute) and redraws the open article so the player appears — unless something is
+  already playing.
+- If the link still isn't in data.json after that, the line under Audio says "Recorded, but the
+  link didn't save" instead of "Recorded ✓", so a missing link is visible instead of silent.
+
 ## v516 — 2026-10-01
 
 **Ask:**
@@ -3906,6 +3941,12 @@ CHANGELOG:END
   .ahYear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
   .review-on .ahYear{cursor:pointer;}
   .ahName{font-size:25px; font-weight:600; line-height:1.15;}
+  /* v518: says the name, from the article's own recording */
+  .ahSay{display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.22em; margin-left:.2em;
+    font-size:inherit; width:1.4em; height:1.4em; padding:0; border:0; background:transparent; color:#E9CC7A; opacity:.9; cursor:pointer;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation;}
+  .ahSay svg{width:.95em; height:.95em;}
+  .ahSay.on{opacity:1; color:#fff; filter:drop-shadow(0 0 6px rgba(233,204,122,.8));}
   /* Same taper rule as the teaser card. It stays invisible while the big photo is on
      screen and fades in together with the corner portrait. */
   .ahTaper{
@@ -6599,7 +6640,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v516';
+const APP_VERSION = 'v518';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8966,6 +9007,7 @@ const RT_TOOLS = {
 const rtLocal = {};   // entityId|type -> { text, cls, until } — a message shown right after a tap
 const RT_ACTIVE = ['queued', 'in_progress', 'awaiting_review', 'proposed'];
 const rtInFlight = {};
+const rtAudioPulled = {};   // v517: task id -> 'pulling' | 'ok' | 'missing'
 let wlSha = null;    // its blob sha, needed to commit an update without clobbering
 // Entity ids whose recorded audio needs deleting because a sentence-reword patch changed their
 // narrated text. Populated at Approve time (see wlApplyTaskToDb), drained by
@@ -9434,10 +9476,33 @@ function imageCandidatePool(){
 // ending in a closing quote, or a bulleted list, as one long sentence.
 function countSentenceWords(s){ return SentenceRules.countWords(s); }
 function paragraphHasLongSentence(html){ return SentenceRules.paragraphHasLongSentence(html); }
-function entryHasLongSentence(e){ return SentenceRules.entryHasLongSentence(e); }
+// v518: an article may end with "[prayer] …" — the spoken closing prayer. Everything from the marker
+// on is never shown and never counted (the recorder speaks it at the end; see audio-generate.mjs).
+function readingSections(e){
+  const out = [];
+  for(const s of ((e && e.art && e.art.sections) || [])){
+    const b = String((s && s.b) || ''), m = /\[prayer\]/i.exec(b);
+    if(m){ out.push(Object.assign({}, s, { b: b.slice(0, m.index).replace(/(?:<[^>]*>|\s)+$/, '') })); break; }
+    out.push(s);
+  }
+  return out;
+}
+function readingEntry(e){
+  const secs = (e && e.art && e.art.sections) || [];
+  if(!secs.some(s => /\[prayer\]/i.test(String((s && s.b) || '')))) return e;
+  return Object.assign({}, e, { art: Object.assign({}, e.art, { sections: readingSections(e) }) });
+}
+function customPrayerOf(e){
+  for(const s of ((e && e.art && e.art.sections) || [])){
+    const b = String((s && s.b) || ''), m = /\[prayer\]/i.exec(b);
+    if(m) return stripHtml(b.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim();
+  }
+  return '';
+}
+function entryHasLongSentence(e){ return SentenceRules.entryHasLongSentence(readingEntry(e)); }
 // Actual longest count instead of a >40 boolean — for the Review Mode status readout ("largest
 // sentence: NN words"), not an eligibility check.
-function longestSentenceWordCount(e){ return SentenceRules.analyzeEntry(e).longestWords; }
+function longestSentenceWordCount(e){ return SentenceRules.analyzeEntry(readingEntry(e)).longestWords; }
 function sentenceRewordPool(){
   const category = document.getElementById('tkBatchCategory').value;
   const includeRecorded = document.getElementById('tkBatchOverwrite').checked;
@@ -9631,7 +9696,7 @@ function tkRenderBatchList(){
       ? ' <span class="tkBatchNote">\u2014 ' + esc(entryPronHits(e).join(', ')) + '</span>' : '';
     // v502: for rewording, show what qualified it — same counter the service and Progress use
     const longNote = (type === 'sentence-reword')
-      ? ' <span class="tkBatchNote">\u2014 ' + SentenceRules.analyzeEntry(e).long.length + ' long, longest ' + longestSentenceWordCount(e) + ' words</span>' : '';
+      ? ' <span class="tkBatchNote">\u2014 ' + SentenceRules.analyzeEntry(readingEntry(e)).long.length + ' long, longest ' + longestSentenceWordCount(e) + ' words</span>' : '';
     return '<div class="tkBatchRow">' + (startIdx + i + 1) + '. ' + esc(e.n) + ' (' + posLabel + ')' + longNote + pron + note + '</div>';
   }).join('');
 }
@@ -11889,7 +11954,7 @@ async function tkRestartFromCandidates(){
 }
 
 // Single entry point every other part of this system calls after changing wlData.
-function renderWorkLog(){ renderTaskPanel(); rtRefreshStates(); }
+function renderWorkLog(){ renderTaskPanel(); rtRefreshStates(); rtPullNewAudio(); }
 
 function renderTaskPanel(){
   document.querySelectorAll('.tkTab').forEach(b => b.classList.toggle('active', b.dataset.view === tkView));
@@ -12509,8 +12574,34 @@ function rtStateOf(entityId, type){
   if(t.status === 'in_progress') return { text: tool.run, cls: 'busy' };
   if(t.status === 'awaiting_review' || t.status === 'proposed') return { text: type === 'image-generate' ? 'Pick an image' : 'Ready to review', cls: 'ok' };
   if(t.status === 'error') return { text: 'Failed \u2014 tap to retry', cls: 'err' };
-  if(t.status === 'done') return { text: tool.done, cls: 'ok' };
+  if(t.status === 'done'){
+    if(type === 'audio-generate' && rtAudioPulled[t.id] === 'missing') return { text: 'Recorded, but the link didn\u2019t save', cls: 'err' };
+    if(type === 'audio-generate' && rtAudioPulled[t.id] === 'pulling') return { text: 'Recorded \u2014 loading\u2026', cls: 'busy' };
+    return { text: tool.done, cls: 'ok' };
+  }
   return { text: '', cls: '' };
+}
+// v517: the recorder commits the MP3 and the new link in data.json, but this session's copy of the
+// articles was loaded at startup. When an audio task shows done and its link isn't here yet, pull
+// the links from GitHub (retrying through deploy/commit lag) and redraw the open article.
+async function rtPullNewAudio(){
+  const due = ((wlData && wlData.tasks) || []).filter(t => t.type === 'audio-generate' && t.status === 'done' &&
+    t.result && t.result.audio && !rtAudioPulled[t.id] && getEntry(t.entityId) && getEntry(t.entityId).audio !== t.result.audio);
+  if(!due.length) return;
+  due.forEach(t => { rtAudioPulled[t.id] = 'pulling'; });
+  rtRefreshStates();
+  let left = due;
+  for(let attempt = 0; attempt < 8 && left.length; attempt++){
+    if(attempt) await new Promise(r => setTimeout(r, 8000));
+    try{ await syncAudioStatusFromGitHub(); }catch(e){}
+    left = left.filter(t => { const e = getEntry(t.entityId); return !(e && e.audio === t.result.audio); });
+  }
+  due.forEach(t => { rtAudioPulled[t.id] = left.indexOf(t) >= 0 ? 'missing' : 'ok'; });
+  const open = currentEntry && article.classList.contains('open');
+  const playing = audioEl && !audioEl.paused;
+  if(open && !playing && due.some(t => t.entityId === currentEntry.id && rtAudioPulled[t.id] === 'ok')){
+    openArticle(getEntry(currentEntry.id), { preserveStack: true });   // the player appears; scroll is kept
+  }else rtRefreshStates();
 }
 function rtRefreshStates(){
   const tools = document.getElementById('reviewStatusSection');
@@ -13159,7 +13250,10 @@ async function syncAudioStatusFromGitHub(){
     db.entries.forEach(e => {
       const f = byId[e.id];
       if(!f) return;
-      if(f.audio) e.audio = f.audio;
+      if(f.audio){
+        e.audio = f.audio;
+        if(Number(f.audioTitleEnd) > 0) e.audioTitleEnd = f.audioTitleEnd; else delete e.audioTitleEnd;   // v518
+      }
       if(f.audioTiming) e.audioTiming = f.audioTiming;
     });
     // The Entries editor's #fAudio field is a plain input openEditor() fills in once, at the
@@ -13326,7 +13420,7 @@ function peekSnippet(html, maxLen){
   return esc((lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trim()) + '\u2026';
 }
 function fillArticleBody(d, peek){
-  const art = d.art || {sections:[], quotes:[], links:[]};
+  const art = readingEntry(d).art || {sections:[], quotes:[], links:[]};   // v518: [prayer] onward hidden
   const hasImg = !!d.img;
   let html = '';
   // Sticky header — year, name, taper rule and corner portrait, laid out exactly like the
@@ -13358,7 +13452,9 @@ function fillArticleBody(d, peek){
     // the delegated click wiring are unchanged.
     (articleBackStack.length ? '<button type="button" class="artBackBtn" id="artBackBtn" aria-label="Back to previous entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M11.5 5.5 5 12l6.5 6.5"/></svg></button>' : '') +
     '<span class="ahYear">' + esc(fmtYear(d.y)) + '</span></div>' +
-    '<div class="ahName">' + esc(d.n) + '</div></div>' +
+    '<div class="ahName">' + esc(d.n) + (d.audio && Number(d.audioTitleEnd) > 0
+      ? '<button type="button" class="ahSay" id="ahSayBtn" aria-label="Hear the name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>' : '') +
+    '</div></div>' +
     '<div class="ahTaper" id="ahTaper"></div>';
   html += '</div>'; // .artSticky
   if(peek){
@@ -13577,6 +13673,10 @@ function fillArticleBody(d, peek){
     const pronBtn = document.getElementById('tkPronFixBtn');
     if(pronBtn) pronBtn.addEventListener('click', () => { location.href = 'pronounce.html?id=' + encodeURIComponent(d.id); });
   }
+
+  // v518: speaker icon after the name — plays just the name from the article's recording.
+  const sayBtn = document.getElementById('ahSayBtn');
+  if(sayBtn) sayBtn.addEventListener('click', (ev) => { ev.stopPropagation(); playEntryName(d, sayBtn); });
 
   // Hand the photo to the body-level flying element and cache the geometry the morph
   // needs, so the scroll handler never has to measure the DOM again.
@@ -14844,6 +14944,28 @@ function ttsFail(p, why){
   ttsResetPlayIcon();
   try{ setStatus(why || 'The browser voice couldn\u2019t start'); }catch(e){}
 }
+// v518: plays the start of the entry's recording (the name) up to entry.audioTitleEnd, on its own
+// player so the narration's position and state are left alone (it is paused if playing).
+let namePlayer = null;
+function playEntryName(d, btn){
+  const end = Number(d && d.audioTitleEnd) || 0;
+  if(!d || !d.audio || !end) return;
+  try{ if(audioEl && !audioEl.isTts && !audioEl.paused) audioEl.pause(); }catch(e){}
+  if(namePlayer){ try{ namePlayer.pause(); }catch(e){} }
+  const a = new Audio(resolveAsset(d.audio, db.settings && db.settings.audioBase));
+  namePlayer = a;
+  const stop = () => { try{ a.pause(); }catch(e){} if(btn) btn.classList.remove('on'); };
+  const tick = () => {
+    if(a !== namePlayer){ stop(); return; }
+    if(a.currentTime >= end){ stop(); return; }
+    if(!a.paused) requestAnimationFrame(tick);
+  };
+  a.addEventListener('playing', () => requestAnimationFrame(tick));
+  a.addEventListener('ended', stop);
+  a.addEventListener('error', stop);
+  if(btn) btn.classList.add('on');
+  const p = a.play(); if(p && p.catch) p.catch(stop);
+}
 // v509: the spoken form of a Saint's name for the closing prayer. "St. Augustine" -> "Saint Augustine".
 function ttsSaintName(n){
   let t = String(n || '').replace(/\s+/g, ' ').trim();
@@ -14865,9 +14987,11 @@ function initTts(d, host){
   if(!container) return;
   const cues = ttsBuildCues(container);
   if(!cues.length) return;
-  if(audioHost === 'article' && d && d.t === 's'){           // v509: closing prayer, as the recordings have
-    const nm = ttsSaintName(d.n);
-    if(nm) cues.push({ start: cues.length, end: cues.length + 1, type: 'invocation', text: nm + ', pray for us.', section: cues[cues.length - 1].section });
+  if(audioHost === 'article' && d){                           // v509: closing prayer, as the recordings have
+    // v518: the article's own [prayer] if it has one, else the saint default.
+    const nm = d.t === 's' ? ttsSaintName(d.n) : '';
+    const prayer = customPrayerOf(d) || (nm ? nm + ', pray for us.' : '');
+    if(prayer) cues.push({ start: cues.length, end: cues.length + 1, type: 'invocation', text: prayer, section: cues[cues.length - 1].section });
   }
   ttsLoadPron();
   currentCues = cues;
@@ -17523,6 +17647,7 @@ function stripHtml(html){
   return (html || '').replace(/<[^>]*>/g, ' ');
 }
 function articleStats(e){
+  e = readingEntry(e);                      // v518: the [prayer] isn't article text
   const sections = (e.art && e.art.sections) || [];
   const text = sections.map(s => stripHtml(s.b || '')).join(' ').replace(/\s+/g, ' ').trim();
   // v502: wordCount is the shared rule (SentenceRules) — a token needs a letter or digit, so a lone
@@ -17540,7 +17665,7 @@ function buildExportPayload(entries, fields){
     copy.sectionCount = stats.sectionCount;
     copy.wordCount = stats.wordCount;
     copy.charCount = stats.charCount;
-    const sr = SentenceRules.analyzeEntry(e); // v502: same rule as Progress / Add Task / the reword service
+    const sr = SentenceRules.analyzeEntry(readingEntry(e)); // v502: same rule as Progress / Add Task / the reword service
     copy.longestSentence = sr.longestWords;
     copy.longSentences = sr.long.length;
     return copy;
@@ -17594,7 +17719,7 @@ function buildExportTable(entries, fields){
     if(fields.img) row.push(e.img || '');
     if(fields.imgCap) row.push(e.imgCap || '');
     if(fields.audio) row.push(e.audio || '');
-    const sr = SentenceRules.analyzeEntry(e); // v502: shared rule
+    const sr = SentenceRules.analyzeEntry(readingEntry(e)); // v502: shared rule
     row.push(stats.sectionCount, stats.wordCount, stats.charCount, sr.longestWords, sr.long.length);
     if(fields.art) row.push(((e.art || {}).quotes || []).length, ((e.art || {}).links || []).length);
     if(fields.facts) row.push((e.facts || []).length);
