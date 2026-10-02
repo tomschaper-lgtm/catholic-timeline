@@ -19,6 +19,98 @@ the time.
 
 ---
 
+## v521 — 2026-10-01
+
+**Ask:**
+- Slow the closing prayer down a little (0.9).
+
+**Implementation:**
+- New "Prayer speed" setting next to Speed in Voice & pacing settings (default 0.9), saved on the
+  device and sent with each recording task as prayerSpeed. The recorder reads the prayer at that
+  speed and everything else at Speed (audio-generate.mjs, tts-kokoro.mjs and kokoro_synth.py now
+  allow a speed per piece).
+
+## v520 — 2026-10-01
+
+**Ask:**
+- Tapping a sentence to start there always cut off its first word.
+
+**Implementation:**
+- seekToCue() jumped to the exact start of the first word, and the phone's audio takes a moment to
+  start, so the word's beginning was lost. Recorded audio now starts up to 0.35 s early, inside the
+  silent pause before the sentence, but never before the previous sentence's end (so nothing of it
+  is heard). The tapped sentence stays highlighted through that lead-in (cueSeekHold). The browser
+  voice is unaffected (its "time" is a sentence number).
+
+## v519 — 2026-10-01
+
+**Ask:**
+- Be able to tweak the gap between sentences and the space before section headings.
+
+**Implementation:**
+- Manage → Import → Voice & pacing settings now has four clearly named pauses, in the order they
+  happen in a recording: "Pause after the name" (new, default 1300 ms), "Pause after a heading"
+  (was "Heading Pause", 500), "Pause between sentences" (new, 200) and "Pause before a new section"
+  (was "Section Pause", 700). All are saved on the device and sent with each recording task
+  (titlePauseMs / sentencePauseMs added to the payload); audio-generate.mjs reads them, 0 allowed.
+
+## v518 — 2026-10-01
+
+**Ask:**
+- A small speaker icon after the name at the top of an article that says the name (hard saints'
+  names especially), taken from the article's own recording, without "pray for us".
+- A custom closing prayer per article: end the text with "[prayer] Holy Mary, our Blessed Mother,
+  pray for us." It is spoken at the end but never shown; without it, the default is used.
+
+**Implementation:**
+- Recordings (audio-generate.mjs, same date) now start with the article's name, then a 0.8 s pause,
+  and store where the name ends as entry.audioTitleEnd. The header shows a speaker button when the
+  entry has it; tapping plays the recording from 0 to that point on its own player (pausing the
+  narration if it's playing).
+- "[prayer]" and everything after it is left out of what readers see and of every count/check:
+  readingEntry() feeds the article view, articleStats, the 40-word check, the longest-sentence count
+  and Progress. The shared SentenceRules block is untouched (it must match the server copy). The
+  browser voice ends with the custom prayer when there is one, else the saint default as before.
+- syncAudioStatusFromGitHub() also copies audioTitleEnd with a new recording's link.
+
+## v517 — 2026-10-01
+
+**Ask:**
+- Recorded Blessed Virgin Mary from the Audio button; the MP3 landed on GitHub but the article
+  didn't pick up the new recording.
+
+**Implementation:**
+- The recorder commits the MP3, its timing file and data.json (with the new audio link), but an
+  app that was already open never re-read data.json, so the article kept showing no recording
+  until a full restart. Now, whenever the task list shows an audio task as done whose link this
+  session doesn't have, the app pulls the links from GitHub (syncAudioStatusFromGitHub, retried
+  for about a minute) and redraws the open article so the player appears — unless something is
+  already playing.
+- If the link still isn't in data.json after that, the line under Audio says "Recorded, but the
+  link didn't save" instead of "Recorded ✓", so a missing link is visible instead of silent.
+
+## v516 — 2026-10-01
+
+**Ask:**
+- The Audio button (and Proof, Image) looked greyed out or did nothing when tapped. A tap should
+  visibly register, a status should show under the button ("Recording…"), and tapping again
+  should never cause a problem.
+
+**Implementation:**
+- Root cause of both problems: the saved settings were only loaded into their fields when the
+  Manage panel was opened. After a fresh start the Voice field was empty (Audio greyed out) and so
+  were the GitHub fields (every Proof/Audio/Image tap failed the "GitHub set up?" check, with only
+  a small note at the bottom). prefillGh() and prefillAudioGen() now also run at startup.
+- Proof / Audio / Image are never disabled. Each has its own status line underneath, worked out
+  from that article's latest task (Queued, Recording…, Proofreading…, Making images…, Ready to
+  review, Recorded ✓, Failed — tap to retry) and refreshed whenever the task list reloads,
+  including after Clear all and deleting a task. A tap flashes the button and shows "Sending…".
+- Tapping again while a task is queued or running doesn't add a second task: it shows the status
+  and nudges the run (runs the queued task now). Blocked taps say why under the button (pick a
+  voice, a sentence over 40 words, no GitHub token). Every error is caught and shown there.
+- Opening an article in Review Mode loads the task list in the background if it hasn't been
+  loaded yet this session, so the statuses are right without visiting Automation first.
+
 ## v515 — 2026-09-30
 
 **Ask:**
