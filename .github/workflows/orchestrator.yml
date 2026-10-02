@@ -11,9 +11,6 @@ name: Orchestrator
 # "Commit updated work log" step below is the final safety net for whatever a per-task push
 # inside the script missed, not the primary way workLog.json gets published anymore.
 #
-# KOKORO (2026-09-30): the two Kokoro steps + KOKORO_CACHE_DIR below let audio-generate record with the
-# free local voice when the Voice ID is written  kokoro:<voice>  (see scripts/services/tts-kokoro.mjs).
-#
 # GEMINI_API_KEY added for the new "arbitrate" service (scripts/services/arbitrate.mjs) — create
 # it under repo Settings → Secrets → Actions before that service's first real run; it's the one
 # manual step this file can't do for you.
@@ -49,22 +46,35 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg and espeak-ng
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg espeak-ng
 
-      # Free local voice (Kokoro) — only needed when audio is being recorded with a Voice ID that
-      # starts with "kokoro:". Skipped for other single-service runs. The ~90 MB model is cached
-      # between runs (outside the repo folder, so nothing here ever gets committed).
-      - name: Cache Kokoro voice model
+      # Free local voice (Kokoro, Python version) — used when audio is recorded with a Voice ID that
+      # starts with "kokoro:". The install steps run only for runs that can record audio (all runs, or
+      # ones limited to audio-generate). The pip downloads and the voice model are cached between runs,
+      # so only the first run pays the full install time.
+      - name: Set up Python
+        if: ${{ github.event.inputs.task_type == '' || github.event.inputs.task_type == 'audio-generate' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip and Kokoro model
         if: ${{ github.event.inputs.task_type == '' || github.event.inputs.task_type == 'audio-generate' }}
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/kokoro-cache
-          key: kokoro-model-v1
+          path: |
+            ~/.cache/pip
+            ~/.cache/huggingface
+          key: kokoro-py311-v1
 
-      - name: Install Kokoro voice engine
+      - name: Install Kokoro (CPU)
         if: ${{ github.event.inputs.task_type == '' || github.event.inputs.task_type == 'audio-generate' }}
-        run: npm install --no-save kokoro-js
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install "kokoro>=0.9.4"
+          python -m spacy download en_core_web_sm
 
       - name: Configure git identity
         run: |
@@ -81,7 +91,6 @@ jobs:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          KOKORO_CACHE_DIR: ${{ runner.temp }}/kokoro-cache
           KOKORO_SENTENCE_PAUSE_MS: '200'   # gap between sentences, in milliseconds; lower = tighter
 
       - name: Commit updated work log
