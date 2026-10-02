@@ -1,6 +1,6 @@
 <!--
-VERSION: 524
-DATE: 2026-10-01T14:30:00-05:00
+VERSION: 525
+DATE: 2026-10-01T15:40:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,19 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v525 — 2026-10-01
+
+**Ask:**
+- Turning the phone sideways and back made the text bigger, and it stayed big. Turn that off.
+
+**Implementation:**
+- iOS Safari enlarges text by itself in landscape unless the page opts out, and often doesn't undo
+  it (or a zoom that came with it) on returning to portrait. html now sets
+  -webkit-text-size-adjust:100% / text-size-adjust:100%, so only the Font Size setting changes text
+  size. After every rotation (orientationchange, and the orientation media query as a backup) the
+  existing resetPageZoom() runs once the layout settles, snapping any leftover zoom back to normal.
+  Pinch-to-zoom stays available.
+
 ## v524 — 2026-10-01
 
 **Ask:**
@@ -1959,6 +1972,9 @@ CHANGELOG:END
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   html,body{height:100%;}
+  /* v525: stop iOS Safari enlarging text on its own when the phone turns sideways (it often doesn't
+     shrink it back). Text size is set only by the Font Size setting. */
+  html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
   body{
     background:var(--navy-deep); color:var(--parchment);
     font-family:'EB Garamond', Georgia, serif;
@@ -6734,7 +6750,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v524';
+const APP_VERSION = 'v525';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -15975,6 +15991,14 @@ function handleViewportChange(){
 }
 window.addEventListener('resize', handleViewportChange);
 window.addEventListener('orientationchange', handleViewportChange);
+// v525: after turning the phone, snap back any zoom the rotation left behind (once layout settles).
+function resetZoomAfterRotate(){ setTimeout(() => { try{ resetPageZoom(); }catch(e){} }, 400); }
+window.addEventListener('orientationchange', resetZoomAfterRotate);
+try{
+  const mqOrient = window.matchMedia('(orientation: portrait)');
+  if(mqOrient.addEventListener) mqOrient.addEventListener('change', resetZoomAfterRotate);
+  else if(mqOrient.addListener) mqOrient.addListener(resetZoomAfterRotate);
+}catch(e){}
 if(window.visualViewport) window.visualViewport.addEventListener('resize', handleViewportChange);
 
 // ---- Pinch-zoom recovery -----------------------------------------------------------
