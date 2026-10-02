@@ -64,10 +64,18 @@ function readWavSamples(buf){
 
 // texts: array of strings (already pronunciation-processed). Returns Float32Array[] in the same
 // order; a text with nothing pronounceable gets an empty array rather than being sent.
-export async function synthBatch(texts, voice, speed){
+// speeds (optional, 2026-10-01): one speed per text, for pieces read at their own pace (the prayer);
+// a missing entry uses the batch speed.
+export async function synthBatch(texts, voice, speed, speeds){
   const out = new Array(texts.length).fill(null).map(() => new Float32Array(0));
   const items = [];
-  texts.forEach((t, i) => { if(hasSpeakable(t)) items.push({ id: String(i), text: t }); });
+  texts.forEach((t, i) => {
+    if(!hasSpeakable(t)) return;
+    const it = { id: String(i), text: t };
+    const sp = speeds && Number(speeds[i]);
+    if(Number.isFinite(sp) && sp > 0) it.speed = sp;
+    items.push(it);
+  });
   if(!items.length) return out;
 
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'kokoro-'));

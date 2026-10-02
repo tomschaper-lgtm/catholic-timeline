@@ -43,7 +43,8 @@ def main():
     for n, it in enumerate(items, 1):
         t1 = time.time()
         pieces, phonemes = [], []
-        for r in pipeline(it["text"], voice=voice, speed=speed, split_pattern=None):
+        item_speed = float(it.get("speed") or speed)   # 2026-10-01: a piece may carry its own speed (the prayer)
+        for r in pipeline(it["text"], voice=voice, speed=item_speed, split_pattern=None):
             au = getattr(r, "audio", None)
             ps = getattr(r, "phonemes", None)
             if au is None and isinstance(r, tuple):

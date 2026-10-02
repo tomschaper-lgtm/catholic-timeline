@@ -368,7 +368,8 @@ function mergeAbbrevSplits(list, body){
 // exact by construction. Cue text is the article's own wording; pronunciation rules change only
 // what is spoken.
 async function narrateEntryKokoro(entry, dir, baseName, opts){
-  const { voiceId, speed, readHeadings, headingPauseSec, sectionPauseSec, sentencePauseSec } = opts;
+  const { voiceId, speed, readHeadings, headingPauseSec, sectionPauseSec, sentencePauseSec, titlePauseSec } = opts;
+  const prayerSpeed = opts.prayerSpeed || speed;
   const voice = kokoroVoiceName(voiceId);
   const rules = await loadPronunciationRules();
   const parts = sectionParts(entry);
@@ -387,7 +388,7 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
   const title = titleFor(entry);
   if(title){
     speak('title', -1, title);
-    plan.push({ gap: TITLE_PAUSE_SEC });
+    plan.push({ gap: titlePauseSec });
   }
   for(let si = 0; si < parts.length; si++){
     const { heading, body } = parts[si];
@@ -413,7 +414,9 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
   // PASS 2 \u2014 synthesize everything, then lay it down in order. Each cue's start/end is simply the
   // running length of the audio so far, so the highlighting timings are exact by construction.
   const spokenItems = plan.filter(x => x.gap === undefined);
-  const audio = await synthBatch(spokenItems.map(x => x.spoken), voice, speed);
+  // The closing prayer may have its own pace (prayerSpeed, default 0.9 — a little slower).
+  const audio = await synthBatch(spokenItems.map(x => x.spoken), voice, speed,
+    spokenItems.map(x => x.type === 'invocation' ? prayerSpeed : speed));
   const track = new Track();
   const cues = [];
   let n = 0, titleEnd = 0;
@@ -491,8 +494,13 @@ export async function runAudioGenerate(task, dataJson){
   const p = task.payload || {};
   const { voiceId, modelId, voiceSettings } = voiceFromPayload(p);
   const readHeadings = p.readHeadings !== false;
-  const headingPauseSec = (parseInt(p.headingPauseMs, 10) || 500) / 1000;
-  const sectionPauseSec = (parseInt(p.sectionPauseMs, 10) || 700) / 1000;
+  // Pauses in milliseconds from the app's Voice & pacing settings (2026-10-01: all four adjustable;
+  // a blank field means the default, and 0 is allowed).
+  const ms = (v, def) => { const n = parseInt(v, 10); return (Number.isFinite(n) && n >= 0 ? Math.min(n, 10000) : def) / 1000; };
+  const headingPauseSec = ms(p.headingPauseMs, 500);
+  const sectionPauseSec = ms(p.sectionPauseMs, 700);
+  const sentencePauseSec = ms(p.sentencePauseMs, parseInt(process.env.KOKORO_SENTENCE_PAUSE_MS, 10) || 200);
+  const titlePauseSec = ms(p.titlePauseMs, TITLE_PAUSE_SEC * 1000);
 
   const folder = TYPE_FOLDERS[entry.t] || 'Other';
   const dir = path.join(AUDIO_ROOT, folder);
@@ -503,8 +511,8 @@ export async function runAudioGenerate(task, dataJson){
   const engine = kokoro ? 'kokoro:' + kokoroVoiceName(voiceId) : 'elevenlabs:' + voiceId;
   const { audioPath, durationSec, cues, replacements, titleEnd } = kokoro
     ? await narrateEntryKokoro(entry, dir, baseName, {
-        voiceId, speed: kokoroSpeed(p), readHeadings, headingPauseSec, sectionPauseSec,
-        sentencePauseSec: (parseInt(process.env.KOKORO_SENTENCE_PAUSE_MS, 10) || 200) / 1000
+        voiceId, speed: kokoroSpeed(p), prayerSpeed: kokoroSpeed({ speed: p.prayerSpeed || 0.9 }), readHeadings, headingPauseSec, sectionPauseSec,
+        sentencePauseSec, titlePauseSec
       })
     : await narrateEntry(
         entry, dir, baseName,
