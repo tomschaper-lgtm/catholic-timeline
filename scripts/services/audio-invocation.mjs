@@ -23,8 +23,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import {
-  ttsWithTimestamps, makeSilence, concatSegments, invocationFor, loadPronunciationRules,
-  applyPronunciation, nextVersion, voiceFromPayload, INVOCATION_PAUSE_SEC, SITE_BASE, OUTPUT_EXT
+  ttsWithTimestamps, makeSilence, concatSegments, invocationFor, prayerFor, loadPronunciationRules,
+  applyPronunciation, nextVersion, freeVersion, voiceFromPayload, INVOCATION_PAUSE_SEC, SITE_BASE, OUTPUT_EXT
 } from './audio-generate.mjs';
 import { isKokoroVoice } from './tts-kokoro.mjs';
 
@@ -54,8 +54,8 @@ export async function runAudioInvocation(task, dataJson){
 
   const entry = (dataJson.entries || []).find(e => e.id === task.entityId);
   if(!entry) return { result: null, summary: 'skipped \u2014 no entry with id ' + task.entityId };
-  const prayer = invocationFor(entry);
-  if(!prayer) return { result: { entityId: entry.id, name: entry.n }, summary: 'skipped \u2014 not a Saint entry' };
+  const prayer = prayerFor(entry);   // the article's own [prayer], else the default for saints
+  if(!prayer) return { result: { entityId: entry.id, name: entry.n }, summary: 'skipped \u2014 no prayer (not a Saint, and no [prayer] in the article)' };
   if(entry.audioInvocation) return { result: { entityId: entry.id, name: entry.n }, summary: 'skipped \u2014 already has the closing prayer' };
   const oldAudio = repoPathOf(entry.audio);
   if(!oldAudio) return { result: { entityId: entry.id, name: entry.n }, summary: 'skipped \u2014 no recorded audio' };
@@ -64,7 +64,7 @@ export async function runAudioInvocation(task, dataJson){
 
   const { voiceId, modelId, voiceSettings } = voiceFromPayload(task.payload || {});
   const dir = path.dirname(oldAudio);
-  const baseName = entry.id + '-v' + nextVersion(entry);
+  const baseName = entry.id + '-v' + await freeVersion(entry, dir);   // never reuse a cached name
   const gap = path.join(dir, baseName + '.tmp-gap.mp3');
   const clip = path.join(dir, baseName + '.tmp-prayer.mp3');
   const outAudio = path.join(dir, baseName + '.' + OUTPUT_EXT);

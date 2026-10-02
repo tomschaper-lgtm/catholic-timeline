@@ -32,7 +32,7 @@
 // implements.
 //
 // VOICE ENGINE (2026-09-30): a Voice ID written as  kokoro:<voice>  (e.g. kokoro:af_heart) records with
-// the free Kokoro voice on the runner instead of ElevenLabs — see tts-kokoro.mjs and narrateEntryKokoro()
+// the free Kokoro voice on the runner instead of ElevenLabs — see tts-kokoro.mjs, kokoro_synth.py and narrateEntryKokoro()
 // below. Same sections, headings, pronunciation rules, closing prayer, pauses, cue format and
 // versioned filenames; no ELEVENLABS_API_KEY needed. Every recording now stamps entry.audioEngine
 // ("kokoro:af_heart" / "elevenlabs:<voiceId>") so a later "re-record everything made with the old
@@ -55,7 +55,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { stripHtml, splitSentences } from '../lib/text.mjs';
-import { isKokoroVoice, kokoroVoiceName, kokoroSpeed, Track, speakInto, trackToMp3 } from './tts-kokoro.mjs';
+import { isKokoroVoice, kokoroVoiceName, kokoroSpeed, Track, synthBatch, trackToMp3 } from './tts-kokoro.mjs';
 
 export const AUDIO_ROOT = 'audio';
 // 2026-09-27: was the github.io address; the site is served by Cloudflare at this domain, and
@@ -66,6 +66,9 @@ const PRONUNCIATION_FILE = 'pronunciation/catholic-timeline-pronunciation.json';
 // "<name>, pray for us." — spoken only; never added to the article text, and given no
 // highlighting cue (there's no text on the page for it to highlight).
 export const INVOCATION_PAUSE_SEC = 1.2;
+// 2026-10-01: every recording starts with the article's name ("Blessed Virgin Mary."), then this
+// pause. The app's speaker icon by the title plays just that part: 0 -> entry.audioTitleEnd.
+export const TITLE_PAUSE_SEC = 1.3;   // was 0.8; a little more room after the name (2026-10-01)
 const TYPE_FOLDERS = { s: 'Saints', c: 'Councils', p: 'Persecutions', m: 'Marian', u: 'Eucharistic', e: 'Events' };
 
 // Same format/bitrate rationale as the original: mp3 at this bitrate is plenty for spoken
@@ -84,7 +87,9 @@ export async function loadPronunciationRules(){
     const raw = JSON.parse(await fs.readFile(PRONUNCIATION_FILE, 'utf8'));
     pronunciationRules = (raw.rules || [])
       .filter(r => r && r.type === 'alias' && r.string_to_replace && typeof r.alias === 'string')
-      .map(r => ({ from: r.string_to_replace, to: r.alias }));
+      // kokoro_ipa (optional): exact sounds for the Kokoro voice, used instead of the alias
+      // respelling when Kokoro is recording. ElevenLabs and the browser voice ignore it.
+      .map(r => ({ from: r.string_to_replace, to: r.alias, ipa: typeof r.kokoro_ipa === 'string' && r.kokoro_ipa.trim() ? r.kokoro_ipa.trim() : '' }));
   }catch(e){
     pronunciationRules = []; // no file (or unreadable): narrate the text as written
   }
@@ -93,7 +98,7 @@ export async function loadPronunciationRules(){
 const isWordChar = (ch) => !!ch && /[A-Za-z0-9\u00C0-\u024F]/.test(ch);
 // Returns the text to speak, a position map (map[i] = where original character i starts in the
 // spoken text; map[text.length] = spoken length), and how many replacements were made.
-export function applyPronunciation(text, rules){
+export function applyPronunciation(text, rules, useIpa){
   const map = new Array(text.length + 1);
   let out = '', count = 0, i = 0;
   while(i < text.length){
@@ -105,7 +110,8 @@ export function applyPronunciation(text, rules){
     }
     if(hit){
       for(let k = 0; k < hit.from.length; k++) map[i + k] = out.length;
-      out += hit.to;
+      // Kokoro: [word](/sounds/) markup when the rule has kokoro_ipa; otherwise the alias text.
+      out += (useIpa && hit.ipa) ? '[' + hit.from + '](/' + hit.ipa + '/)' : hit.to;
       i += hit.from.length;
       count++;
     }else{
@@ -118,10 +124,45 @@ export function applyPronunciation(text, rules){
   return { spoken: out, map, count };
 }
 
+// Custom closing prayer (2026-10-01): an article may end with "[prayer] Holy Mary, our Blessed
+// Mother, pray for us." Everything from the marker on is the prayer: spoken at the end instead of
+// the default, and never shown on the page (the app hides it too). Without a marker, saints get
+// the default "<name>, pray for us." and other entries get none.
+const PRAYER_MARK = /\[prayer\]/i;
+export function readingSections(entry){
+  const out = [];
+  for(const s of ((entry.art && entry.art.sections) || [])){
+    const b = String((s && s.b) || '');
+    const m = PRAYER_MARK.exec(b);
+    if(m){ out.push(Object.assign({}, s, { b: b.slice(0, m.index).replace(/(?:<[^>]*>|\s)+$/, '') })); break; }   // later sections belong to the prayer
+    out.push(s);
+  }
+  return out;
+}
+export function customPrayer(entry){
+  for(const s of ((entry.art && entry.art.sections) || [])){
+    const b = String((s && s.b) || '');
+    const m = PRAYER_MARK.exec(b);
+    if(m) return stripHtml(b.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim();
+  }
+  return '';
+}
+export function prayerFor(entry){ return customPrayer(entry) || invocationFor(entry); }
+// The name as spoken at the start: abbreviations spelled out, ending with a full stop.
+export function titleFor(entry){
+  const name = String((entry && entry.n) || '').trim()
+    .replace(/\bSts\.\s+/g, 'Saints ')
+    .replace(/\bSt\.\s+/g, 'Saint ')
+    .replace(/\bBl\.\s+/g, 'Blessed ')
+    .replace(/\s*&\s*/g, ' and ')
+    .replace(/[.,;:\s]+$/, '');
+  return name ? name + '.' : '';
+}
+
 // One {heading, body} pair per section, whitespace-collapsed. Sections with no body text are
-// dropped (nothing to narrate).
+// dropped (nothing to narrate). The prayer (see above) is not part of the body.
 function sectionParts(entry){
-  const sections = (entry.art && entry.art.sections) || [];
+  const sections = readingSections(entry);
   return sections
     .map(s => ({
       heading: stripHtml(s.h || '').replace(/\s+/g, ' ').trim(),
@@ -274,7 +315,7 @@ async function narrateEntry(entry, dir, baseName, opts, apiKey){
   }
 
   // Closing invocation for saints: a pause, then "<name>, pray for us." Spoken only.
-  const invocation = invocationFor(entry);
+  const invocation = prayerFor(entry);   // the article's own [prayer], else the default for saints
   if(invocation){
     const gap = tmp();
     makeSilence(INVOCATION_PAUSE_SEC, gap);
@@ -331,49 +372,64 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
   const voice = kokoroVoiceName(voiceId);
   const rules = await loadPronunciationRules();
   const parts = sectionParts(entry);
-  const track = new Track();
-  const cues = [];
   let replacements = 0;
-  let spokenCount = 0;
-  const t0 = Date.now();
-  const say = async (text) => {
-    const r = applyPronunciation(text, rules);
-    replacements += r.count;
-    await speakInto(track, r.spoken, voice, speed);
-    if(++spokenCount % 10 === 0) console.log('[kokoro] ' + entry.id + ': ' + spokenCount + ' pieces, ' + round2(track.seconds) + 's of audio, ' + Math.round((Date.now() - t0) / 1000) + 's elapsed');
-  };
 
+  // PASS 1 \u2014 plan the whole recording: what is spoken, what the cue says, and where the silences go.
+  // Nothing is synthesized yet, so every piece can be sent to Kokoro in ONE batch (the model loads
+  // once per entry, not once per sentence).
+  const plan = [];   // {gap:sec} | {type, section, cueText, spoken}
+  const speak = (type, section, cueText) => {
+    const r = applyPronunciation(cueText, rules, true);
+    replacements += r.count;
+    plan.push({ type, section, cueText, spoken: r.spoken });
+  };
+  // The name first ("Blessed Virgin Mary."), then a pause. No cue: it isn't article text.
+  const title = titleFor(entry);
+  if(title){
+    speak('title', -1, title);
+    plan.push({ gap: TITLE_PAUSE_SEC });
+  }
   for(let si = 0; si < parts.length; si++){
     const { heading, body } = parts[si];
-    if(si > 0) track.addSilence(sectionPauseSec);
-
+    if(si > 0) plan.push({ gap: sectionPauseSec });
     if(readHeadings && heading){
-      const start = track.seconds;
-      await say(heading);
-      cues.push({ section: si, type: 'heading', text: heading, start: round2(start), end: round2(track.seconds) });
-      track.addSilence(headingPauseSec);
+      speak('heading', si, heading);
+      plan.push({ gap: headingPauseSec });
     }
-
     const sentences = splitSentences(body);
     const list = sentences && sentences.length ? mergeAbbrevSplits(sentences, body) : [{ text: body }];
     for(let k = 0; k < list.length; k++){
-      const start = track.seconds;
-      await say(list[k].text);
-      cues.push({ section: si, type: 'sentence', text: list[k].text, start: round2(start), end: round2(track.seconds) });
-      if(k < list.length - 1) track.addSilence(sentencePauseSec);
+      speak('sentence', si, list[k].text);
+      if(k < list.length - 1) plan.push({ gap: sentencePauseSec });
     }
   }
-
   // Closing invocation for saints: a pause, then "<name>, pray for us." Spoken only, no cue.
-  const invocation = invocationFor(entry);
+  const invocation = prayerFor(entry);   // the article's own [prayer], else the default for saints
   if(invocation){
-    track.addSilence(INVOCATION_PAUSE_SEC);
-    await say(invocation);
+    plan.push({ gap: INVOCATION_PAUSE_SEC });
+    speak('invocation', -1, invocation);
+  }
+
+  // PASS 2 \u2014 synthesize everything, then lay it down in order. Each cue's start/end is simply the
+  // running length of the audio so far, so the highlighting timings are exact by construction.
+  const spokenItems = plan.filter(x => x.gap === undefined);
+  const audio = await synthBatch(spokenItems.map(x => x.spoken), voice, speed);
+  const track = new Track();
+  const cues = [];
+  let n = 0, titleEnd = 0;
+  for(const step of plan){
+    if(step.gap !== undefined){ track.addSilence(step.gap); continue; }
+    const start = track.seconds;
+    track.addSamples(audio[n++]);
+    if(step.type === 'title'){ titleEnd = round2(track.seconds); continue; }
+    if(step.type !== 'invocation'){
+      cues.push({ section: step.section, type: step.type, text: step.cueText, start: round2(start), end: round2(track.seconds) });
+    }
   }
 
   const audioPath = path.join(dir, `${baseName}.${OUTPUT_EXT}`);
   await trackToMp3(track, audioPath);
-  return { audioPath, durationSec: round2(track.seconds), cues, replacements };
+  return { audioPath, durationSec: round2(track.seconds), cues, replacements, titleEnd };
 }
 
 export function nextVersion(entry){
@@ -385,6 +441,18 @@ export function nextVersion(entry){
   // recorded audio") before this task was ever queued, so always creating a new version file
   // here (never silently overwriting) is correct regardless of why it happened.
   return parseInt(m[1], 10) + 1;
+}
+
+// The version number from the article's link can point at a name that's already taken (an old
+// recording whose link was lost, e.g. after the text was rewritten). Reusing that name made phones
+// and the site's cache keep playing the OLD file, so step past every name already in the folder:
+// a new recording always gets a name nobody has cached.
+export async function freeVersion(entry, dir){
+  let v = nextVersion(entry);
+  for(;;){
+    try{ await fs.access(path.join(dir, entry.id + '-v' + v + '.' + OUTPUT_EXT)); v++; }
+    catch(e){ return v; }
+  }
 }
 
 // Voice/model/settings from a task payload (shared with audio-invocation.mjs).
@@ -430,10 +498,10 @@ export async function runAudioGenerate(task, dataJson){
   const dir = path.join(AUDIO_ROOT, folder);
   await fs.mkdir(dir, { recursive: true });
 
-  const version = nextVersion(entry);
+  const version = await freeVersion(entry, dir);
   const baseName = entry.id + '-v' + version;
   const engine = kokoro ? 'kokoro:' + kokoroVoiceName(voiceId) : 'elevenlabs:' + voiceId;
-  const { audioPath, durationSec, cues, replacements } = kokoro
+  const { audioPath, durationSec, cues, replacements, titleEnd } = kokoro
     ? await narrateEntryKokoro(entry, dir, baseName, {
         voiceId, speed: kokoroSpeed(p), readHeadings, headingPauseSec, sectionPauseSec,
         sentencePauseSec: (parseInt(process.env.KOKORO_SENTENCE_PAUSE_MS, 10) || 200) / 1000
@@ -447,13 +515,15 @@ export async function runAudioGenerate(task, dataJson){
   const relAudio = path.join(AUDIO_ROOT, folder, path.basename(audioPath)).split(path.sep).join('/');
   const relTiming = relAudio.replace(new RegExp('\\.' + OUTPUT_EXT + '$'), '.json');
   const timingPath = audioPath.replace(new RegExp('\\.' + OUTPUT_EXT + '$'), '.json');
-  await fs.writeFile(timingPath, JSON.stringify({ id: entry.id, audio: relAudio, engine, durationSec, cues }, null, 1));
+  await fs.writeFile(timingPath, JSON.stringify({ id: entry.id, audio: relAudio, engine, durationSec, titleEnd: titleEnd || 0, cues }, null, 1));
 
   entry.audio = relAudio;
   entry.audioTiming = relTiming;
   entry.audioEngine = engine;
   // Recorded with the closing prayer (saints only) — "Add closing prayer" skips entries with this.
-  if(invocationFor(entry)) entry.audioInvocation = true; else delete entry.audioInvocation;
+  if(prayerFor(entry)) entry.audioInvocation = true; else delete entry.audioInvocation;
+  // Where the spoken name ends (Kokoro recordings): the app's speaker icon by the title plays 0 -> here.
+  if(titleEnd) entry.audioTitleEnd = titleEnd; else delete entry.audioTitleEnd;
   // Recorded with the pronunciation rules applied — the app's "recorded before the pronunciation
   // fix" check skips entries with this stamp.
   entry.audioPron = true;
