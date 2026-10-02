@@ -458,6 +458,33 @@ export async function freeVersion(entry, dir){
   }
 }
 
+// Cleanup (2026-10-01): once a new recording exists, every OLDER version of the same article's
+// recording is deleted — "<id>-vN.mp3" and its "<id>-vN.json", in any type folder under audio/ —
+// keeping only the files just written. Returns the deleted repo paths; the caller adds them to
+// filesToCommit, so the deletions land in the same commit as the new files and data.json (the
+// orchestrator's `git add <path>` records a deletion for a path that's gone). Only runs after the
+// new recording is fully written, so a failed recording never deletes anything.
+export async function removeOldVersions(entryId, keepPaths){
+  const keep = new Set(keepPaths.map(x => x.split(path.sep).join('/')));
+  const esc = String(entryId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('^' + esc + '-v\\d+\\.(?:' + OUTPUT_EXT + '|json)$');
+  const removed = [];
+  let folders = [];
+  try{ folders = (await fs.readdir(AUDIO_ROOT, { withFileTypes: true })).filter(d => d.isDirectory()).map(d => d.name); }
+  catch{ return removed; }
+  for(const folder of folders){
+    let names = [];
+    try{ names = await fs.readdir(path.join(AUDIO_ROOT, folder)); }catch{ continue; }
+    for(const name of names){
+      if(!re.test(name)) continue;
+      const rel = AUDIO_ROOT + '/' + folder + '/' + name;
+      if(keep.has(rel)) continue;
+      try{ await fs.unlink(path.join(AUDIO_ROOT, folder, name)); removed.push(rel); }catch{}
+    }
+  }
+  return removed;
+}
+
 // Voice/model/settings from a task payload (shared with audio-invocation.mjs).
 export function voiceFromPayload(p){
   const voiceId = String(p.voiceId || '').trim();
@@ -535,11 +562,14 @@ export async function runAudioGenerate(task, dataJson){
   // Recorded with the pronunciation rules applied — the app's "recorded before the pronunciation
   // fix" check skips entries with this stamp.
   entry.audioPron = true;
+  // Keep only this recording: delete the article's older versions (committed with the new files).
+  const removed = await removeOldVersions(entry.id, [relAudio, relTiming]);
 
   return {
     result: { entityId: entry.id, name: entry.n, audio: relAudio, durationSec, cueCount: cues.length, link: SITE_BASE + '/' + relAudio },
     summary: 'recorded ' + durationSec + 's with ' + engine + ' (' + cues.length + ' cues' +
-      (replacements ? ', ' + replacements + ' pronunciation fix' + (replacements === 1 ? '' : 'es') : '') + ') \u2014 ' + relAudio,
-    filesToCommit: [relAudio, relTiming, 'data.json']
+      (replacements ? ', ' + replacements + ' pronunciation fix' + (replacements === 1 ? '' : 'es') : '') + ') \u2014 ' + relAudio +
+      (removed.length ? ' (removed ' + removed.length + ' old file' + (removed.length === 1 ? '' : 's') + ')' : ''),
+    filesToCommit: [relAudio, relTiming, 'data.json', ...removed]
   };
 }

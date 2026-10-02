@@ -24,7 +24,7 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import {
   ttsWithTimestamps, makeSilence, concatSegments, invocationFor, prayerFor, loadPronunciationRules,
-  applyPronunciation, nextVersion, freeVersion, voiceFromPayload, INVOCATION_PAUSE_SEC, SITE_BASE, OUTPUT_EXT
+  applyPronunciation, nextVersion, freeVersion, removeOldVersions, voiceFromPayload, INVOCATION_PAUSE_SEC, SITE_BASE, OUTPUT_EXT
 } from './audio-generate.mjs';
 import { isKokoroVoice } from './tts-kokoro.mjs';
 
@@ -94,10 +94,12 @@ export async function runAudioInvocation(task, dataJson){
   entry.audio = relAudio;
   entry.audioTiming = relTiming;
   entry.audioInvocation = true;
+  // Keep only this recording: delete the article's older versions (committed with the new files).
+  const removed = await removeOldVersions(entry.id, [relAudio, relTiming]);
 
   return {
     result: { entityId: entry.id, name: entry.n, audio: relAudio, durationSec, prayer: spoken, link: SITE_BASE + '/' + relAudio },
     summary: 'added \u201C' + spoken + '\u201D \u2014 ' + relAudio + ' (' + durationSec + 's)',
-    filesToCommit: [relAudio, relTiming, 'data.json']
+    filesToCommit: [relAudio, relTiming, 'data.json', ...removed]
   };
 }
