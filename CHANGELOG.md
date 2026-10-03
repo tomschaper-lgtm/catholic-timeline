@@ -19,6 +19,106 @@ the time.
 
 ---
 
+## v527 — 2026-10-02
+
+**Ask:**
+- While narration plays the text jitters: follow-along holding the sentence and the line snap
+  aligning the top line pull back and forth (worst in landscape). Let the snap win — a slight
+  adjustment, then stop pulling.
+- Flip card: remove the "Facts" tab and the "Picture" button; let people discover it. Tap the
+  picture to flip, tap the back to flip back; touching and scrolling doesn't flip.
+
+**Implementation:**
+- Cause: snapToLineBoundary runs after every scroll event, including follow-along's own
+  animations, and aligns to the header's visible bottom; ensureActiveCueVisible (run on every
+  timeupdate) wanted the sentence 16px below the header's offsetHeight. The two targets differed by
+  a few px, so each undid the other several times a second.
+- snapSafeTop() is now shared, and predictSnapTarget() works out where the snap would settle for
+  any scroll position (same rules: story lines on the paragraph's line grid, headings/fact rows to
+  their top). followAudioSection and ensureActiveCueVisible glide straight to that spot, so the
+  snap has nothing left to correct.
+- ensureActiveCueVisible only moves when the spoken sentence is actually cut off or off screen
+  (measured against the same safe top), never to restore a preferred margin.
+- Flip card: tab and back button removed. Tapping the picture turns it over; tapping anywhere on
+  the back (except a link) turns it back. A scroll is not a tap, so scrolling the facts never flips.
+
+## v526 — 2026-10-02
+
+**Ask:**
+- In landscape (Review Mode only, to try it out), tapping the picture should flip it over like a
+  prayer card, with Quick Facts on the back, and there should be an obvious way to flip it back —
+  tapping text isn't obvious, and the facts may need scrolling.
+
+**Implementation:**
+- With Review Mode on, an entry with a picture and Quick Facts builds the landscape side picture
+  as a two-sided card (#artLandCard.canFlip): the existing #artLandImg is the front, a new
+  .artLandBack (same position and size, using --landImgW) is the back.
+- Front: a small "Facts ↻" tab in the bottom-right corner shows it turns over; tapping anywhere
+  on the picture flips it (no delay — double-tap does nothing on the landscape picture).
+- Back: "At a Glance" heading with a "↺ Picture" button beside it; only that button flips it
+  back, so the facts scroll freely (touch-action:pan-y) and links work.
+- 0.55 s 3-D turn: each face carries its own perspective(), backface-visibility:hidden; the
+  hidden face gets pointer-events:none so it never catches taps.
+- Taps on the card never pause narration (they stop at the card) and never start a close-drag
+  from the back. Every new article opens picture-side up. Portrait and non-Review visitors are
+  unchanged.
+
+## v525 — 2026-10-01
+
+**Ask:**
+- Turning the phone sideways and back made the text bigger, and it stayed big. Turn that off.
+
+**Implementation:**
+- iOS Safari enlarges text by itself in landscape unless the page opts out, and often doesn't undo
+  it (or a zoom that came with it) on returning to portrait. html now sets
+  -webkit-text-size-adjust:100% / text-size-adjust:100%, so only the Font Size setting changes text
+  size. After every rotation (orientationchange, and the orientation media query as a backup) the
+  existing resetPageZoom() runs once the layout settles, snapping any leftover zoom back to normal.
+  Pinch-to-zoom stays available.
+
+## v524 — 2026-10-01
+
+**Ask:**
+- When a triple-tapped word has already been fixed, say so right in the picker and show how it is
+  said, so there's no need to open the pronunciation page just to check (no sound, just the guide).
+
+**Implementation:**
+- The triple-tap picker shows "✓ Already fixed — said KRAH-koof" above the button when the word or
+  phrase (whatever the arrows have widened it to) has a saved fix, and the button then reads
+  "Change the pronunciation". A spelling-only rule shows "said as …". The fixes are read fresh from
+  GitHub (the stored token) each time the picker opens, falling back to the site copy, so a fix saved
+  a moment ago shows up. The readable guide uses the same converter as pronounce.html (lpGuideOf).
+
+## v523 — 2026-10-01
+
+**Ask:**
+- Every Settings item on one line: the Browser voice row had a full-width drop-down under its label
+  and a paragraph of explanation below it.
+
+**Implementation:**
+- The row now reads "Browser voice … Samantha ⌄" on one line like the others (the chosen voice's
+  short name, in the same black as the version number, with a small down arrow). The native select
+  is laid invisibly over the whole row, so a tap anywhere on it opens the phone's own picker. The
+  explanatory note (#ttsVoiceNote) is gone.
+
+## v522 — 2026-10-01
+
+**Ask:**
+- A quick way from the triple-tap picker to the pronunciation page, with the tapped word already
+  selected.
+- Coming back from the pronunciation page dropped Review Mode and Owner Tools, so the title had to
+  be tapped five times again on every round trip.
+
+**Implementation:**
+- The triple-tap picker has a full-width "Mispronounced — fix this word" button. It opens
+  pronounce.html?id=<entry>&word=<phrase>&n=<k>, where the phrase is whatever the picker shows
+  (the arrows can widen it) and k says which occurrence was tapped (counted over the article's
+  story text the same way pronounce.html v10 counts it), so the page selects that exact word.
+- The five-tap unlock is now remembered for the browsing session (sessionStorage 'owner-session'):
+  it survives the trip to the pronunciation page and back, and reloads, and is still forgotten
+  when the tab or installed app is closed, so a borrowed device doesn't stay unlocked. Review Mode
+  was already remembered; it was only hidden because the unlock was lost.
+
 ## v521 — 2026-10-01
 
 **Ask:**
