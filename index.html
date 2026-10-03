@@ -1,6 +1,6 @@
 <!--
-VERSION: 525
-DATE: 2026-10-01T15:40:00-05:00
+VERSION: 526
+DATE: 2026-10-02T13:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,27 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v526 — 2026-10-02
+
+**Ask:**
+- In landscape (Review Mode only, to try it out), tapping the picture should flip it over like a
+  prayer card, with Quick Facts on the back, and there should be an obvious way to flip it back —
+  tapping text isn't obvious, and the facts may need scrolling.
+
+**Implementation:**
+- With Review Mode on, an entry with a picture and Quick Facts builds the landscape side picture
+  as a two-sided card (#artLandCard.canFlip): the existing #artLandImg is the front, a new
+  .artLandBack (same position and size, using --landImgW) is the back.
+- Front: a small "Facts ↻" tab in the bottom-right corner shows it turns over; tapping anywhere
+  on the picture flips it (no delay — double-tap does nothing on the landscape picture).
+- Back: "At a Glance" heading with a "↺ Picture" button beside it; only that button flips it
+  back, so the facts scroll freely (touch-action:pan-y) and links work.
+- 0.55 s 3-D turn: each face carries its own perspective(), backface-visibility:hidden; the
+  hidden face gets pointer-events:none so it never catches taps.
+- Taps on the card never pause narration (they stop at the card) and never start a close-drag
+  from the back. Every new article opens picture-side up. Portrait and non-Review visitors are
+  unchanged.
+
 ## v525 — 2026-10-01
 
 **Ask:**
@@ -3785,6 +3806,47 @@ CHANGELOG:END
         background:rgba(201,165,66,.05); padding:18px 20px; overflow-y:auto;
       }
       #article.landFactsCol #artFactBox, #article.landFactsCol #artFactHead{display:none;}
+      /* v526: Review Mode two-sided card. Each face carries its own perspective() so it turns
+         about its own centre; the face turned away is hidden and ignores taps. */
+      #article .artLandCard.canFlip .artLandImg{
+        transform:perspective(1600px) rotateY(0deg); transition:transform .55s ease;
+        -webkit-backface-visibility:hidden; backface-visibility:hidden; cursor:pointer;
+      }
+      #article .artLandCard .artLandBack{
+        display:flex; flex-direction:column; position:absolute; top:-2px;
+        right:calc(-1 * var(--landImgW, 45vw) - 24px); width:var(--landImgW, 45vw);
+        height:calc(100dvh - 32px); box-sizing:border-box;
+        border:1.5px solid var(--gold); border-radius:14px;
+        background:linear-gradient(180deg,#14214A 0%, #0C1736 100%);
+        box-shadow:inset 0 0 0 5px rgba(201,165,66,.10);
+        transform:perspective(1600px) rotateY(-180deg); transition:transform .55s ease;
+        -webkit-backface-visibility:hidden; backface-visibility:hidden; pointer-events:none;
+      }
+      #article .artLandCard.flipped .artLandImg{transform:perspective(1600px) rotateY(180deg); pointer-events:none;}
+      #article .artLandCard.flipped .artLandBack{transform:perspective(1600px) rotateY(0deg); pointer-events:auto;}
+      #article .artLandBackHead{
+        display:flex; align-items:center; justify-content:space-between; gap:10px; flex:none;
+        padding:12px 12px 10px 18px; border-bottom:1px solid rgba(201,165,66,.35);
+        color:var(--gold-bright); font-size:1.05em; font-weight:600; letter-spacing:.02em;
+      }
+      #article .artLandBackBtn{
+        flex:none; min-height:38px; padding:6px 14px; border-radius:19px; cursor:pointer;
+        border:1px solid var(--gold); background:rgba(201,165,66,.14); color:var(--gold-bright);
+        font:inherit; font-size:.85em; font-weight:600; touch-action:manipulation;
+      }
+      #article .artLandBackBody{
+        flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y;
+        overscroll-behavior:contain; margin:0; padding:12px 18px 16px; background:none; border:none;
+      }
+      #article .artLandTab{
+        display:block; position:absolute; top:calc(100dvh - 32px - 2px - 48px);
+        right:calc(-1 * var(--landImgW, 45vw) - 24px + 10px); z-index:2;
+        min-height:38px; padding:6px 14px; border-radius:19px; cursor:pointer;
+        border:1px solid rgba(232,205,126,.75); background:rgba(7,15,34,.72); color:var(--gold-bright);
+        font:inherit; font-size:.85em; font-weight:600; touch-action:manipulation;
+        -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); transition:opacity .25s ease;
+      }
+      #article .artLandCard.flipped .artLandTab{opacity:0; pointer-events:none;}
       #article.overlay #artHeroImg, #article.overlay .artcap{display:none;}
       #flyPortrait{display:none !important;}
       /* Year and name share one line; the year never breaks, the name may wrap if very long. */
@@ -4225,6 +4287,7 @@ CHANGELOG:END
   /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
      so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
   .artLandImg, .artLandAnchor{display:none;}
+  .artLandTab, .artLandBack{display:none;}
   .artCornerMask{display:none;}
   @media (orientation: landscape){ .artCornerMask{display:none !important;} }
   /* v461 reserved a flat 190px (the badge's worst-case size); reverted in v462 as too wide.
@@ -6750,7 +6813,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v525';
+const APP_VERSION = 'v526';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -13549,6 +13612,22 @@ function fillArticleBody(d, peek){
     let a = '';
     if(hasImg){
       a = '<img class="artLandImg" id="artLandImg" src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="imgExtFallback(this)">';
+      // v526: Review Mode tries a two-sided card — picture on the front, Quick Facts on the back.
+      const backRows = landFacts.filter(f => f && f.label);
+      if(reviewMode && backRows.length){
+        a = '<div class="artLandCard canFlip" id="artLandCard">' + a +
+          '<button type="button" class="artLandTab" aria-label="Turn over for the facts">Facts &#8635;</button>' +
+          '<div class="artLandBack" aria-hidden="true">' +
+            '<div class="artLandBackHead"><span>At a Glance</span>' +
+              '<button type="button" class="artLandBackBtn" aria-label="Turn back to the picture">&#8634; Picture</button></div>' +
+            '<div class="factbox artLandBackBody">' + backRows.map(f => {
+              const val = f.url
+                ? '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.value || f.url) + '</a>'
+                : esc(f.value || '').replace(/\n/g, '<br>');
+              return '<div class="factrow"><div class="factlabel">' + esc(f.label) + '</div><div class="factval">' + val + '</div></div>';
+            }).join('') + '</div>' +
+          '</div></div>';
+      }
     }else if(landFacts.length){
       a = '<div class="factbox artLandFacts">' + landFacts.filter(f => f && f.label).map(f => {
         const val = f.url
@@ -16588,6 +16667,23 @@ function syncLandImgWidthDeferred(){
 }
 window.addEventListener('resize', syncLandImgWidthDeferred);
 window.addEventListener('orientationchange', syncLandImgWidthDeferred);
+// v526: Review Mode landscape card — tap the picture (or its "Facts" tab) to turn it over, tap
+// "Picture" on the back to turn it back. Any tap on the card stops here, so it never pauses the
+// narration; links on the back still open normally.
+document.getElementById('artBody').addEventListener('click', (e) => {
+  const card = e.target.closest('#artLandCard.canFlip');
+  if(!card || isPortrait()) return;
+  e.stopPropagation();
+  let flip = null;
+  if(e.target.closest('.artLandBackBtn')) flip = false;
+  else if(!card.classList.contains('flipped') && e.target.closest('.artLandImg, .artLandTab')) flip = true;
+  if(flip === null) return;
+  e.preventDefault();
+  card.classList.toggle('flipped', flip);
+  const back = card.querySelector('.artLandBack');
+  if(back) back.setAttribute('aria-hidden', flip ? 'false' : 'true');
+  if(flip && back){ const body = back.querySelector('.artLandBackBody'); if(body) body.scrollTop = 0; }
+});
 document.getElementById('artBody').addEventListener('click', (e) => {
   if(!isPortrait()) return;
   const img = e.target.closest('.artimg');
