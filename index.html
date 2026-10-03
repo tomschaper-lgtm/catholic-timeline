@@ -1,6 +1,6 @@
 <!--
-VERSION: 526
-DATE: 2026-10-02T13:00:00-05:00
+VERSION: 527
+DATE: 2026-10-02T23:55:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,29 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v527 — 2026-10-02
+
+**Ask:**
+- While narration plays the text jitters: follow-along holding the sentence and the line snap
+  aligning the top line pull back and forth (worst in landscape). Let the snap win — a slight
+  adjustment, then stop pulling.
+- Flip card: remove the "Facts" tab and the "Picture" button; let people discover it. Tap the
+  picture to flip, tap the back to flip back; touching and scrolling doesn't flip.
+
+**Implementation:**
+- Cause: snapToLineBoundary runs after every scroll event, including follow-along's own
+  animations, and aligns to the header's visible bottom; ensureActiveCueVisible (run on every
+  timeupdate) wanted the sentence 16px below the header's offsetHeight. The two targets differed by
+  a few px, so each undid the other several times a second.
+- snapSafeTop() is now shared, and predictSnapTarget() works out where the snap would settle for
+  any scroll position (same rules: story lines on the paragraph's line grid, headings/fact rows to
+  their top). followAudioSection and ensureActiveCueVisible glide straight to that spot, so the
+  snap has nothing left to correct.
+- ensureActiveCueVisible only moves when the spoken sentence is actually cut off or off screen
+  (measured against the same safe top), never to restore a preferred margin.
+- Flip card: tab and back button removed. Tapping the picture turns it over; tapping anywhere on
+  the back (except a link) turns it back. A scroll is not a tap, so scrolling the facts never flips.
+
 ## v526 — 2026-10-02
 
 **Ask:**
@@ -3820,33 +3843,20 @@ CHANGELOG:END
         background:linear-gradient(180deg,#14214A 0%, #0C1736 100%);
         box-shadow:inset 0 0 0 5px rgba(201,165,66,.10);
         transform:perspective(1600px) rotateY(-180deg); transition:transform .55s ease;
-        -webkit-backface-visibility:hidden; backface-visibility:hidden; pointer-events:none;
+        -webkit-backface-visibility:hidden; backface-visibility:hidden; pointer-events:none; cursor:pointer;
       }
       #article .artLandCard.flipped .artLandImg{transform:perspective(1600px) rotateY(180deg); pointer-events:none;}
       #article .artLandCard.flipped .artLandBack{transform:perspective(1600px) rotateY(0deg); pointer-events:auto;}
       #article .artLandBackHead{
         display:flex; align-items:center; justify-content:space-between; gap:10px; flex:none;
-        padding:12px 12px 10px 18px; border-bottom:1px solid rgba(201,165,66,.35);
+        min-height:38px; padding:12px 18px 10px; border-bottom:1px solid rgba(201,165,66,.35);
         color:var(--gold-bright); font-size:1.05em; font-weight:600; letter-spacing:.02em;
-      }
-      #article .artLandBackBtn{
-        flex:none; min-height:38px; padding:6px 14px; border-radius:19px; cursor:pointer;
-        border:1px solid var(--gold); background:rgba(201,165,66,.14); color:var(--gold-bright);
-        font:inherit; font-size:.85em; font-weight:600; touch-action:manipulation;
       }
       #article .artLandBackBody{
         flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y;
         overscroll-behavior:contain; margin:0; padding:12px 18px 16px; background:none; border:none;
       }
-      #article .artLandTab{
-        display:block; position:absolute; top:calc(100dvh - 32px - 2px - 48px);
-        right:calc(-1 * var(--landImgW, 45vw) - 24px + 10px); z-index:2;
-        min-height:38px; padding:6px 14px; border-radius:19px; cursor:pointer;
-        border:1px solid rgba(232,205,126,.75); background:rgba(7,15,34,.72); color:var(--gold-bright);
-        font:inherit; font-size:.85em; font-weight:600; touch-action:manipulation;
-        -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); transition:opacity .25s ease;
-      }
-      #article .artLandCard.flipped .artLandTab{opacity:0; pointer-events:none;}
+
       #article.overlay #artHeroImg, #article.overlay .artcap{display:none;}
       #flyPortrait{display:none !important;}
       /* Year and name share one line; the year never breaks, the name may wrap if very long. */
@@ -4287,7 +4297,7 @@ CHANGELOG:END
   /* Same 1.5px solid gold hairline and 14px radius as the small corner badge (.flyPortrait),
      so the photo looks identical at both ends of the morph and nothing pops at the handoff. */
   .artLandImg, .artLandAnchor{display:none;}
-  .artLandTab, .artLandBack{display:none;}
+  .artLandBack{display:none;}
   .artCornerMask{display:none;}
   @media (orientation: landscape){ .artCornerMask{display:none !important;} }
   /* v461 reserved a flat 190px (the badge's worst-case size); reverted in v462 as too wide.
@@ -6813,7 +6823,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v526';
+const APP_VERSION = 'v527';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -13616,10 +13626,8 @@ function fillArticleBody(d, peek){
       const backRows = landFacts.filter(f => f && f.label);
       if(reviewMode && backRows.length){
         a = '<div class="artLandCard canFlip" id="artLandCard">' + a +
-          '<button type="button" class="artLandTab" aria-label="Turn over for the facts">Facts &#8635;</button>' +
           '<div class="artLandBack" aria-hidden="true">' +
-            '<div class="artLandBackHead"><span>At a Glance</span>' +
-              '<button type="button" class="artLandBackBtn" aria-label="Turn back to the picture">&#8634; Picture</button></div>' +
+            '<div class="artLandBackHead"><span>At a Glance</span></div>' +
             '<div class="factbox artLandBackBody">' + backRows.map(f => {
               const val = f.url
                 ? '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.value || f.url) + '</a>'
@@ -15338,8 +15346,10 @@ function followAudioSection(artEl, heading){
   const hRect = heading.getBoundingClientRect();
   const headingAbs = hRect.top - artRect.top + artEl.scrollTop; // heading's position in absolute content-space
   const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
-  const target = Math.min(max, Math.max(0, headingAbs - occludedH - SECTION_BREATH));
-  if(Math.abs(artEl.scrollTop - target) < 4) return; // already sitting right at that spot — nothing to glide to
+  // v527: glide straight to where the line snap would settle, so it has nothing to correct.
+  const target = predictSnapTarget(artEl, Math.min(max, Math.max(0, headingAbs - occludedH - SECTION_BREATH)));
+  if(Math.abs(artEl.scrollTop - target) < 1) return; // already sitting right at that spot — nothing to glide to
+  if(Math.abs(artEl.scrollTop - target) < 4){ artEl.scrollTop = target; syncStickyBackdrops(); return; }
   animateFollowScroll(artEl, target);
 }
 // Within a section (no heading change this tick), keeps the actively-highlighted sentence
@@ -15363,15 +15373,26 @@ function ensureActiveCueVisible(artEl, idx){
     bottom = Math.max(bottom, r.bottom - artRect.top);
   });
   if(!isFinite(top) || !isFinite(bottom)) return;
-  const safeTop = occludedH + SENTENCE_VISIBLE_MARGIN;
+  // v527: only move when the sentence is actually cut off or off screen (against the same safe top
+  // the line snap uses). Being a few px from a preferred margin is not a reason to move — that
+  // was the tug-of-war with the snap. When it does move, it glides to where the snap settles.
+  const visTop = snapSafeTop(artEl), visBottom = artEl.clientHeight;
+  if(top >= visTop - 2 && bottom <= visBottom + 2) return; // fully visible — leave it alone
+  const safeTop = Math.max(occludedH, visTop) + SENTENCE_VISIBLE_MARGIN;
   const safeBottom = artEl.clientHeight - SENTENCE_VISIBLE_MARGIN;
-  if(top >= safeTop - 2 && bottom <= safeBottom + 2) return; // already fully visible, with margin — nothing to do
   const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
   const sentenceHeight = bottom - top;
-  const target = Math.min(max, Math.max(0, artEl.scrollTop + (
+  let target = Math.min(max, Math.max(0, artEl.scrollTop + (
     sentenceHeight <= safeBottom - safeTop ? (top - safeTop) : (bottom - safeBottom)
   )));
-  if(Math.abs(artEl.scrollTop - target) < 4) return;
+  target = predictSnapTarget(artEl, target);
+  // the snapped spot must still show the sentence's first line; if rounding hid it, step down a line
+  const firstTopAbs = top + artEl.scrollTop;
+  if(sentenceHeight <= visBottom - visTop && firstTopAbs - target < visTop - 2){
+    target = predictSnapTarget(artEl, firstTopAbs - visTop);
+  }
+  if(Math.abs(artEl.scrollTop - target) < 1) return;
+  if(Math.abs(artEl.scrollTop - target) < 4){ artEl.scrollTop = target; syncStickyBackdrops(); return; }
   animateFollowScroll(artEl, target);
 }
 // Same decelerating glide as the resume-reveal animation, just driven by playback advancing
@@ -15424,24 +15445,64 @@ document.getElementById('aboutPanel').addEventListener('wheel', noteManualScroll
 // gesture this timer is scheduled from.
 let scrollSnapTimer = null;
 const SCROLL_SNAP_SETTLE_MS = 160;
+// v527: the top of the readable area as the line snap sees it (header's visible bottom, plus a
+// stuck section heading if one is ever sticky). Shared with follow-along so both aim at the same line.
+function snapSafeTop(artEl){
+  const stickyHeader = document.getElementById('artSticky');
+  const stickySection = artEl.classList.contains('audio-playing')
+    ? document.querySelector('#artStoryText .arth')
+    : null;
+  const artRect = artEl.getBoundingClientRect();
+  const headerH = stickyHeader ? Math.max(0, stickyHeader.getBoundingClientRect().bottom - artRect.top) : 0;
+  const sectionH = (stickySection && getComputedStyle(stickySection).position === 'sticky') ? stickySection.offsetHeight : 0;
+  return headerH + sectionH;
+}
+// v527: where snapToLineBoundary would settle if the view were scrolled to `target` — worked out
+// from content positions, so follow-along can glide straight there and the snap finds nothing
+// to correct (before, each undid the other several times a second while narration played).
+function predictSnapTarget(artEl, target){
+  const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
+  target = Math.min(max, Math.max(0, target));
+  const safeTop = snapSafeTop(artEl);
+  const artRect = artEl.getBoundingClientRect();
+  const abs = (el) => { const r = el.getBoundingClientRect(); return { top: r.top - artRect.top + artEl.scrollTop, bottom: r.bottom - artRect.top + artEl.scrollTop }; };
+  const y = target + safeTop + 1;               // the probe line, in content space
+  for(const el of artEl.querySelectorAll('#artStoryText p, #artStoryText li')){
+    if(!el.offsetParent) continue;
+    const b = abs(el);
+    if(y < b.top || y >= b.bottom) continue;
+    let lh = parseFloat(getComputedStyle(el).lineHeight);
+    if(!lh || isNaN(lh)) lh = parseFloat(getComputedStyle(el).fontSize) * 1.3;
+    const linesIn = Math.round((target + safeTop - b.top) / lh);
+    return Math.min(max, Math.max(0, b.top + linesIn * lh - safeTop));
+  }
+  let best = null, bestD = Infinity;
+  for(const el of artEl.querySelectorAll('.arth, #artFactBox .factrow')){
+    if(!el.offsetParent) continue;
+    const b = abs(el);
+    const inside = y >= b.top && y < b.bottom;
+    let cand = b.top;
+    if(inside && y > (b.top + b.bottom) / 2 && el.nextElementSibling){
+      const nt = abs(el.nextElementSibling).top;
+      if(Math.abs(nt - y) < Math.abs(b.top - y)) cand = nt;
+    }
+    const d = inside ? -1 : Math.abs(cand - y);
+    if(d < bestD){ bestD = d; best = cand; }
+  }
+  if(best == null || bestD > 60) return target;
+  return Math.min(max, Math.max(0, best - safeTop));
+}
 function scheduleScrollSnap(artEl){
   clearTimeout(scrollSnapTimer);
   scrollSnapTimer = setTimeout(() => snapToLineBoundary(artEl), SCROLL_SNAP_SETTLE_MS);
 }
 function snapToLineBoundary(artEl){
   if(!artEl || !artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
-  const stickyHeader = document.getElementById('artSticky');
-  const stickySection = artEl.classList.contains('audio-playing')
-    ? document.querySelector('#artStoryText .arth')
-    : null;
   const artRect = artEl.getBoundingClientRect();
   // v487: the header's VISIBLE bottom, not offsetHeight — the header carries a negative top
   // margin and sits sticky, so offsetHeight put the probe 1px inside the header itself in
-  // portrait. elementFromPoint then hit the header, found no text, and quietly did nothing:
-  // that's why line snap only ever worked in landscape.
-  const headerH = stickyHeader ? Math.max(0, stickyHeader.getBoundingClientRect().bottom - artRect.top) : 0;
-  const sectionH = (stickySection && getComputedStyle(stickySection).position === 'sticky') ? stickySection.offsetHeight : 0;
-  const safeTop = headerH + sectionH;
+  // portrait. v527: shared with follow-along via snapSafeTop().
+  const safeTop = snapSafeTop(artEl);
   // v487: probe near the LEFT of the text column (where every label, heading and line starts)
   // instead of the card's center, which in landscape can fall on the photo or facts column.
   const wrap = artEl.querySelector('.artwrap');
@@ -16667,16 +16728,18 @@ function syncLandImgWidthDeferred(){
 }
 window.addEventListener('resize', syncLandImgWidthDeferred);
 window.addEventListener('orientationchange', syncLandImgWidthDeferred);
-// v526: Review Mode landscape card — tap the picture (or its "Facts" tab) to turn it over, tap
-// "Picture" on the back to turn it back. Any tap on the card stops here, so it never pauses the
+// v526: Review Mode landscape card — tap the picture to turn it over, tap the back to turn it
+// back (v527: no tab or button — it's there to be discovered). Any tap on the card stops here, so it never pauses the
 // narration; links on the back still open normally.
 document.getElementById('artBody').addEventListener('click', (e) => {
   const card = e.target.closest('#artLandCard.canFlip');
   if(!card || isPortrait()) return;
   e.stopPropagation();
   let flip = null;
-  if(e.target.closest('.artLandBackBtn')) flip = false;
-  else if(!card.classList.contains('flipped') && e.target.closest('.artLandImg, .artLandTab')) flip = true;
+  // v527: tap the picture to turn it over, tap anywhere on the back (except a link) to turn it
+  // back. A scroll isn't a tap, so scrolling the facts never flips it.
+  if(card.classList.contains('flipped')){ if(e.target.closest('.artLandBack') && !e.target.closest('a')) flip = false; }
+  else if(e.target.closest('.artLandImg')) flip = true;
   if(flip === null) return;
   e.preventDefault();
   card.classList.toggle('flipped', flip);
