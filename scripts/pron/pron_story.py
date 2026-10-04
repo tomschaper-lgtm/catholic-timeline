@@ -297,8 +297,44 @@ def main():
         forms = {word, word.lower(), word.capitalize()} | stems(word)
         return any(f in known_set for f in forms)
 
+    # Kokoro's reading of EVERY word in the articles (2026-10-04), so the app's pronunciation
+    # view can start any word — not just the hard names below — from how it's said now.
+    t_w = time.time()
+    every = {}
+    for tok in re.findall(r"[^\W\d_]+(?:['\u2019][^\W\d_]+)*", article_text(data)):
+        w = re.sub(r"['\u2019]s$", "", tok)
+        if len(w) < 2 or w in every:
+            continue
+        ph, _ = kokoro_info(w)
+        if ph:
+            every[w] = ph
+    os.makedirs(OUT_DIR, exist_ok=True)
+    save(OUT_DIR + "/words.json", {"about": "Kokoro's own reading of every word in the articles (no fixes applied). Built by scripts/pron/pron_story.py.",
+                                   "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "words": every})
+    print("[story] words.json: %d words read by Kokoro in %.0fs" % (len(every), time.time() - t_w), flush=True)
+
     wiki, wiki_src = load_wikipron()
     print("[story] Wiktionary pronunciations: %d (%s)" % (len(wiki), wiki_src), flush=True)
+
+    # Every word in the articles, as Kokoro reads it on its own (v531+): the app's pronunciation view
+    # starts from this, so ordinary words ("difficult") show what the narration says now.
+    t_w = time.time()
+    all_words = {}
+    for w in sorted(set(re.findall(r"[^\W\d_]+(?:['’][^\W\d_]+)*", article_text(data)))):
+        base = re.sub(r"['’]s$", "", w)
+        if not base or base in all_words:
+            continue
+        try:
+            ps, _ = pipe.g2p(base)
+        except Exception:
+            continue
+        ps = (ps or "").strip()
+        if ps:
+            all_words[base] = ps
+    os.makedirs(OUT_DIR, exist_ok=True)
+    save(OUT_DIR + "/words.json", {"about": "Kokoro's own reading of every word in the articles. Built by scripts/pron/pron_story.py.",
+                                   "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "voice": VOICE, "words": all_words})
+    print("[story] %d words read by Kokoro for the app in %.0fs" % (len(all_words), time.time() - t_w), flush=True)
 
     kept, why = [], Counter()
     for name, uses in names.most_common():
