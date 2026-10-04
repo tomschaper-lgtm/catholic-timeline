@@ -85,11 +85,18 @@ export async function loadPronunciationRules(){
   if(pronunciationRules) return pronunciationRules;
   try{
     const raw = JSON.parse(await fs.readFile(PRONUNCIATION_FILE, 'utf8'));
-    pronunciationRules = (raw.rules || [])
+    // Pause rules (2026-10-04): { type: "pause", string_to_replace: "the faith Mary",
+    // pause_after: "the faith" } — a comma is spoken after "the faith" wherever the whole phrase
+    // appears. They go first and never consume the phrase, so sound fixes inside it still apply.
+    const pauses = (raw.rules || [])
+      .filter(r => r && r.type === 'pause' && r.string_to_replace && typeof r.pause_after === 'string'
+        && r.pause_after.trim() && r.string_to_replace.startsWith(r.pause_after) && r.pause_after.length < r.string_to_replace.length)
+      .map(r => ({ from: r.string_to_replace, pauseAt: r.pause_after.length, pause: true }));
+    pronunciationRules = pauses.concat((raw.rules || [])
       .filter(r => r && r.type === 'alias' && r.string_to_replace && typeof r.alias === 'string')
       // kokoro_ipa (optional): exact sounds for the Kokoro voice, used instead of the alias
       // respelling when Kokoro is recording. ElevenLabs and the browser voice ignore it.
-      .map(r => ({ from: r.string_to_replace, to: r.alias, ipa: typeof r.kokoro_ipa === 'string' && r.kokoro_ipa.trim() ? r.kokoro_ipa.trim() : '' }));
+      .map(r => ({ from: r.string_to_replace, to: r.alias, ipa: typeof r.kokoro_ipa === 'string' && r.kokoro_ipa.trim() ? r.kokoro_ipa.trim() : '' })));
   }catch(e){
     pronunciationRules = []; // no file (or unreadable): narrate the text as written
   }
@@ -113,11 +120,21 @@ export function kokoroMarkup(from, ipa){
 export function applyPronunciation(text, rules, useIpa){
   const map = new Array(text.length + 1);
   let out = '', count = 0, i = 0;
+  const pauseAt = new Set();          // positions in the original text where a comma is spoken first
+  const flushPause = (upto) => {      // speak any pause due at or before this position (once)
+    for(const p of [...pauseAt]) if(p <= upto){
+      pauseAt.delete(p);
+      if(!/[,;:.!?\u2014]\s*$/.test(out)) out += ',';
+    }
+  };
   while(i < text.length){
+    flushPause(i);
     let hit = null;
     if(!isWordChar(text[i - 1])){
       for(const r of rules){
-        if(text.startsWith(r.from, i) && !isWordChar(text[i + r.from.length])){ hit = r; break; }
+        if(!(text.startsWith(r.from, i) && !isWordChar(text[i + r.from.length]))) continue;
+        if(r.pause){ pauseAt.add(i + r.pauseAt); count++; continue; }   // mark it; keep looking for a sound/spelling rule here
+        hit = r; break;
       }
     }
     if(hit){
@@ -127,11 +144,13 @@ export function applyPronunciation(text, rules, useIpa){
       i += hit.from.length;
       count++;
     }else{
+      flushPause(i);
       map[i] = out.length;
       out += text[i];
       i++;
     }
   }
+  flushPause(text.length);
   map[text.length] = out.length;
   return { spoken: out, map, count };
 }
