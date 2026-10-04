@@ -330,6 +330,17 @@ def main():
                         "wiki": wiki.get(name.lower())}
             else:
                 word = {"name": name, "uses": uses, "kokoro": own, "src": "kokoro", "ipa": own, "say": ""}
+        # Every pronunciation we had for the word, so the app can offer them as choices (v531):
+        # source -> Kokoro sounds, listener-level duplicates removed, the chosen one first.
+        h2 = hints.get(name)
+        wk2 = ipa_to_kokoro(wiki.get(name.lower()), allowed) if name.lower() in wiki else None
+        cands, seen_c = {}, set()
+        for src_c, ipa_c in ((word["src"], word["ipa"]), ("reference", (r or {}).get("ipa")), ("claude", (h2 or {}).get("ipa")),
+                             ("wiktionary", wk2), ("kokoro", own)):
+            if ipa_c and src_c not in cands and norm(ipa_c) not in seen_c:
+                cands[src_c] = ipa_c
+                seen_c.add(norm(ipa_c))
+        word["cands"] = cands
         kept.append(word)
         why["kept: " + word["src"]] += 1
     if MAX_WORDS and len(kept) > MAX_WORDS:
