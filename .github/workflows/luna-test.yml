@@ -1,0 +1,87 @@
+# Luna pronunciation test — run by hand from the Actions tab ("Run workflow").
+#
+# Asks an OpenAI model (default gpt-6-luna) for every pronunciation you've already fixed by ear,
+# without showing it your answers, and scores it against them — next to Claude's hand-written hints
+# and Kokoro's own guess. Records differences.mp3: "Your fix ... Luna ..." for every disagreement.
+# Writes only pronunciation/luna-test/ (report.md, results.json, differences.mp3/.json).
+# Needs the repo secret OPENAI_API_KEY (Settings -> Secrets and variables -> Actions).
+name: Luna pronunciation test
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'OpenAI model (gpt-6-luna, gpt-5.6-luna, ...)'
+        required: false
+        default: 'gpt-6-luna'
+      voice:
+        description: 'Kokoro voice for the listening file'
+        required: false
+        default: 'am_adam'
+      record:
+        description: 'Record the listening file (yes/no)'
+        required: false
+        default: 'yes'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: luna-test
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install espeak-ng and ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y espeak-ng ffmpeg
+
+      - name: Cache pip and Kokoro model
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/huggingface
+          key: kokoro-py311-v1
+
+      - name: Install Kokoro (CPU)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install "kokoro>=0.9.4"
+          python -m spacy download en_core_web_sm
+
+      - name: Ask the model and score it
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MODEL: ${{ github.event.inputs.model }}
+          VOICE: ${{ github.event.inputs.voice }}
+          RECORD: ${{ github.event.inputs.record }}
+        run: python3 scripts/pron/luna_test.py
+
+      - name: Show the summary on the run page
+        if: always()
+        run: if [ -f pronunciation/luna-test/report.md ]; then cat pronunciation/luna-test/report.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Commit the results
+        run: |
+          git config user.name "pronunciation-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A pronunciation/luna-test
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit"
+          else
+            git commit -m "Luna pronunciation test: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git pull --rebase
+            git push
+          fi
