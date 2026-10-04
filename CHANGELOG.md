@@ -19,6 +19,24 @@ the time.
 
 ---
 
+## v528 — 2026-10-04
+
+**Ask:**
+- The audio timing file doesn't load when you reach an article by swiping left/right (or by link).
+
+**Implementation:**
+- Cause (swipe): slideArticleTo() clones the outgoing article for its 0.5 s slide-out, and the clone
+  keeps the inner ids (#artStoryText, #artSticky, #artFactBox) — only #artBody's own id is removed.
+  The timing file usually arrives inside that half-second, and getElementById('artStoryText')
+  found the clone first, so every sentence marker landed on the clone, which is then removed:
+  cues loaded (e.g. 40/46 linked) but 0 sentence spans in the visible article — no highlighting,
+  no tap-to-seek, no follow-along.
+- New liveArtEl(id) looks inside the live #artBody first and falls back to getElementById; used
+  for every lookup of an id inside the article body (artStoryText, artSticky, artFactBox), so
+  nothing reads or writes the slide-out copy. The clone keeps its ids so it still looks right while
+  sliding.
+- Link path tested (openArticle, no clone): timing loads and marks sentences as on a normal open.
+
 ## v527 — 2026-10-02
 
 **Ask:**
