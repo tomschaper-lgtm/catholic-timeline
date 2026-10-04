@@ -1,6 +1,6 @@
 <!--
-VERSION: 532
-DATE: 2026-10-04T18:10:00-05:00
+VERSION: 533
+DATE: 2026-10-04T19:20:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,25 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v533 — 2026-10-04
+
+**Ask:**
+- Holding a word should show: the word or phrase large, the pronunciation as syllables with the
+  stressed one underlined, arrows to move the stress, each syllable tappable for its list —
+  pick and go, OK commits, Cancel cancels.
+
+**Implementation:**
+- Press-and-hold now opens straight into the pronunciation view (triple-tap still opens the link
+  picker). The word/phrase stays large at the top with ← → to widen it; the pronunciation is shown
+  as large syllables, stressed one underlined in gold, each a native list (as v530/v531); ◀ ▶ below
+  move the stress.
+- No keyboard unless needed: the typing box is hidden behind a small "Type it" link (or shown at
+  once when nothing is known about the word), and the panel only moves to the top while typing.
+- Cancel closes; OK saves and closes in one step, with a "Saved ✓" message. Small links below:
+  Type it, Add a pause after (Back returns to the pronunciation view; OK saves and closes), Link to
+  an entry (the old picker view).
+- Widening the phrase with ← → refills the syllables for the new phrase.
+
 ## v532 — 2026-10-04
 
 **Ask:**
@@ -4590,6 +4609,27 @@ CHANGELOG:END
   .lpWill{min-height:26px; margin:10px 2px 4px; font-size:17px; color:#9fd6a8;}
   .lpWill b{color:#fff; letter-spacing:.03em;}
   .lpToolHint{font-size:13px; color:var(--muted); margin:0 2px 12px;}
+  /* v533: the pronunciation view — big syllables, stressed one underlined, arrows below */
+  .lpBox.spellMode .lpToolTitle{display:none;}
+  .lpBox.spellMode .lpPhraseRow{margin-bottom:6px;}
+  .lpBox.spellMode .lpStress{flex-wrap:wrap; justify-content:center; gap:10px 14px; margin:8px 0 4px;}
+  .lpBox.spellMode .lpChips{flex:0 0 100%; order:-1; gap:8px 2px;}
+  .lpBox.spellMode .lpChipWord{gap:2px; padding:2px 4px;}
+  .lpBox.spellMode .lpChipWord + .lpChipWord{margin-left:18px;}
+  .lpBox.spellMode .lpChip{font-size:30px; line-height:1.2; padding:6px 8px 10px; border:none; border-radius:8px; background:transparent;
+    color:var(--parchment); font-family:var(--serif, Georgia, serif); letter-spacing:.01em;}
+  .lpBox.spellMode .lpChip::after{content:none;}
+  .lpBox.spellMode .lpChip + .lpChip::before{content:'\00b7'; position:absolute; left:-5px; top:50%; transform:translateY(-55%); color:var(--muted); font-size:22px; pointer-events:none;}
+  .lpBox.spellMode .lpChip.on{background:transparent; color:#fff; font-weight:700; text-decoration:underline; text-decoration-color:var(--gold); text-decoration-thickness:3px; text-underline-offset:9px;}
+  .lpBox.spellMode .lpChip:active{background:rgba(201,165,66,.15);}
+  .lpBox.spellMode .lpStress .lpArrow{width:64px; height:46px; font-size:22px;}
+  .lpBox.spellMode .lpSpellFrom{text-align:center; margin:2px 0 10px;}
+  .lpTypeWrap{display:none; margin-top:6px;}
+  .lpBox.typing .lpTypeWrap{display:block;}
+  .lpSpellLinks{display:flex; justify-content:center; flex-wrap:wrap; gap:4px 18px; margin:4px 0 14px;}
+  .lpLinkBtn{background:none; border:none; padding:8px 2px; color:var(--gold-bright); font:inherit; font-size:15px;
+    text-decoration:underline; text-underline-offset:3px; text-decoration-color:rgba(201,165,66,.5); cursor:pointer; touch-action:manipulation;}
+  .lpBox.typing #lpTypeIt{display:none;}
   /* v530: stress chips + arrows; picker at the top while typing */
   .lpSpellFrom{font-size:13px; color:var(--muted); margin:6px 2px 0;}
   .lpSpellFrom:empty{display:none;}
@@ -6004,11 +6044,18 @@ CHANGELOG:END
     <div class="lpToolPanel" id="lpToolPanel">
       <div class="lpToolTitle" id="lpToolTitle"></div>
       <div class="lpSpellBox" id="lpSpellBox">
-        <input type="text" class="lpSearchInput" id="lpSpellIn" placeholder="e.g. KRAH-koof" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-        <div class="lpSpellFrom" id="lpSpellFrom"></div>
         <div class="lpStress" id="lpStress"></div>
-        <div class="lpWill" id="lpWill"></div>
-        <div class="lpToolHint">Stressed part in CAPITALS, parts joined with hyphens, a space between words &mdash; or move the stress with the arrows.</div>
+        <div class="lpSpellFrom" id="lpSpellFrom"></div>
+        <div class="lpTypeWrap">
+          <input type="text" class="lpSearchInput" id="lpSpellIn" placeholder="e.g. KRAH-koof" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <div class="lpWill" id="lpWill"></div>
+          <div class="lpToolHint">Stressed part in CAPITALS, parts joined with hyphens, a space between words.</div>
+        </div>
+        <div class="lpSpellLinks">
+          <button type="button" class="lpLinkBtn" id="lpTypeIt">Type it</button>
+          <button type="button" class="lpLinkBtn" id="lpToPause">Add a pause after</button>
+          <button type="button" class="lpLinkBtn" id="lpToLink">Link to an entry</button>
+        </div>
       </div>
       <div class="lpPauseBox" id="lpPauseBox"></div>
       <div class="lpToolMsg" id="lpToolMsg"></div>
@@ -7003,7 +7050,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v532';
+const APP_VERSION = 'v533';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -16605,7 +16652,7 @@ function lpUpdatePronStatus(){
   else if(fx && fx.alias && fx.alias !== key) txt = '\u2713 Already fixed \u2014 said as \u201c<b>' + esc(fx.alias) + '</b>\u201d';
   out.innerHTML = txt;
   btn.textContent = txt ? 'Change the spelling' : 'Spell it yourself';
-  if(lpTool === 'spell') lpSpellTitle();
+  if(lpTool === 'spell'){ lpSpellTitle(); if(lpSpellKey() !== lpSpellShownFor) lpOpenSpell(false); }
 }
 function lpRenderPhrase(){
   if(!lpState) return;
@@ -16900,12 +16947,13 @@ const LP_RULES_PATH = 'pronunciation/catholic-timeline-pronunciation.json';
 function lpToolClose(){
   lpTool = null; lpPausePlanNow = null;
   const box = document.querySelector('#linkPicker .lpBox');
-  if(box) box.classList.remove('tool', 'spellMode', 'pauseMode');
+  if(box) box.classList.remove('tool', 'spellMode', 'pauseMode', 'typing');
   const msg = document.getElementById('lpToolMsg'); if(msg){ msg.textContent = ''; msg.className = 'lpToolMsg'; }
   const ok = document.getElementById('lpToolOk'); if(ok){ ok.disabled = false; ok.textContent = 'OK'; ok.dataset.done = ''; }
 }
 function lpToolOpen(kind){
   lpTool = kind;
+  document.getElementById('lpToolBack').textContent = kind === 'spell' ? 'Cancel' : 'Back';
   const box = document.querySelector('#linkPicker .lpBox');
   box.classList.add('tool'); box.classList.toggle('spellMode', kind === 'spell'); box.classList.toggle('pauseMode', kind === 'pause');
   const msg = document.getElementById('lpToolMsg'); msg.textContent = ''; msg.className = 'lpToolMsg';
@@ -17107,7 +17155,9 @@ function lpWillSay(typed){
     }).join('-');
   }).join(' ');
 }
+let lpSpellShownFor = '';
 function lpSpellUpdate(){
+  lpSpellShownFor = lpSpellKey();
   const typed = document.getElementById('lpSpellIn').value.trim();
   const ph = typed ? lpRespell(typed) : '';
   let g = ''; try{ g = ph ? lpWillSay(typed) : ''; }catch(e){ try{ g = lpGuideOf(ph); }catch(e2){} }
@@ -17116,18 +17166,26 @@ function lpSpellUpdate(){
   lpRenderStress();
   return ph;
 }
-document.getElementById('lpSpell').addEventListener('click', async () => {
+// v533: the pronunciation view. keep = reopen with what's in the box (coming back from Pause).
+function lpTyping(on){
+  const box = document.querySelector('#linkPicker .lpBox');
+  box.classList.toggle('typing', !!on);
+  if(on){ lpPlaceTop(true); setTimeout(() => document.getElementById('lpSpellIn').focus({ preventScroll: true }), 0); }
+}
+async function lpOpenSpell(keep){
   if(!lpState) return;
   lpToolOpen('spell');
-  lpPlaceTop(true);
   lpSpellTitle();
   lpStressWord = -1;
-  lpPicked.clear();
+  if(!keep) lpPicked.clear();
+  document.getElementById('lpToolBack').textContent = 'Cancel';
   const inp = document.getElementById('lpSpellIn'), from = document.getElementById('lpSpellFrom');
+  if(keep && inp.value.trim()){ lpSpellUpdate(); return; }
+  lpTyping(false);
   const fill = () => {
     const got = lpGuideFor(lpSpellKey());
     inp.value = got ? got.guide : '';
-    from.textContent = !got ? '' : got.from === 'fix' ? 'Starting from your saved fix.' : 'Starting from how it\u2019s said now.';
+    from.textContent = !got || got.from === 'fix' ? '' : 'As it\u2019s said now';   // a saved fix is already shown as "Already fixed"
     lpSpellUpdate();
     return !!got;
   };
@@ -17135,12 +17193,17 @@ document.getElementById('lpSpell').addEventListener('click', async () => {
     from.textContent = 'Looking up how it\u2019s said now\u2026';
     await lpLoadStoryWords();
     if(lpTool !== 'spell') return;
-    if(!fill()){ from.textContent = ''; inp.focus({ preventScroll: true }); }   // nothing known: type it
+    if(!fill()){ from.textContent = 'Nothing known yet \u2014 type how it should sound.'; lpTyping(true); }
   }else if(!lpStoryWords){
     await lpLoadStoryWords();                                                    // v531: the known pronunciations for the lists
     if(lpTool === 'spell') lpRenderStress();
   }
-});
+}
+document.getElementById('lpSpell').addEventListener('click', () => lpOpenSpell(false));
+document.getElementById('lpTypeIt').addEventListener('click', () => lpTyping(true));
+document.getElementById('lpToPause').addEventListener('click', () => { lpCameFromSpell = true; document.getElementById('lpPause').click(); });
+document.getElementById('lpToLink').addEventListener('click', () => { lpToolClose(); lpUpdatePronStatus(); });
+let lpCameFromSpell = false;
 document.getElementById('lpSpellIn').addEventListener('input', () => { lpPicked.clear(); lpToolSay(''); lpSpellUpdate(); });
 document.getElementById('lpSpellIn').addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('lpToolOk').click(); } });
 // ---- Add a pause after ----
@@ -17231,10 +17294,12 @@ async function lpUpdateRules(mutate, message){
   throw new Error('The rules file kept changing underneath \u2014 try OK again.');
 }
 document.getElementById('lpToolBack').addEventListener('click', () => {
-  if(document.getElementById('lpToolOk').dataset.done){ closeLinkPicker(); return; }
+  if(lpTool === 'spell'){ closeLinkPicker(); return; }                       // v533: Cancel
+  if(lpTool === 'pause' && lpCameFromSpell){ lpCameFromSpell = false; lpOpenSpell(true); return; }
   lpToolClose();
   lpUpdatePronStatus();
 });
+let lpSavedMsg = '';
 document.getElementById('lpToolOk').addEventListener('click', async () => {
   const ok = document.getElementById('lpToolOk');
   if(ok.dataset.done){ closeLinkPicker(); return; }
@@ -17251,7 +17316,7 @@ document.getElementById('lpToolOk').addEventListener('click', async () => {
         if(/\s/.test(key)) list.unshift(rule); else list.push(rule);   // same placement as pronounce.html
       }, 'Pronunciation: ' + key + ' (typed in the app)');
       if(lpFixes) lpFixes.set(key, { ipa: ph, alias: key });
-      lpToolSay('Saved \u2713 Every article with \u201c' + key + '\u201d uses it from its next recording. Tap Audio to re-record this one.', 'ok');
+      lpSavedMsg = 'Saved \u2713 \u201c' + key + '\u201d \u2014 tap Audio to re-record';
     }else{
       const plan = lpPausePlanNow;
       if(!plan || plan.err) throw new Error('Nothing to save.');
@@ -17260,10 +17325,12 @@ document.getElementById('lpToolOk').addEventListener('click', async () => {
         const rule = { string_to_replace: plan.phrase, type: 'pause', pause_after: plan.after, case_sensitive: true, word_boundaries: true };
         if(i >= 0) list[i] = rule; else list.push(rule);   // at the end: never shadows a sound fix for the same words
       }, 'Pause: ' + plan.spoken + ' (added in the app)');
-      lpToolSay('Saved \u2713 The pause is used from this article\u2019s next recording. Tap Audio to re-record it.', 'ok');
+      lpSavedMsg = 'Pause saved \u2713 \u2014 tap Audio to re-record';
     }
     tkPronRules = null;   // re-read for the re-record list
-    ok.disabled = false; ok.textContent = 'Done'; ok.dataset.done = '1';
+    ok.disabled = false;
+    closeLinkPicker();                                                     // v533: OK commits and closes
+    try{ showShareToast(lpSavedMsg); }catch(e){}
   }catch(err){
     lpToolSay(err.message || String(err), 'err');
     ok.disabled = false;
@@ -17284,6 +17351,7 @@ document.getElementById('artBody').addEventListener('pointerdown', (e) => {
     lpTapLog = [];
     try{ if(navigator.vibrate) navigator.vibrate(12); }catch(err){}
     openLinkPicker(x, y);
+    if(document.getElementById('linkPicker').classList.contains('open')) lpOpenSpell(false);   // v533: straight to the pronunciation view
   }, LP_HOLD_MS) };
 });
 document.getElementById('artBody').addEventListener('pointermove', (e) => {
