@@ -1,6 +1,6 @@
 <!--
-VERSION: 533
-DATE: 2026-10-04T19:20:00-05:00
+VERSION: 534
+DATE: 2026-10-04T20:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,28 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v534 — 2026-10-04
+
+**Ask:**
+- Holding "difficult" showed the typing box, not the syllable view. And make these utility screens
+  white with black text instead of blue and gold.
+
+**Implementation:**
+- Cause: the view only knew pronunciations from saved fixes and the pronunciation story, which
+  covers the hard names — an ordinary word had nothing, so it fell back to typing.
+- The story workflow now also writes pronunciation/story/words.json: Kokoro's own reading of every
+  distinct word in the articles (~16,000 words, ~0.4 MB). The app loads it (fresh from GitHub, else
+  the site copy) when the view first opens, waits for it, and starts any word from it ("As it's
+  said now"); it's also a known pronunciation in the lists.
+- Until that file exists (or for a word not in it), lpSyl.guess() builds a first guess from the
+  spelling — vowel groups to syllables, consonant clusters split (blends and digraphs kept),
+  doubled letters once, silent final e (lengthening only after one consonant), -tion/-sion/-ture
+  units, stress on the first syllable except -tion/-ic (the one before) and long Latin endings
+  (third from last) — labelled "A guess from the spelling — adjust it". So the syllable view
+  always appears; typing is never forced.
+- The picker (pronunciation view, pause, link search) is now white with black text: dark buttons,
+  blue links, stressed syllable underlined in black, green "Already fixed", red errors.
+
 ## v533 — 2026-10-04
 
 **Ask:**
@@ -4630,6 +4652,43 @@ CHANGELOG:END
   .lpLinkBtn{background:none; border:none; padding:8px 2px; color:var(--gold-bright); font:inherit; font-size:15px;
     text-decoration:underline; text-underline-offset:3px; text-decoration-color:rgba(201,165,66,.5); cursor:pointer; touch-action:manipulation;}
   .lpBox.typing #lpTypeIt{display:none;}
+  /* v534: utility screens are white with black text (not the blue-and-gold reading theme) */
+  #linkPicker .lpBox{background:#fff; color:#141414; border-color:#d6d6d6; box-shadow:0 -6px 30px rgba(0,0,0,.35);}
+  #linkPicker .lpLabel, #linkPicker .lpToolHint, #linkPicker .lpSpellFrom, #linkPicker .lpEmpty,
+  #linkPicker .lpPauseBox .lpNote, #linkPicker .lpResult .lpRYear{color:#666;}
+  #linkPicker .lpPhrase{background:#f4f4f4; color:#111; border:1px solid #cfcfcf;}
+  #linkPicker .lpArrow{background:#f1f1f1; color:#222; border:1px solid #cfcfcf;}
+  #linkPicker .lpArrow:disabled{opacity:.35;}
+  #linkPicker .lpSearchInput{background:#fff; color:#111; border:1px solid #bdbdbd;}
+  #linkPicker .lpSearchInput::placeholder{color:#9a9a9a;}
+  #linkPicker .lpClear{color:#666;}
+  #linkPicker .lpResults{border-top-color:#e6e6e6;}
+  #linkPicker .lpResult{border-bottom-color:#eee;}
+  #linkPicker .lpResult .lpRName{color:#141414;}
+  #linkPicker .lpResult.selected{background:#eaf1ff;}
+  #linkPicker .lpBtn{border-color:#c4c4c4;}
+  #linkPicker .lpBtnCancel{background:#fff; color:#333; border:1px solid #c4c4c4;}
+  #linkPicker .lpBtnOk{background:#141414; color:#fff; border-color:#141414;}
+  #linkPicker .lpBtnOk:disabled{background:#bdbdbd; border-color:#bdbdbd; color:#fff; opacity:1;}
+  #linkPicker .lpBtnPron{background:#f4f4f4; color:#141414; border:1px solid #cfcfcf;}
+  #linkPicker .lpPronStatus{color:#1e7d32;}
+  #linkPicker .lpPronStatus b{color:#141414;}
+  #linkPicker .lpToolTitle{color:#141414;}
+  #linkPicker .lpToolTitle b{color:#141414;}
+  #linkPicker .lpWill{color:#1e7d32;}
+  #linkPicker .lpWill b{color:#141414;}
+  #linkPicker .lpPauseBox{color:#141414;}
+  #linkPicker .lpPauseBox .lpRule{background:#f4f4f4; border-color:#d6d6d6;}
+  #linkPicker .lpPauseBox .lpRule b{color:#141414;}
+  #linkPicker .lpToolMsg{color:#666;} #linkPicker .lpToolMsg.ok{color:#1e7d32;} #linkPicker .lpToolMsg.err{color:#c62828;}
+  #linkPicker .lpLinkBtn{color:#0b57d0; text-decoration-color:rgba(11,87,208,.45);}
+  #linkPicker .lpChip{color:#141414; border-color:#cfcfcf;}
+  #linkPicker .lpChip.on{background:#141414; border-color:#141414; color:#fff;}
+  #linkPicker .lpChipWord.active{border-color:#bdbdbd;}
+  #linkPicker .lpBox.spellMode .lpChip{color:#333; background:transparent;}
+  #linkPicker .lpBox.spellMode .lpChip.on{color:#000; background:transparent; text-decoration-color:#000;}
+  #linkPicker .lpBox.spellMode .lpChip + .lpChip::before{color:#aaa;}
+  #linkPicker .lpBox.spellMode .lpChip:active{background:#efefef;}
   /* v530: stress chips + arrows; picker at the top while typing */
   .lpSpellFrom{font-size:13px; color:var(--muted); margin:6px 2px 0;}
   .lpSpellFrom:empty{display:none;}
@@ -7050,7 +7109,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v533';
+const APP_VERSION = 'v534';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -16939,7 +16998,72 @@ const lpSyl = (function(){
     for(const langs of sigs){ const s = new Set(langs); p = p ? new Set([...p].filter(x => s.has(x))) : s; }
     return p && p.size ? p : null;
   }
-  return { choices, writtenGroups, parse, signals, profileOf };
+  // v534: a first guess from the spelling alone, for words nothing is known about yet —
+  // "difficult" -> "DIF-ih-kuhlt". Only a starting point for the lists and arrows.
+  const BLEND = /^(bl|br|cl|cr|dr|fl|fr|gl|gr|pl|pr|tr|sc|sk|sl|sm|sn|sp|st|sw|tw|wr|kn)$/;
+  const DIG = ['tch', 'sch', 'ch', 'sh', 'th', 'ph', 'wh', 'ck', 'gh', 'qu', 'ng'];
+  function consSound(c, nextV, atStart){
+    let out = '', i = 0;
+    if(atStart && /^(kn|wr|gn|ps)/.test(c)){ c = c.slice(1); }
+    while(i < c.length){
+      const d = DIG.find(x => c.startsWith(x, i));
+      if(d){ out += ({ tch: 'ch', sch: 'sk', ph: 'f', wh: 'w', ck: 'k', gh: '', qu: 'kw' })[d] ?? d; i += d.length; continue; }
+      const ch = c[i], last = i === c.length - 1, soft = last && /^[eiy]/.test(nextV || '');
+      if(ch === c[i + 1] && ch !== 'c'){ i++; continue; }                  // doubled letter: once
+      out += ch === 'c' ? (soft ? 's' : 'k') : ch === 'x' ? 'ks' : ch === 'q' ? 'k' : ch === 'y' ? 'y' : ch;
+      i++;
+    }
+    return out;
+  }
+  function guess(word){
+    let w = String(word || '').toLowerCase().replace(/ł/g, 'w').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+    if(!/[aeiouy]/.test(w)) return null;
+    // endings English says as one unit
+    let tail = '';
+    const T = [['tion', 'shuhn'], ['sion', 'zhuhn'], ['ture', 'cher'], ['cial', 'shuhl'], ['tial', 'shuhl'], ['cious', 'shuhs'], ['tious', 'shuhs']];
+    for(const [e, say] of T) if(w.length > e.length + 1 && w.endsWith(e)){ tail = say; w = w.slice(0, -e.length); break; }
+    const g = writtenGroups(w, 99) || (function(){ const out = []; let pre = '', i = 0;
+      const isV = (k) => /[aeiou]/.test(w[k]) || (w[k] === 'y' && k > 0 && !/[aeiou]/.test(w[k + 1] || ''));
+      while(i < w.length){ if(isV(i)){ let v = ''; while(i < w.length && isV(i)) v += w[i++]; out.push({ v, pre, post: '' }); pre = ''; } else { pre += w[i]; if(out.length) out[out.length - 1].post += w[i]; i++; } }
+      return out; })();
+    if(!g.length) return tail ? tail.toUpperCase() : null;
+    // silent final e: drop it and lengthen the vowel before ("cane" -> kayn)
+    let magic = false, silentE = false;
+    if(g.length > 1 && g[g.length - 1].v === 'e' && /[^aeiou]e$/.test(w)){
+      g.pop(); silentE = true;
+      magic = /[aeiouy][^aeiouy]e$/.test(w) && g[g.length - 1].v.length === 1;   // one consonant before the e: long vowel
+    }
+    const syl = g.map(x => ({ on: '', v: x.v, co: '' }));
+    syl[0].on = g[0].pre;
+    for(let k = 1; k < g.length; k++){
+      const cl = g[k].pre;                                         // consonants between syllable k-1 and k
+      let split = cl.length <= 1 ? 0 : (cl.length === 2 && (BLEND.test(cl) || DIG.includes(cl))) ? 0 : 1;
+      if(cl.length >= 3) split = DIG.some(d => cl.endsWith(d)) || BLEND.test(cl.slice(-2)) ? cl.length - 2 : cl.length - 1;
+      if(cl === 'x'){ syl[k - 1].co = 'k'; syl[k].on = 's'; continue; }
+      syl[k - 1].co = cl.slice(0, split); syl[k].on = cl.slice(split);
+      if(syl[k - 1].co && syl[k - 1].co.slice(-1) === syl[k].on[0]) syl[k - 1].co = syl[k - 1].co.slice(0, -1);   // "dif-fi" -> "di-fi"
+    }
+    const lastG = g[g.length - 1];
+    syl[syl.length - 1].co = (silentE ? w.slice(w.lastIndexOf(lastG.v) + lastG.v.length, -1) : lastG.post);
+    const n = syl.length;
+    const parts = syl.map((x, k) => {
+      const nextV = k + 1 < n ? syl[k + 1].v : '';
+      let v = (LETTER_V[x.v.length > 2 ? x.v.slice(0, 2) : x.v] || LETTER_V[x.v[0]] || ['uh'])[0];
+      if(magic && k === n - 1) v = ({ a: 'ay', e: 'ee', i: 'eye', o: 'oh', u: 'yoo', y: 'eye' })[x.v] || v;
+      else if(!x.co && k === n - 1) v = ({ o: 'oh', i: 'ee', y: 'ee', a: 'uh', u: 'oo' })[x.v] || v;
+      else if(n > 1 && k > 0 && x.v.length === 1 && x.v !== 'y') v = 'uh';     // later short vowels mostly reduce
+      const on = consSound(x.on, x.v, k === 0), co = consSound(x.co, k === n - 1 && silentE ? 'e' : nextV, false);
+      return build(on, v, co);
+    });
+    if(tail) parts.push(tail);
+    // stress: two syllables -> the first; -tion/-ic -> the one before; long Latin endings -> third from last
+    let at = 0;
+    if(tail || /ic$|ical$/.test(word.toLowerCase())) at = Math.max(0, parts.length - 2);
+    else if(parts.length >= 3 && /(ia|ius|ium|ity|ea|eus)$/.test(word.toLowerCase())) at = parts.length - 3;
+    if(parts[at] && at > 0){ const p0 = parse(parts[at]); if(p0 && p0.v === 'uh'){ const gg = g[at] || g[g.length - 1]; parts[at] = build(p0.on, (LETTER_V[gg.v] || LETTER_V[gg.v[0]] || ['uh'])[0], p0.co); } }
+    return parts.map((x, k) => k === at ? x.toUpperCase() : x).join('-');
+  }
+  return { choices, writtenGroups, parse, signals, profileOf, guess };
 })();
 let lpTool = null;   // null | 'spell' | 'pause'
 let lpPausePlanNow = null;
@@ -16982,6 +17106,7 @@ function lpCandsFor(written){
   const fx = lpFixes && lpFixes.get(k); if(fx && fx.ipa) addC('fix', fx.ipa);
   const st = lpStoryWords && lpStoryWords.get(k);
   if(st) Object.entries(st.cands || {}).forEach(([src, ph]) => addC(src, ph));
+  const wn = lpWordsNow.get(k) || lpWordsNow.get(k.toLowerCase()); if(wn) addC('kokoro', wn);   // v534
   return out;
 }
 const lpSound = (x) => { try{ return lpRespell(String(x).toLowerCase()); }catch(e){ return String(x).toLowerCase(); } };
@@ -17070,6 +17195,7 @@ document.getElementById('lpStress').addEventListener('click', (e) => {
 });
 // ---- v530: where the box starts — the saved fix, else Kokoro's own reading from the story ----
 let lpStoryWords = null;   // Map: word -> Kokoro's reading
+let lpWordsNow = new Map();  // v534: Kokoro's reading of every article word (words.json)
 async function lpLoadStoryWords(){
   if(lpStoryWords) return lpStoryWords;
   let j = null;
@@ -17082,6 +17208,21 @@ async function lpLoadStoryWords(){
     }
   }catch(e){}
   if(!j){ try{ const r = await fetch('pronunciation/story/story.json?t=' + Date.now(), { cache: 'no-store' }); if(r.ok) j = await r.json(); }catch(e){} }
+  // v534: every article word as Kokoro reads it
+  const getJson = async (path) => {
+    try{
+      const g = wlGh();
+      if(g.owner && g.repo && g.token){
+        const r = await fetch('https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' + path + '?ref=' + encodeURIComponent(g.branch) + '&t=' + Date.now(),
+          { headers: Object.assign({}, g.hdr, { 'Accept': 'application/vnd.github.raw+json' }), cache: 'no-store' });
+        if(r.ok) return await r.json();
+      }
+    }catch(e){}
+    try{ const r = await fetch(path + '?t=' + Date.now(), { cache: 'no-store' }); if(r.ok) return await r.json(); }catch(e){}
+    return null;
+  };
+  const wj = await getJson('pronunciation/story/words.json');
+  lpWordsNow = new Map(Object.entries((wj && wj.words) || {}));
   lpStoryWords = new Map();
   Object.entries((j && j.words) || {}).forEach(([w, v]) => {
     if(v && v.kokoro) lpStoryWords.set(w, { kokoro: v.kokoro, cands: v.cands && typeof v.cands === 'object' ? v.cands : { kokoro: v.kokoro } });
@@ -17089,17 +17230,24 @@ async function lpLoadStoryWords(){
   return lpStoryWords;
 }
 function lpGuideFor(key){
-  // A saved fix for the whole phrase wins; otherwise each word from its saved fix or the story.
+  // A saved fix for the whole phrase wins; otherwise each word from its saved fix, the story,
+  // every-word list (v534), or a guess from the spelling (v534).
   const fx = lpFixes && lpFixes.get(key);
   if(fx && fx.ipa){ try{ return { guide: lpGuideOf(fx.ipa), from: 'fix' }; }catch(e){} }
   const words = key.split(/\s+/).filter(Boolean), out = [];
   let from = 'fix';
+  const rank = { fix: 0, now: 1, guess: 2 };
   for(const w of words){
     const k = lpCleanPhrase(w), f = lpFixes && lpFixes.get(k);
-    let ph = f && f.ipa ? f.ipa : '';
-    if(!ph && lpStoryWords && lpStoryWords.get(k)){ ph = lpStoryWords.get(k).kokoro; from = 'story'; }
-    if(!ph) return null;
-    try{ out.push(lpGuideOf(ph)); }catch(e){ return null; }
+    let ph = f && f.ipa ? f.ipa : '', src = 'fix';
+    if(!ph){ const st = lpStoryWords && lpStoryWords.get(k); if(st){ ph = st.kokoro; src = 'now'; } }
+    if(!ph){ const wn = lpWordsNow.get(k) || lpWordsNow.get(k.toLowerCase()); if(wn){ ph = wn; src = 'now'; } }
+    let g = null;
+    if(ph){ try{ g = lpGuideOf(ph); }catch(e){} }
+    if(!g){ try{ g = lpSyl.guess(k); }catch(e){} src = 'guess'; }
+    if(!g) return null;
+    out.push(g);
+    if(rank[src] > rank[from]) from = src;
   }
   return out.length ? { guide: out.join(' '), from } : null;
 }
@@ -17185,19 +17333,17 @@ async function lpOpenSpell(keep){
   const fill = () => {
     const got = lpGuideFor(lpSpellKey());
     inp.value = got ? got.guide : '';
-    from.textContent = !got || got.from === 'fix' ? '' : 'As it\u2019s said now';   // a saved fix is already shown as "Already fixed"
+    from.textContent = !got || got.from === 'fix' ? '' : got.from === 'guess' ? 'A guess from the spelling \u2014 adjust it' : 'As it\u2019s said now';
     lpSpellUpdate();
     return !!got;
   };
-  if(!fill()){
+  if(!lpStoryWords){
+    inp.value = ''; lpSpellUpdate();
     from.textContent = 'Looking up how it\u2019s said now\u2026';
-    await lpLoadStoryWords();
+    await lpLoadStoryWords();                                                    // v534: wait, so a word starts from Kokoro's reading
     if(lpTool !== 'spell') return;
-    if(!fill()){ from.textContent = 'Nothing known yet \u2014 type how it should sound.'; lpTyping(true); }
-  }else if(!lpStoryWords){
-    await lpLoadStoryWords();                                                    // v531: the known pronunciations for the lists
-    if(lpTool === 'spell') lpRenderStress();
   }
+  if(!fill()){ from.textContent = 'Type how it should sound.'; lpTyping(true); }
 }
 document.getElementById('lpSpell').addEventListener('click', () => lpOpenSpell(false));
 document.getElementById('lpTypeIt').addEventListener('click', () => lpTyping(true));
