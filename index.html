@@ -1,6 +1,6 @@
 <!--
-VERSION: 531
-DATE: 2026-10-04T17:00:00-05:00
+VERSION: 532
+DATE: 2026-10-04T18:10:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,22 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v532 — 2026-10-04
+
+**Ask:**
+- Screenshot: the picker at the top was cut off — no Spell/Pause buttons, no Cancel/OK, the
+  "Link this text to" heading half under the status bar.
+
+**Implementation:**
+- Cause: at the top, the picker was sized to the visible area while the keyboard was up, and only
+  re-sized on visualViewport resize/scroll events, which iOS doesn't reliably send (notably in the
+  home-screen app) when the keyboard closes. The box kept the small keyboard-time height and
+  scrolled its own content, hiding the bottom and pushing the heading up.
+- While the picker is open, lpFitViewport now also runs every 250 ms (cheap; it only writes when
+  something changed), and on focusout and window resize. With no keyboard (visible height at
+  least 85% of the window) the size limits are removed and the box scrolls back to its top; with
+  the keyboard up it fits the visible area as before.
+
 ## v531 — 2026-10-04
 
 **Ask:**
@@ -6987,7 +7003,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v531';
+const APP_VERSION = 'v532';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -16494,6 +16510,7 @@ function openLinkPicker(x, y){
   lpRenderPhrase();
   lpRunSearch(initialWord);
   lpToolClose();                             // v529: always open on the main view
+  lpWatchViewport(true);                     // v532
   lpLoadFixes().then(lpUpdatePronStatus);   // v524
   document.getElementById('linkPicker').classList.add('open');
   document.getElementById('lpOk').disabled = true;
@@ -17048,11 +17065,27 @@ function lpPlaceTop(on){
 }
 function lpFitViewport(){
   const pk = document.getElementById('linkPicker'), box = pk.querySelector('.lpBox');
-  if(!pk.classList.contains('top') || !window.visualViewport){ box.style.maxHeight = ''; pk.style.top = ''; pk.style.height = ''; return; }
   const vv = window.visualViewport;
-  pk.style.top = vv.offsetTop + 'px'; pk.style.height = vv.height + 'px';   // the overlay = exactly the visible area
-  box.style.maxHeight = Math.max(200, vv.height - 8) + 'px';
+  const full = document.documentElement.clientHeight || window.innerHeight;
+  const keyboard = !!vv && vv.height < full * 0.85;
+  if(!pk.classList.contains('top') || !vv || !keyboard){
+    // no keyboard: no limits, and show the box from its top (v532 — the limits used to stay behind)
+    if(pk.style.height || box.style.maxHeight){ box.style.maxHeight = ''; pk.style.top = ''; pk.style.height = ''; box.scrollTop = 0; }
+    return;
+  }
+  const top = vv.offsetTop + 'px', h = vv.height + 'px', mh = Math.max(200, vv.height - 8) + 'px';
+  if(pk.style.top !== top) pk.style.top = top;
+  if(pk.style.height !== h) pk.style.height = h;                     // the overlay = exactly the visible area
+  if(box.style.maxHeight !== mh) box.style.maxHeight = mh;
 }
+// v532: iOS doesn't reliably report the keyboard closing, so check while the picker is open.
+let lpFitTimer = null;
+function lpWatchViewport(on){
+  if(on && !lpFitTimer) lpFitTimer = setInterval(lpFitViewport, 250);
+  if(!on && lpFitTimer){ clearInterval(lpFitTimer); lpFitTimer = null; }
+}
+document.getElementById('linkPicker').addEventListener('focusout', () => setTimeout(lpFitViewport, 350));
+window.addEventListener('resize', lpFitViewport);
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize', lpFitViewport);
   window.visualViewport.addEventListener('scroll', lpFitViewport);
@@ -17274,6 +17307,7 @@ document.getElementById('artBody').addEventListener('contextmenu', (e) => {
 function closeLinkPicker(){
   lpToolClose();
   lpPlaceTop(false);
+  lpWatchViewport(false);
   document.getElementById('linkPicker').classList.remove('open');
   lpState = null;
   lpSelectedTarget = null;
