@@ -1,6 +1,6 @@
 <!--
-VERSION: 529
-DATE: 2026-10-04T13:30:00-05:00
+VERSION: 531
+DATE: 2026-10-04T17:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,62 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v531 — 2026-10-04
+
+**Ask:**
+- Once a syllable is picked, narrow the other syllables' choices: (1) by the pronunciations
+  already known for the word, (2) by the language the pick reveals.
+
+**Implementation:**
+- (1) Known pronunciations: the pronunciation story now saves every candidate per word
+  ("cands": reference list, Claude's hint, Wiktionary, Kokoro — listener-level duplicates
+  removed). Each syllable's list starts with a "Known pronunciations" group: that syllable as said
+  by every candidate that agrees with the syllables you've picked (all candidates before any pick),
+  labelled by source (your fix, reference, hint, Wiktionary, Kokoro now). Candidates whose
+  syllable count differs from the box are skipped. The usual choices follow under "Other
+  possibilities".
+- (2) Language: each choice is tagged with the languages that read the letters that way (w→v and
+  j→y Polish/German/Dutch, j→h Spanish, soft c→ch Italian, z→ts Italian/German, a→"a"/"ay",
+  i/y→"eye", u→"yoo" English). The syllables you picked from a list set the profile (what they agree
+  on); the other lists drop choices from other languages. No picks, or picks that disagree: nothing
+  is narrowed. Typing in the box clears the picks.
+- Old story files (no "cands") still work: Kokoro's reading is used as the only candidate.
+
+## v530 — 2026-10-04
+
+**Ask:**
+- When the sounds are right but the stress is wrong, pick the stressed syllable with arrows
+  instead of retyping.
+- The picker sits at the bottom, the keyboard covers it, and the screen shifts back and forth
+  while typing.
+
+**Implementation:**
+- Spell it yourself shows the respelling as syllable chips with the stressed one highlighted
+  ("kar · PEN · ter"); ◀ ▶ move the stress.
+- Tapping a chip opens the phone's own list of the realistic alternatives for that syllable, each
+  shown as the whole word ("kar-PIN-ter"), plus "Stress this syllable". lpSyl matches the written
+  vowels to the syllables (silent final e dropped; a vowel run split where needed — Nicaea keeps
+  Latin "ae", Santiago splits "ia") and offers only what those letters can say (a: a/ah/ay/aw/uh;
+  ae: ee/eh/ay/eye; au: aw/ow/oh; r-coloured sets before r; "uh" for unstressed syllables), plus the
+  consonants the spelling allows (ch: ch/k/sh; th: th/t; j: j/y/h; Polish w: w/v; c and g soft only
+  before e/i/y; s->z only between vowels; ł stays w). Choices are compared by sound (no "pen" and
+  "pehn" twice) and must stay one syllable. If the letters can't be matched, common vowel swaps for
+  that syllable are offered instead. At most 7 per syllable. Each change rewrites the box
+  and "Will say:". With several words, the arrows act on the word last touched (default: the first
+  word of more than one syllable).
+- The box starts from how the word is said now: the saved fix if there is one, otherwise Kokoro's
+  own reading from the pronunciation story (pronunciation/story/story.json, read fresh from GitHub,
+  else the site copy), word by word for a phrase. Pre-filled: no keyboard pops up. Empty: the
+  box is focused for typing. A line says where it started from. Round trip sounds → respelling →
+  sounds checked on 20 typical words: identical apart from notation clean-ups (Kokoro's "Y" for
+  "ɔɪ", one primary stress per word, stress mark on the vowel, secondary stress dropped).
+- "Will say:" keeps the syllables as typed and shows each as the converter reads it (picking "zah"
+  shows "NA-zah-ruhth", not the same sounds re-divided as "NA-zar-uhth").
+- Keyboard: whenever the picker needs typing (Spell it yourself, or tapping the search box) it moves
+  to the TOP of the screen and stays there until closed, so the keyboard opens below it; its height
+  follows the visible area (visualViewport) so nothing is hidden, and the field is focused with
+  preventScroll so iOS doesn't shift the page.
+
 ## v529 — 2026-10-04
 
 **Ask:**
@@ -4518,6 +4574,24 @@ CHANGELOG:END
   .lpWill{min-height:26px; margin:10px 2px 4px; font-size:17px; color:#9fd6a8;}
   .lpWill b{color:#fff; letter-spacing:.03em;}
   .lpToolHint{font-size:13px; color:var(--muted); margin:0 2px 12px;}
+  /* v530: stress chips + arrows; picker at the top while typing */
+  .lpSpellFrom{font-size:13px; color:var(--muted); margin:6px 2px 0;}
+  .lpSpellFrom:empty{display:none;}
+  .lpStress{display:flex; align-items:center; gap:8px; margin:12px 0 2px;}
+  .lpStress:empty{display:none;}
+  .lpStress .lpArrow{width:44px; height:44px; font-size:20px;}
+  .lpChips{flex:1; display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:6px 4px;}
+  .lpChipWord{display:flex; gap:4px; padding:3px; border-radius:12px; border:1px solid transparent;}
+  .lpChipWord.active{border-color:rgba(201,165,66,.45);}
+  .lpChipWord + .lpChipWord{margin-left:8px;}
+  .lpChip{position:relative; display:inline-block; min-width:36px; padding:8px 18px 8px 9px; border-radius:9px; border:1px solid rgba(201,165,66,.3); background:transparent;
+    color:var(--parchment); font-size:16px; text-align:center; cursor:pointer; touch-action:manipulation;}
+  .lpChip::after{content:'\25BE'; position:absolute; right:5px; top:50%; transform:translateY(-50%); font-size:11px; opacity:.6;}
+  .lpChip select{position:absolute; inset:0; width:100%; height:100%; opacity:0; font-size:16px; cursor:pointer; -webkit-appearance:none; appearance:none;}
+  .lpChip.on{background:var(--gold); border-color:var(--gold); color:var(--navy-deep); font-weight:700;}
+  .linkPicker.top{align-items:flex-start;}
+  .linkPicker.top .lpBox{border-radius:0 0 16px 16px; padding-top:calc(14px + env(safe-area-inset-top, 0px)); overflow-y:auto; -webkit-overflow-scrolling:touch;}
+  @media (min-width:560px){ .linkPicker.top .lpBox{ border-radius:16px; margin:4vh 0 0; } }
   .lpPauseBox{font-size:16px; color:var(--parchment); line-height:1.5; margin:0 0 12px;}
   .lpPauseBox .lpRule{display:block; margin:6px 0; padding:10px 12px; border-radius:10px; background:var(--navy-deep); border:1px solid rgba(201,165,66,.3);}
   .lpPauseBox .lpRule b{color:var(--gold-bright); font-weight:600;}
@@ -5915,8 +5989,10 @@ CHANGELOG:END
       <div class="lpToolTitle" id="lpToolTitle"></div>
       <div class="lpSpellBox" id="lpSpellBox">
         <input type="text" class="lpSearchInput" id="lpSpellIn" placeholder="e.g. KRAH-koof" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <div class="lpSpellFrom" id="lpSpellFrom"></div>
+        <div class="lpStress" id="lpStress"></div>
         <div class="lpWill" id="lpWill"></div>
-        <div class="lpToolHint">Stressed part in CAPITALS, parts joined with hyphens, a space between words.</div>
+        <div class="lpToolHint">Stressed part in CAPITALS, parts joined with hyphens, a space between words &mdash; or move the stress with the arrows.</div>
       </div>
       <div class="lpPauseBox" id="lpPauseBox"></div>
       <div class="lpToolMsg" id="lpToolMsg"></div>
@@ -6911,7 +6987,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v529';
+const APP_VERSION = 'v531';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -16645,6 +16721,162 @@ function guideWordToPhonemes(word){
 }
   return guideToPhonemes;
 })();
+// ---- v530: syllable choices — the realistic alternatives for one syllable of a respelling ----
+const lpSyl = (function(){
+  // Respelling vowel spellings, longest first (as the respelling converter reads them).
+  const VTOK = ['eye','igh','air','eer','ear','oor','yoo','uu','ay','ai','ee','ea','oo','ew','ou','ow','oh','oa','oy','oi','aw','au','ah','uh','ih','eh','er','ur','ir','ar','or','a','e','i','o','u'];
+  // What a written vowel (group) can sound like, most likely first.
+  const LETTER_V = {
+    a:['a','ah','ay','aw','uh'], e:['eh','ee','ay','uh','ih'], i:['ih','ee','eye','uh'], o:['ah','oh','aw','uh','oo'],
+    u:['uh','oo','uu','yoo'], y:['ih','ee','eye'],
+    ae:['ee','eh','ay','eye'], ai:['ay','eye','eh'], au:['aw','ow','oh'], aw:['aw','ah'], ay:['ay','eye'], ea:['ee','eh','ay'],
+    ee:['ee','ay'], ei:['ay','eye','ee'], eu:['yoo','oo','oy'], ey:['ay','ee'], ie:['ee','eye','yeh'], oa:['oh','aw'],
+    oe:['ee','oh','eh'], oi:['oy','wah'], oo:['oo','uu','oh'], ou:['ow','oo','oh','uh'], ow:['ow','oh'], oy:['oy'],
+    ue:['oo','yoo','way'], ui:['wee','ih','oo'], uo:['woh','oo']
+  };
+  const R_V = { a:['ar','air','er'], e:['er','air','eer'], i:['er','eer'], o:['or','er'], u:['er','oor'], y:['er','eer'] };
+  // When the letters can't be matched to syllables: swaps a listener most often hears.
+  const CONF = { a:['ah','ay','eh','uh'], ah:['a','aw','oh','uh'], ay:['eh','ee','eye','a'], aw:['ah','oh'], eh:['a','ay','ih','uh'],
+    ee:['ih','ay','eye'], ih:['ee','eh','uh','eye'], eye:['ee','ay','ih'], oh:['aw','oo','ah','uh'], oo:['uu','oh','yoo'],
+    uu:['oo','uh'], uh:['ah','ih','eh','oh'], ow:['oh','aw'], oy:['oh','wah'], er:['air','ar','or'], ar:['or','air','er'],
+    or:['ar','er'], air:['ar','eer','er'], eer:['air','ee'], yoo:['oo','uh'], ay2:[] };
+  // Written consonant -> the sounds it can make (respelling spellings).
+  const CONS = { ch:['ch','k','sh'], c:['k','s','ch'], g:['g','j'], j:['j','y','h'], th:['th','t'], s:['s','z'], w:['w','v'], x:['ks','z','h'], z:['z','ts'], sz:['sh'], cz:['ch'], rz:['zh'] };
+  // v531: which languages read a letter that way. A picked syllable that shows a language
+  // (Polish w -> v, Spanish j -> h, Italian c -> ch, English a -> "ay"...) narrows the others.
+  const EN = ['en'], PLDE = ['pl', 'de', 'nl'], ES = ['es'], IT = ['it'], ITDE = ['it', 'de'], SOFT_C = ['en', 'fr', 'es', 'la'], Z_PLAIN = ['en', 'fr', 'pl', 'es', 'la'];
+  const CONS_LANG = { w: { v: PLDE, w: EN }, j: { y: PLDE, h: ES, j: EN }, c: { ch: IT, s: SOFT_C }, z: { ts: ITDE, z: Z_PLAIN } };
+  function vowelLang(letters, v){
+    if(letters === 'a' && (v === 'a' || v === 'ay')) return EN;
+    if((letters === 'i' || letters === 'y') && v === 'eye') return EN;
+    if(letters === 'u' && v === 'yoo') return EN;
+    return null;
+  }
+  const DIGRAPH = new Set(['ae','ai','au','aw','ay','ea','ee','ei','eu','ey','ie','oa','oe','oi','oo','ou','ow','oy','ue','ui','uo']);
+
+  function parse(part){
+    // "pen" -> { on:'p', v:'e', co:'n' };  "nye" -> { on:'n', v:'eye', co:'' }
+    const p = part.toLowerCase();
+    if(p.startsWith('yoo')) return { on: '', v: 'yoo', co: p.slice(3) };
+    let i = 0;
+    while(i < p.length){
+      if(p[i] === 'y'){
+        if(i > 0 && p[i + 1] === 'e' && !/[aeiou]/.test(p[i + 2] || '') && p[i + 2] !== 'h') return { on: p.slice(0, i), v: 'eye', co: p.slice(i + 2), ye: true };
+        if(i === 0 || /[aeiou]/.test(p[i + 1] || '')){ i++; continue; }      // "y" as in "yes": a consonant
+        return { on: p.slice(0, i), v: 'ih', co: p.slice(i + 1) };
+      }
+      const t = VTOK.find(x => p.startsWith(x, i));
+      if(t && !(t === 'yoo' && i > 0)) return { on: p.slice(0, i), v: t, co: p.slice(i + t.length) };
+      i++;
+    }
+    return null;
+  }
+  function build(on, v, co){
+    if(v === 'eye' && on){
+      if(!co) return on + 'ye';
+      if(/^(ch|sh|th|[bcdfgjklmnpstvz])$/.test(co)) return on + 'y' + co + 'e';
+    }
+    return on + v + co;
+  }
+  function writtenGroups(word, want){
+    let w = String(word || '').toLowerCase().replace(/ł/g, 'q').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+    const g = []; let pre = '', i = 0;
+    while(i < w.length){
+      const isV = (k) => /[aeiou]/.test(w[k]) || (w[k] === 'y' && k > 0 && !/[aeiou]/.test(w[k + 1] || ''));
+      if(isV(i)){ let v = ''; while(i < w.length && isV(i)) v += w[i++]; g.push({ v, pre, post: '' }); pre = ''; }
+      else { pre += w[i]; if(g.length) g[g.length - 1].post += w[i]; i++; }
+    }
+    if(g.length > want && g.length && g[g.length - 1].v === 'e' && /e$/.test(w)) g.pop();   // silent final e
+    // too few written vowels for the syllables: split a non-digraph pair ("ia" in Santiago)
+    let guard = 0;
+    while(g.length < want && guard++ < 6){
+      // a run of 3+ vowels starting with a pair keeps the pair ("aea" in Nicaea -> "ae" + "a");
+      // otherwise a pair that isn't a digraph splits first ("ia" in Santiago -> "i" + "a")
+      let k = g.findIndex(x => x.v.length >= 3), at = 0;
+      if(k >= 0) at = DIGRAPH.has(g[k].v.slice(0, 2)) ? 2 : 1;
+      else { k = g.findIndex(x => x.v.length === 2 && !DIGRAPH.has(x.v)); if(k < 0) k = g.findIndex(x => x.v.length >= 2); at = 1; }
+      if(k < 0) break;
+      const x = g[k];
+      g.splice(k, 1, { v: x.v.slice(0, at), pre: x.pre, post: '' }, { v: x.v.slice(at), pre: '', post: x.post });
+    }
+    return g.length === want ? g : null;
+  }
+  // All the choices for syllable si of one word: [{ part, label }] — the current one first.
+  // What a syllable, as written now, says about the word's language: a list of language sets.
+  function signals(parts, si, written){
+    const ps = parse(parts[si]); if(!ps) return [];
+    const groups = written ? writtenGroups(written, parts.length) : null, grp = groups ? groups[si] : null;
+    if(!grp) return [];
+    const out = [], cl = grp.pre, soft = /^[eiy]/.test(grp.v);
+    const vl = vowelLang(grp.v, ps.v); if(vl) out.push(vl);
+    const check = (L, where) => {
+      const m = CONS_LANG[L]; if(!m) return;
+      const now = Object.keys(m).sort((a, b) => b.length - a.length).find(o => where === 'start' ? ps.on.startsWith(o) : ps.on.endsWith(o));
+      if(now) out.push(m[now]);
+    };
+    if(cl.startsWith('w')) check('w', 'start');
+    if(cl.startsWith('j')) check('j', 'start');
+    const last = cl.slice(-2) === 'ch' || cl.slice(-2) === 'th' || /[scr]z$/.test(cl) ? '' : cl.slice(-1);
+    if(last === 'c' && soft) check('c', 'end');
+    if(last === 'z') check('z', 'end');
+    return out;
+  }
+  function choices(parts, si, written, ctx){
+    const profile = ctx && ctx.profile && ctx.profile.size ? ctx.profile : null;
+    const fits = (langs) => !profile || !langs || langs.some(l => profile.has(l));
+    const cur = parts[si], stressed = cur === cur.toUpperCase() && /[A-Z]/.test(cur);
+    const ps = parse(cur);
+    if(!ps) return [];
+    const groups = written ? writtenGroups(written, parts.length) : null;
+    const grp = groups ? groups[si] : null;
+    let vs;
+    if(grp){
+      const rCol = /r$/.test(ps.v) && ps.v !== 'oor' ? true : /^r/.test(grp.post);
+      const key = grp.v.length > 2 ? grp.v.slice(0, 2) : grp.v;
+      vs = (rCol && R_V[grp.v[0]] && /r/.test(ps.v)) ? R_V[grp.v[0]] : (LETTER_V[key] || LETTER_V[grp.v[0]] || []);
+      if(!stressed) vs = vs.concat(['uh']);
+    }else vs = CONF[ps.v] || [];
+    // compared by SOUND ("pen" and "pehn" are the same), and a choice must stay one syllable
+    const sound = (x) => { try{ return lpRespell(x.toLowerCase()); }catch(e){ return x; } };
+    const nV = (ph) => (String(ph).match(/[AIOWYæɑɔəɛɪiuʊʌɜ]/g) || []).length;
+    const out = [], seen = new Set([sound(cur)]);
+    const add = (syl) => {
+      const s2 = stressed ? syl.toUpperCase() : syl.toLowerCase(), ph = sound(s2);
+      if(seen.has(ph) || nV(ph) !== 1) return;
+      seen.add(ph); out.push(s2);
+    };
+    vs.forEach(v => { if(fits(grp ? vowelLang(grp.v, v) : null)) add(build(ps.on, v, ps.co)); });
+    // consonants the spelling allows to change
+    const cl = grp ? grp.pre : '', soft = grp && /^[eiy]/.test(grp.v);
+    const swap = (letters, where) => {
+      // a hard c or g (before a, o, u or a consonant) only says k / g; s -> z only between vowels
+      const opts = CONS[letters].filter(o => !(((letters === 'c' && (o === 's' || o === 'ch')) || (letters === 'g' && o === 'j')) && !soft)
+        && !(letters === 's' && o === 'z' && !(si > 0 && cl === 's')));
+      if(opts.length < 2) return;
+      const now = opts.find(o => where === 'start' ? ps.on.startsWith(o) : ps.on.endsWith(o));
+      if(!now) return;
+      opts.forEach(o => {
+        if(o === now) return;
+        if(!fits(CONS_LANG[letters] && CONS_LANG[letters][o])) return;
+        const on2 = where === 'start' ? o + ps.on.slice(now.length) : ps.on.slice(0, ps.on.length - now.length) + o;
+        add(build(on2, ps.v, ps.co));
+      });
+    };
+    // ch / th / j / w / x where the cluster starts; c / g / s / z only right before the vowel
+    for(const L of ['ch', 'th', 'sz', 'cz', 'rz', 'j', 'w', 'x']) if(cl.startsWith(L)){ swap(L, 'start'); break; }
+    const last = cl.slice(-2) === 'ch' || cl.slice(-2) === 'th' ? '' : cl.slice(-1);
+    if(['c', 'g', 's', 'z', 'j', 'w'].includes(last) && !(cl.length === 1 && ['j', 'w'].includes(last))) swap(last, 'end');
+    return out.slice(0, 7);
+  }
+  // The language profile from a set of picked syllables: what they all agree on (null = no signal
+  // or they disagree, so nothing is narrowed).
+  function profileOf(sigs){
+    let p = null;
+    for(const langs of sigs){ const s = new Set(langs); p = p ? new Set([...p].filter(x => s.has(x))) : s; }
+    return p && p.size ? p : null;
+  }
+  return { choices, writtenGroups, parse, signals, profileOf };
+})();
 let lpTool = null;   // null | 'spell' | 'pause'
 let lpPausePlanNow = null;
 const LP_RULES_PATH = 'pronunciation/catholic-timeline-pronunciation.json';
@@ -16668,25 +16900,215 @@ function lpSpellKey(){ return lpCleanPhrase(lpCurrentPhrase()); }
 function lpSpellTitle(){
   document.getElementById('lpToolTitle').innerHTML = 'How should <b>' + esc(lpSpellKey()) + '</b> sound?';
 }
+// ---- v530: stress chips ----
+let lpStressWord = -1;   // which word the arrows act on
+// v531: syllables picked from a list ("wi:i"), and the known pronunciations of each word
+let lpPicked = new Set();
+const LP_SRC_LABEL = { fix: 'your fix', reference: 'reference', claude: 'hint', wiktionary: 'Wiktionary', kokoro: 'Kokoro now', luna: 'Luna' };
+function lpCandsFor(written){
+  const k = lpCleanPhrase(written || ''), out = [], seen = new Set();
+  const addC = (src, ph) => {
+    if(!ph) return;
+    let g; try{ g = lpGuideOf(ph); }catch(e){ return; }
+    const w = lpParseGuide(g)[0]; if(!w || lpParseGuide(g).length !== 1) return;
+    const key = w.parts.map(x => x.toLowerCase()).join('-'); if(seen.has(key)) return;
+    seen.add(key); out.push({ src, parts: w.parts.map(x => x.toLowerCase()) });
+  };
+  const fx = lpFixes && lpFixes.get(k); if(fx && fx.ipa) addC('fix', fx.ipa);
+  const st = lpStoryWords && lpStoryWords.get(k);
+  if(st) Object.entries(st.cands || {}).forEach(([src, ph]) => addC(src, ph));
+  return out;
+}
+const lpSound = (x) => { try{ return lpRespell(String(x).toLowerCase()); }catch(e){ return String(x).toLowerCase(); } };
+function lpParseGuide(txt){
+  return String(txt || '').trim().split(/\s+/).filter(Boolean).map(w => {
+    const parts = w.split(/[-\u2010-\u2014]+/).filter(x => /[a-z]/i.test(x));
+    const stress = parts.findIndex(x => /[A-Z]/.test(x) && x === x.toUpperCase());
+    return { parts, stress };
+  }).filter(w => w.parts.length);
+}
+function lpBuildGuide(words){
+  return words.map(w => { const at = w.stress < 0 ? 0 : w.stress;
+    return w.parts.map((x, i) => i === at ? x.toUpperCase() : x.toLowerCase()).join('-'); }).join(' ');
+}
+function lpRenderStress(){
+  const host = document.getElementById('lpStress');
+  const words = lpParseGuide(document.getElementById('lpSpellIn').value);
+  if(!words.length){ host.innerHTML = ''; return; }
+  if(lpStressWord < 0 || lpStressWord >= words.length || words[lpStressWord].parts.length < 2) lpStressWord = words.findIndex(w => w.parts.length > 1);
+  const cur = lpStressWord >= 0 ? words[lpStressWord] : null, at = cur ? (cur.stress < 0 ? 0 : cur.stress) : 0;
+  const written = lpSpellKey().split(/\s+/).filter(Boolean);
+  const wOf = (wi) => written.length === words.length ? written[wi] : null;
+  const guideNow = lpBuildGuide(words);
+  const partsCased = (w) => { const sAt = w.stress < 0 ? 0 : w.stress; return w.parts.map((x, k) => k === sAt ? x.toUpperCase() : x.toLowerCase()); };
+  const candsBy = words.map((w, wi) => wOf(wi) ? lpCandsFor(wOf(wi)).filter(c => c.parts.length === w.parts.length) : []);
+  const chip = (w, wi, i) => {
+    const sAt = w.stress < 0 ? 0 : w.stress, on = i === sAt;
+    const parts = partsCased(w);
+    // (2) the language your picks show — from every picked syllable except this one
+    const sigs = [];
+    lpPicked.forEach(key => { const [pw, pi] = key.split(':').map(Number); if((pw !== wi || pi !== i) && words[pw]) { try{ sigs.push(...lpSyl.signals(partsCased(words[pw]), pi, wOf(pw))); }catch(e){} } });
+    const profile = lpSyl.profileOf(sigs);
+    // (1) known pronunciations that agree with your picks in this word
+    const known = [], seenK = new Set([lpSound(parts[i])]);
+    candsBy[wi].filter(c => [...lpPicked].every(key => { const [pw, pi] = key.split(':').map(Number);
+        return pw !== wi || pi === i || lpSound(c.parts[pi]) === lpSound(parts[pi]); }))
+      .forEach(c => { const syl = on ? c.parts[i].toUpperCase() : c.parts[i].toLowerCase(), snd = lpSound(syl);
+        if(!seenK.has(snd)){ seenK.add(snd); known.push({ syl, src: c.src }); } });
+    let alts = [];
+    try{ alts = lpSyl.choices(parts, i, wOf(wi), { profile }).filter(x => !seenK.has(lpSound(x))); }catch(e){}
+    const labelWith = (syl) => { const ws = words.map((v, k) => k === wi ? { parts: parts.map((x, j) => j === i ? syl : x), stress: sAt } : v); return lpBuildGuide(ws); };
+    let opts = '<option value="" selected>' + esc(guideNow) + '  \u2713 now</option>';
+    if(known.length){
+      opts += '<optgroup label="Known pronunciations">' + known.map(k => '<option value="' + esc(k.syl) + '">' + esc(labelWith(k.syl)) + '  \u00b7 ' + esc(LP_SRC_LABEL[k.src] || k.src) + '</option>').join('') + '</optgroup>';
+      if(alts.length) opts += '<optgroup label="Other possibilities">';
+    }
+    alts.forEach(syl => { opts += '<option value="' + esc(syl) + '">' + esc(labelWith(syl)) + '</option>'; });
+    if(known.length && alts.length) opts += '</optgroup>';
+    if(!on && w.parts.length > 1) opts += '<option value="__stress">\u2605 Stress this syllable</option>';
+    return '<label class="lpChip' + (on && w.parts.length > 1 ? ' on' : '') + '">' + esc(parts[i].toLowerCase()) +
+      '<select data-w="' + wi + '" data-i="' + i + '" aria-label="Choices for ' + esc(parts[i].toLowerCase()) + '">' + opts + '</select></label>';
+  };
+  const arrows = !!cur;
+  host.innerHTML = (arrows ? '<button type="button" class="lpArrow" data-stress="-1" aria-label="Stress an earlier syllable"' + (at <= 0 ? ' disabled' : '') + '>&#9664;</button>' : '') +
+    '<div class="lpChips">' + words.map((w, wi) => '<div class="lpChipWord' + (wi === lpStressWord && words.length > 1 ? ' active' : '') + '">' +
+      w.parts.map((x, i) => chip(w, wi, i)).join('') + '</div>').join('') + '</div>' +
+    (arrows ? '<button type="button" class="lpArrow" data-stress="1" aria-label="Stress a later syllable"' + (at >= cur.parts.length - 1 ? ' disabled' : '') + '>&#9654;</button>' : '');
+}
+function lpSetStress(wi, i){
+  const inp = document.getElementById('lpSpellIn');
+  const words = lpParseGuide(inp.value);
+  if(!words[wi]) return;
+  words[wi].stress = Math.max(0, Math.min(words[wi].parts.length - 1, i));
+  lpStressWord = wi;
+  inp.value = lpBuildGuide(words);
+  lpToolSay(''); lpSpellUpdate();
+}
+// a syllable picked from its list (or "Stress this syllable")
+document.getElementById('lpStress').addEventListener('change', (e) => {
+  const sel = e.target.closest('select'); if(!sel || !sel.value) return;
+  const wi = +sel.dataset.w, i = +sel.dataset.i;
+  if(sel.value === '__stress'){ lpSetStress(wi, i); return; }
+  const inp = document.getElementById('lpSpellIn'), words = lpParseGuide(inp.value);
+  if(!words[wi]) return;
+  words[wi].parts[i] = sel.value;
+  lpPicked.add(wi + ':' + i);   // v531: picked syllables narrow the others
+  lpStressWord = words[wi].parts.length > 1 ? wi : lpStressWord;
+  inp.value = lpBuildGuide(words);
+  lpToolSay(''); lpSpellUpdate();
+});
+document.getElementById('lpStress').addEventListener('click', (e) => {
+  const arrow = e.target.closest('[data-stress]');
+  if(!arrow || arrow.disabled) return;
+  const words = lpParseGuide(document.getElementById('lpSpellIn').value), w = words[lpStressWord];
+  if(w) lpSetStress(lpStressWord, (w.stress < 0 ? 0 : w.stress) + Number(arrow.dataset.stress));
+});
+// ---- v530: where the box starts — the saved fix, else Kokoro's own reading from the story ----
+let lpStoryWords = null;   // Map: word -> Kokoro's reading
+async function lpLoadStoryWords(){
+  if(lpStoryWords) return lpStoryWords;
+  let j = null;
+  try{
+    const g = wlGh();
+    if(g.owner && g.repo && g.token){
+      const r = await fetch('https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/pronunciation/story/story.json?ref=' +
+        encodeURIComponent(g.branch) + '&t=' + Date.now(), { headers: Object.assign({}, g.hdr, { 'Accept': 'application/vnd.github.raw+json' }), cache: 'no-store' });
+      if(r.ok) j = await r.json();
+    }
+  }catch(e){}
+  if(!j){ try{ const r = await fetch('pronunciation/story/story.json?t=' + Date.now(), { cache: 'no-store' }); if(r.ok) j = await r.json(); }catch(e){} }
+  lpStoryWords = new Map();
+  Object.entries((j && j.words) || {}).forEach(([w, v]) => {
+    if(v && v.kokoro) lpStoryWords.set(w, { kokoro: v.kokoro, cands: v.cands && typeof v.cands === 'object' ? v.cands : { kokoro: v.kokoro } });
+  });
+  return lpStoryWords;
+}
+function lpGuideFor(key){
+  // A saved fix for the whole phrase wins; otherwise each word from its saved fix or the story.
+  const fx = lpFixes && lpFixes.get(key);
+  if(fx && fx.ipa){ try{ return { guide: lpGuideOf(fx.ipa), from: 'fix' }; }catch(e){} }
+  const words = key.split(/\s+/).filter(Boolean), out = [];
+  let from = 'fix';
+  for(const w of words){
+    const k = lpCleanPhrase(w), f = lpFixes && lpFixes.get(k);
+    let ph = f && f.ipa ? f.ipa : '';
+    if(!ph && lpStoryWords && lpStoryWords.get(k)){ ph = lpStoryWords.get(k).kokoro; from = 'story'; }
+    if(!ph) return null;
+    try{ out.push(lpGuideOf(ph)); }catch(e){ return null; }
+  }
+  return out.length ? { guide: out.join(' '), from } : null;
+}
+// ---- v530: keep the picker above the keyboard ----
+let lpMovedAt = 0;
+function lpPlaceTop(on){
+  const pk = document.getElementById('linkPicker');
+  if(pk.classList.contains('top') !== !!on) lpMovedAt = performance.now();
+  pk.classList.toggle('top', !!on);
+  lpFitViewport();
+}
+function lpFitViewport(){
+  const pk = document.getElementById('linkPicker'), box = pk.querySelector('.lpBox');
+  if(!pk.classList.contains('top') || !window.visualViewport){ box.style.maxHeight = ''; pk.style.top = ''; pk.style.height = ''; return; }
+  const vv = window.visualViewport;
+  pk.style.top = vv.offsetTop + 'px'; pk.style.height = vv.height + 'px';   // the overlay = exactly the visible area
+  box.style.maxHeight = Math.max(200, vv.height - 8) + 'px';
+}
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', lpFitViewport);
+  window.visualViewport.addEventListener('scroll', lpFitViewport);
+}
+// Move up only once the tap on the search box has finished (moving on focus = mid-tap, and the
+// finger then lifts over the backdrop). Keyboard focus without a tap moves after a moment.
+document.getElementById('lpSearch').addEventListener('click', () => lpPlaceTop(true));
+document.getElementById('lpSearch').addEventListener('focus', () => setTimeout(() => {
+  if(document.activeElement && document.activeElement.id === 'lpSearch' && document.getElementById('linkPicker').classList.contains('open')) lpPlaceTop(true);
+}, 350));
+// "Will say:" keeps the syllables as typed, showing each one as the converter reads it, so picking
+// "zah" shows "NA-zah-ruhth" rather than the same sounds re-divided as "NA-zar-uhth".
+function lpWillSay(typed){
+  return lpParseGuide(typed).map(w => {
+    const at = w.stress < 0 ? 0 : w.stress;
+    return w.parts.map((x, i) => {
+      const g = lpGuideOf(lpRespell(x.toLowerCase())).replace(/-/g, '');
+      return i === at ? g.toUpperCase() : g.toLowerCase();
+    }).join('-');
+  }).join(' ');
+}
 function lpSpellUpdate(){
   const typed = document.getElementById('lpSpellIn').value.trim();
   const ph = typed ? lpRespell(typed) : '';
-  let g = ''; try{ g = ph ? lpGuideOf(ph) : ''; }catch(e){}
+  let g = ''; try{ g = ph ? lpWillSay(typed) : ''; }catch(e){ try{ g = lpGuideOf(ph); }catch(e2){} }
   document.getElementById('lpWill').innerHTML = g ? 'Will say: <b>' + esc(g) + '</b>' : '';
   document.getElementById('lpToolOk').disabled = !ph;
+  lpRenderStress();
   return ph;
 }
-document.getElementById('lpSpell').addEventListener('click', () => {
+document.getElementById('lpSpell').addEventListener('click', async () => {
   if(!lpState) return;
   lpToolOpen('spell');
+  lpPlaceTop(true);
   lpSpellTitle();
-  const fx = lpFixes && lpFixes.get(lpSpellKey());
-  let pre = ''; if(fx && fx.ipa){ try{ pre = lpGuideOf(fx.ipa); }catch(e){} }
-  const inp = document.getElementById('lpSpellIn');
-  inp.value = pre; lpSpellUpdate();
-  inp.focus();
+  lpStressWord = -1;
+  lpPicked.clear();
+  const inp = document.getElementById('lpSpellIn'), from = document.getElementById('lpSpellFrom');
+  const fill = () => {
+    const got = lpGuideFor(lpSpellKey());
+    inp.value = got ? got.guide : '';
+    from.textContent = !got ? '' : got.from === 'fix' ? 'Starting from your saved fix.' : 'Starting from how it\u2019s said now.';
+    lpSpellUpdate();
+    return !!got;
+  };
+  if(!fill()){
+    from.textContent = 'Looking up how it\u2019s said now\u2026';
+    await lpLoadStoryWords();
+    if(lpTool !== 'spell') return;
+    if(!fill()){ from.textContent = ''; inp.focus({ preventScroll: true }); }   // nothing known: type it
+  }else if(!lpStoryWords){
+    await lpLoadStoryWords();                                                    // v531: the known pronunciations for the lists
+    if(lpTool === 'spell') lpRenderStress();
+  }
 });
-document.getElementById('lpSpellIn').addEventListener('input', () => { lpToolSay(''); lpSpellUpdate(); });
+document.getElementById('lpSpellIn').addEventListener('input', () => { lpPicked.clear(); lpToolSay(''); lpSpellUpdate(); });
 document.getElementById('lpSpellIn').addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('lpToolOk').click(); } });
 // ---- Add a pause after ----
 const LP_ABBR = /^(St|Sts|Bl|Ven|Fr|Msgr|Mt|Dr|Mr|Mrs|Rev|Sr|Br|Card|Abp|Bp|vs|ca|c)\.$/;
@@ -16851,13 +17273,15 @@ document.getElementById('artBody').addEventListener('contextmenu', (e) => {
 
 function closeLinkPicker(){
   lpToolClose();
+  lpPlaceTop(false);
   document.getElementById('linkPicker').classList.remove('open');
   lpState = null;
   lpSelectedTarget = null;
 }
 document.getElementById('lpCancel').addEventListener('click', closeLinkPicker);
 document.getElementById('linkPicker').addEventListener('click', (e) => {
-  if(e.target.id === 'linkPicker') closeLinkPicker(); // tap on the scrim
+  // tap on the scrim — but not the end of a tap that just moved the box to the top (v530)
+  if(e.target.id === 'linkPicker' && performance.now() - lpMovedAt > 450) closeLinkPicker();
 });
 
 // Counts which occurrence (1-based) the given text node + phrase is, among all matches of that
