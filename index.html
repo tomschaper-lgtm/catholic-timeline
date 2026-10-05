@@ -1,6 +1,6 @@
 <!--
-VERSION: 534
-DATE: 2026-10-04T20:30:00-05:00
+VERSION: 536
+DATE: 2026-10-04T23:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,45 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v536 — 2026-10-04
+
+**Ask:**
+- In the pronunciation view, a box with each source's try at the word — Claude, OpenAI, Gemini,
+  Kokoro — and which option it would pick. Asked live from the phone, with keys stored on it.
+
+**Implementation:**
+- Manage → Import → "Pronunciation opinions (AI keys)": an API key and a model for Anthropic
+  (default claude-sonnet-5-5), OpenAI (gpt-6-luna) and Google Gemini (gemini-flash-latest). Saved as
+  you type, in this browser only (localStorage "ai-keys"), like the GitHub token; never in the
+  file or the repo.
+- Opinions box under the syllables: "Kokoro (now)" at once from words.json/story, then one row per
+  service that has a key, asked in parallel straight from the phone (Anthropic with the
+  direct-browser-access header, OpenAI chat completions JSON mode, Gemini generateContent JSON).
+  Each gets the word or phrase, its sentence, and the known options lettered (current, your fix,
+  reference, hint, Wiktionary, Kokoro now), and returns its own respelling + IPA + the option it
+  picks + a short note. A row shows the respelling, "picks: …" and the note; tapping it puts that
+  respelling in the box. 25 s timeout per service; errors shown on the row (e.g. "key refused").
+  Answers are cached per service + model + phrase for the session; widening the phrase asks again.
+
+## v535 — 2026-10-04
+
+**Ask:**
+- Press-and-hold gives just part of the word; a Roman numeral isn't shown as "the third"; the
+  stressed syllable should be in capitals as well as bold and underlined.
+
+**Implementation:**
+- Word splitting (LP_WORD_RE) used letter ranges that stop at "ÿ", so Polish/Czech/Hungarian
+  letters (ł, ś, ż, č, ő…) split a word ("Wojtyła" -> "Wojty" + "a"). Now any Unicode letter or
+  accent mark (\p{L}\p{M}).
+- Lifting the finger after a hold could land on a syllable in the view that just opened and open
+  its list (iOS opens a list on touch end). The syllable lists ignore touches for 0.6 s after the
+  view opens.
+- The view applies spelling rules before showing the sounds: a word with a spelling rule and no
+  sound fix shows what's spoken ("III" -> "the third" -> thuh · THERD; "St." -> Saint). Hyphenated
+  spoken words are split ("twenty-third"). Pause rules are no longer loaded as fixes (one for the
+  same words could hide a sound fix).
+- Stressed syllable shown in capitals as well as bold and underlined.
+
 ## v534 — 2026-10-04
 
 **Ask:**
@@ -4689,6 +4728,20 @@ CHANGELOG:END
   #linkPicker .lpBox.spellMode .lpChip.on{color:#000; background:transparent; text-decoration-color:#000;}
   #linkPicker .lpBox.spellMode .lpChip + .lpChip::before{color:#aaa;}
   #linkPicker .lpBox.spellMode .lpChip:active{background:#efefef;}
+  /* v536: opinions box */
+  #linkPicker .lpOpinions{margin:4px 0 12px; border:1px solid #e0e0e0; border-radius:12px; overflow:hidden;}
+  #linkPicker .lpOpinions:empty{display:none;}
+  #linkPicker .lpOp{display:grid; grid-template-columns:auto 1fr; gap:2px 12px; align-items:baseline; width:100%; text-align:left;
+    background:#fff; border:none; border-top:1px solid #eee; padding:10px 12px; font:inherit; color:#141414; cursor:pointer; touch-action:manipulation;}
+  #linkPicker .lpOp:first-child{border-top:none;}
+  #linkPicker .lpOp:active{background:#f2f2f2;}
+  #linkPicker .lpOp.busy, #linkPicker .lpOp.err{cursor:default;}
+  #linkPicker .lpOpWho{font-size:13px; color:#666; min-width:74px;}
+  #linkPicker .lpOpSay{font-size:19px; font-weight:600; letter-spacing:.01em;}
+  #linkPicker .lpOp.busy .lpOpSay, #linkPicker .lpOp.err .lpOpSay{font-size:14px; font-weight:400; color:#888;}
+  #linkPicker .lpOp.err .lpOpSay{color:#c62828;}
+  #linkPicker .lpOpMore{grid-column:2; font-size:13px; color:#555;}
+  #linkPicker .lpOpHint{padding:10px 12px; font-size:13px; color:#777;}
   /* v530: stress chips + arrows; picker at the top while typing */
   .lpSpellFrom{font-size:13px; color:var(--muted); margin:6px 2px 0;}
   .lpSpellFrom:empty{display:none;}
@@ -6105,6 +6158,7 @@ CHANGELOG:END
       <div class="lpSpellBox" id="lpSpellBox">
         <div class="lpStress" id="lpStress"></div>
         <div class="lpSpellFrom" id="lpSpellFrom"></div>
+        <div class="lpOpinions" id="lpOpinions"></div>
         <div class="lpTypeWrap">
           <input type="text" class="lpSearchInput" id="lpSpellIn" placeholder="e.g. KRAH-koof" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
           <div class="lpWill" id="lpWill"></div>
@@ -6428,6 +6482,24 @@ CHANGELOG:END
         <details class="mHelp"><summary>What this does</summary>
           <div class="hint">The repository details are pre-filled &mdash; you only need to paste an <b>access token</b>. Create one at <b>github.com/settings/tokens?type=beta</b> (fine-grained &rarr; only <i>catholic-timeline</i> &rarr; Contents: Read and write). If you also want the "Run GitHub Action" buttons above, add <b>Actions: Read and write</b> to the same token. Your token is stored only in this browser, never in the file or the repo, and is used to commit the current database to <b>data.json</b>. After publishing, your live site updates in about a minute. This only works on your hosted site, not inside the Claude artifact.</div>
         </details>
+      </details>
+
+      <details class="ghbox" id="aiKeysBox">
+        <summary>Pronunciation opinions (AI keys)</summary>
+        <div class="hint" style="margin:6px 0 10px;">Paste a key for each service you want an opinion from in the pronunciation view (press and hold a word in Review Mode). Leave a key empty to skip that service. Keys are saved as you type, on this device only &mdash; never in the file or the repo.</div>
+        <div class="mgrid2">
+          <div class="mfield"><label>Anthropic (Claude) API key</label><input type="password" id="aiKeyAnthropic" placeholder="sk-ant-…" autocomplete="off"></div>
+          <div class="mfield"><label>Claude model</label><input type="text" id="aiModelAnthropic" placeholder="claude-sonnet-5-5" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+        </div>
+        <div class="mgrid2">
+          <div class="mfield"><label>OpenAI API key</label><input type="password" id="aiKeyOpenai" placeholder="sk-…" autocomplete="off"></div>
+          <div class="mfield"><label>OpenAI model</label><input type="text" id="aiModelOpenai" placeholder="gpt-6-luna" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+        </div>
+        <div class="mgrid2">
+          <div class="mfield"><label>Google Gemini API key</label><input type="password" id="aiKeyGemini" placeholder="AIza…" autocomplete="off"></div>
+          <div class="mfield"><label>Gemini model</label><input type="text" id="aiModelGemini" placeholder="gemini-flash-latest" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+        </div>
+        <div class="hint" id="aiKeysStatus" style="margin-top:4px;"></div>
       </details>
 
       <details class="ghbox">
@@ -7109,7 +7181,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v534';
+const APP_VERSION = 'v536';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -16541,7 +16613,7 @@ let pendingSessionLinks = [];
 // one word each), plus one optional trailing period. Deliberately excludes surrounding commas,
 // quotes, and sentence-ending punctuation, so the default tapped word never drags in a trailing
 // comma the way a plain \S+ split would.
-const LP_WORD_RE = /[A-Za-zÀ-ÖØ-öø-ÿ0-9]+(?:['’.\-][A-Za-zÀ-ÖØ-öø-ÿ0-9]+)*\.?/g;
+const LP_WORD_RE = /[\p{L}\p{M}0-9]+(?:['’.\-][\p{L}\p{M}0-9]+)*\.?/gu;   // v535: every alphabet's letters (ł, ś, č…)
 function lpTokensOf(text){
   const toks = []; let m;
   LP_WORD_RE.lastIndex = 0;
@@ -16644,7 +16716,7 @@ async function lpLoadFixes(){
   }
   if(!j) return;
   lpFixes = new Map();
-  (j.rules || []).forEach(x => { if(x && x.string_to_replace) lpFixes.set(x.string_to_replace, { ipa: x.kokoro_ipa || '', alias: x.alias || '' }); });
+  (j.rules || []).forEach(x => { if(x && x.string_to_replace && x.type !== 'pause') lpFixes.set(x.string_to_replace, { ipa: x.kokoro_ipa || '', alias: x.alias || '' }); });   // v535: not pause rules
 }
 const lpGuideOf = (function(){
 const P2R_V = [['eɪ','ay'],['aɪ','eye'],['aʊ','ow'],['oʊ','oh'],['ɔɪ','oy'],['əʊ','oh'],['ɜɹ','er'],['ɜː','er'],['ɑɹ','ar'],['ɔɹ','or'],
@@ -17156,7 +17228,8 @@ function lpRenderStress(){
     alts.forEach(syl => { opts += '<option value="' + esc(syl) + '">' + esc(labelWith(syl)) + '</option>'; });
     if(known.length && alts.length) opts += '</optgroup>';
     if(!on && w.parts.length > 1) opts += '<option value="__stress">\u2605 Stress this syllable</option>';
-    return '<label class="lpChip' + (on && w.parts.length > 1 ? ' on' : '') + '">' + esc(parts[i].toLowerCase()) +
+    const shown = on && w.parts.length > 1 ? parts[i].toUpperCase() : parts[i].toLowerCase();   // v535: stressed in capitals
+    return '<label class="lpChip' + (on && w.parts.length > 1 ? ' on' : '') + '">' + esc(shown) +
       '<select data-w="' + wi + '" data-i="' + i + '" aria-label="Choices for ' + esc(parts[i].toLowerCase()) + '">' + opts + '</select></label>';
   };
   const arrows = !!cur;
@@ -17231,14 +17304,23 @@ async function lpLoadStoryWords(){
 }
 function lpGuideFor(key){
   // A saved fix for the whole phrase wins; otherwise each word from its saved fix, the story,
-  // every-word list (v534), or a guess from the spelling (v534).
+  // every-word list (v534), or a guess from the spelling (v534). v535: a word with a spelling rule
+  // ("III" -> "the third", "St." -> "Saint") shows the words that are actually spoken.
   const fx = lpFixes && lpFixes.get(key);
   if(fx && fx.ipa){ try{ return { guide: lpGuideOf(fx.ipa), from: 'fix' }; }catch(e){} }
-  const words = key.split(/\s+/).filter(Boolean), out = [];
+  const spoken = [];
+  const expand = (w) => {
+    const k = lpCleanPhrase(w), f = lpFixes && lpFixes.get(k);
+    if(f && !f.ipa && f.alias && f.alias !== k) f.alias.split(/[\s\-\u2010-\u2014]+/).filter(Boolean).forEach(x => spoken.push(x));
+    else spoken.push(k);
+  };
+  if(fx && !fx.ipa && fx.alias && fx.alias !== key && /\s/.test(key)) fx.alias.split(/[\s\-\u2010-\u2014]+/).filter(Boolean).forEach(x => spoken.push(x));
+  else key.split(/\s+/).filter(Boolean).forEach(expand);
+  const out = [];
   let from = 'fix';
   const rank = { fix: 0, now: 1, guess: 2 };
-  for(const w of words){
-    const k = lpCleanPhrase(w), f = lpFixes && lpFixes.get(k);
+  for(const k of spoken){
+    const f = lpFixes && lpFixes.get(k);
     let ph = f && f.ipa ? f.ipa : '', src = 'fix';
     if(!ph){ const st = lpStoryWords && lpStoryWords.get(k); if(st){ ph = st.kokoro; src = 'now'; } }
     if(!ph){ const wn = lpWordsNow.get(k) || lpWordsNow.get(k.toLowerCase()); if(wn){ ph = wn; src = 'now'; } }
@@ -17314,6 +17396,137 @@ function lpSpellUpdate(){
   lpRenderStress();
   return ph;
 }
+// ---- v536: AI opinions — keys on this device, asked live from the phone ----
+const AI_DEFAULT_MODELS = { anthropic: 'claude-sonnet-5-5', openai: 'gpt-6-luna', gemini: 'gemini-flash-latest' };
+const AI_NAMES = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini' };
+function aiKeys(){ try{ return JSON.parse(localStorage.getItem('ai-keys') || '{}') || {}; }catch(e){ return {}; } }
+(function(){
+  const ids = { anthropic: ['aiKeyAnthropic', 'aiModelAnthropic'], openai: ['aiKeyOpenai', 'aiModelOpenai'], gemini: ['aiKeyGemini', 'aiModelGemini'] };
+  const fill = () => { const k = aiKeys(); Object.entries(ids).forEach(([svc, [ki, mi]]) => {
+    const a = document.getElementById(ki), b = document.getElementById(mi); if(a) a.value = (k[svc] && k[svc].key) || ''; if(b) b.value = (k[svc] && k[svc].model) || ''; }); };
+  const save = () => { const k = {}; Object.entries(ids).forEach(([svc, [ki, mi]]) => {
+      const key = (document.getElementById(ki).value || '').trim(), model = (document.getElementById(mi).value || '').trim();
+      if(key || model) k[svc] = { key, model }; });
+    try{ localStorage.setItem('ai-keys', JSON.stringify(k)); }catch(e){}
+    const n = Object.values(k).filter(x => x.key).length;
+    const st = document.getElementById('aiKeysStatus'); if(st) st.textContent = n ? 'Saved on this device \u2713 (' + n + ' key' + (n === 1 ? '' : 's') + ')' : 'No keys saved.';
+    lpOpinionCache.clear(); };
+  Object.values(ids).flat().forEach(id => { const el = document.getElementById(id); if(el){ el.addEventListener('input', save); el.addEventListener('change', save); } });
+  fill();
+  const box = document.getElementById('aiKeysBox'); if(box) box.addEventListener('toggle', fill);
+})();
+const lpOpinionCache = new Map();
+const AI_PRON_PROMPT = 'You advise on pronunciation for an English-language Catholic history narration read by an American narrator. ' +
+  'You get a word or phrase, the sentence it is in, and the options already known (lettered). Say how a careful, well-informed American Catholic lector would say it IN THAT SENTENCE: ' +
+  'for saints, popes, places and councils, the established English (anglicized) pronunciation used in American Catholic usage when one exists, otherwise the native pronunciation as an English speaker would naturally say it; ' +
+  'for ordinary words, the pronunciation that fits the sentence. Answer with JSON only: {"respell":"...","ipa":"...","pick":"<letter of the option you would choose, or none>","note":"<at most 12 words>"}. ' +
+  '"respell": a simple respelling, syllables joined by hyphens, the stressed syllable in CAPITALS, a space between words, using these sounds: uh, ay, ee, eye, oh, oo, uu, ah, aw, ih, eh, er, ow, oy, a (as in cat), th, sh, zh, ch, j, ng (e.g. KRAH-koof, nye-SEE-uh, GAHDZ WIL). "ipa": General American IPA with stress marks.';
+function lpSentenceAround(){
+  // The whole sentence the phrase is in — from its paragraph, not just the text between two bold names.
+  if(!lpState) return '';
+  const node = lpState.node, block = (node.parentElement && node.parentElement.closest('p, li, .artProse')) || node.parentElement;
+  const full = block ? block.textContent : node.textContent;
+  // where this text node starts inside the paragraph
+  let off = 0;
+  if(block){ const tw = document.createTreeWalker(block, NodeFilter.SHOW_TEXT); let n; while((n = tw.nextNode()) && n !== node) off += n.textContent.length; }
+  const a = off + lpState.tokens[lpState.lo].start, b = off + lpState.tokens[lpState.hi].end;
+  const before = full.slice(0, a), after = full.slice(b);
+  const sm = before.match(/[\s\S]*[.?!][\u201d\u2019"')]?\s+/), s0 = sm ? sm[0].length : 0;
+  const endsHere = /[.?!][\u201d\u2019"')]?$/.test(full.slice(a, b));
+  const em = after.match(/[.?!][\u201d\u2019"')]?(\s|$)/), e0 = endsHere ? b : (em ? b + em.index + em[0].trimEnd().length : full.length);
+  return full.slice(s0, e0).trim().slice(0, 400);
+}
+async function aiAsk(svc, key, model, userText){
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 25000);
+  try{
+    let r, j, text = '';
+    if(svc === 'anthropic'){
+      r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', signal: ctl.signal,
+        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', 'content-type': 'application/json' },
+        body: JSON.stringify({ model, max_tokens: 400, system: AI_PRON_PROMPT, messages: [{ role: 'user', content: userText }] }) });
+      j = await r.json().catch(() => ({}));
+      if(!r.ok) throw new Error(r.status === 401 || r.status === 403 ? 'key refused (' + r.status + ')' : ((j.error && j.error.message) || 'error ' + r.status));
+      text = ((j.content || []).find(c => c.type === 'text') || {}).text || '';
+    }else if(svc === 'openai'){
+      r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', signal: ctl.signal,
+        headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: AI_PRON_PROMPT }, { role: 'user', content: userText }] }) });
+      j = await r.json().catch(() => ({}));
+      if(!r.ok) throw new Error(r.status === 401 || r.status === 403 ? 'key refused (' + r.status + ')' : ((j.error && j.error.message) || 'error ' + r.status));
+      text = (((j.choices || [])[0] || {}).message || {}).content || '';
+    }else{
+      r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', { method: 'POST', signal: ctl.signal,
+        headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: AI_PRON_PROMPT }] }, contents: [{ role: 'user', parts: [{ text: userText }] }], generationConfig: { responseMimeType: 'application/json' } }) });
+      j = await r.json().catch(() => ({}));
+      if(!r.ok) throw new Error(r.status === 400 && /API key/i.test(JSON.stringify(j)) ? 'key refused' : r.status === 403 ? 'key refused (403)' : ((j.error && j.error.message) || 'error ' + r.status));
+      text = ((((j.candidates || [])[0] || {}).content || {}).parts || []).map(p => p.text || '').join('');
+    }
+    text = String(text).trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
+    const m = text.match(/\{[\s\S]*\}/);
+    return JSON.parse(m ? m[0] : text);
+  }catch(e){
+    throw new Error(e.name === 'AbortError' ? 'no answer in 25 s' : (e.message || String(e)).slice(0, 120));
+  }finally{ clearTimeout(timer); }
+}
+function lpUseGuide(g){
+  const words = lpParseGuide(g); if(!words.length) return;
+  const inp = document.getElementById('lpSpellIn');
+  inp.value = lpBuildGuide(words); lpPicked.clear(); lpStressWord = -1; lpToolSay(''); lpSpellUpdate();
+}
+let lpOpinionRun = 0;
+async function lpRenderOpinions(){
+  const host = document.getElementById('lpOpinions'); if(!host || lpTool !== 'spell') return;
+  const phrase = lpSpellKey(), run = ++lpOpinionRun;
+  // the options already known, lettered
+  const opts = [], seenO = new Set();
+  const addO = (label, g) => { if(!g) return; const k = g.toLowerCase(); if(seenO.has(k)) return; seenO.add(k); opts.push({ label, g }); };
+  addO('current', document.getElementById('lpSpellIn').value.trim());
+  const words = phrase.split(/\s+/).filter(Boolean);
+  if(words.length === 1) lpCandsFor(words[0]).forEach(c => addO(LP_SRC_LABEL[c.src] || c.src, lpBuildGuide([{ parts: c.parts, stress: -1 }])));
+  const letters = 'ABCDEFGH';
+  const userText = 'Word or phrase: ' + phrase + '\nSentence: ' + lpSentenceAround() + '\nKnown options:\n' +
+    (opts.length ? opts.map((o, i) => letters[i] + ') ' + o.g + '  (' + o.label + ')').join('\n') : 'none');
+  // Kokoro's own reading, straight away
+  const kok = (() => { const out = []; for(const w of words){ const k = lpCleanPhrase(w); const st = lpStoryWords && lpStoryWords.get(k);
+    const ph = (st && st.kokoro) || lpWordsNow.get(k) || lpWordsNow.get(k.toLowerCase()); if(!ph) return ''; try{ out.push(lpGuideOf(ph)); }catch(e){ return ''; } } return out.join(' '); })();
+  const keys = aiKeys(), svcs = ['anthropic', 'openai', 'gemini'].filter(s => keys[s] && keys[s].key);
+  const row = (who, say, more, cls, use) => '<button type="button" class="lpOp' + (cls ? ' ' + cls : '') + '"' + (use ? ' data-use="' + esc(use) + '"' : '') + '><span class="lpOpWho">' + esc(who) +
+    '</span><span class="lpOpSay">' + esc(say) + '</span>' + (more ? '<span class="lpOpMore">' + esc(more) + '</span>' : '') + '</button>';
+  const state = {};
+  const draw = () => {
+    if(run !== lpOpinionRun) return;
+    let html = kok ? row('Kokoro (now)', lpWillSay(kok), 'how the narration says it today', '', kok) : '';
+    svcs.forEach(svc => {
+      const model = (keys[svc].model || AI_DEFAULT_MODELS[svc]), st = state[svc];
+      if(!st) html += row(AI_NAMES[svc], 'asking\u2026', '', 'busy');
+      else if(st.err) html += row(AI_NAMES[svc], st.err, model, 'err');
+      else {
+        let say = st.respell || ''; try{ say = lpWillSay(say); }catch(e){}
+        const pi = letters.indexOf(String(st.pick || '').trim().toUpperCase().slice(0, 1));
+        const pick = pi >= 0 && opts[pi] ? 'picks ' + opts[pi].label + (opts[pi].g.toLowerCase() === (st.respell || '').toLowerCase() ? '' : ' (' + opts[pi].g + ')') : 'picks none of the known options';
+        html += row(AI_NAMES[svc], say || '\u2014', pick + (st.note ? ' \u2014 ' + st.note : ''), '', st.respell || '');
+      }
+    });
+    if(!svcs.length) html += '<div class="lpOpHint">Add AI keys in Manage \u2192 Import \u2192 Pronunciation opinions to see Claude, OpenAI and Gemini here.</div>';
+    host.innerHTML = html;
+  };
+  draw();
+  svcs.forEach(async svc => {
+    const model = keys[svc].model || AI_DEFAULT_MODELS[svc], ck = svc + '|' + model + '|' + phrase;
+    try{
+      let ans = lpOpinionCache.get(ck);
+      if(!ans){ ans = await aiAsk(svc, keys[svc].key, model, userText); lpOpinionCache.set(ck, ans); }
+      state[svc] = ans || {};
+    }catch(e){ state[svc] = { err: e.message || 'failed' }; }
+    draw();
+  });
+}
+document.getElementById('lpOpinions').addEventListener('click', (e) => {
+  const b = e.target.closest('.lpOp[data-use]'); if(!b || !b.dataset.use) return;
+  lpUseGuide(b.dataset.use);
+});
+
 // v533: the pronunciation view. keep = reopen with what's in the box (coming back from Pause).
 function lpTyping(on){
   const box = document.querySelector('#linkPicker .lpBox');
@@ -17328,7 +17541,7 @@ async function lpOpenSpell(keep){
   if(!keep) lpPicked.clear();
   document.getElementById('lpToolBack').textContent = 'Cancel';
   const inp = document.getElementById('lpSpellIn'), from = document.getElementById('lpSpellFrom');
-  if(keep && inp.value.trim()){ lpSpellUpdate(); return; }
+  if(keep && inp.value.trim()){ lpSpellUpdate(); lpRenderOpinions(); return; }
   lpTyping(false);
   const fill = () => {
     const got = lpGuideFor(lpSpellKey());
@@ -17344,6 +17557,7 @@ async function lpOpenSpell(keep){
     if(lpTool !== 'spell') return;
   }
   if(!fill()){ from.textContent = 'Type how it should sound.'; lpTyping(true); }
+  lpRenderOpinions();   // v536
 }
 document.getElementById('lpSpell').addEventListener('click', () => lpOpenSpell(false));
 document.getElementById('lpTypeIt').addEventListener('click', () => lpTyping(true));
@@ -17497,7 +17711,11 @@ document.getElementById('artBody').addEventListener('pointerdown', (e) => {
     lpTapLog = [];
     try{ if(navigator.vibrate) navigator.vibrate(12); }catch(err){}
     openLinkPicker(x, y);
-    if(document.getElementById('linkPicker').classList.contains('open')) lpOpenSpell(false);   // v533: straight to the pronunciation view
+    if(document.getElementById('linkPicker').classList.contains('open')){
+      lpOpenSpell(false);   // v533: straight to the pronunciation view
+      const st = document.getElementById('lpStress');   // v535: the lifting finger mustn't open a syllable's list
+      st.style.pointerEvents = 'none'; setTimeout(() => { st.style.pointerEvents = ''; }, 600);
+    }
   }, LP_HOLD_MS) };
 });
 document.getElementById('artBody').addEventListener('pointermove', (e) => {
