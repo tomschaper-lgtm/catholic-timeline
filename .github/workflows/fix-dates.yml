@@ -1,0 +1,54 @@
+# One-time: put every article's dates in American order ("28 December 1065" -> "December 28, 1065")
+# and clear the audio link of each article that changed, so it shows as needing a new recording.
+# Run by hand from the Actions tab. mode "preview" (default) only lists the changes on the run
+# page; run again with mode "apply" to change and commit data.json.
+name: Fix date order (one-time)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'preview = list only; apply = change data.json and clear those audio links'
+        required: true
+        default: 'preview'
+        type: choice
+        options: [preview, apply]
+
+permissions:
+  contents: write
+
+# Same group as the recording workflow, so this never runs at the same time as a recording.
+concurrency:
+  group: orchestrator
+  cancel-in-progress: false
+
+jobs:
+  fix-dates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Convert dates
+        env:
+          MODE: ${{ github.event.inputs.mode }}
+        run: node scripts/services/fix-dates.mjs
+
+      - name: Commit data.json
+        if: ${{ github.event.inputs.mode == 'apply' }}
+        run: |
+          git config user.name "orchestrator-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data.json
+          if git diff --cached --quiet; then
+            echo "Nothing changed"
+          else
+            git commit -m "Dates in American order; audio cleared on changed articles"
+            git pull --rebase
+            git push
+          fi
