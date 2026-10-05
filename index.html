@@ -1,6 +1,6 @@
 <!--
-VERSION: 540
-DATE: 2026-10-05T11:30:00-05:00
+VERSION: 542
+DATE: 2026-10-05T13:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,35 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v542 — 2026-10-05
+
+**Ask:**
+- St. Columba is recorded (file and link there, "Recorded ✓") but no play button shows.
+
+**Implementation:**
+- Cause: a load failure is final for the session (v488 hides the bar while audioBroken). Right after
+  a recording, the site serves the new MP3 a minute or two after GitHub has it (deploy lag), so the
+  first load 404s and the button never comes back. (In Review Mode the "Audio unavailable" note
+  sits below the review tools, off the bottom of the screen.)
+- On a load error the player now retries before giving up: first the same file straight from
+  GitHub (raw.githubusercontent.com, when this device has GitHub set up — the route the Review
+  screen's player already uses), then the site again after 20 s and after 60 s. While retrying the
+  bar stays hidden and the Review Mode note says "retrying…"; on success the bar appears. Only when
+  every try fails does it stay hidden with the note.
+- Swipe fix: the play bar's reveal latch survived a swipe and its scroll check returned early once
+  latched, so the bar kept the previous article's state (shown on an article with no audio). A
+  swipe now resets the latch, and the scroll check refreshes the bar even when latched.
+
+## v541 — 2026-10-05
+
+**Ask:**
+- The older recording plays, but no play button shows.
+
+**Implementation:**
+- updateAudioBarPresence() shows the bar only when entryNarrated() is true, and that checked the
+  entry's own audio link — blank for these articles. entryNarrated() now also counts an older
+  recording found by v540 (audioPlayFallback) once its player is loaded in that host.
+
 ## v540 — 2026-10-05
 
 **Ask:**
@@ -7291,7 +7320,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v540';
+const APP_VERSION = 'v542';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14972,7 +15001,9 @@ function slideArticleTo(d, direction){
   clone.removeAttribute('id');
   clone.className = 'artBodyClone';
   wrap.appendChild(clone);
+  audioBarScrollRevealed = false;   // v542: each article earns its own reveal (the latch survived swipes)
   fillArticleBody(d, peek);
+  updateAudioBarPresence();          // v542: hide the previous article's bar now; this one reveals on scroll
   prefetchImage(categoryNeighbor(d, -1));
   prefetchImage(categoryNeighbor(d, 1));
   scrollRestoreToken++;   // invalidate any restore still in flight from a previous navigation
@@ -15076,8 +15107,16 @@ const AUDIO_BAR_REVEAL_FRACTION = 0.4;
 // consistency and because a NEW per-scroll-tick listener is exactly the kind of thing that
 // caused v205's jitter bug in the first place.
 function checkAudioBarScrollReveal(){
-  if(audioBarScrollRevealed) return; // already latched — nothing left to check
-  if(!entryNarrated(currentEntry, 'article')) return;
+  if(audioBarScrollRevealed){   // already latched — v542: still keep the bar in step with THIS article
+    const bar = document.getElementById('audioBottomBar');
+    if(bar && bar.classList.contains('show') !== !!(entryNarrated(currentEntry, 'article') && article.classList.contains('open') && !article.classList.contains('peek') && !article.classList.contains('expanding') && !audioBroken)) updateAudioBarPresence();
+    return;
+  }
+  if(!entryNarrated(currentEntry, 'article')){   // v542: nothing to play — make sure no bar is left showing
+    const bar = document.getElementById('audioBottomBar');
+    if(bar && bar.classList.contains('show') && !entryNarrated(currentAboutEntry, 'about')) updateAudioBarPresence();
+    return;
+  }
   const factBox = liveArtEl('artFactBox');
   // No Quick Facts on this entry (rare — most entries carry at least a Country fact) — nothing
   // to wait for, so don't block the reveal on an element that will never arrive.
@@ -15247,12 +15286,32 @@ function initAudio(url, resumeTime){
     setActiveCue(-1);
     document.getElementById('article').classList.remove('audio-playing');
   });
+  // v542: a fresh recording reaches the site a minute or two after GitHub has it, so a failed
+  // load isn't final: try the file straight from GitHub, then the site again after 20 s and 60 s.
+  const relPath = /^(https?:)?\/\//i.test(url) ? null : String(url).replace(/^\/+/, '');
+  const tries = [];
+  if(relPath){ const raw = rawAssetUrl(relPath); if(raw) tries.push({ src: raw, wait: 0 }); }
+  tries.push({ src: url + (url.includes('?') ? '&' : '?') + 'r=' + Date.now(), wait: 20000 });
+  tries.push({ src: url + (url.includes('?') ? '&' : '?') + 'r=' + (Date.now() + 1), wait: 60000 });
+  a.addEventListener('loadedmetadata', () => {
+    if(a !== audioEl || !audioBroken) return;
+    audioBroken = false;   // a retry worked
+    document.querySelectorAll('.audioBrokenNote').forEach(n => { n.classList.remove('on'); n.textContent = ''; });
+    updateAudioBarPresence();
+  });
   a.addEventListener('error', () => {
     // v488: was a brief "Audio unavailable" toast while the play button stayed on screen. Now
     // quiet for visitors: the play button is hidden. In Review Mode a note at the end of the
     // article names the file that failed, so a broken link can be found and fixed.
     if(a !== audioEl) return; // a late error from a previous entry's audio
     audioBroken = true;
+    const next = tries.shift();
+    if(next){
+      document.querySelectorAll('.audioBrokenNote').forEach(n => { n.textContent = 'Narration file not available yet \u2014 retrying\u2026'; n.classList.add('on'); });
+      updateAudioBarPresence();
+      setTimeout(() => { if(a === audioEl){ a.src = next.src; a.load(); } }, next.wait);
+      return;
+    }
     if(typeof stopAudioPlaybackInPlace === 'function') try{ stopAudioPlaybackInPlace(); }catch(e){}
     const file = decodeURIComponent(String(url).split('?')[0].split('/').pop() || url);
     document.querySelectorAll('.audioBrokenNote').forEach(n => {
@@ -15305,6 +15364,7 @@ function ttsAvailable(){ return !!TTS_API && ttsVoicesReady && reviewMode === tr
 function entryNarrated(entry, host){
   if(!entry) return false;
   if(entry.audio) return true;
+  if(audioPlayFallback.get(entry.id) && !!audioEl && audioEl.isTts !== true && audioHost === host) return true;   // v541: older recording found (v540)
   return !!audioEl && audioEl.isTts === true && audioHost === host;
 }
 
