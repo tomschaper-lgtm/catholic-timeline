@@ -1,6 +1,6 @@
 <!--
-VERSION: 536
-DATE: 2026-10-04T23:30:00-05:00
+VERSION: 537
+DATE: 2026-10-05T07:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,19 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v537 — 2026-10-05
+
+**Ask:**
+- Screenshot: "Sentence sync: …" stays on the placeholder (Gregory VII, reached after a link and a swipe).
+
+**Implementation:**
+- Same cause as v528, missed there: during a swipe the outgoing article's clone keeps its inner
+  ids, and wireSentenceCues() found the status line with getElementById('apCueStatus') — the
+  clone's. "Loading…" and the result were written into the clone (then removed), so the new
+  article kept the "…" placeholder even when its sentences were linked.
+- The status line is now looked up in the live article (liveArtEl) every time it's written —
+  also after the fetch, so a redraw during loading can't strand it either.
+
 ## v536 — 2026-10-04
 
 **Ask:**
@@ -7181,7 +7194,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v536';
+const APP_VERSION = 'v537';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -16105,7 +16118,10 @@ async function wireSentenceCues(d, host){
   const mySession = ++audioSessionToken; // guards against a superseded call's fetch resolving late — see the comment on audioSessionToken above
   currentCues = []; cueEls = []; activeCueIdx = -1;
   cueSectionHeading = []; audioFollowLastHeading = null; audioFollowSuppressUntil = 0; audioFollowToken++;
-  const statusEl = document.getElementById('apCueStatus');
+  // v537: always the LIVE article's status line (a swipe's slide-out copy has one too), looked up
+  // each time it's written, so a redraw while loading can't leave the "…" placeholder behind.
+  const statusRef = () => audioHost === 'about' ? document.getElementById('apCueStatus') : liveArtEl('apCueStatus');
+  const statusEl = { set textContent(v){ const el = statusRef(); if(el) el.textContent = v; } };
   const explicitPath = d.audioTiming || null;
   const derivedPath = explicitPath ? null : deriveTimingPath(d.audio);
   const timingPath = explicitPath || derivedPath;
