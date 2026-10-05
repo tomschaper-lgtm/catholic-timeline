@@ -1,6 +1,6 @@
 <!--
-VERSION: 538
-DATE: 2026-10-05T09:00:00-05:00
+VERSION: 540
+DATE: 2026-10-05T11:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,41 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v540 — 2026-10-05
+
+**Ask:**
+- While articles wait to be re-recorded (their audio link was cleared by the date fix), play the
+  recording still sitting at audio/<Type>/<id>-v*.mp3 even though the link is blank.
+
+**Implementation:**
+- An article with no audio link checks for `audio/<folder>/<id>-v1..v8.mp3` (then .wav) in
+  parallel — through GitHub when this device has it set up, otherwise the site — and takes the
+  highest version found (not "stop at the first gap": a re-recorded article may only have -v3
+  left). The timing file is the same name with .json.
+- Playback only: the found link lives in a separate in-memory map and the article is drawn from a
+  copy with it filled in. The entry itself keeps its blank link, so a save never writes the old
+  link back and the article still counts as needing a recording. Once a new recording sets the
+  real link, that is used. Checked once per article per session.
+- The check runs when an article is drawn (open, swipe, link); when it finds a file and that
+  article is still open and not playing, the article is redrawn so the player appears.
+- Review Mode shows a line under the player: "Older recording — this article still needs a new
+  one."
+
+## v539 — 2026-10-05
+
+**Ask:**
+- Remove the vote circles, show the models as pills, drop "(now)", sans-serif fonts, bold where
+  needed, small text a bit bigger.
+
+**Implementation:**
+- Opinion rows: no vote badge; each model is a pill (Kokoro, Claude, OpenAI, Gemini) and "in the
+  box" is a green pill — the vote is the number of pills on a row. "Kokoro (now)" -> "Kokoro",
+  also in the syllable lists' known-pronunciation labels.
+- The whole picker (pronunciation view, pause, link search) uses the system sans-serif font
+  (-apple-system / SF Pro on iPhone), including the large syllables and the phrase box; versions
+  and pills bold; notes 13 -> 15px, hints/source lines 13 -> 14.5px, links 15 -> 16px. Long error
+  lines (e.g. Gemini "high demand") clipped to two lines.
+
 ## v538 — 2026-10-05
 
 **Ask:**
@@ -4782,6 +4817,27 @@ CHANGELOG:END
   #linkPicker .lpChipWord.pick{cursor:pointer;}
   #linkPicker .lpChipWord.pick select{pointer-events:none;}
   #linkPicker .lpStressHint{flex:0 0 100%; text-align:center; font-size:13px; color:#666; margin-top:2px;}
+  /* v540: playing an older recording found in the repo */
+  .audioFallbackNote{margin:6px 0 0; text-align:center; font-size:13px; color:var(--muted); font-style:italic;}
+  /* v539: sans-serif, pills, bigger small text */
+  #linkPicker .lpBox, #linkPicker .lpBox *:not(svg):not(path){font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;}
+  #linkPicker .lpPhrase{font-weight:600;}
+  #linkPicker .lpBox.spellMode .lpChip{font-size:30px; font-weight:400; letter-spacing:0;}
+  #linkPicker .lpBox.spellMode .lpChip.on{font-weight:700;}
+  #linkPicker .lpOpinions .lpOp{grid-template-columns:1fr; gap:4px;}
+  #linkPicker .lpOpinions .lpOpWho{display:flex; flex-wrap:wrap; gap:5px; grid-column:1; min-width:0;}
+  #linkPicker .lpOpinions .lpOpSay{grid-column:1; font-size:20px; font-weight:700;}
+  #linkPicker .lpOpinions .lpOpMore{grid-column:1; font-size:15px; color:#444; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  #linkPicker .lpPill{display:inline-block; padding:3px 10px; border-radius:999px; font-size:13px; font-weight:700; letter-spacing:.01em;
+    background:#141414; color:#fff;}
+  #linkPicker .lpPill.kok{background:#e8e8e8; color:#141414;}
+  #linkPicker .lpPill.box{background:#1e7d32; color:#fff;}
+  #linkPicker .lpOpinions .lpOpLine{font-size:15px;}
+  #linkPicker .lpOpinions .lpOpLine > span{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  #linkPicker .lpOpHint, #linkPicker .lpStressHint, #linkPicker .lpSpellFrom, #linkPicker .lpToolHint{font-size:14.5px;}
+  #linkPicker .lpPronStatus{font-size:16px;}
+  #linkPicker .lpLinkBtn{font-size:16px;}
+  #linkPicker .lpBtn{font-weight:600;}
   /* v536: opinions box */
   #linkPicker .lpOpinions{margin:4px 0 12px; border:1px solid #e0e0e0; border-radius:12px; overflow:hidden;}
   #linkPicker .lpOpinions:empty{display:none;}
@@ -7235,7 +7291,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v538';
+const APP_VERSION = 'v540';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14018,7 +14074,44 @@ function peekSnippet(html, maxLen){
   const lastSpace = cut.lastIndexOf(' ');
   return esc((lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trim()) + '\u2026';
 }
+// ---- v540: play a recording still in the repo when the article's link is blank ----
+// Playback only: never written into the entry, so saving can't restore an old link and the
+// article still shows as needing a recording.
+const audioPlayFallback = new Map();   // id -> { audio, timing } | null (checked, nothing found)
+async function findPlaybackAudio(entry){
+  const folder = AUDIO_TYPE_FOLDERS[entry.t];
+  if(!folder) return null;
+  for(const ext of ['mp3', 'wav']){
+    const vs = [1, 2, 3, 4, 5, 6, 7, 8];
+    const hits = await Promise.all(vs.map(v => {
+      const path = 'audio/' + folder + '/' + entry.id + '-v' + v + '.' + ext;
+      return audioFileExists(path).then(ok => ok ? path : null).catch(() => null);
+    }));
+    const found = hits.filter(Boolean).pop();   // the highest version that exists
+    if(found) return { audio: found, timing: deriveTimingPath(found) };
+  }
+  return null;
+}
+function checkPlaybackFallback(d){
+  if(!d || d.audio || audioPlayFallback.has(d.id)) return;
+  audioPlayFallback.set(d.id, null);   // checking; don't start twice
+  findPlaybackAudio(d).then(fb => {
+    if(!fb) return;
+    audioPlayFallback.set(d.id, fb);
+    const article = document.getElementById('article');
+    const playing = typeof audioEl !== 'undefined' && audioEl && !audioEl.paused;
+    if(currentEntry && currentEntry.id === d.id && article.classList.contains('open') && !playing && !getEntry(d.id).audio){
+      openArticle(getEntry(d.id), { preserveStack: true });   // the player appears; scroll is kept
+    }
+  }).catch(() => {});
+}
 function fillArticleBody(d, peek){
+  // v540: no link, but an older recording was found -> draw from a copy that has it
+  if(d && !d.audio){
+    const fb = audioPlayFallback.get(d.id);
+    if(fb) d = Object.assign({}, d, { audio: fb.audio, audioTiming: fb.timing, audioFallback: true });
+    else checkPlaybackFallback(d);
+  }
   const art = readingEntry(d).art || {sections:[], quotes:[], links:[]};   // v518: [prayer] onward hidden
   const hasImg = !!d.img;
   let html = '';
@@ -14175,6 +14268,7 @@ function fillArticleBody(d, peek){
   // looks wrong. See reportIssueBtn's click handler near the bottom of the file.
   // v488: filled in only if this entry's narration file fails to load; shown in Review Mode only.
   if(d.audio) html += '<p class="audioBrokenNote"></p>';
+  if(d.audioFallback && reviewMode) html += '<p class="audioFallbackNote">Older recording \u2014 this article still needs a new one.</p>';   // v540
   html += '<button class="reportIssueBtn" id="reportIssueBtn" data-entity-id="' + esc(d.id) + '" data-entity-name="' + esc(d.n) + '">Report an issue with this article</button>';
   // Owner-only review actions: only ever shown to an unlocked owner looking at a held entry,
   // never to a visitor (a review-flagged entry excludes itself from the public timeline and
@@ -17222,7 +17316,7 @@ function lpSpellTitle(){
 let lpStressWord = -1;   // which word the arrows act on
 // v531: syllables picked from a list ("wi:i"), and the known pronunciations of each word
 let lpPicked = new Set();
-const LP_SRC_LABEL = { fix: 'your fix', reference: 'reference', claude: 'hint', wiktionary: 'Wiktionary', kokoro: 'Kokoro now', luna: 'Luna' };
+const LP_SRC_LABEL = { fix: 'your fix', reference: 'reference', claude: 'hint', wiktionary: 'Wiktionary', kokoro: 'Kokoro', luna: 'Luna' };
 function lpCandsFor(written){
   const k = lpCleanPhrase(written || ''), out = [], seen = new Set();
   const addC = (src, ph) => {
@@ -17560,12 +17654,12 @@ async function lpRenderOpinions(){
     // v538: one row per distinct answer (compared by sound), with a vote count
     const soundOf = (g) => { try{ return lpRespell(g).replace(/[\sˌ]/g, ''); }catch(e){ return String(g).toLowerCase(); } };
     const members = [];
-    if(kok) members.push({ who: 'Kokoro (now)', g: kok, kokoro: true });
+    if(kok) members.push({ who: 'Kokoro', g: kok, kokoro: true });
     const lines = [];
     svcs.forEach(svc => {
       const st = state[svc];
       if(!st) return;
-      if(st.err){ lines.push('<div class="lpOpLine err">' + esc(AI_NAMES[svc] + ': ' + st.err) + '</div>'); return; }
+      if(st.err){ lines.push('<div class="lpOpLine err"><span>' + esc(AI_NAMES[svc] + ': ' + st.err) + '</span></div>'); return; }
       if(!st.respell) return;
       const pi = letters.indexOf(String(st.pick || '').trim().toUpperCase().slice(0, 1));
       members.push({ who: AI_NAMES[svc], g: st.respell, pick: pi >= 0 && opts[pi] ? opts[pi].label : 'none', note: st.note || '' });
@@ -17583,13 +17677,14 @@ async function lpRenderOpinions(){
       if(votes && picks.length === 1) more = (more ? more + ' \u00b7 ' : '') + (picks[0] === 'none' ? 'picks none of the known options' : 'picks ' + picks[0]);
       if(notes[0]) more += (more ? ' \u2014 ' : '') + notes[0];
       const inBox = gr.k === boxSound;
+      // v539: one pill per model (the vote is the number of pills), "in the box" as a green pill
       return '<button type="button" class="lpOp' + (inBox ? ' inBox' : '') + '" data-use="' + esc(gr.ms[0].g) + '">' +
-        '<span class="lpOpVotes" title="' + votes + ' vote' + (votes === 1 ? '' : 's') + '">' + (votes ? '\u25cf ' + votes : '\u2013') + '</span>' +
-        '<span class="lpOpWho">' + esc(gr.ms.map(m => m.who).join(' \u00b7 ')) + (inBox ? ' \u2014 in the box' : '') + '</span>' +
+        '<span class="lpOpWho">' + gr.ms.map(m => '<span class="lpPill' + (m.kokoro ? ' kok' : '') + '">' + esc(m.who) + '</span>').join('') +
+          (inBox ? '<span class="lpPill box">in the box</span>' : '') + '</span>' +
         '<span class="lpOpSay">' + esc(say) + '</span>' + (more ? '<span class="lpOpMore">' + esc(more) + '</span>' : '') + '</button>';
     }).join('');
     const waiting = svcs.filter(svc => !state[svc]).map(svc => AI_NAMES[svc]);
-    if(waiting.length) html += '<div class="lpOpLine">Asking ' + esc(waiting.join(', ')) + '\u2026</div>';
+    if(waiting.length) html += '<div class="lpOpLine"><span>Asking ' + esc(waiting.join(', ')) + '\u2026</span></div>';
     html += lines.join('');
     if(!svcs.length) html += '<div class="lpOpHint">Add AI keys in Manage \u2192 Import \u2192 Pronunciation opinions to see Claude, OpenAI and Gemini here.</div>';
     host.innerHTML = html;
