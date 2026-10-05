@@ -1,6 +1,6 @@
 <!--
-VERSION: 549
-DATE: 2026-10-06T15:45:00-05:00
+VERSION: 550
+DATE: 2026-10-06T16:45:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,18 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v550 — 2026-10-06
+
+**Ask:**
+- Make the back of the landscape flip card look like a prayer card: gold band with the name,
+  cream body, bold labels with the values under them (Tom's mockup).
+
+**Implementation:**
+- Card back (landscape, Review Mode): gold gradient band with the entry's name in serif small
+  capitals (was "At a Glance"); cream body; each fact as a bold, letter-spaced sans-serif label
+  with its value on the line below in regular sans, no row lines; links dark gold. Scrolls inside
+  as before. Portrait unchanged.
+
 ## v549 — 2026-10-06
 
 **Ask:**
@@ -4222,22 +4234,35 @@ CHANGELOG:END
         right:calc(-1 * var(--landImgW, 45vw) - 24px); width:var(--landImgW, 45vw);
         height:calc(100dvh - 32px); box-sizing:border-box;
         border:1.5px solid var(--gold); border-radius:14px;
-        background:linear-gradient(180deg,#14214A 0%, #0C1736 100%);
-        box-shadow:inset 0 0 0 5px rgba(201,165,66,.10);
+        background:linear-gradient(180deg,#F3E6C0 0%, #EADBAE 100%);   /* v550: cream prayer-card back */
+        box-shadow:0 6px 22px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.35);
+        overflow:hidden;
         transform:perspective(1600px) rotateY(-180deg); transition:transform .55s ease;
         -webkit-backface-visibility:hidden; backface-visibility:hidden; pointer-events:none; cursor:pointer;
       }
       #article .artLandCard.flipped .artLandImg{transform:perspective(1600px) rotateY(180deg); pointer-events:none;}
       #article .artLandCard.flipped .artLandBack{transform:perspective(1600px) rotateY(0deg); pointer-events:auto;}
+      /* v550: gold band with the name in small capitals */
       #article .artLandBackHead{
-        display:flex; align-items:center; justify-content:space-between; gap:10px; flex:none;
-        min-height:38px; padding:12px 18px 10px; border-bottom:1px solid rgba(201,165,66,.35);
-        color:var(--gold-bright); font-size:1.05em; font-weight:600; letter-spacing:.02em;
+        display:flex; align-items:center; justify-content:center; flex:none;
+        min-height:58px; padding:14px 16px 12px; text-align:center;
+        background:linear-gradient(180deg,#DDBF6C 0%, #C8A24A 55%, #B58E38 100%);
+        border-bottom:1px solid #9E7A2C; box-shadow:inset 0 1px 0 rgba(255,255,255,.35);
+        color:#1A1F33; font-family:'EB Garamond', Georgia, serif; font-variant:small-caps; font-weight:600;
+        font-size:1.45em; line-height:1.15; letter-spacing:.03em;
       }
       #article .artLandBackBody{
         flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; touch-action:pan-y;
-        overscroll-behavior:contain; margin:0; padding:12px 18px 16px; background:none; border:none;
+        overscroll-behavior:contain; margin:0; padding:14px 22px 18px; background:none; border:none;
       }
+      /* v550: label above value, bold sans label, regular sans value, no row lines */
+      #article .artLandBackBody .factrow{display:block; border:none; padding:0 0 14px; line-height:1.35;}
+      #article .artLandBackBody .factlabel{display:block; max-width:none; padding:0 0 3px; color:#1A1F33;
+        font-family:-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; font-weight:800;
+        font-size:calc(13.5px * var(--txt)); letter-spacing:.06em; text-transform:uppercase;}
+      #article .artLandBackBody .factval{color:#2B2B2B; font-family:-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        font-size:calc(15.5px * var(--txt)); font-weight:400;}
+      #article .artLandBackBody .factval a{color:#8A6A1E; text-decoration-color:rgba(138,106,30,.5);}
 
       #article.overlay #artHeroImg, #article.overlay .artcap{display:none;}
       #flyPortrait{display:none !important;}
@@ -7411,7 +7436,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v549';
+const APP_VERSION = 'v550';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14276,7 +14301,7 @@ function fillArticleBody(d, peek){
       if(reviewMode && backRows.length){
         a = '<div class="artLandCard canFlip" id="artLandCard">' + a +
           '<div class="artLandBack" aria-hidden="true">' +
-            '<div class="artLandBackHead"><span>At a Glance</span></div>' +
+            '<div class="artLandBackHead"><span>' + esc(d.n) + '</span></div>' +   // v550: the name, on a gold band
             '<div class="factbox artLandBackBody">' + backRows.map(f => {
               const val = f.url
                 ? '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.value || f.url) + '</a>'
