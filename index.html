@@ -1,6 +1,6 @@
 <!--
-VERSION: 537
-DATE: 2026-10-05T07:30:00-05:00
+VERSION: 538
+DATE: 2026-10-05T09:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,28 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v538 — 2026-10-05
+
+**Ask:**
+- With Claude, OpenAI and Gemini answering, Cancel and OK were pushed off the screen. Put the same
+  answers together in one row with a count, so a vote is visible at a glance.
+- With several words, the arrows only move the stress in the boxed word — how do you box another?
+
+**Implementation:**
+- The panel scrolls inside itself (overflow-y:auto) and the Cancel/OK row is sticky at its
+  bottom, so the buttons are always on screen however much is above them.
+- Opinions grouped by SOUND (respelled to Kokoro sounds and compared, so "SEHK-uhnd" and
+  "SEH-kuhnd" agree): one row per distinct answer, a vote badge (● 3), who said it
+  ("Claude · OpenAI · Gemini"), the version, and one line: the pick when they share one, plus the
+  first note (clipped to one line). Kokoro's reading takes part in the grouping, so agreement with
+  the current narration shows; the answer already in the box is marked. Waiting and failed
+  services are one short line each.
+- Kokoro's row now shows what the narration actually says — spelling rules and saved fixes
+  applied ("II" -> "the second"), not Kokoro's raw reading ("eye-EYE").
+- Several words: tapping a word that isn't boxed boxes it (its syllable lists are inactive until
+  then), so the arrows act on it. One-syllable words have no stress to move and open their list
+  directly. A hint under the arrows says so when there's a choice.
+
 ## v537 — 2026-10-05
 
 **Ask:**
@@ -4741,6 +4763,25 @@ CHANGELOG:END
   #linkPicker .lpBox.spellMode .lpChip.on{color:#000; background:transparent; text-decoration-color:#000;}
   #linkPicker .lpBox.spellMode .lpChip + .lpChip::before{color:#aaa;}
   #linkPicker .lpBox.spellMode .lpChip:active{background:#efefef;}
+  /* v538: the panel scrolls inside itself; Cancel/OK stay pinned at its bottom */
+  #linkPicker .lpBox{overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;}
+  #linkPicker .lpToolPanel > .lpBtns, #linkPicker #lpMainBtns{position:sticky; bottom:calc(-18px - env(safe-area-inset-bottom, 0px)); z-index:3; background:#fff;
+    margin-bottom:calc(-18px - env(safe-area-inset-bottom, 0px)); padding:10px 0 calc(14px + env(safe-area-inset-bottom, 0px)); box-shadow:0 -10px 14px -10px rgba(0,0,0,.18);}
+  /* v538: grouped opinions */
+  #linkPicker .lpOp{grid-template-columns:auto 1fr;}
+  #linkPicker .lpOpVotes{grid-row:span 3; align-self:start; min-width:30px; height:30px; border-radius:15px; background:#141414; color:#fff;
+    font-size:14px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:2px;}
+  #linkPicker .lpOp.inBox .lpOpVotes{background:#1e7d32;}
+  #linkPicker .lpOpWho{min-width:0; font-size:13px; color:#555;}
+  #linkPicker .lpOpSay{grid-column:2; font-size:19px;}
+  #linkPicker .lpOpMore{grid-column:2; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden;}
+  #linkPicker .lpOpLine{padding:8px 12px; font-size:13px; color:#777; border-top:1px solid #eee;}
+  #linkPicker .lpOpLine.err{color:#c62828;}
+  #linkPicker .lpOpLine:first-child{border-top:none;}
+  /* v538: tap a word to box it */
+  #linkPicker .lpChipWord.pick{cursor:pointer;}
+  #linkPicker .lpChipWord.pick select{pointer-events:none;}
+  #linkPicker .lpStressHint{flex:0 0 100%; text-align:center; font-size:13px; color:#666; margin-top:2px;}
   /* v536: opinions box */
   #linkPicker .lpOpinions{margin:4px 0 12px; border:1px solid #e0e0e0; border-radius:12px; overflow:hidden;}
   #linkPicker .lpOpinions:empty{display:none;}
@@ -7194,7 +7235,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v537';
+const APP_VERSION = 'v538';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -17250,9 +17291,11 @@ function lpRenderStress(){
   };
   const arrows = !!cur;
   host.innerHTML = (arrows ? '<button type="button" class="lpArrow" data-stress="-1" aria-label="Stress an earlier syllable"' + (at <= 0 ? ' disabled' : '') + '>&#9664;</button>' : '') +
-    '<div class="lpChips">' + words.map((w, wi) => '<div class="lpChipWord' + (wi === lpStressWord && words.length > 1 ? ' active' : '') + '">' +
+    '<div class="lpChips">' + words.map((w, wi) => '<div class="lpChipWord' + (wi === lpStressWord && words.length > 1 ? ' active' : '') +
+      (wi !== lpStressWord && w.parts.length > 1 ? ' pick' : '') + '" data-w="' + wi + '">' +
       w.parts.map((x, i) => chip(w, wi, i)).join('') + '</div>').join('') + '</div>' +
-    (arrows ? '<button type="button" class="lpArrow" data-stress="1" aria-label="Stress a later syllable"' + (at >= cur.parts.length - 1 ? ' disabled' : '') + '>&#9654;</button>' : '');
+    (arrows ? '<button type="button" class="lpArrow" data-stress="1" aria-label="Stress a later syllable"' + (at >= cur.parts.length - 1 ? ' disabled' : '') + '>&#9654;</button>' : '') +
+    (words.filter(w => w.parts.length > 1).length > 1 ? '<div class="lpStressHint">The arrows move the stress in the boxed word \u2014 tap another word to box it.</div>' : '');
 }
 function lpSetStress(wi, i){
   const inp = document.getElementById('lpSpellIn');
@@ -17277,6 +17320,8 @@ document.getElementById('lpStress').addEventListener('change', (e) => {
   lpToolSay(''); lpSpellUpdate();
 });
 document.getElementById('lpStress').addEventListener('click', (e) => {
+  const pickWord = e.target.closest('.lpChipWord.pick');   // v538: box this word for the arrows
+  if(pickWord){ e.preventDefault(); lpStressWord = +pickWord.dataset.w; lpRenderStress(); return; }
   const arrow = e.target.closest('[data-stress]');
   if(!arrow || arrow.disabled) return;
   const words = lpParseGuide(document.getElementById('lpSpellIn').value), w = words[lpStressWord];
@@ -17504,26 +17549,48 @@ async function lpRenderOpinions(){
   const userText = 'Word or phrase: ' + phrase + '\nSentence: ' + lpSentenceAround() + '\nKnown options:\n' +
     (opts.length ? opts.map((o, i) => letters[i] + ') ' + o.g + '  (' + o.label + ')').join('\n') : 'none');
   // Kokoro's own reading, straight away
-  const kok = (() => { const out = []; for(const w of words){ const k = lpCleanPhrase(w); const st = lpStoryWords && lpStoryWords.get(k);
-    const ph = (st && st.kokoro) || lpWordsNow.get(k) || lpWordsNow.get(k.toLowerCase()); if(!ph) return ''; try{ out.push(lpGuideOf(ph)); }catch(e){ return ''; } } return out.join(' '); })();
+  // v538: what the narration says now — saved fixes and spelling rules applied ("II" -> "the second")
+  const kok = (() => { const g = lpGuideFor(phrase); return g && g.from !== 'guess' ? g.guide : ''; })();
   const keys = aiKeys(), svcs = ['anthropic', 'openai', 'gemini'].filter(s => keys[s] && keys[s].key);
   const row = (who, say, more, cls, use) => '<button type="button" class="lpOp' + (cls ? ' ' + cls : '') + '"' + (use ? ' data-use="' + esc(use) + '"' : '') + '><span class="lpOpWho">' + esc(who) +
     '</span><span class="lpOpSay">' + esc(say) + '</span>' + (more ? '<span class="lpOpMore">' + esc(more) + '</span>' : '') + '</button>';
   const state = {};
   const draw = () => {
     if(run !== lpOpinionRun) return;
-    let html = kok ? row('Kokoro (now)', lpWillSay(kok), 'how the narration says it today', '', kok) : '';
+    // v538: one row per distinct answer (compared by sound), with a vote count
+    const soundOf = (g) => { try{ return lpRespell(g).replace(/[\sˌ]/g, ''); }catch(e){ return String(g).toLowerCase(); } };
+    const members = [];
+    if(kok) members.push({ who: 'Kokoro (now)', g: kok, kokoro: true });
+    const lines = [];
     svcs.forEach(svc => {
-      const model = (keys[svc].model || AI_DEFAULT_MODELS[svc]), st = state[svc];
-      if(!st) html += row(AI_NAMES[svc], 'asking\u2026', '', 'busy');
-      else if(st.err) html += row(AI_NAMES[svc], st.err, model, 'err');
-      else {
-        let say = st.respell || ''; try{ say = lpWillSay(say); }catch(e){}
-        const pi = letters.indexOf(String(st.pick || '').trim().toUpperCase().slice(0, 1));
-        const pick = pi >= 0 && opts[pi] ? 'picks ' + opts[pi].label + (opts[pi].g.toLowerCase() === (st.respell || '').toLowerCase() ? '' : ' (' + opts[pi].g + ')') : 'picks none of the known options';
-        html += row(AI_NAMES[svc], say || '\u2014', pick + (st.note ? ' \u2014 ' + st.note : ''), '', st.respell || '');
-      }
+      const st = state[svc];
+      if(!st) return;
+      if(st.err){ lines.push('<div class="lpOpLine err">' + esc(AI_NAMES[svc] + ': ' + st.err) + '</div>'); return; }
+      if(!st.respell) return;
+      const pi = letters.indexOf(String(st.pick || '').trim().toUpperCase().slice(0, 1));
+      members.push({ who: AI_NAMES[svc], g: st.respell, pick: pi >= 0 && opts[pi] ? opts[pi].label : 'none', note: st.note || '' });
     });
+    const groups = [];
+    members.forEach(m => { const k = soundOf(m.g); let gr = groups.find(x => x.k === k); if(!gr){ gr = { k, ms: [] }; groups.push(gr); } gr.ms.push(m); });
+    groups.sort((x, y) => y.ms.filter(m => !m.kokoro).length - x.ms.filter(m => !m.kokoro).length);
+    const boxSound = soundOf(document.getElementById('lpSpellIn').value.trim() || '-');
+    let html = groups.map(gr => {
+      const votes = gr.ms.filter(m => !m.kokoro).length, ais = gr.ms.filter(m => !m.kokoro);
+      let say = gr.ms[0].g; try{ say = lpWillSay(say); }catch(e){}
+      const picks = [...new Set(ais.map(m => m.pick))];
+      const notes = ais.map(m => m.note).filter(Boolean);
+      let more = gr.ms.some(m => m.kokoro) ? (votes ? 'same as the narration now' : 'how the narration says it now') : '';
+      if(votes && picks.length === 1) more = (more ? more + ' \u00b7 ' : '') + (picks[0] === 'none' ? 'picks none of the known options' : 'picks ' + picks[0]);
+      if(notes[0]) more += (more ? ' \u2014 ' : '') + notes[0];
+      const inBox = gr.k === boxSound;
+      return '<button type="button" class="lpOp' + (inBox ? ' inBox' : '') + '" data-use="' + esc(gr.ms[0].g) + '">' +
+        '<span class="lpOpVotes" title="' + votes + ' vote' + (votes === 1 ? '' : 's') + '">' + (votes ? '\u25cf ' + votes : '\u2013') + '</span>' +
+        '<span class="lpOpWho">' + esc(gr.ms.map(m => m.who).join(' \u00b7 ')) + (inBox ? ' \u2014 in the box' : '') + '</span>' +
+        '<span class="lpOpSay">' + esc(say) + '</span>' + (more ? '<span class="lpOpMore">' + esc(more) + '</span>' : '') + '</button>';
+    }).join('');
+    const waiting = svcs.filter(svc => !state[svc]).map(svc => AI_NAMES[svc]);
+    if(waiting.length) html += '<div class="lpOpLine">Asking ' + esc(waiting.join(', ')) + '\u2026</div>';
+    html += lines.join('');
     if(!svcs.length) html += '<div class="lpOpHint">Add AI keys in Manage \u2192 Import \u2192 Pronunciation opinions to see Claude, OpenAI and Gemini here.</div>';
     host.innerHTML = html;
   };
