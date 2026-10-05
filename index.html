@@ -1,6 +1,6 @@
 <!--
-VERSION: 545
-DATE: 2026-10-05T16:20:00-05:00
+VERSION: 549
+DATE: 2026-10-06T15:45:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,51 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v549 — 2026-10-06
+
+**Ask:**
+- Listened starts gold; checked, it turns green with a checkmark. "Mark it good" buttons sit under
+  the action they confirm (a future Proofed under Proof).
+
+**Implementation:**
+- Second row is positioned by column: Listened under Audio (column 2), Fix under Flag (column 4);
+  columns 1 and 3 are left free for future check buttons (Proofed under Proof, etc.).
+- Listened: gold with just the word when unchecked; checked, green with a ✓ in a white badge on its
+  top-right corner (keeps the word's full width); the date stays on the line under it.
+
+## v548 — 2026-10-06
+
+**Ask:**
+- Make the wide "Fix a pronunciation" and "Listened" buttons the same size as Proof / Audio /
+  Image / Flag. Remove triple-tap for creating links (press-and-hold does it now).
+
+**Implementation:**
+- Review Mode tools: a second row of the same four-column grid holds "Fix" (opens the
+  pronunciation page, as before) and "Listened"; the Listened state shows on the line under it like
+  the others ("Checked ✓ Oct 5"), and the button turns green when set.
+- Triple-tap on story text no longer opens the link picker; press-and-hold opens the
+  pronunciation view, which has "Link to an entry".
+
+## v547 — 2026-10-06
+
+**Ask:**
+- Press-and-hold sometimes starts the narration; pause it automatically when the dialog opens.
+
+**Implementation:**
+- Opening the picker (hold or triple-tap) pauses narration with stopAudioPlaybackInPlace() (keeps the
+  position, resets the play button). While the picker is open, a 'play' on the narration is paused
+  again at once — that catches the tap / double-tap that can follow a hold, whatever starts it.
+  The guard is removed when the picker closes; narration stays paused until Play is tapped.
+
+## v546 — 2026-10-06
+
+**Ask:**
+- Progress: remove "Pronunciation re-record" and "Closing prayer (Saints)" — no longer needed.
+
+**Implementation:**
+- Both rows removed from PROGRESS_ROWS (Manage → Progress and Export's Status). Progress now shows
+  Proofread, Audio recorded, Images, Pronunciation checked. The services themselves are untouched.
+
 ## v545 — 2026-10-05
 
 **Ask:**
@@ -4886,7 +4931,10 @@ CHANGELOG:END
   #linkPicker .lpStressHint{flex:0 0 100%; text-align:center; font-size:13px; color:#666; margin-top:2px;}
   /* v543: "Pronunciation checked" button — green when set */
   .rtBtn.rtListened.on{background:linear-gradient(180deg,#3f8f4f,#2e7040); color:#fff; border-color:#2e7040;}
-  .rtBtn.rtListened.on svg{color:#fff;}
+  /* v549: the checkmark is a badge on the corner, so "Listened" keeps the whole width */
+  .rtBtn.rtListened{position:relative; overflow:visible;}
+  .rtBtn.rtListened.on svg{position:absolute; top:-8px; right:-8px; width:22px; height:22px; padding:3px; box-sizing:border-box;
+    border-radius:50%; background:#fff; color:#2e7040; border:1.5px solid #2e7040; box-shadow:0 1px 3px rgba(0,0,0,.35);}
   /* v540: playing an older recording found in the repo */
   .audioFallbackNote{margin:6px 0 0; text-align:center; font-size:13px; color:var(--muted); font-style:italic;}
   /* v539: sans-serif, pills, bigger small text */
@@ -5033,7 +5081,8 @@ CHANGELOG:END
     font-family:'EB Garamond', Georgia, serif; font-weight:700; font-size:17px;
   }
   .rtBtn svg{width:22px; height:22px; flex:none;}
-  .rtWide{width:100%; margin-top:8px;}   /* v513: full-width "Fix a pronunciation" under the four tools */
+  .rtWide{width:100%; margin-top:8px;}
+  .rtRow2{margin-top:8px;}   /* v548: Fix / Listened, same size as the tools above */   /* v513: full-width "Fix a pronunciation" under the four tools */
   .rtBtn span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .rtBtn:active{filter:brightness(.93);}
   .rtBtn:disabled{opacity:.45; cursor:default;}
@@ -7362,7 +7411,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v545';
+const APP_VERSION = 'v549';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14145,12 +14194,29 @@ function peekSnippet(html, maxLen){
   const lastSpace = cut.lastIndexOf(' ');
   return esc((lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trim()) + '\u2026';
 }
+// ---- v547: keep narration paused while the pronunciation / link dialog is open ----
+let lpHeldAudio = null;
+function lpHoldNarrationOnPlay(){
+  if(document.getElementById('linkPicker').classList.contains('open')) stopAudioPlaybackInPlace();
+}
+function lpHoldNarration(on){
+  if(lpHeldAudio && typeof lpHeldAudio.removeEventListener === 'function') lpHeldAudio.removeEventListener('play', lpHoldNarrationOnPlay);
+  lpHeldAudio = null;
+  if(!on || !audioEl) return;
+  if(!audioEl.paused) stopAudioPlaybackInPlace();
+  if(typeof audioEl.addEventListener === 'function'){ lpHeldAudio = audioEl; audioEl.addEventListener('play', lpHoldNarrationOnPlay); }
+}
 // ---- v543: paint the "Pronunciation checked" button ----
+// v549: gold with just the word; checked, green with a checkmark before it
+function listenedInner(on){
+  return (on ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>' : '') + '<span>Listened</span>';
+}
 function listenedPaint(on, at){
   const b = document.getElementById('tkListenedBtn'); if(!b) return;
   b.classList.toggle('on', !!on);
-  const when = on && at ? ' (' + new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ')' : '';
-  const span = b.querySelector('span'); if(span) span.textContent = on ? '\u2713 Pronunciation checked' + when : 'Listened \u2014 pronunciation is perfect';
+  b.innerHTML = listenedInner(!!on);
+  const when = on && at ? ' ' + new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  const st = document.getElementById('tkListenedBtnState'); if(st) st.textContent = on ? 'Checked \u2713' + when : '';   // v548
 }
 // ---- v540: play a recording still in the repo when the article's link is blank ----
 // Playback only: never written into the entry, so saving can't restore an old link and the
@@ -14397,16 +14463,18 @@ function fillArticleBody(d, peek){
         btn('tkQuickImageBtn', ICON.image, 'Image', imgPending, imgTitle) +
         btn('tkFlagIssueBtn', ICON.flag, 'Flag', false, 'Flag an issue') +
       '</div>' +
-      // v513: opens the standalone pronunciation-fix page for this entry.
-      '<button type="button" class="rtBtn rtWide" id="tkPronFixBtn" title="Tap a mispronounced word and pick the right way to say it">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4 4v-4H5.5A1.5 1.5 0 0 1 4 14.5z"/><path d="M8.5 9.5h7M8.5 12.5h4"/></svg>' +
-        '<span>Fix a pronunciation</span></button>' +
-      // v543: listened through the recording and it's perfect — cleared by every new recording
+      // v548: "Fix" and "Listened" are regular quarter-width tools on a second row
       (() => { const on = !!(d.qc && d.qc.pronChecked) && !!d.audio && !d.audioFallback;
-        const when = on && d.qc.pronCheckedAt ? ' (' + new Date(d.qc.pronCheckedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ')' : '';
-        return '<button type="button" class="rtBtn rtWide rtListened' + (on ? ' on' : '') + '" id="tkListenedBtn" title="I listened to the whole recording and every word is right">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>' +
-          '<span>' + (on ? '\u2713 Pronunciation checked' + esc(when) : 'Listened \u2014 pronunciation is perfect') + '</span></button>'; })() +
+        const when = on && d.qc.pronCheckedAt ? ' ' + new Date(d.qc.pronCheckedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+        const PRON_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4 4v-4H5.5A1.5 1.5 0 0 1 4 14.5z"/><path d="M8.5 9.5h7M8.5 12.5h4"/></svg>';
+        const EAR_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>';
+        return '<div class="rtRow rtRow2">' +
+          // v549: each "mark it good" button sits under the action it confirms — Listened under Audio
+          '<div class="rtCell" style="grid-column:2"><button type="button" class="rtBtn rtListened' + (on ? ' on' : '') + '" id="tkListenedBtn" title="I listened to the whole recording and every word is right">' +
+            listenedInner(on) + '</button>' +
+            '<div class="rtState" id="tkListenedBtnState">' + (on ? 'Checked \u2713' + esc(when) : '') + '</div></div>' +
+          '<div class="rtCell" style="grid-column:4"><button type="button" class="rtBtn" id="tkPronFixBtn" title="Fix a pronunciation">' + PRON_ICON + '<span>Fix</span></button><div class="rtState"></div></div>' +
+        '</div>'; })() +
       '<div class="rtProofStat"><b>' + longest + ' Word' + (longest === 1 ? '' : 's') + '</b><span>' + esc(proofLabel) + '</span></div>' +
       '<p class="reviewActionNote" id="tkQuickNote"></p>' +
     '</div>';
@@ -16920,6 +16988,7 @@ function lpEligible(){
 // it never has to fight the existing swipe/scroll gesture handling on #article. ----
 let lpTapLog = [];
 document.getElementById('artBody').addEventListener('click', (e) => {
+  return;   // v548: triple-tap retired — press-and-hold opens the pronunciation view (with "Link to an entry")
   if(!lpEligible()) return;
   if(e.target.closest('a, button, input, .entrylink')) return;
   const prose = e.target.closest('.artProse');
@@ -16975,6 +17044,7 @@ function openLinkPicker(x, y){
   lpRunSearch(initialWord);
   lpToolClose();                             // v529: always open on the main view
   lpWatchViewport(true);                     // v532
+  lpHoldNarration(true);                     // v547: no narration while the dialog is up
   lpLoadFixes().then(lpUpdatePronStatus);   // v524
   document.getElementById('linkPicker').classList.add('open');
   document.getElementById('lpOk').disabled = true;
@@ -18055,6 +18125,7 @@ function closeLinkPicker(){
   lpToolClose();
   lpPlaceTop(false);
   lpWatchViewport(false);
+  lpHoldNarration(false);
   document.getElementById('linkPicker').classList.remove('open');
   lpState = null;
   lpSelectedTarget = null;
@@ -18672,15 +18743,9 @@ const PROGRESS_ROWS = [
     done:   e => !!e.audio,
     hold:   e => tkHasPendingTask(e.id, ['audio-generate']) ? 'already queued'
                : (entryHasLongSentence(e) ? 'wait on rewording' : null) },
-  { key: 'pron',       label: 'Pronunciation re-record',   service: 'audio-generate',   category: '',
-    inPool: e => !!e.audio && entryPronHits(e).length > 0,
-    done:   e => !!e.audioPron },
   { key: 'image',      label: 'Images',                    service: 'image-generate',   category: '',
     inPool: e => articleStats(e).wordCount > 0,
     done:   e => !!e.img },
-  { key: 'invocation', label: 'Closing prayer (Saints)',   service: 'audio-invocation', category: 's',
-    inPool: e => e.t === 's' && !!e.audio,
-    done:   e => !!e.audioInvocation },
   // v543: listened to the whole recording and signed it off (Review Mode button); a new recording clears it
   { key: 'listened',   label: 'Pronunciation checked',     service: '',                 category: '',
     inPool: e => !!e.audio,
