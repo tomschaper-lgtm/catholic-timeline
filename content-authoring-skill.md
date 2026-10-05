@@ -52,11 +52,7 @@ Additional standing rules:
 - **Private revelations** need a traceable source, must be explicitly labeled as private revelation, must never be implied as binding. If a claimed vision, message, or miracle can't be sourced reliably, omit it.
 - **A Catholic source ≠ historical proof.** A shrine website can accurately report "the Church venerates this tradition" without that establishing "historical evidence shows this occurred."
 
-Keep qualification brief and natural, not academic: *"A venerable tradition holds that James preached in Spain before returning to Jerusalem"* reads better than a flat, overconfident claim.
-
-## Short description (`d`) — the teaser
-
-Four sentences, vivid and specific, same warm voice as the article — a compelling hook, not a bare summary. Should give a strong sense of who the person was and why they still matter, not just dates and title.
+Keep qualification brief and natural, not academic: *"A venerable tradition holds that James preached in Spain before returning to Jerusalem"* reads better than a flat, overconfident 
 
 ## Country — judgment rules
 
@@ -82,9 +78,9 @@ When submitting a batch with any `review: true` entries, call it out explicitly 
 
 ## Age at death — when it's solid enough to compute
 
-Append `(at age N)` to a `Died` fact only when both years are firmly established:
+Append `(at age N)` to a `Died` fact when both years are firmly established, or when enough information is available to estimate a value. if estimated, use (estimated age n).
 
-- Both birth year *and* death year must be independently well-attested — not a `c.` estimate, not "traditionally," not one of two disputed dates. If either carries that kind of qualification, leave the age off.
+- Both birth year *and* death year must be independently well-attested — not a `c.` estimate, not "traditionally," not one of two disputed dates. If either carries that kind of qualification, Attempt the estimation method.
 - **Years only known (the normal case)**: age = death year − birth year.
 - **Exact month+day known on both ends**: compute the true age — subtract birth year from death year, then subtract one more if the death fell before that year's birthday (e.g. Augustine, born 13 November 354, died 28 August 430, is *75* not 76 — his birthday hadn't come around yet).
 - If the birth date is unknown entirely, omit the age — don't estimate a birth year to back into one.
@@ -110,12 +106,15 @@ Add `alt` names whenever an entry is commonly known by another name: regnal vs. 
 
 Write from a faithful Catholic perspective, in the warm, personalist voice above. New Advent's Catholic Encyclopedia first, vatican.va/papal documents/other magisterial sources as supplements. Be precise with dates, canonization dates, and apparition approval status. Quotations authentic and exactly worded — prefer exact quoted text over paraphrase when quoting saints or magisterial documents. Search the web to verify facts and URLs before writing — every New Advent link confirmed by search, never guessed or reused from memory.
 
+## Date formatting
+Be precise with dates: write dates in American order: "December 28, 1065"; "October 13" when there's no year; "June 8–9, 597" for ranges, with a comma after the year when the sentence continues.
+
 ## Pre-delivery checklist (content quality)
 
 Before delivering any draft:
 - Every biographical claim correctly leveled (Scripture / early testimony / long-standing tradition / later legend); no debated identity stated as settled; no interior motive, emotion, or sparse-account detail invented — qualify or omit, never pad for word count.
 - Word count within its tiered target, with the corresponding section count.
-- Any `Died (at age N)` fact appears only where both years are solid per the rule above — cut it rather than guess.
+- Any `Died (at age N)` fact appears when a reasonable guess can be made. If the from and to are known to be factual, and calculate the age at death. When the born or died date cannot be certain, and a reasonable guess can be made, include age at death with the word estimated preceding the value. 
 - For any Eucharistic Miracle (`t: "u"`) entry: confirm no `miracolieucaristici.org` link ended up in `art.links` (that link lives in the separate `carloLinks` table — see `json-import-skill.md`).
 - `links` reads as genuine further reading for the subject, not just the sources actually cited in the prose — check it isn't artificially capped at the old 4-link habit when the subject supports more.
 
