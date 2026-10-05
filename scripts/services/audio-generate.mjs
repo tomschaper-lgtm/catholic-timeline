@@ -56,7 +56,7 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { stripHtml, splitSentences } from '../lib/text.mjs';
 import { isKokoroVoice, kokoroVoiceName, kokoroSpeed, Track, synthBatch, trackToMp3 } from './tts-kokoro.mjs';
-import { americanDates, americanizeEntryDates } from './american-dates.mjs';   // 2026-10-05: own file, shared with fix-dates.mjs
+import { americanDates, americanizeEntryDates, spokenDateAt } from './american-dates.mjs';   // 2026-10-05: own file, shared with fix-dates.mjs
 export { americanDates, americanizeEntryDates };
 
 export const AUDIO_ROOT = 'audio';
@@ -138,6 +138,16 @@ export function applyPronunciation(text, rules, useIpa){
         if(r.pause){ pauseAt.add(i + r.pauseAt); count++; continue; }   // mark it; keep looking for a sound/spelling rule here
         hit = r; break;
       }
+    }
+    // A date is spoken with an ordinal day: "October 3, 1952" -> "October third, 1952" (2026-10-05).
+    // Checked before the rules so a month name never gets a rule of its own in between.
+    const sd = !hit && !isWordChar(text[i - 1]) ? spokenDateAt(text, i) : null;
+    if(sd){
+      for(let k = 0; k < sd.len; k++) map[i + k] = out.length;
+      out += sd.say;
+      i += sd.len;
+      count++;
+      continue;
     }
     if(hit){
       for(let k = 0; k < hit.from.length; k++) map[i + k] = out.length;
