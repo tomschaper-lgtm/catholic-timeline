@@ -1,6 +1,6 @@
 <!--
-VERSION: 543
-DATE: 2026-10-05T15:00:00-05:00
+VERSION: 545
+DATE: 2026-10-05T16:20:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,24 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v545 — 2026-10-05
+
+**Ask:**
+- Drop "how to pronounce" from the YouTube search — the plain name gives better results.
+
+**Implementation:**
+- The YouTube link searches for just the word or phrase in the box.
+
+## v544 — 2026-10-05
+
+**Ask:**
+- A blue YouTube link in the pronunciation view, for researching how a name is said.
+
+**Implementation:**
+- "YouTube" added to the links row (Type it · Add a pause after · Link to an entry · YouTube), a
+  plain link opening a YouTube search for the word or phrase in the box (v545: without "how to pronounce") in a new
+  tab. Its address follows the phrase as it's widened with ← →.
+
 ## v543 — 2026-10-05
 
 **Ask:**
@@ -6330,6 +6348,7 @@ CHANGELOG:END
           <button type="button" class="lpLinkBtn" id="lpTypeIt">Type it</button>
           <button type="button" class="lpLinkBtn" id="lpToPause">Add a pause after</button>
           <button type="button" class="lpLinkBtn" id="lpToLink">Link to an entry</button>
+          <a class="lpLinkBtn" id="lpYouTube" href="https://www.youtube.com/" target="_blank" rel="noopener">YouTube</a>
         </div>
       </div>
       <div class="lpPauseBox" id="lpPauseBox"></div>
@@ -7343,7 +7362,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v543';
+const APP_VERSION = 'v545';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -17659,6 +17678,8 @@ function lpWillSay(typed){
 let lpSpellShownFor = '';
 function lpSpellUpdate(){
   lpSpellShownFor = lpSpellKey();
+  const yt = document.getElementById('lpYouTube');   // v544: research link follows the phrase
+  if(yt) yt.href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(lpSpellShownFor);
   const typed = document.getElementById('lpSpellIn').value.trim();
   const ph = typed ? lpRespell(typed) : '';
   let g = ''; try{ g = ph ? lpWillSay(typed) : ''; }catch(e){ try{ g = lpGuideOf(ph); }catch(e2){} }
