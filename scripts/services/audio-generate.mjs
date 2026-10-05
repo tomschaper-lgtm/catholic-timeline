@@ -564,6 +564,8 @@ export async function runAudioGenerate(task, dataJson){
   // American date order first ("28 December 1065" -> "December 28, 1065"), so the saved text,
   // the recording and its sentence timing all match. Quotes from sources are left alone.
   const datesFixed = americanizeEntryDates(entry);
+  // A new recording has to be listened to again before it counts as checked (2026-10-05).
+  if(entry.qc){ delete entry.qc.pronChecked; delete entry.qc.pronCheckedAt; }
 
   const p = task.payload || {};
   const { voiceId, modelId, voiceSettings } = voiceFromPayload(p);
