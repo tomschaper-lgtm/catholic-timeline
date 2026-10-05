@@ -19,6 +19,287 @@ the time.
 
 ---
 
+## v542 — 2026-10-05
+
+**Ask:**
+- St. Columba is recorded (file and link there, "Recorded ✓") but no play button shows.
+
+**Implementation:**
+- Cause: a load failure is final for the session (v488 hides the bar while audioBroken). Right after
+  a recording, the site serves the new MP3 a minute or two after GitHub has it (deploy lag), so the
+  first load 404s and the button never comes back. (In Review Mode the "Audio unavailable" note
+  sits below the review tools, off the bottom of the screen.)
+- On a load error the player now retries before giving up: first the same file straight from
+  GitHub (raw.githubusercontent.com, when this device has GitHub set up — the route the Review
+  screen's player already uses), then the site again after 20 s and after 60 s. While retrying the
+  bar stays hidden and the Review Mode note says "retrying…"; on success the bar appears. Only when
+  every try fails does it stay hidden with the note.
+- Swipe fix: the play bar's reveal latch survived a swipe and its scroll check returned early once
+  latched, so the bar kept the previous article's state (shown on an article with no audio). A
+  swipe now resets the latch, and the scroll check refreshes the bar even when latched.
+
+## v541 — 2026-10-05
+
+**Ask:**
+- The older recording plays, but no play button shows.
+
+**Implementation:**
+- updateAudioBarPresence() shows the bar only when entryNarrated() is true, and that checked the
+  entry's own audio link — blank for these articles. entryNarrated() now also counts an older
+  recording found by v540 (audioPlayFallback) once its player is loaded in that host.
+
+## v540 — 2026-10-05
+
+**Ask:**
+- While articles wait to be re-recorded (their audio link was cleared by the date fix), play the
+  recording still sitting at audio/<Type>/<id>-v*.mp3 even though the link is blank.
+
+**Implementation:**
+- An article with no audio link checks for `audio/<folder>/<id>-v1..v8.mp3` (then .wav) in
+  parallel — through GitHub when this device has it set up, otherwise the site — and takes the
+  highest version found (not "stop at the first gap": a re-recorded article may only have -v3
+  left). The timing file is the same name with .json.
+- Playback only: the found link lives in a separate in-memory map and the article is drawn from a
+  copy with it filled in. The entry itself keeps its blank link, so a save never writes the old
+  link back and the article still counts as needing a recording. Once a new recording sets the
+  real link, that is used. Checked once per article per session.
+- The check runs when an article is drawn (open, swipe, link); when it finds a file and that
+  article is still open and not playing, the article is redrawn so the player appears.
+- Review Mode shows a line under the player: "Older recording — this article still needs a new
+  one."
+
+## v539 — 2026-10-05
+
+**Ask:**
+- Remove the vote circles, show the models as pills, drop "(now)", sans-serif fonts, bold where
+  needed, small text a bit bigger.
+
+**Implementation:**
+- Opinion rows: no vote badge; each model is a pill (Kokoro, Claude, OpenAI, Gemini) and "in the
+  box" is a green pill — the vote is the number of pills on a row. "Kokoro (now)" -> "Kokoro",
+  also in the syllable lists' known-pronunciation labels.
+- The whole picker (pronunciation view, pause, link search) uses the system sans-serif font
+  (-apple-system / SF Pro on iPhone), including the large syllables and the phrase box; versions
+  and pills bold; notes 13 -> 15px, hints/source lines 13 -> 14.5px, links 15 -> 16px. Long error
+  lines (e.g. Gemini "high demand") clipped to two lines.
+
+## v538 — 2026-10-05
+
+**Ask:**
+- With Claude, OpenAI and Gemini answering, Cancel and OK were pushed off the screen. Put the same
+  answers together in one row with a count, so a vote is visible at a glance.
+- With several words, the arrows only move the stress in the boxed word — how do you box another?
+
+**Implementation:**
+- The panel scrolls inside itself (overflow-y:auto) and the Cancel/OK row is sticky at its
+  bottom, so the buttons are always on screen however much is above them.
+- Opinions grouped by SOUND (respelled to Kokoro sounds and compared, so "SEHK-uhnd" and
+  "SEH-kuhnd" agree): one row per distinct answer, a vote badge (● 3), who said it
+  ("Claude · OpenAI · Gemini"), the version, and one line: the pick when they share one, plus the
+  first note (clipped to one line). Kokoro's reading takes part in the grouping, so agreement with
+  the current narration shows; the answer already in the box is marked. Waiting and failed
+  services are one short line each.
+- Kokoro's row now shows what the narration actually says — spelling rules and saved fixes
+  applied ("II" -> "the second"), not Kokoro's raw reading ("eye-EYE").
+- Several words: tapping a word that isn't boxed boxes it (its syllable lists are inactive until
+  then), so the arrows act on it. One-syllable words have no stress to move and open their list
+  directly. A hint under the arrows says so when there's a choice.
+
+## v537 — 2026-10-05
+
+**Ask:**
+- Screenshot: "Sentence sync: …" stays on the placeholder (Gregory VII, reached after a link and a swipe).
+
+**Implementation:**
+- Same cause as v528, missed there: during a swipe the outgoing article's clone keeps its inner
+  ids, and wireSentenceCues() found the status line with getElementById('apCueStatus') — the
+  clone's. "Loading…" and the result were written into the clone (then removed), so the new
+  article kept the "…" placeholder even when its sentences were linked.
+- The status line is now looked up in the live article (liveArtEl) every time it's written —
+  also after the fetch, so a redraw during loading can't strand it either.
+
+## v536 — 2026-10-04
+
+**Ask:**
+- In the pronunciation view, a box with each source's try at the word — Claude, OpenAI, Gemini,
+  Kokoro — and which option it would pick. Asked live from the phone, with keys stored on it.
+
+**Implementation:**
+- Manage → Import → "Pronunciation opinions (AI keys)": an API key and a model for Anthropic
+  (default claude-sonnet-5-5), OpenAI (gpt-6-luna) and Google Gemini (gemini-flash-latest). Saved as
+  you type, in this browser only (localStorage "ai-keys"), like the GitHub token; never in the
+  file or the repo.
+- Opinions box under the syllables: "Kokoro (now)" at once from words.json/story, then one row per
+  service that has a key, asked in parallel straight from the phone (Anthropic with the
+  direct-browser-access header, OpenAI chat completions JSON mode, Gemini generateContent JSON).
+  Each gets the word or phrase, its sentence, and the known options lettered (current, your fix,
+  reference, hint, Wiktionary, Kokoro now), and returns its own respelling + IPA + the option it
+  picks + a short note. A row shows the respelling, "picks: …" and the note; tapping it puts that
+  respelling in the box. 25 s timeout per service; errors shown on the row (e.g. "key refused").
+  Answers are cached per service + model + phrase for the session; widening the phrase asks again.
+
+## v535 — 2026-10-04
+
+**Ask:**
+- Press-and-hold gives just part of the word; a Roman numeral isn't shown as "the third"; the
+  stressed syllable should be in capitals as well as bold and underlined.
+
+**Implementation:**
+- Word splitting (LP_WORD_RE) used letter ranges that stop at "ÿ", so Polish/Czech/Hungarian
+  letters (ł, ś, ż, č, ő…) split a word ("Wojtyła" -> "Wojty" + "a"). Now any Unicode letter or
+  accent mark (\p{L}\p{M}).
+- Lifting the finger after a hold could land on a syllable in the view that just opened and open
+  its list (iOS opens a list on touch end). The syllable lists ignore touches for 0.6 s after the
+  view opens.
+- The view applies spelling rules before showing the sounds: a word with a spelling rule and no
+  sound fix shows what's spoken ("III" -> "the third" -> thuh · THERD; "St." -> Saint). Hyphenated
+  spoken words are split ("twenty-third"). Pause rules are no longer loaded as fixes (one for the
+  same words could hide a sound fix).
+- Stressed syllable shown in capitals as well as bold and underlined.
+
+## v534 — 2026-10-04
+
+**Ask:**
+- Holding "difficult" showed the typing box, not the syllable view. And make these utility screens
+  white with black text instead of blue and gold.
+
+**Implementation:**
+- Cause: the view only knew pronunciations from saved fixes and the pronunciation story, which
+  covers the hard names — an ordinary word had nothing, so it fell back to typing.
+- The story workflow now also writes pronunciation/story/words.json: Kokoro's own reading of every
+  distinct word in the articles (~16,000 words, ~0.4 MB). The app loads it (fresh from GitHub, else
+  the site copy) when the view first opens, waits for it, and starts any word from it ("As it's
+  said now"); it's also a known pronunciation in the lists.
+- Until that file exists (or for a word not in it), lpSyl.guess() builds a first guess from the
+  spelling — vowel groups to syllables, consonant clusters split (blends and digraphs kept),
+  doubled letters once, silent final e (lengthening only after one consonant), -tion/-sion/-ture
+  units, stress on the first syllable except -tion/-ic (the one before) and long Latin endings
+  (third from last) — labelled "A guess from the spelling — adjust it". So the syllable view
+  always appears; typing is never forced.
+- The picker (pronunciation view, pause, link search) is now white with black text: dark buttons,
+  blue links, stressed syllable underlined in black, green "Already fixed", red errors.
+
+## v533 — 2026-10-04
+
+**Ask:**
+- Holding a word should show: the word or phrase large, the pronunciation as syllables with the
+  stressed one underlined, arrows to move the stress, each syllable tappable for its list —
+  pick and go, OK commits, Cancel cancels.
+
+**Implementation:**
+- Press-and-hold now opens straight into the pronunciation view (triple-tap still opens the link
+  picker). The word/phrase stays large at the top with ← → to widen it; the pronunciation is shown
+  as large syllables, stressed one underlined in gold, each a native list (as v530/v531); ◀ ▶ below
+  move the stress.
+- No keyboard unless needed: the typing box is hidden behind a small "Type it" link (or shown at
+  once when nothing is known about the word), and the panel only moves to the top while typing.
+- Cancel closes; OK saves and closes in one step, with a "Saved ✓" message. Small links below:
+  Type it, Add a pause after (Back returns to the pronunciation view; OK saves and closes), Link to
+  an entry (the old picker view).
+- Widening the phrase with ← → refills the syllables for the new phrase.
+
+## v532 — 2026-10-04
+
+**Ask:**
+- Screenshot: the picker at the top was cut off — no Spell/Pause buttons, no Cancel/OK, the
+  "Link this text to" heading half under the status bar.
+
+**Implementation:**
+- Cause: at the top, the picker was sized to the visible area while the keyboard was up, and only
+  re-sized on visualViewport resize/scroll events, which iOS doesn't reliably send (notably in the
+  home-screen app) when the keyboard closes. The box kept the small keyboard-time height and
+  scrolled its own content, hiding the bottom and pushing the heading up.
+- While the picker is open, lpFitViewport now also runs every 250 ms (cheap; it only writes when
+  something changed), and on focusout and window resize. With no keyboard (visible height at
+  least 85% of the window) the size limits are removed and the box scrolls back to its top; with
+  the keyboard up it fits the visible area as before.
+
+## v531 — 2026-10-04
+
+**Ask:**
+- Once a syllable is picked, narrow the other syllables' choices: (1) by the pronunciations
+  already known for the word, (2) by the language the pick reveals.
+
+**Implementation:**
+- (1) Known pronunciations: the pronunciation story now saves every candidate per word
+  ("cands": reference list, Claude's hint, Wiktionary, Kokoro — listener-level duplicates
+  removed). Each syllable's list starts with a "Known pronunciations" group: that syllable as said
+  by every candidate that agrees with the syllables you've picked (all candidates before any pick),
+  labelled by source (your fix, reference, hint, Wiktionary, Kokoro now). Candidates whose
+  syllable count differs from the box are skipped. The usual choices follow under "Other
+  possibilities".
+- (2) Language: each choice is tagged with the languages that read the letters that way (w→v and
+  j→y Polish/German/Dutch, j→h Spanish, soft c→ch Italian, z→ts Italian/German, a→"a"/"ay",
+  i/y→"eye", u→"yoo" English). The syllables you picked from a list set the profile (what they agree
+  on); the other lists drop choices from other languages. No picks, or picks that disagree: nothing
+  is narrowed. Typing in the box clears the picks.
+- Old story files (no "cands") still work: Kokoro's reading is used as the only candidate.
+
+## v530 — 2026-10-04
+
+**Ask:**
+- When the sounds are right but the stress is wrong, pick the stressed syllable with arrows
+  instead of retyping.
+- The picker sits at the bottom, the keyboard covers it, and the screen shifts back and forth
+  while typing.
+
+**Implementation:**
+- Spell it yourself shows the respelling as syllable chips with the stressed one highlighted
+  ("kar · PEN · ter"); ◀ ▶ move the stress.
+- Tapping a chip opens the phone's own list of the realistic alternatives for that syllable, each
+  shown as the whole word ("kar-PIN-ter"), plus "Stress this syllable". lpSyl matches the written
+  vowels to the syllables (silent final e dropped; a vowel run split where needed — Nicaea keeps
+  Latin "ae", Santiago splits "ia") and offers only what those letters can say (a: a/ah/ay/aw/uh;
+  ae: ee/eh/ay/eye; au: aw/ow/oh; r-coloured sets before r; "uh" for unstressed syllables), plus the
+  consonants the spelling allows (ch: ch/k/sh; th: th/t; j: j/y/h; Polish w: w/v; c and g soft only
+  before e/i/y; s->z only between vowels; ł stays w). Choices are compared by sound (no "pen" and
+  "pehn" twice) and must stay one syllable. If the letters can't be matched, common vowel swaps for
+  that syllable are offered instead. At most 7 per syllable. Each change rewrites the box
+  and "Will say:". With several words, the arrows act on the word last touched (default: the first
+  word of more than one syllable).
+- The box starts from how the word is said now: the saved fix if there is one, otherwise Kokoro's
+  own reading from the pronunciation story (pronunciation/story/story.json, read fresh from GitHub,
+  else the site copy), word by word for a phrase. Pre-filled: no keyboard pops up. Empty: the
+  box is focused for typing. A line says where it started from. Round trip sounds → respelling →
+  sounds checked on 20 typical words: identical apart from notation clean-ups (Kokoro's "Y" for
+  "ɔɪ", one primary stress per word, stress mark on the vowel, secondary stress dropped).
+- "Will say:" keeps the syllables as typed and shows each as the converter reads it (picking "zah"
+  shows "NA-zah-ruhth", not the same sounds re-divided as "NA-zar-uhth").
+- Keyboard: whenever the picker needs typing (Spell it yourself, or tapping the search box) it moves
+  to the TOP of the screen and stays there until closed, so the keyboard opens below it; its height
+  follows the visible area (visualViewport) so nothing is hidden, and the field is focused with
+  preventScroll so iOS doesn't shift the page.
+
+## v529 — 2026-10-04
+
+**Ask:**
+- In Review Mode, press and hold a word to open the triple-tap picker.
+- In the picker: "Add a pause after" that picks enough neighbouring words to make the phrase
+  unique, then OK to save. And skip the slow pronunciation page: type the respelling yourself,
+  see it corrected, OK to save — no need to play it.
+
+**Implementation:**
+- Press and hold (0.5 s, pointer events) on story text in Review Mode (owner) opens the picker at
+  that word; moving more than 10 px, lifting, or scrolling cancels. The click that follows a hold
+  is swallowed (no pause/seek/triple-tap), the Android long-press menu is suppressed, and Review
+  Mode turns off iOS's own text selection/callout on the story text. Triple-tap still works.
+- The picker's "Mispronounced" button is replaced by two: "Spell it yourself" and "Add a pause
+  after". Each opens a panel in the picker (link search hidden) with Back / OK.
+- Spell it yourself: types a lector-style guide (KRAH-koof); "Will say:" shows it back after the
+  same conversion the pronunciation page uses (guideToPhonemes copied from pronounce.html, then
+  lpGuideOf). OK saves { type:"alias", kokoro_ipa } for the phrase (← → widen it; a trailing 's is
+  dropped, as for the "Already fixed" check), same placement rules as pronounce.html.
+- Add a pause after: the pause goes after the last word of the phrase. The app grows the phrase,
+  next word first then alternately right/left, never across a sentence end, until it occurs once
+  in all articles (exact text, word boundaries, as the recorder matches). It shows the rule
+  ("the faith Mary" → "the faith, Mary") and how many places it would apply; OK saves
+  { type:"pause", string_to_replace, pause_after }. Refuses where a comma/stop is already there.
+- Saves read-modify-write the rules file through the GitHub API (retry on conflict). Pause rules
+  count toward the re-record list like spelling rules.
+- Recorder (audio-generate.mjs) understands pause rules: a comma is spoken after pause_after
+  wherever the whole phrase appears, without consuming the phrase, so sound fixes inside it
+  (e.g. Kraków) still apply.
+
 ## v528 — 2026-10-04
 
 **Ask:**
