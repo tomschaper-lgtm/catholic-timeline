@@ -56,6 +56,8 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { stripHtml, splitSentences } from '../lib/text.mjs';
 import { isKokoroVoice, kokoroVoiceName, kokoroSpeed, Track, synthBatch, trackToMp3 } from './tts-kokoro.mjs';
+import { americanDates, americanizeEntryDates } from './american-dates.mjs';   // 2026-10-05: own file, shared with fix-dates.mjs
+export { americanDates, americanizeEntryDates };
 
 export const AUDIO_ROOT = 'audio';
 // 2026-09-27: was the github.io address; the site is served by Cloudflare at this domain, and
@@ -536,6 +538,7 @@ export function voiceFromPayload(p){
 /**
  * Handler signature expected by scripts/orchestrator.mjs: (task, dataJson) => outcome
  */
+
 export async function runAudioGenerate(task, dataJson){
   const kokoro = isKokoroVoice((task.payload || {}).voiceId);
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -548,6 +551,9 @@ export async function runAudioGenerate(task, dataJson){
   if(!hasNarratableText(entry)){
     return { result: { entityId: entry.id, name: entry.n }, summary: 'skipped \u2014 no article text to narrate' };
   }
+  // American date order first ("28 December 1065" -> "December 28, 1065"), so the saved text,
+  // the recording and its sentence timing all match. Quotes from sources are left alone.
+  const datesFixed = americanizeEntryDates(entry);
 
   const p = task.payload || {};
   const { voiceId, modelId, voiceSettings } = voiceFromPayload(p);
@@ -599,7 +605,8 @@ export async function runAudioGenerate(task, dataJson){
   return {
     result: { entityId: entry.id, name: entry.n, audio: relAudio, durationSec, cueCount: cues.length, link: SITE_BASE + '/' + relAudio },
     summary: 'recorded ' + durationSec + 's with ' + engine + ' (' + cues.length + ' cues' +
-      (replacements ? ', ' + replacements + ' pronunciation fix' + (replacements === 1 ? '' : 'es') : '') + ') \u2014 ' + relAudio +
+      (replacements ? ', ' + replacements + ' pronunciation fix' + (replacements === 1 ? '' : 'es') : '') +
+      (datesFixed ? ', ' + datesFixed + ' date' + (datesFixed === 1 ? '' : 's') + ' put in American order' : '') + ') \u2014 ' + relAudio +
       (removed.length ? ' (removed ' + removed.length + ' old file' + (removed.length === 1 ? '' : 's') + ')' : ''),
     filesToCommit: [relAudio, relTiming, 'data.json', ...removed]
   };
