@@ -8,6 +8,19 @@ Governs *what to write and how to judge it* — voice, sourcing discipline, word
 
 Warm, personalist, theologically rich prose — not a dry encyclopedia entry. Address the reader's heart as well as their mind. Use direct, exhortatory language that draws out the saint's significance for a believer's own life today ("we recognize in [name] something every honest seeker knows..."; "he shows us still..."; "she remains, for every mother who has ever prayed for a wayward child, a companion..."). Favor phrases like "total gift of self," "the mystery of...," "a life given wholly to God," and first-person-plural reflection ("we," "us") woven naturally through the narrative, especially at section openings and closings. Never fabricate quotes and attribute them to John Paul II specifically — this is a stylistic register to write in, not a license to invent his words. Stay factually accurate and well-sourced throughout; warmth of voice is never a substitute for historical care.
 
+## Sentence length — written to be heard
+
+Every article is narrated as well as read, so sentences must work for the ear.
+
+- **Hard limit: 40 words per sentence** in article sections — no exceptions. This is the same limit the sentence-reword service enforces afterward; writing within it means no rework. The reword service skips paragraphs that contain an `entry:` link, so a long sentence there is never fixed later — get those right the first time.
+- **Aim for an average of about 18–22 words.** Mix lengths: a long sentence followed by a short one carries the voice; three long ones in a row lose the listener.
+- **One main idea per sentence.** If a sentence needs two em-dash asides or a semicolon to hold together, split it.
+- **Keep the subject close to its verb.** Don't park a long clause between them ("Gregory, who had for decades served as the power behind several popes and who…, was acclaimed").
+- **Avoid phrasings that read one way and sound another.** A listener can't re-read. Check sentences where a noun could be heard as a verb or a phrase could attach to the wrong word (*"born to a family of humble standing in Tuscany"* can be heard as someone standing in Tuscany — *"born to a humble family in Tuscany"* can't).
+- **Parentheses sparingly.** Narration can't show brackets; put the aside in its own short sentence instead.
+
+The JPII voice is about warmth and depth, not sentence length. Rich prose and short sentences are compatible.
+
 ## Word count, tiered by significance
 
 - **Standard figures**: **600–750 words**.
@@ -52,7 +65,7 @@ Additional standing rules:
 - **Private revelations** need a traceable source, must be explicitly labeled as private revelation, must never be implied as binding. If a claimed vision, message, or miracle can't be sourced reliably, omit it.
 - **A Catholic source ≠ historical proof.** A shrine website can accurately report "the Church venerates this tradition" without that establishing "historical evidence shows this occurred."
 
-Keep qualification brief and natural, not academic: *"A venerable tradition holds that James preached in Spain before returning to Jerusalem"* reads better than a flat, overconfident 
+Keep qualification brief and natural, not academic: *"A venerable tradition holds that James preached in Spain before returning to Jerusalem"* reads better than a flat, overconfident *"James preached in Spain"* — and better than a hedge-laden academic paragraph.
 
 ## Country — judgment rules
 
@@ -76,18 +89,37 @@ When submitting a batch with any `review: true` entries, call it out explicitly 
 
 (For how the flag and note fields work mechanically — clearing, the Approve/Delete buttons — see `json-import-skill.md`.)
 
-## Age at death — when it's solid enough to compute
+## Age at death — when and how to add it
 
-Append `(at age N)` to a `Died` fact when both years are firmly established, or when enough information is available to estimate a value. if estimated, use (estimated age n).
+An age goes at the end of the `Died` fact, in exactly one of two forms:
 
-- Both birth year *and* death year must be independently well-attested — not a `c.` estimate, not "traditionally," not one of two disputed dates. If either carries that kind of qualification, Attempt the estimation method.
-- **Years only known (the normal case)**: age = death year − birth year.
-- **Exact month+day known on both ends**: compute the true age — subtract birth year from death year, then subtract one more if the death fell before that year's birthday (e.g. Augustine, born 13 November 354, died 28 August 430, is *75* not 76 — his birthday hadn't come around yet).
-- If the birth date is unknown entirely, omit the age — don't estimate a birth year to back into one.
+- **`(at age 75)`** — only when the age is certain.
+- **`(estimated age 62)`** — when it can be reasonably worked out but not known exactly.
+- **No age at all** when the birth year is unknown and can't be bounded. Never invent a birth year to produce one.
+
+Work it out like this:
+
+| What the sources give | How to compute | Write |
+|---|---|---|
+| Full birth **and** death dates (day and month on both ends) | Death year − birth year, then subtract 1 if the death came before that year's birthday | `(at age N)` |
+| Firm years only (the usual case) | Death year − birth year. (The true age may be one less — the birthday may not have come yet — which is why this is an estimate.) | `(estimated age N)` |
+| A year marked *c.*, *traditionally*, or two disputed years (e.g. *c. 1020/1025*) | Take the earliest and latest possible ages, use the midpoint, rounded down | `(estimated age N)` |
+| No birth year, or nothing to bound it | — | no age |
+
+Examples:
+- Augustine — born November 13, 354, died August 28, 430: 430 − 354 = 76, but his November birthday hadn't come by August, so **`(at age 75)`**.
+- Born 1182, died 1226, no days known: **`(estimated age 44)`**.
+- Gregory VII — born c. 1020/1025, died 1085: possible ages 60–65, midpoint 62½, rounded down → **`(estimated age 62)`**.
+
+Two traps:
+- **Crossing from BC to AD: there is no year 0.** Add the two years, then subtract 1 — born 4 BC, died AD 30 → 4 + 30 − 1 = **33**.
+- **Use one calendar for both dates.** Compute in the calendar the sources give (Julian before 1582 in most of Europe); never mix a Julian birth date with a Gregorian death date.
+
+Show the estimate's basis in the `Born` fact itself (*"c. 1020/1025, Tuscany, Italy"*), so a reader can see why the age is estimated.
 
 ## Quick Facts — which facts to include, per type
 
-`facts` is a small structured infobox. Keep each **value short**; omit any fact you cannot verify. Use the labels appropriate to the entry's type, spelled and cased exactly as below so future themed cards can rely on them:
+`facts` is a small structured infobox. Keep each **value short**; omit any fact you cannot verify. Dates in fact values follow **Date formatting** below (*"Feast day: October 13"*, *"Died: August 28, 430, Hippo, Algeria (at age 75)"*). Use the labels appropriate to the entry's type, spelled and cased exactly as below so future themed cards can rely on them:
 
 - **Saint (`s`)**: Feast day · Born · Died · Title (Doctor of the Church, Martyr, Virgin, Pope, etc.) · Beatified · Canonized · Patronage · Religious order · Major works · Attributes in art
 - **Council (`c`)**: Ecumenical number (e.g. *21st ecumenical*) · Convoked by · Location · Dates · Condemned · Defined · Key documents · Sessions
@@ -95,6 +127,10 @@ Append `(at age N)` to a `Died` fact when both years are firmly established, or 
 - **Marian Apparition (`m`)**: Seer(s) · Location · Date(s) · Title of Our Lady · Words/message · **Approval status** (diocesan or papal, with year) · Feast day · Shrine
 - **Eucharistic Miracle (`u`)**: Location · Date · What occurred · Scientific findings · Approval status · Where venerated
 - **Event (`e`)**: Date · Location · Key figures · Significance · Related document or decree
+
+<!-- MISSING SECTION: Marian apparition approval rules (approval before/after the DDF's May 17, 2024 Norms;
+     "Status can be revised", e.g. Our Lady of All Nations). It was in an earlier copy of this file and is
+     not in this one — restore it from your own copy, writing the 2024 date as "May 17, 2024". -->
 
 ## Prominence (`tier`) and search names (`alt`) — judgment
 
@@ -104,17 +140,37 @@ Add `alt` names whenever an entry is commonly known by another name: regnal vs. 
 
 ## Editorial guidelines, restated
 
-Write from a faithful Catholic perspective, in the warm, personalist voice above. New Advent's Catholic Encyclopedia first, vatican.va/papal documents/other magisterial sources as supplements. Be precise with dates, canonization dates, and apparition approval status. Quotations authentic and exactly worded — prefer exact quoted text over paraphrase when quoting saints or magisterial documents. Search the web to verify facts and URLs before writing — every New Advent link confirmed by search, never guessed or reused from memory.
+Write from a faithful Catholic perspective, in the warm, personalist voice above. New Advent's Catholic Encyclopedia first, vatican.va/papal documents/other magisterial sources as supplements. Be precise with dates, canonization dates, and apparition approval status, and write every date as described in **Date formatting** below. Quotations authentic and exactly worded — prefer exact quoted text over paraphrase when quoting saints or magisterial documents. Search the web to verify facts and URLs before writing — every New Advent link confirmed by search, never guessed or reused from memory.
 
 ## Date formatting
-Be precise with dates: write dates in American order: "December 28, 1065"; "October 13" when there's no year; "June 8–9, 597" for ranges, with a comma after the year when the sentence continues.
+
+Write every date in **American order** — in article prose, headings, the short description, and Quick Facts:
+
+| Case | Write | Not |
+|---|---|---|
+| Full date | December 28, 1065 | 28 December 1065 · 28th December 1065 · 12/28/1065 |
+| Full date, sentence continues | dedicated on December 28, 1065, by the bishop | …December 28, 1065 by the bishop |
+| Day and month, no year | October 13 | 13 October · October 13th |
+| Month and year | December 1065 | December, 1065 |
+| Range in one month | June 8–9, 597 | 8–9 June 597 |
+| Range across months | May 30–June 2, 1431 | 30 May–2 June 1431 |
+| Range across years | December 28, 1065–January 5, 1066 | |
+| Before Christ | March 15, 44 BC | 15 March 44 BC |
+| Approximate | c. 1020 (the year only) | circa 1020 · ca. 1020 |
+
+- **No ordinals** with dates: "December 28", never "December 28th" or "the 28th of December".
+- **Use an en dash (–) in ranges**, with no spaces.
+- **Exception — quotations:** a date inside a quotation from a source keeps the source's exact wording ("On 28 December 1065 the church was hallowed"). Never "correct" a quote.
+- The recording service converts day-month dates to American order before narrating, as a safety net — but write them correctly in the first place, because the safety net doesn't reach quotations and can't fix every phrasing.
 
 ## Pre-delivery checklist (content quality)
 
 Before delivering any draft:
 - Every biographical claim correctly leveled (Scripture / early testimony / long-standing tradition / later legend); no debated identity stated as settled; no interior motive, emotion, or sparse-account detail invented — qualify or omit, never pad for word count.
 - Word count within its tiered target, with the corresponding section count.
-- Any `Died (at age N)` fact appears when a reasonable guess can be made. If the from and to are known to be factual, and calculate the age at death. When the born or died date cannot be certain, and a reasonable guess can be made, include age at death with the word estimated preceding the value. 
+- No sentence in an article section over 40 words; average around 18–22; no sentence that sounds ambiguous read aloud.
+- Any age on a `Died` fact follows **Age at death** exactly: `(at age N)` only when both full dates are known, `(estimated age N)` when computed from years or bounded estimates, otherwise none. BC-to-AD spans subtract one (no year 0).
+- Every date is in American order (**Date formatting**), except inside quotations.
 - For any Eucharistic Miracle (`t: "u"`) entry: confirm no `miracolieucaristici.org` link ended up in `art.links` (that link lives in the separate `carloLinks` table — see `json-import-skill.md`).
 - `links` reads as genuine further reading for the subject, not just the sources actually cited in the prose — check it isn't artificially capped at the old 4-link habit when the subject supports more.
 
