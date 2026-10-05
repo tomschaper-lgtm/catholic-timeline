@@ -1,6 +1,6 @@
 <!--
-VERSION: 551
-DATE: 2026-10-06T17:30:00-05:00
+VERSION: 552
+DATE: 2026-10-06T18:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,21 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v552 — 2026-10-06
+
+**Ask:**
+- Remove the speaker next to the name (unused, sometimes fails, confusing). Move Share from the
+  top to the bottom of the article with text next to it. Landscape: X a little to the right and
+  up, nearer the picture. Play button slightly smaller.
+
+**Implementation:**
+- The name's speaker button (ahSay) is no longer drawn; its wiring was already guarded.
+- Top-corner share button hidden; a share row now sits under Sources & Further Reading on every
+  article (above the Review tools and "Report an issue"): share icon + "Share this article with a
+  link", same shareEntry() as before.
+- Landscape X: 12px further right (toward the picture) and 8px higher.
+- Play button 56 → 48px, its ▶/❚❚ 30 → 26px (all orientations).
+
 ## v551 — 2026-10-06
 
 **Ask:**
@@ -4321,7 +4336,7 @@ CHANGELOG:END
          sits. !important beats setArtXShift()'s inline style, which keeps running in the
          background (measureFly/placePeekFly aren't landscape-aware) and would otherwise fight
          this every scroll tick. */
-      #article.overlay.hasLandImg .artX{ right: calc(var(--landCardW) + 16px + 14px) !important; }
+      #article.overlay.hasLandImg .artX{ right: calc(var(--landCardW) + 16px + 2px) !important; top:-8px; }   /* v552: nearer the picture, a bit higher */
       #article.overlay.landFactsCol .artX{ right: calc(50vw + 8px + 14px) !important; }
       /* v478: share stays just left of the X in landscape too. */
       #article.overlay.hasLandImg .artShareBtn{ right: calc(var(--landCardW) + 16px + 14px + 54px) !important; }
@@ -4405,6 +4420,16 @@ CHANGELOG:END
   .reportModalClose:hover{color:#fff;}
   /* v478: gold like the X, same drop-shadow treatment, generous 48×60 tap box with the glyph
      centered so it lines up vertically with the X's. `right` is set by setArtXShift(). */
+  /* v552: share lives at the end of the article now */
+  #article .artShareBtn{display:none !important;}
+  .artShareRow{display:flex; align-items:center; gap:12px; margin:22px 0 6px; padding:10px 0; width:100%;
+    background:none; border:none; color:var(--gold); font-family:'EB Garamond', Georgia, serif; font-size:calc(18px * var(--txt));
+    text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent;}
+  .artShareRow .artShareIcon{display:inline-flex; align-items:center; justify-content:center; flex:none;
+    width:44px; height:44px; border-radius:50%; border:1.5px solid rgba(201,165,66,.6);}
+  .artShareRow svg{width:22px; height:22px;}
+  .artShareRow:active .artShareIcon{background:rgba(201,165,66,.15);}
+  .audBarPlay svg{width:26px; height:26px;}   /* v552: smaller ▶ to match the smaller button */
   .artShareBtn{
     position:absolute; top:0; right:60px; z-index:22;
     width:48px; height:60px; display:flex; align-items:center; justify-content:center;
@@ -5248,7 +5273,7 @@ CHANGELOG:END
      own existing shadow (.audioBottomBar already casts one), not a soft drop shadow — lower
      opacity + smaller spread reads as a real, subtle shadow instead of a second outline. */
   .audBarPlay{
-    width:56px; height:56px; border-radius:50%;
+    width:48px; height:48px; border-radius:50%;   /* v552: was 56 */
     background:var(--navy, #0B1630); border:2.5px solid var(--gold);
     box-shadow:0 8px 18px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.35);
   }
@@ -7467,7 +7492,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v551';
+const APP_VERSION = 'v552';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8454,6 +8479,12 @@ async function shareEntry(d){
   showShareToast('Copy this link: ' + url);
 }
 document.getElementById('artShareBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if(currentEntry) shareEntry(currentEntry);
+});
+// v552: the share row at the end of the article (redrawn with each article, so delegated)
+document.getElementById('artBody').addEventListener('click', (e) => {
+  if(!e.target.closest('#artShareEndBtn')) return;
   e.stopPropagation();
   if(currentEntry) shareEntry(currentEntry);
 });
@@ -14359,7 +14390,7 @@ function fillArticleBody(d, peek){
     // the delegated click wiring are unchanged.
     (articleBackStack.length ? '<button type="button" class="artBackBtn" id="artBackBtn" aria-label="Back to previous entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M11.5 5.5 5 12l6.5 6.5"/></svg></button>' : '') +
     '<span class="ahYear">' + esc(fmtYear(d.y)) + '</span></div>' +
-    '<div class="ahName">' + esc(d.n) + (d.audio && Number(d.audioTitleEnd) > 0
+    '<div class="ahName">' + esc(d.n) + (false   // v552: the name's speaker is gone (unused, unreliable, confusing)
       ? '<button type="button" class="ahSay" id="ahSayBtn" aria-label="Hear the name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>' : '') +
     '</div></div>' +
     '<div class="ahTaper" id="ahTaper"></div>';
@@ -14464,6 +14495,10 @@ function fillArticleBody(d, peek){
     });
     html += '</ul>';
   }
+  // v552: share moved here from the top corner, with words beside it
+  html += '<button type="button" class="artShareRow" id="artShareEndBtn">' +
+    '<span class="artShareIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v11"/><path d="M8 7.5l4-4 4 4"/><path d="M8.5 10.5H7a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6.5a2 2 0 0 0-2-2h-1.5"/></svg></span>' +
+    '<span>Share this article with a link</span></button>';
   // Visible on every article, to every visitor — not gated behind review mode or Owner Tools.
   // The whole point is a low-friction way for anyone, not just Tom, to flag something that
   // looks wrong. See reportIssueBtn's click handler near the bottom of the file.
