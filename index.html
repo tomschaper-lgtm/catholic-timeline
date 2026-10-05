@@ -1,6 +1,6 @@
 <!--
-VERSION: 550
-DATE: 2026-10-06T16:45:00-05:00
+VERSION: 551
+DATE: 2026-10-06T17:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,27 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v551 — 2026-10-06
+
+**Ask:**
+- Landscape: the picture and the flipped card are the same width for every entry (wider pictures
+  are cropped at the sides). The story on the left leaves out Quick Facts, since they're on the
+  card. With no picture, just the card on the right and the story scrolling on the left.
+
+**Implementation:**
+- One fixed right-hand column in landscape: --landCardW = min(42vw, (screen height − 32px) × 3/4),
+  a 3:4 card at full height. The picture fills it (object-fit: cover, centred, so a wide picture
+  loses its sides); the text column, close/share buttons and card back all use the same width
+  (were the picture's own measured width, so every entry differed).
+- The flip card is now for everyone (was Review Mode only); the story hides Quick Facts (heading
+  and box) whenever the card shows them.
+- No picture: the prayer card itself sits in the column, face up, no flip (replaces the old navy
+  half-width facts column). No picture and no facts: the story uses the full width, as before.
+- Landscape opening: a timeline tap (showDetail) opens the full article directly instead of the
+  half-height teaser; rotating to landscape while the teaser is up expands it. The sheet rises and
+  lowers on one gentle ease-in-out curve (.8 s both ways, was .64 s quick-start up and a .19 s snap
+  after a flick down); a flick down now closes at that same smooth pace. Portrait unchanged.
+
 ## v550 — 2026-10-06
 
 **Ask:**
@@ -4201,8 +4222,17 @@ CHANGELOG:END
       }
       body:has(#article.open) #searchRow,
       body:has(#article.open) .hamBtn{display:none;}
+      /* v551: the sheet rises and lowers on one gentle curve (soft start, even glide, soft stop),
+         the same pace both ways — including after a flick down, which used to snap away in .19 s */
+      #article.overlay, #article.overlay.flick{transition:transform .8s cubic-bezier(.45,0,.2,1);}
+      #article.overlay.open{transition:transform .8s cubic-bezier(.45,0,.2,1);}
+      body:has(#article.overlay) .artCornerMask, body:has(#article.overlay.flick) .artCornerMask,
+      body:has(#article.overlay.open) .artCornerMask{transition:transform .8s cubic-bezier(.45,0,.2,1);}
+      /* v551: one card size for every entry — 3:4 at full height, never more than 42% of the width */
+      :root{--landCardW:min(42vw, calc((100dvh - 32px) * 0.75));}
       #article .artwrap{max-width:none; margin:0; padding-left:32px; padding-right:32px;}
-      #article.hasLandImg .artwrap{padding-right:calc(var(--landImgW, 45vw) + 40px);}
+      #article.hasLandImg .artwrap{padding-right:calc(var(--landCardW) + 40px);}
+      #article.hasLandCard #artFactBox, #article.hasLandCard #artFactHead{display:none;}   /* v551: they're on the card */
       #article.landFactsCol .artwrap{padding-right:calc(50vw + 24px);}
       #article .artSticky{margin-right:0; padding-right:0;}
       #article .artLandAnchor{
@@ -4210,8 +4240,8 @@ CHANGELOG:END
       }
       #article .artLandAnchor .artLandImg{
         display:block; position:absolute; top:-2px;
-        right:calc(-1 * var(--landImgW, 45vw) - 24px);
-        height:calc(100dvh - 32px); width:auto; max-width:52vw;
+        right:calc(-1 * var(--landCardW) - 24px);
+        height:calc(100dvh - 32px); width:var(--landCardW); max-width:none; box-sizing:border-box;   /* v551: fixed; wide pictures are cropped */
         object-fit:cover; object-position:50% 38%;
         border:1.5px solid var(--gold); border-radius:14px;
         touch-action:none;
@@ -4231,7 +4261,7 @@ CHANGELOG:END
       }
       #article .artLandCard .artLandBack{
         display:flex; flex-direction:column; position:absolute; top:-2px;
-        right:calc(-1 * var(--landImgW, 45vw) - 24px); width:var(--landImgW, 45vw);
+        right:calc(-1 * var(--landCardW) - 24px); width:var(--landCardW);
         height:calc(100dvh - 32px); box-sizing:border-box;
         border:1.5px solid var(--gold); border-radius:14px;
         background:linear-gradient(180deg,#F3E6C0 0%, #EADBAE 100%);   /* v550: cream prayer-card back */
@@ -4242,6 +4272,7 @@ CHANGELOG:END
       }
       #article .artLandCard.flipped .artLandImg{transform:perspective(1600px) rotateY(180deg); pointer-events:none;}
       #article .artLandCard.flipped .artLandBack{transform:perspective(1600px) rotateY(0deg); pointer-events:auto;}
+      #article .artLandCard.noImg .artLandBack{transform:none; pointer-events:auto; cursor:auto;}   /* v551: no picture — face up */
       /* v550: gold band with the name in small capitals */
       #article .artLandBackHead{
         display:flex; align-items:center; justify-content:center; flex:none;
@@ -4290,10 +4321,10 @@ CHANGELOG:END
          sits. !important beats setArtXShift()'s inline style, which keeps running in the
          background (measureFly/placePeekFly aren't landscape-aware) and would otherwise fight
          this every scroll tick. */
-      #article.overlay.hasLandImg .artX{ right: calc(var(--landImgW, 45vw) + 16px + 14px) !important; }
+      #article.overlay.hasLandImg .artX{ right: calc(var(--landCardW) + 16px + 14px) !important; }
       #article.overlay.landFactsCol .artX{ right: calc(50vw + 8px + 14px) !important; }
       /* v478: share stays just left of the X in landscape too. */
-      #article.overlay.hasLandImg .artShareBtn{ right: calc(var(--landImgW, 45vw) + 16px + 14px + 54px) !important; }
+      #article.overlay.hasLandImg .artShareBtn{ right: calc(var(--landCardW) + 16px + 14px + 54px) !important; }
       #article.overlay.landFactsCol .artShareBtn{ right: calc(50vw + 8px + 14px + 54px) !important; }
     }
   }
@@ -7436,7 +7467,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v550';
+const APP_VERSION = 'v551';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8359,8 +8390,15 @@ viewport.addEventListener('scroll', scheduleEraLabels, {passive:true});
 // its peek state. Kept as a thin wrapper (rather than rewriting every call site) since
 // icon taps, search, shared links, the editor, and the resize handler all still call it.
 function showDetail(d){
-  openArticle(d, {peek:true});
+  // v551: landscape has no half-height teaser — open the full article straight away
+  openArticle(d, isLandscape() ? {} : {peek:true});
 }
+function isLandscape(){ return window.matchMedia('(orientation: landscape)').matches; }
+// v551: turning the phone to landscape while the teaser is up opens the full article
+window.matchMedia('(orientation: landscape)').addEventListener('change', (e) => {
+  const a = document.getElementById('article');
+  if(e.matches && a && a.classList.contains('open') && a.classList.contains('peek')) expandArticle();
+});
 
 // ---- Shareable deep links: #entry-id in the URL, safe no-op inside the Claude artifact iframe ----
 function updateUrlForEntry(d){
@@ -14274,6 +14312,7 @@ function checkPlaybackFallback(d){
     }
   }).catch(() => {});
 }
+let landCardFacts = false;   // v551: the landscape card is showing Quick Facts (so the story leaves them out)
 function fillArticleBody(d, peek){
   // v540: no link, but an older recording was found -> draw from a copy that has it
   if(d && !d.audio){
@@ -14294,30 +14333,23 @@ function fillArticleBody(d, peek){
     const landFacts = (d.facts || []).slice();
     if(d.country) landFacts.push({label:'Country', value:d.country});
     let a = '';
-    if(hasImg){
-      a = '<img class="artLandImg" id="artLandImg" src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="imgExtFallback(this)">';
-      // v526: Review Mode tries a two-sided card — picture on the front, Quick Facts on the back.
-      const backRows = landFacts.filter(f => f && f.label);
-      if(reviewMode && backRows.length){
-        a = '<div class="artLandCard canFlip" id="artLandCard">' + a +
-          '<div class="artLandBack" aria-hidden="true">' +
-            '<div class="artLandBackHead"><span>' + esc(d.n) + '</span></div>' +   // v550: the name, on a gold band
-            '<div class="factbox artLandBackBody">' + backRows.map(f => {
-              const val = f.url
-                ? '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.value || f.url) + '</a>'
-                : esc(f.value || '').replace(/\n/g, '<br>');
-              return '<div class="factrow"><div class="factlabel">' + esc(f.label) + '</div><div class="factval">' + val + '</div></div>';
-            }).join('') + '</div>' +
-          '</div></div>';
-      }
-    }else if(landFacts.length){
-      a = '<div class="factbox artLandFacts">' + landFacts.filter(f => f && f.label).map(f => {
+    // v551: the prayer card (Quick Facts) — the back of the picture, or on its own with no picture
+    const backRows = landFacts.filter(f => f && f.label);
+    const cardBack = (faceUp) => '<div class="artLandBack"' + (faceUp ? '' : ' aria-hidden="true"') + '>' +
+      '<div class="artLandBackHead"><span>' + esc(d.n) + '</span></div>' +   // v550: the name, on a gold band
+      '<div class="factbox artLandBackBody">' + backRows.map(f => {
         const val = f.url
           ? '<a href="' + esc(f.url) + '" target="_blank" rel="noopener">' + esc(f.value || f.url) + '</a>'
           : esc(f.value || '').replace(/\n/g, '<br>');
         return '<div class="factrow"><div class="factlabel">' + esc(f.label) + '</div><div class="factval">' + val + '</div></div>';
-      }).join('') + '</div>';
+      }).join('') + '</div></div>';
+    if(hasImg){
+      a = '<img class="artLandImg" id="artLandImg" src="' + esc(resolveAsset(d.img, db.settings && db.settings.imageBase)) + '" alt="' + esc(d.n) + '" onerror="imgExtFallback(this)">';
+      if(backRows.length) a = '<div class="artLandCard canFlip" id="artLandCard">' + a + cardBack(false) + '</div>';   // v551: for everyone
+    }else if(backRows.length){
+      a = '<div class="artLandCard noImg" id="artLandCard">' + cardBack(true) + '</div>';   // v551: no picture — the card, face up
     }
+    landCardFacts = backRows.length > 0;
     if(a) html += '<div class="artLandAnchor">' + a + '</div>';
   }
   html += '<div class="artSticky' + (hasImg ? ' hasPortrait' : '') + '" id="artSticky">' +
@@ -14512,8 +14544,9 @@ function fillArticleBody(d, peek){
   // v456: with no photo, Quick Facts takes the right-hand column in landscape instead — but only
   // when there ARE facts; otherwise the story keeps the full width. The class drives CSS only,
   // so it's harmless in portrait.
-  document.getElementById('article').classList.toggle('landFactsCol', !hasImg && factList.length > 0);
-  document.getElementById('article').classList.toggle('hasLandImg', hasImg);
+  document.getElementById('article').classList.toggle('landFactsCol', false);   // v551: replaced by the card
+  document.getElementById('article').classList.toggle('hasLandImg', hasImg || landCardFacts);   // v551: picture or card takes the column
+  document.getElementById('article').classList.toggle('hasLandCard', landCardFacts);
   document.getElementById('article').classList.toggle('hasPortrait', hasImg); // v461: portrait text-reservation for the corner badge — see its CSS comment
   {
     const landImg = document.getElementById('artLandImg');
