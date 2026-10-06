@@ -1,5 +1,11 @@
 // scripts/services/audio-generate.mjs
 //
+// MODULE DATE: 2026-10-06 (Tuesday). Based on the audio-generate.mjs upload of 2026-10-06; the only changes
+// are the SPOKEN TITLE block (spokenTitleFor + SpokenTitle: override lookup, below titleFor), the loader
+// keeping those override rules out of the normal rule list, and the one call site in narrateEntryKokoro.
+// titleFor() itself is unchanged. Override key prefix is plain "SpokenTitle:" (no EM_), for every category.
+// If this file has changed since, ask for a refresh before relying on it.
+//
 // Service: "audio-generate"
 //
 // Ported from the standalone scripts/generate-audio.mjs (triggered directly via the "Generate
@@ -83,6 +89,14 @@ export function clamp(n, lo, hi){ return Math.min(hi, Math.max(lo, n)); }
 
 // ---- Pronunciation (see PRONUNCIATION at the top) -------------------------------------------
 let pronunciationRules = null;
+// Spoken-title overrides (2026-10-06): alias rules whose string_to_replace starts with this prefix are
+// NOT pronunciation fixes. They are looked up by spokenTitleFor() only, and are kept out of the rule
+// list applyPronunciation() walks, so a short name like "Rome" can never collide with ordinary words
+// in an article. Key: SpokenTitle:<entry id>  or  SpokenTitle:<entry name>  (id wins; use the id
+// when two entries share a name, e.g. the two "St. Peter Damian" entries). The alias is the FULL
+// announcement, e.g. "The Eucharistic Miracle at Meerssen, Netherlands."
+export const SPOKEN_TITLE_PREFIX = 'SpokenTitle:';
+let titleOverrides = new Map();
 export async function loadPronunciationRules(){
   if(pronunciationRules) return pronunciationRules;
   try{
@@ -95,15 +109,21 @@ export async function loadPronunciationRules(){
         && r.pause_after.trim() && r.string_to_replace.startsWith(r.pause_after) && r.pause_after.length < r.string_to_replace.length)
       .map(r => ({ from: r.string_to_replace, pauseAt: r.pause_after.length, pause: true }));
     pronunciationRules = pauses.concat((raw.rules || [])
-      .filter(r => r && r.type === 'alias' && r.string_to_replace && typeof r.alias === 'string')
+      .filter(r => r && r.type === 'alias' && r.string_to_replace && typeof r.alias === 'string' && !String(r.string_to_replace).startsWith(SPOKEN_TITLE_PREFIX))
       // kokoro_ipa (optional): exact sounds for the Kokoro voice, used instead of the alias
       // respelling when Kokoro is recording. ElevenLabs and the browser voice ignore it.
       .map(r => ({ from: r.string_to_replace, to: r.alias, ipa: typeof r.kokoro_ipa === 'string' && r.kokoro_ipa.trim() ? r.kokoro_ipa.trim() : '' })));
+    titleOverrides = new Map((raw.rules || [])
+      .filter(r => r && r.type === 'alias' && typeof r.string_to_replace === 'string' && r.string_to_replace.startsWith(SPOKEN_TITLE_PREFIX)
+        && typeof r.alias === 'string' && r.alias.trim())
+      .map(r => [r.string_to_replace.slice(SPOKEN_TITLE_PREFIX.length).trim(), r.alias.trim()]));
   }catch(e){
     pronunciationRules = []; // no file (or unreadable): narrate the text as written
+    titleOverrides = new Map();
   }
   return pronunciationRules;
 }
+export async function loadSpokenTitleOverrides(){ await loadPronunciationRules(); return titleOverrides; }
 const isWordChar = (ch) => !!ch && /[A-Za-z0-9\u00C0-\u024F]/.test(ch);
 // Returns the text to speak, a position map (map[i] = where original character i starts in the
 // spoken text; map[text.length] = spoken length), and how many replacements were made.
@@ -200,6 +220,69 @@ export function titleFor(entry){
     .replace(/\s*&\s*/g, ' and ')
     .replace(/[.,;:\s]+$/, '');
   return name ? name + '.' : '';
+}
+
+// ---- Spoken title (2026-10-06) ----------------------------------------------------------------
+// What a recording announces first. Order: (1) a SpokenTitle: override from the pronunciation
+// table (id, then name) is used exactly as written; (2) otherwise a rule for the entry's category
+// builds it; (3) otherwise the plain name, as before (titleFor). The result still goes through the
+// normal pronunciation rules afterwards, so "Pius XII" etc. are still fixed inside it.
+//   Eucharistic Miracle  "The Eucharistic Miracle at Meerssen, Netherlands."  (Turin I -> "The First ... at Turin, Italy.")
+//                        saint-named ones: "The Eucharistic Miracle of Saint Peter Damian."  (no country)
+//   Council              "Nicaea I" -> "The First Council of Nicaea."; "Ephesus" -> "The Council of Ephesus."; others get "The"
+//   Marian apparition    "The Apparition of Our Lady of Lourdes, France."
+//   Persecution          "The" + name (not before a possessive such as "Trajan's Rescript")
+//   Saint (t: 's')       as titleFor; "(Edith Stein)" -> ", also known as Edith Stein"
+//   everything else      as titleFor. Roman numerals on popes/events are left to the pronunciation table.
+const ORDINALS = ['First','Second','Third','Fourth','Fifth','Sixth','Seventh','Eighth','Ninth','Tenth','Eleventh','Twelfth','Thirteenth','Fourteenth','Fifteenth','Sixteenth','Seventeenth','Eighteenth','Nineteenth','Twentieth'];
+const RE_ROMAN = /^(X{0,2})(IX|IV|V?I{0,3})$/;
+function ordinalFromRoman(r){
+  const m = RE_ROMAN.exec(r || '');
+  if(!m || !r) return '';
+  const v = {I:1,V:5,X:10}, d = { IX:9, IV:4 };
+  const n = (m[1].length * 10) + (d[m[2]] || ([...m[2]].reduce((a, c) => a + v[c], 0)));
+  return n >= 1 && n <= ORDINALS.length ? ORDINALS[n - 1] : '';
+}
+const RE_TRAIL_ROMAN = /^(.*\S)\s+([IVX]{1,5})$/;
+const withThe = (s) => /^the\s/i.test(s) ? s : 'The ' + s;
+export function spokenTitleFor(entry, overrides){
+  const base = titleFor(entry);
+  if(!entry || !entry.n || !base) return base;
+  const ov = overrides && (overrides.get(String(entry.id)) || overrides.get(String(entry.n).trim()));
+  if(ov) return /[.!?]$/.test(ov) ? ov : ov + '.';
+
+  let name = base.replace(/\.$/, '');
+  let paren = '';
+  const pm = /\s*\(([^)]*)\)\s*$/.exec(name);
+  if(pm){ paren = pm[1].trim(); name = name.slice(0, pm.index).trim(); }
+  const country = (entry.country && !/^none$/i.test(String(entry.country).trim())) ? String(entry.country).trim() : '';
+  const rm = RE_TRAIL_ROMAN.exec(name);
+  const ord = rm ? ordinalFromRoman(rm[2]) : '';
+
+  switch(entry.t){
+    case 's':
+      return name + (paren ? ', also known as ' + paren : '') + '.';
+    case 'u': {
+      const place = ord ? rm[1] : name;
+      const head = ord ? 'The ' + ord + ' Eucharistic Miracle' : 'The Eucharistic Miracle';
+      if(/^(Saint|Saints|Blessed)\b/.test(place)) return head + ' of ' + place + '.';
+      // A parenthetical with a year or century in it is kept (", 1610") so the two Romes differ;
+      // any other parenthetical (a church, a region) is dropped. Both still deserve a look.
+      return head + ' at ' + place + (/\d/.test(paren) ? ', ' + paren : '') + (country ? ', ' + country : '') + '.';
+    }
+    case 'c':
+      if(ord) return 'The ' + ord + ' Council of ' + rm[1] + '.';
+      if(/\b(Council|Synod)\b/.test(name)) return withThe(name) + '.';
+      return 'The Council of ' + name + '.';
+    case 'm': {
+      const pre = /^Our Lady\b/i.test(name) ? 'The Apparition of ' : (/ and /.test(name) ? 'The Apparitions at ' : 'The Apparition at ');
+      return pre + name + (country ? ', ' + country : '') + '.';
+    }
+    case 'p':
+      return (/^[A-Za-z]+'s\b/.test(name) ? name : withThe(name)) + '.';
+    default:
+      return base;
+  }
 }
 
 // One {heading, body} pair per section, whitespace-collapsed. Sections with no body text are
@@ -428,7 +511,7 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
     plan.push({ type, section, cueText, spoken: r.spoken });
   };
   // The name first ("Blessed Virgin Mary."), then a pause. No cue: it isn't article text.
-  const title = titleFor(entry);
+  const title = spokenTitleFor(entry, await loadSpokenTitleOverrides());   // 2026-10-06: was titleFor(entry)
   if(title){
     speak('title', -1, title);
     plan.push({ gap: titlePauseSec });
