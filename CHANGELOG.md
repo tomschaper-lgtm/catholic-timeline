@@ -19,6 +19,241 @@ the time.
 
 ---
 
+## v561 — 2026-10-06
+
+**Ask:**
+- After the year, just "Miracle" (drop "Eucharistic"), bigger and thicker.
+
+**Implementation:**
+- Label now "Miracle", 19 → 24px (27px when there's no year), semi-bold (600) italic.
+- Google Fonts request adds EB Garamond italic 600 (1,600) so the bold italic is the real face,
+  not one the phone imitates.
+
+## v560 — 2026-10-06
+
+**Ask:**
+- Carlo Acutis heading: "St. Carlo Acutis's Exhibition".
+
+**Implementation:**
+- Heading now "St. Carlo Acutis\u2019s Exhibition" (no "See").
+
+## v559 — 2026-10-06
+
+**Ask:**
+- "Work" → "Exhibit" in the Carlo Acutis heading.
+
+**Implementation:**
+- Heading now "See St. Carlo Acutis\u2019s Exhibit".
+
+## v558 — 2026-10-06
+
+**Ask:**
+- Put "See St. Carlo Acutis's Work" in the section-heading font above the graphic, spaced like
+  the other sections.
+
+**Implementation:**
+- The Carlo exhibition block opens with a regular section heading (.arth) "See St. Carlo
+  Acutis\u2019s Work" — same lettering, gold rule and spacing as every other heading — and the
+  graphic follows as its content. The small caption under the graphic is removed.
+
+## v557 — 2026-10-06
+
+**Ask:**
+- "Share this article" in the same font as the section headings, ending with the share icon
+  (no circle), the icon slightly bigger.
+
+**Implementation:**
+- Share row text "Share this article" in the .arth heading style (Cinzel, 15px × text size,
+  .14em letter-spacing, gold capitals), icon after the words, no circle, 22 → 25px. Still one
+  button for the whole line.
+
+## v556 — 2026-10-06
+
+**Ask:**
+- Eucharistic miracles: after the year, "Eucharistic Miracle" in gold italics; after the name, the
+  country ("Scala, Italy") — left off when the name would no longer fit on one line.
+
+**Implementation:**
+- Article header for type 'u': a gold italic "Eucharistic Miracle" label (smaller than the year)
+  beside the year (alone when there's no year), and ", <country>" after the name unless the name
+  already contains it.
+- fitHeaderPlace() hides the country when the name would then take more than one line; re-checked
+  after fonts load and on resize/rotation (landscape is wider). Uses the live header, so swipes work.
+
+## v555 — 2026-10-06
+
+**Ask:**
+- Landscape: the first time a card is shown (rotating to landscape, or opening another card),
+  start on the info side and turn to the picture after 1.5 s; turn a bit slower; tapping the
+  right side turns the card to the right, the left side to the left.
+
+**Implementation:**
+- The card keeps one running angle (data-angle): the picture is rotateY(angle), the back
+  rotateY(angle − 180), so both faces always turn together. A tap on the right half adds 180°
+  (rotateY(+) sends the right edge away — the pressed side goes down), the left half subtracts
+  180°, from either face. A link on the back still opens instead of turning.
+- Turn .55s → .9s, ease-in-out.
+- landCardIntro(): when a card with a picture and facts first shows in landscape (after each
+  article draw, and on rotating into landscape), it is set to the info side without animation,
+  then turned to the picture after 1.5 s. Once per entry until another entry has been shown; a
+  tap during the wait cancels the automatic turn.
+
+## v554 — 2026-10-06
+
+**Ask:**
+- "AD 0" has to go: when the year is 0, show no year. The close X should tuck right and up, equally
+  close to both edges (the sheet's top and the corner picture).
+
+**Implementation:**
+- fmtYear() returns nothing for year 0 (or no year), everywhere a year is shown; the article
+  header leaves the year out entirely.
+- With the picture docked in the corner, the X now ends 12px from the picture's left edge and 12px
+  below the sheet's top edge (was ~30px and ~24px): FLY_ARTX_SHIFTED 122 → 104, and it rises 12px
+  as the picture docks. Its inline top is cleared when undocked, so landscape's own position stands.
+
+## v553 — 2026-10-06
+
+**Ask:**
+- Remove the glow around the play button; make its border thinner, the same thickness as the
+  close X.
+
+**Implementation:**
+- The gold glow for recorded narration (.audioBottomBar.recorded) is gone; the button keeps only a
+  faint dark shadow so it stays readable over text.
+- Ring 2.5px → 1.6px, matching the X's lines (its 1.5-unit stroke drawn at 26px = 1.63px), drawn
+  as an inset box-shadow so browsers don't round it down to 1px as they do thin borders.
+
+## v552 — 2026-10-06
+
+**Ask:**
+- Remove the speaker next to the name (unused, sometimes fails, confusing). Move Share from the
+  top to the bottom of the article with text next to it. Landscape: X a little to the right and
+  up, nearer the picture. Play button slightly smaller.
+
+**Implementation:**
+- The name's speaker button (ahSay) is no longer drawn; its wiring was already guarded.
+- Top-corner share button hidden; a share row now sits under Sources & Further Reading on every
+  article (above the Review tools and "Report an issue"): share icon + "Share this article with a
+  link", same shareEntry() as before.
+- Landscape X: 12px further right (toward the picture) and 8px higher.
+- Play button 56 → 48px, its ▶/❚❚ 30 → 26px (all orientations).
+
+## v551 — 2026-10-06
+
+**Ask:**
+- Landscape: the picture and the flipped card are the same width for every entry (wider pictures
+  are cropped at the sides). The story on the left leaves out Quick Facts, since they're on the
+  card. With no picture, just the card on the right and the story scrolling on the left.
+
+**Implementation:**
+- One fixed right-hand column in landscape: --landCardW = min(42vw, (screen height − 32px) × 3/4),
+  a 3:4 card at full height. The picture fills it (object-fit: cover, centred, so a wide picture
+  loses its sides); the text column, close/share buttons and card back all use the same width
+  (were the picture's own measured width, so every entry differed).
+- The flip card is now for everyone (was Review Mode only); the story hides Quick Facts (heading
+  and box) whenever the card shows them.
+- No picture: the prayer card itself sits in the column, face up, no flip (replaces the old navy
+  half-width facts column). No picture and no facts: the story uses the full width, as before.
+- Landscape opening: a timeline tap (showDetail) opens the full article directly instead of the
+  half-height teaser; rotating to landscape while the teaser is up expands it. The sheet rises and
+  lowers on one gentle ease-in-out curve (.8 s both ways, was .64 s quick-start up and a .19 s snap
+  after a flick down); a flick down now closes at that same smooth pace. Portrait unchanged.
+
+## v550 — 2026-10-06
+
+**Ask:**
+- Make the back of the landscape flip card look like a prayer card: gold band with the name,
+  cream body, bold labels with the values under them (Tom's mockup).
+
+**Implementation:**
+- Card back (landscape, Review Mode): gold gradient band with the entry's name in serif small
+  capitals (was "At a Glance"); cream body; each fact as a bold, letter-spaced sans-serif label
+  with its value on the line below in regular sans, no row lines; links dark gold. Scrolls inside
+  as before. Portrait unchanged.
+
+## v549 — 2026-10-06
+
+**Ask:**
+- Listened starts gold; checked, it turns green with a checkmark. "Mark it good" buttons sit under
+  the action they confirm (a future Proofed under Proof).
+
+**Implementation:**
+- Second row is positioned by column: Listened under Audio (column 2), Fix under Flag (column 4);
+  columns 1 and 3 are left free for future check buttons (Proofed under Proof, etc.).
+- Listened: gold with just the word when unchecked; checked, green with a ✓ in a white badge on its
+  top-right corner (keeps the word's full width); the date stays on the line under it.
+
+## v548 — 2026-10-06
+
+**Ask:**
+- Make the wide "Fix a pronunciation" and "Listened" buttons the same size as Proof / Audio /
+  Image / Flag. Remove triple-tap for creating links (press-and-hold does it now).
+
+**Implementation:**
+- Review Mode tools: a second row of the same four-column grid holds "Fix" (opens the
+  pronunciation page, as before) and "Listened"; the Listened state shows on the line under it like
+  the others ("Checked ✓ Oct 5"), and the button turns green when set.
+- Triple-tap on story text no longer opens the link picker; press-and-hold opens the
+  pronunciation view, which has "Link to an entry".
+
+## v547 — 2026-10-06
+
+**Ask:**
+- Press-and-hold sometimes starts the narration; pause it automatically when the dialog opens.
+
+**Implementation:**
+- Opening the picker (hold or triple-tap) pauses narration with stopAudioPlaybackInPlace() (keeps the
+  position, resets the play button). While the picker is open, a 'play' on the narration is paused
+  again at once — that catches the tap / double-tap that can follow a hold, whatever starts it.
+  The guard is removed when the picker closes; narration stays paused until Play is tapped.
+
+## v546 — 2026-10-06
+
+**Ask:**
+- Progress: remove "Pronunciation re-record" and "Closing prayer (Saints)" — no longer needed.
+
+**Implementation:**
+- Both rows removed from PROGRESS_ROWS (Manage → Progress and Export's Status). Progress now shows
+  Proofread, Audio recorded, Images, Pronunciation checked. The services themselves are untouched.
+
+## v545 — 2026-10-05
+
+**Ask:**
+- Drop "how to pronounce" from the YouTube search — the plain name gives better results.
+
+**Implementation:**
+- The YouTube link searches for just the word or phrase in the box.
+
+## v544 — 2026-10-05
+
+**Ask:**
+- A blue YouTube link in the pronunciation view, for researching how a name is said.
+
+**Implementation:**
+- "YouTube" added to the links row (Type it · Add a pause after · Link to an entry · YouTube), a
+  plain link opening a YouTube search for the word or phrase in the box (v545: without "how to pronounce") in a new
+  tab. Its address follows the phrase as it's widened with ← →.
+
+## v543 — 2026-10-05
+
+**Ask:**
+- A "pronunciation checked" setting (yes/no) and a button to set it once I've listened to the
+  whole article and it's perfect. Recording clears it until I listen again. Show it on the status
+  page, and drop the long-sentences row there (the rewording is done).
+
+**Implementation:**
+- Stored as `qc.pronChecked: true` (+ `qc.pronCheckedAt`, the date), next to `qc.proofread`, and
+  saved through publishReviewAction like the other Review Mode actions.
+- Review Mode: a full-width button under "Fix a pronunciation": "Listened — pronunciation is
+  perfect"; when set it turns green, "✓ Pronunciation checked (Oct 5)". Tapping again unchecks
+  (asks first). Only for an article with its own recording — an older recording found by v540
+  doesn't count.
+- Cleared on recording: tapping Audio clears it on this device at once; the recorder
+  (audio-generate.mjs) also deletes qc.pronChecked/pronCheckedAt whenever it records, however the
+  recording was started, and that lands in the same commit.
+- Manage → Progress: "Long sentences" row removed; new row "Pronunciation checked" (recorded
+  articles you've listened to and signed off). Rows without a service get no "Batch add…" button.
+
 ## v542 — 2026-10-05
 
 **Ask:**
