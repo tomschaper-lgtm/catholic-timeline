@@ -1,6 +1,6 @@
 <!--
-VERSION: 552
-DATE: 2026-10-06T18:30:00-05:00
+VERSION: 553
+DATE: 2026-10-06T19:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,18 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v553 — 2026-10-06
+
+**Ask:**
+- Remove the glow around the play button; make its border thinner, the same thickness as the
+  close X.
+
+**Implementation:**
+- The gold glow for recorded narration (.audioBottomBar.recorded) is gone; the button keeps only a
+  faint dark shadow so it stays readable over text.
+- Ring 2.5px → 1.6px, matching the X's lines (its 1.5-unit stroke drawn at 26px = 1.63px), drawn
+  as an inset box-shadow so browsers don't round it down to 1px as they do thin borders.
+
 ## v552 — 2026-10-06
 
 **Ask:**
@@ -5274,15 +5286,14 @@ CHANGELOG:END
      opacity + smaller spread reads as a real, subtle shadow instead of a second outline. */
   .audBarPlay{
     width:48px; height:48px; border-radius:50%;   /* v552: was 56 */
-    background:var(--navy, #0B1630); border:2.5px solid var(--gold);
-    box-shadow:0 8px 18px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.35);
+    /* v553: ring as thin as the X's lines (1.6px), drawn as an inset outline — a border this thin
+       gets rounded down to 1px by some browsers; a box-shadow isn't. Plus a faint shadow, no glow. */
+    background:var(--navy, #0B1630); border:none;
+    box-shadow:inset 0 0 0 1.6px var(--gold), 0 3px 8px rgba(0,0,0,.4);
   }
   /* v506: recorded narration = the play button's ring glows softly gold; browser-voice narration
      = the plain ring, no glow. The 'recorded' class is set by updateAudioBarPresence(). */
-  .audioBottomBar.recorded .audBarPlay{
-    box-shadow:0 0 8px 1px rgba(201,165,66,.55), 0 0 18px 2px rgba(201,165,66,.25),
-               0 8px 18px rgba(0,0,0,.55), 0 2px 5px rgba(0,0,0,.35);
-  }
+  .audioBottomBar.recorded .audBarPlay{box-shadow:inset 0 0 0 1.6px var(--gold), 0 3px 8px rgba(0,0,0,.4);}   /* v553: gold glow removed */
   /* Comfortable clearance so the fixed bar (above) never sits over the last lines of the story
      or Sources & Further Reading — see fillArticleBody's audioBottomSpacer. */
   .audioBottomSpacer{height:110px;}
@@ -7492,7 +7503,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v552';
+const APP_VERSION = 'v553';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
