@@ -1,6 +1,6 @@
 <!--
-VERSION: 556
-DATE: 2026-10-06T21:15:00-05:00
+VERSION: 561
+DATE: 2026-10-06T23:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,54 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v561 — 2026-10-06
+
+**Ask:**
+- After the year, just "Miracle" (drop "Eucharistic"), bigger and thicker.
+
+**Implementation:**
+- Label now "Miracle", 19 → 24px (27px when there's no year), semi-bold (600) italic.
+- Google Fonts request adds EB Garamond italic 600 (1,600) so the bold italic is the real face,
+  not one the phone imitates.
+
+## v560 — 2026-10-06
+
+**Ask:**
+- Carlo Acutis heading: "St. Carlo Acutis's Exhibition".
+
+**Implementation:**
+- Heading now "St. Carlo Acutis\u2019s Exhibition" (no "See").
+
+## v559 — 2026-10-06
+
+**Ask:**
+- "Work" → "Exhibit" in the Carlo Acutis heading.
+
+**Implementation:**
+- Heading now "See St. Carlo Acutis\u2019s Exhibit".
+
+## v558 — 2026-10-06
+
+**Ask:**
+- Put "See St. Carlo Acutis's Work" in the section-heading font above the graphic, spaced like
+  the other sections.
+
+**Implementation:**
+- The Carlo exhibition block opens with a regular section heading (.arth) "See St. Carlo
+  Acutis\u2019s Work" — same lettering, gold rule and spacing as every other heading — and the
+  graphic follows as its content. The small caption under the graphic is removed.
+
+## v557 — 2026-10-06
+
+**Ask:**
+- "Share this article" in the same font as the section headings, ending with the share icon
+  (no circle), the icon slightly bigger.
+
+**Implementation:**
+- Share row text "Share this article" in the .arth heading style (Cinzel, 15px × text size,
+  .14em letter-spacing, gold capitals), icon after the words, no circle, 22 → 25px. Still one
+  button for the whole line.
+
 ## v556 — 2026-10-06
 
 **Ask:**
@@ -2477,8 +2525,8 @@ CHANGELOG:END
 <meta name="theme-color" content="#0B1630">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Cormorant+Garamond:wght@600;700&display=swap" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Cormorant+Garamond:wght@600;700&display=swap"></noscript>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,600&family=Cormorant+Garamond:wght@600;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,600&family=Cormorant+Garamond:wght@600;700&display=swap"></noscript>
 <style>
   :root{
     --navy:#0B1630; --navy-deep:#070F22; --navy-band:#101D3D;
@@ -4478,13 +4526,14 @@ CHANGELOG:END
      centered so it lines up vertically with the X's. `right` is set by setArtXShift(). */
   /* v552: share lives at the end of the article now */
   #article .artShareBtn{display:none !important;}
-  .artShareRow{display:flex; align-items:center; gap:12px; margin:22px 0 6px; padding:10px 0; width:100%;
-    background:none; border:none; color:var(--gold); font-family:'EB Garamond', Georgia, serif; font-size:calc(18px * var(--txt));
+  /* v557: same lettering as the section headings, icon after the words, no circle */
+  .artShareRow{display:flex; align-items:center; gap:10px; margin:30px 0 6px; padding:10px 0; width:100%;
+    background:none; border:none; color:var(--gold-bright);
+    font-family:'Cinzel',serif; font-size:calc(15px * var(--txt)); letter-spacing:.14em; text-transform:uppercase;
     text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent;}
-  .artShareRow .artShareIcon{display:inline-flex; align-items:center; justify-content:center; flex:none;
-    width:44px; height:44px; border-radius:50%; border:1.5px solid rgba(201,165,66,.6);}
-  .artShareRow svg{width:22px; height:22px;}
-  .artShareRow:active .artShareIcon{background:rgba(201,165,66,.15);}
+  .artShareRow .artShareIcon{display:inline-flex; align-items:center; flex:none;}
+  .artShareRow svg{width:25px; height:25px;}
+  .artShareRow:active{opacity:.7;}
   .audBarPlay svg{width:26px; height:26px;}   /* v552: smaller ▶ to match the smaller button */
   .artShareBtn{
     position:absolute; top:0; right:60px; z-index:22;
@@ -4627,8 +4676,8 @@ CHANGELOG:END
   }
   .ahYear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
   /* v556: "Eucharistic Miracle" beside the year, in gold italics (alone, a little larger, with no year) */
-  .ahKind{margin-left:12px; color:var(--gold); font-family:'EB Garamond', Georgia, serif; font-style:italic; font-weight:400; font-size:19px; line-height:1; letter-spacing:.01em; white-space:nowrap;}
-  .ahYearRow:not(:has(.ahYear)) .ahKind{margin-left:0; font-size:22px;}
+  .ahKind{margin-left:12px; color:var(--gold); font-family:'EB Garamond', Georgia, serif; font-style:italic; font-weight:600; font-size:24px; line-height:1; letter-spacing:.01em; white-space:nowrap;}   /* v561: bigger, semi-bold */
+  .ahYearRow:not(:has(.ahYear)) .ahKind{margin-left:0; font-size:27px;}
   .ahYearRow:has(.ahKind){align-items:baseline;}
   .review-on .ahYear{cursor:pointer;}
   .ahName{font-size:25px; font-weight:600; line-height:1.15;}
@@ -5172,6 +5221,7 @@ CHANGELOG:END
      percentage top/height on the absolutely positioned name can silently fail to resolve and the
      text ends up positioned outside the visible, overflow:hidden button entirely. */
   .carloLinkBox{ margin:38px 0 22px; }
+  .arth.carloHead + .carloLinkBox{ margin:12px 0 22px; }   /* v558: the heading supplies the space above */
   .carloLinkBtn{
     display:block; position:relative; border-radius:14px; overflow:hidden;
     border:1px solid rgba(167,139,250,.4); box-shadow:0 4px 14px rgba(0,0,0,.35);
@@ -7551,7 +7601,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v556';
+const APP_VERSION = 'v561';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14469,7 +14519,7 @@ function fillArticleBody(d, peek){
     // the delegated click wiring are unchanged.
     (articleBackStack.length ? '<button type="button" class="artBackBtn" id="artBackBtn" aria-label="Back to previous entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M11.5 5.5 5 12l6.5 6.5"/></svg></button>' : '') +
     (fmtYear(d.y) ? '<span class="ahYear">' + esc(fmtYear(d.y)) + '</span>' : '') +   // v554: no year, no line
-    (d.t === 'u' ? '<span class="ahKind">Eucharistic Miracle</span>' : '') + '</div>' +   // v556
+    (d.t === 'u' ? '<span class="ahKind">Miracle</span>' : '') + '</div>' +   // v556; v561: just "Miracle"
     '<div class="ahName">' + esc(d.n) +
       // v556: ", Italy" after a Eucharistic miracle's name — hidden by fitHeaderPlace() if it won't fit on one line
       (d.t === 'u' && d.country && !fold(d.n).includes(fold(d.country)) ? '<span class="ahPlace">, ' + esc(d.country) + '</span>' : '') +
@@ -14520,12 +14570,12 @@ function fillArticleBody(d, peek){
   if(d.t === 'u'){
     const cl = getCarloLink(d.id);
     if(cl && cl.status === 'found' && cl.url){
-      html += '<div class="carloLinkBox">' +
+      html += '<div class="arth carloHead">St. Carlo Acutis\u2019s Exhibition</div>' +   // v558: a section heading, like the rest
+        '<div class="carloLinkBox">' +
         '<a class="carloLinkBtn" href="' + esc(cl.url) + '" target="_blank" rel="noopener" aria-label="See ' + esc(d.n) + ' on the Carlo Acutis Eucharistic Miracles exhibition">' +
         '<img src="Images/CarloAcutis/banner.jpg" alt="Miracles of the Eucharist — International Exhibition by St. Carlo Acutis" loading="lazy">' +
         '<div class="carloLinkName"><span>' + esc(truncateWords(carloDisplayName(d.n), 20)) + '</span></div>' +
         '</a>' +
-        '<div class="carloLinkCaption">View Saint Carlo\u2019s Work</div>' +
         '</div>';
     } else if(reviewMode){
       const note = (cl && cl.note) ? cl.note : 'No individual miracolieucaristici.org page located yet.';
@@ -14579,9 +14629,9 @@ function fillArticleBody(d, peek){
     html += '</ul>';
   }
   // v552: share moved here from the top corner, with words beside it
-  html += '<button type="button" class="artShareRow" id="artShareEndBtn">' +
-    '<span class="artShareIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v11"/><path d="M8 7.5l4-4 4 4"/><path d="M8.5 10.5H7a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6.5a2 2 0 0 0-2-2h-1.5"/></svg></span>' +
-    '<span>Share this article with a link</span></button>';
+  html += '<button type="button" class="artShareRow" id="artShareEndBtn">' +   // v557: heading style, icon after
+    '<span>Share this article</span>' +
+    '<span class="artShareIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v11"/><path d="M8 7.5l4-4 4 4"/><path d="M8.5 10.5H7a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6.5a2 2 0 0 0-2-2h-1.5"/></svg></span></button>';
   // Visible on every article, to every visitor — not gated behind review mode or Owner Tools.
   // The whole point is a low-friction way for anyone, not just Tom, to flag something that
   // looks wrong. See reportIssueBtn's click handler near the bottom of the file.
