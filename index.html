@@ -1,6 +1,6 @@
 <!--
-VERSION: 553
-DATE: 2026-10-06T19:00:00-05:00
+VERSION: 555
+DATE: 2026-10-06T20:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,37 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v555 — 2026-10-06
+
+**Ask:**
+- Landscape: the first time a card is shown (rotating to landscape, or opening another card),
+  start on the info side and turn to the picture after 1.5 s; turn a bit slower; tapping the
+  right side turns the card to the right, the left side to the left.
+
+**Implementation:**
+- The card keeps one running angle (data-angle): the picture is rotateY(angle), the back
+  rotateY(angle − 180), so both faces always turn together. A tap on the right half adds 180°
+  (rotateY(+) sends the right edge away — the pressed side goes down), the left half subtracts
+  180°, from either face. A link on the back still opens instead of turning.
+- Turn .55s → .9s, ease-in-out.
+- landCardIntro(): when a card with a picture and facts first shows in landscape (after each
+  article draw, and on rotating into landscape), it is set to the info side without animation,
+  then turned to the picture after 1.5 s. Once per entry until another entry has been shown; a
+  tap during the wait cancels the automatic turn.
+
+## v554 — 2026-10-06
+
+**Ask:**
+- "AD 0" has to go: when the year is 0, show no year. The close X should tuck right and up, equally
+  close to both edges (the sheet's top and the corner picture).
+
+**Implementation:**
+- fmtYear() returns nothing for year 0 (or no year), everywhere a year is shown; the article
+  header leaves the year out entirely.
+- With the picture docked in the corner, the X now ends 12px from the picture's left edge and 12px
+  below the sheet's top edge (was ~30px and ~24px): FLY_ARTX_SHIFTED 122 → 104, and it rises 12px
+  as the picture docks. Its inline top is cleared when undocked, so landscape's own position stands.
+
 ## v553 — 2026-10-06
 
 **Ask:**
@@ -4283,7 +4314,7 @@ CHANGELOG:END
       /* v526: Review Mode two-sided card. Each face carries its own perspective() so it turns
          about its own centre; the face turned away is hidden and ignores taps. */
       #article .artLandCard.canFlip .artLandImg{
-        transform:perspective(1600px) rotateY(0deg); transition:transform .55s ease;
+        transform:perspective(1600px) rotateY(0deg); transition:transform .9s cubic-bezier(.45,0,.25,1);   /* v555: slower */
         -webkit-backface-visibility:hidden; backface-visibility:hidden; cursor:pointer;
       }
       #article .artLandCard .artLandBack{
@@ -4294,7 +4325,7 @@ CHANGELOG:END
         background:linear-gradient(180deg,#F3E6C0 0%, #EADBAE 100%);   /* v550: cream prayer-card back */
         box-shadow:0 6px 22px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.35);
         overflow:hidden;
-        transform:perspective(1600px) rotateY(-180deg); transition:transform .55s ease;
+        transform:perspective(1600px) rotateY(-180deg); transition:transform .9s cubic-bezier(.45,0,.25,1);   /* v555: slower */
         -webkit-backface-visibility:hidden; backface-visibility:hidden; pointer-events:none; cursor:pointer;
       }
       #article .artLandCard.flipped .artLandImg{transform:perspective(1600px) rotateY(180deg); pointer-events:none;}
@@ -7503,7 +7534,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v553';
+const APP_VERSION = 'v555';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8434,6 +8465,7 @@ function isLandscape(){ return window.matchMedia('(orientation: landscape)').mat
 window.matchMedia('(orientation: landscape)').addEventListener('change', (e) => {
   const a = document.getElementById('article');
   if(e.matches && a && a.classList.contains('open') && a.classList.contains('peek')) expandArticle();
+  if(e.matches) setTimeout(landCardIntro, 350);   // v555: after the layout has settled
 });
 
 // ---- Shareable deep links: #entry-id in the URL, safe no-op inside the Claude artifact iframe ----
@@ -14276,7 +14308,7 @@ function renderBody(b){
 // y < 0 is a B.C. year (only possible via the timeline's own blank padding zone right now —
 // see START's comment — nothing in the seed data uses it, but this makes the app correct if a
 // B.C.-dated entry is ever actually added rather than just scrolled past).
-function fmtYear(y){ return y < 0 ? (-y) + ' BC' : (y <= 99 ? 'AD ' + y : String(y)); }
+function fmtYear(y){ if(!y) return ''; return y < 0 ? (-y) + ' BC' : (y <= 99 ? 'AD ' + y : String(y)); }   // v554: no "AD 0"
 // Same B.C. handling as fmtYear, but without the "AD " prefix on plain-number years — matches
 // the axis's existing bare-century-number labels (e.g. "100", not "AD 100").
 function fmtAxisYear(y){ return y < 0 ? (-y) + ' BC' : String(y); }
@@ -14392,6 +14424,7 @@ function fillArticleBody(d, peek){
       a = '<div class="artLandCard noImg" id="artLandCard">' + cardBack(true) + '</div>';   // v551: no picture — the card, face up
     }
     landCardFacts = backRows.length > 0;
+  requestAnimationFrame(landCardIntro);   // v555: info side first on a card's first landscape showing
     if(a) html += '<div class="artLandAnchor">' + a + '</div>';
   }
   html += '<div class="artSticky' + (hasImg ? ' hasPortrait' : '') + '" id="artSticky">' +
@@ -14400,7 +14433,7 @@ function fillArticleBody(d, peek){
     // (was a "← BACK" pill on its own line above it). Same id/handler, so goBackArticle() and
     // the delegated click wiring are unchanged.
     (articleBackStack.length ? '<button type="button" class="artBackBtn" id="artBackBtn" aria-label="Back to previous entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M11.5 5.5 5 12l6.5 6.5"/></svg></button>' : '') +
-    '<span class="ahYear">' + esc(fmtYear(d.y)) + '</span></div>' +
+    (fmtYear(d.y) ? '<span class="ahYear">' + esc(fmtYear(d.y)) + '</span>' : '') + '</div>' +   // v554: no year, no line
     '<div class="ahName">' + esc(d.n) + (false   // v552: the name's speaker is gone (unused, unreliable, confusing)
       ? '<button type="button" class="ahSay" id="ahSayBtn" aria-label="Hear the name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>' : '') +
     '</div></div>' +
@@ -16719,7 +16752,8 @@ const FLY_DELAY = 48;             // scroll this far first, so a nudge doesn't s
 // clamp as wide as FLY_MAX (156px) for a landscape-aspect photo — so the button's own 60px box
 // needs SHIFTED >= flyW - 60 in the worst case, i.e. >= 116, to never overlap it. 122 is the
 // closest-to-the-corner value that still clears that worst case with a little room to spare.
-const FLY_ARTX_BASE = 6, FLY_ARTX_SHIFTED = 122;
+const FLY_ARTX_BASE = 6, FLY_ARTX_SHIFTED = 104;   // v554: was 122 — X's lines 12px from the picture
+const FLY_ARTX_RISE = 12;                             // v554: and 12px up, so 12px below the sheet's top edge
 // Slides the close button out from under the corner portrait as the portrait itself arrives,
 // rather than jumping there the moment an entry merely has a photo. amt is 0 (photo not there
 // yet — or no photo at all — button sits at the plain top-right corner) through 1 (photo fully
@@ -16732,6 +16766,7 @@ function setArtXShift(amt){
   const clamped = Math.max(0, Math.min(1, amt));
   const right = FLY_ARTX_BASE + clamped * (FLY_ARTX_SHIFTED - FLY_ARTX_BASE);
   btn.style.right = right + 'px';
+  btn.style.top = clamped > 0 ? (-FLY_ARTX_RISE * clamped) + 'px' : '';   // v554: tuck up as the picture docks
   // v478: the share button rides just left of the X wherever the X goes (X box is 60px wide;
   // 6px overlap of the two invisible tap boxes keeps the glyphs a comfortable distance apart).
   const share = document.getElementById('artShareBtn');
@@ -18460,18 +18495,51 @@ document.getElementById('artBody').addEventListener('click', (e) => {
   const card = e.target.closest('#artLandCard.canFlip');
   if(!card || isPortrait()) return;
   e.stopPropagation();
-  let flip = null;
   // v527: tap the picture to turn it over, tap anywhere on the back (except a link) to turn it
   // back. A scroll isn't a tap, so scrolling the facts never flips it.
-  if(card.classList.contains('flipped')){ if(e.target.closest('.artLandBack') && !e.target.closest('a')) flip = false; }
-  else if(e.target.closest('.artLandImg')) flip = true;
-  if(flip === null) return;
+  const onBack = card.classList.contains('flipped');
+  if(onBack ? !(e.target.closest('.artLandBack') && !e.target.closest('a')) : !e.target.closest('.artLandImg')) return;
   e.preventDefault();
-  card.classList.toggle('flipped', flip);
-  const back = card.querySelector('.artLandBack');
-  if(back) back.setAttribute('aria-hidden', flip ? 'false' : 'true');
-  if(flip && back){ const body = back.querySelector('.artLandBackBody'); if(body) body.scrollTop = 0; }
+  // v555: turn toward the side that was pressed — right half turns it to the right, left to the left
+  const face = (onBack ? card.querySelector('.artLandBack') : card.querySelector('.artLandImg')).getBoundingClientRect();
+  landCardTurn(card, e.clientX >= face.left + face.width / 2 ? 1 : -1);
 });
+// ---- v555: the card's running angle — both faces turn together, either direction ----
+let landIntroShownFor = null, landIntroTimer = null;
+function landCardSetAngle(card, angle, animate){
+  const img = card.querySelector('.artLandImg'), back = card.querySelector('.artLandBack');
+  if(!img || !back) return;
+  card.dataset.angle = String(angle);
+  if(!animate){ img.style.transition = back.style.transition = 'none'; }
+  img.style.transform = 'perspective(1600px) rotateY(' + angle + 'deg)';
+  back.style.transform = 'perspective(1600px) rotateY(' + (angle - 180) + 'deg)';
+  const flipped = Math.round(angle / 180) % 2 !== 0;
+  card.classList.toggle('flipped', flipped);
+  back.setAttribute('aria-hidden', flipped ? 'false' : 'true');
+  if(!animate){ void card.offsetWidth; img.style.transition = back.style.transition = ''; }
+}
+function landCardTurn(card, dir){
+  clearTimeout(landIntroTimer);   // a tap during the opening wait takes over
+  const angle = (Number(card.dataset.angle) || 0) + dir * 180;
+  if(Math.round(angle / 180) % 2 !== 0){ const body = card.querySelector('.artLandBackBody'); if(body) body.scrollTop = 0; }
+  landCardSetAngle(card, angle, true);
+}
+// First showing of a card in landscape: info side first, then the picture after 1.5 s.
+function landCardIntro(){
+  if(!currentEntry || !isLandscape()) return;
+  const card = liveArtEl('artLandCard');
+  if(!card || !card.classList.contains('canFlip')) return;
+  if(landIntroShownFor === currentEntry.id) return;
+  landIntroShownFor = currentEntry.id;
+  clearTimeout(landIntroTimer);
+  landCardSetAngle(card, 180, false);
+  const id = currentEntry.id;
+  landIntroTimer = setTimeout(() => {
+    if(!card.isConnected || !currentEntry || currentEntry.id !== id) return;
+    if((Number(card.dataset.angle) || 0) !== 180) return;
+    landCardSetAngle(card, 360, true);
+  }, 1500);
+}
 document.getElementById('artBody').addEventListener('click', (e) => {
   if(!isPortrait()) return;
   const img = e.target.closest('.artimg');
