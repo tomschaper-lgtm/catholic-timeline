@@ -1,6 +1,6 @@
 <!--
-VERSION: 555
-DATE: 2026-10-06T20:30:00-05:00
+VERSION: 556
+DATE: 2026-10-06T21:15:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,19 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v556 — 2026-10-06
+
+**Ask:**
+- Eucharistic miracles: after the year, "Eucharistic Miracle" in gold italics; after the name, the
+  country ("Scala, Italy") — left off when the name would no longer fit on one line.
+
+**Implementation:**
+- Article header for type 'u': a gold italic "Eucharistic Miracle" label (smaller than the year)
+  beside the year (alone when there's no year), and ", <country>" after the name unless the name
+  already contains it.
+- fitHeaderPlace() hides the country when the name would then take more than one line; re-checked
+  after fonts load and on resize/rotation (landscape is wider). Uses the live header, so swipes work.
+
 ## v555 — 2026-10-06
 
 **Ask:**
@@ -4613,6 +4626,10 @@ CHANGELOG:END
     }
   }
   .ahYear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
+  /* v556: "Eucharistic Miracle" beside the year, in gold italics (alone, a little larger, with no year) */
+  .ahKind{margin-left:12px; color:var(--gold); font-family:'EB Garamond', Georgia, serif; font-style:italic; font-weight:400; font-size:19px; line-height:1; letter-spacing:.01em; white-space:nowrap;}
+  .ahYearRow:not(:has(.ahYear)) .ahKind{margin-left:0; font-size:22px;}
+  .ahYearRow:has(.ahKind){align-items:baseline;}
   .review-on .ahYear{cursor:pointer;}
   .ahName{font-size:25px; font-weight:600; line-height:1.15;}
   /* v518: says the name, from the article's own recording */
@@ -7534,7 +7551,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v555';
+const APP_VERSION = 'v556';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14343,6 +14360,23 @@ function lpHoldNarration(on){
   if(!audioEl.paused) stopAudioPlaybackInPlace();
   if(typeof audioEl.addEventListener === 'function'){ lpHeldAudio = audioEl; audioEl.addEventListener('play', lpHoldNarrationOnPlay); }
 }
+// ---- v556: the country after a Eucharistic miracle's name, only if the name still fits one line ----
+function fitHeaderPlace(){
+  const sticky = liveArtEl('artSticky');
+  const place = sticky && sticky.querySelector('.ahPlace');
+  if(!place) return;
+  place.style.display = '';
+  const name = place.parentElement;
+  const r = document.createRange();
+  r.setStart(name, 0); r.setEnd(name, 1);   // the name's own text
+  const first = r.getClientRects()[0];
+  const rects = place.getClientRects();
+  const last = rects[rects.length - 1];
+  if(!first || !last) return;
+  if(rects.length > 1 || last.top > first.top + first.height / 2) place.style.display = 'none';
+}
+window.addEventListener('resize', () => requestAnimationFrame(fitHeaderPlace));
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitHeaderPlace());
 // ---- v543: paint the "Pronunciation checked" button ----
 // v549: gold with just the word; checked, green with a checkmark before it
 function listenedInner(on){
@@ -14425,6 +14459,7 @@ function fillArticleBody(d, peek){
     }
     landCardFacts = backRows.length > 0;
   requestAnimationFrame(landCardIntro);   // v555: info side first on a card's first landscape showing
+  requestAnimationFrame(fitHeaderPlace);  // v556
     if(a) html += '<div class="artLandAnchor">' + a + '</div>';
   }
   html += '<div class="artSticky' + (hasImg ? ' hasPortrait' : '') + '" id="artSticky">' +
@@ -14433,8 +14468,12 @@ function fillArticleBody(d, peek){
     // (was a "← BACK" pill on its own line above it). Same id/handler, so goBackArticle() and
     // the delegated click wiring are unchanged.
     (articleBackStack.length ? '<button type="button" class="artBackBtn" id="artBackBtn" aria-label="Back to previous entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M11.5 5.5 5 12l6.5 6.5"/></svg></button>' : '') +
-    (fmtYear(d.y) ? '<span class="ahYear">' + esc(fmtYear(d.y)) + '</span>' : '') + '</div>' +   // v554: no year, no line
-    '<div class="ahName">' + esc(d.n) + (false   // v552: the name's speaker is gone (unused, unreliable, confusing)
+    (fmtYear(d.y) ? '<span class="ahYear">' + esc(fmtYear(d.y)) + '</span>' : '') +   // v554: no year, no line
+    (d.t === 'u' ? '<span class="ahKind">Eucharistic Miracle</span>' : '') + '</div>' +   // v556
+    '<div class="ahName">' + esc(d.n) +
+      // v556: ", Italy" after a Eucharistic miracle's name — hidden by fitHeaderPlace() if it won't fit on one line
+      (d.t === 'u' && d.country && !fold(d.n).includes(fold(d.country)) ? '<span class="ahPlace">, ' + esc(d.country) + '</span>' : '') +
+      (false   // v552: the name's speaker is gone (unused, unreliable, confusing)
       ? '<button type="button" class="ahSay" id="ahSayBtn" aria-label="Hear the name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>' : '') +
     '</div></div>' +
     '<div class="ahTaper" id="ahTaper"></div>';
