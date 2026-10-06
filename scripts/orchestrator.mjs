@@ -1,5 +1,8 @@
 // scripts/orchestrator.mjs
 //
+// MODULE DATE: 2026-10-06 (Tuesday). Based on the orchestrator_9.mjs upload of 2026-10-06; the only change
+// is registering the 'ledger-build' service (import + one SERVICE_HANDLERS line). Everything else is untouched.
+//
 // The one runner. Reads workLog.json, picks up queued tasks (up to MAX_TASKS_PER_RUN,
 // optionally filtered to a single TASK_TYPE), dispatches each to the service handler
 // registered for its `type`, and writes results back — either directly to the task (for a
@@ -146,6 +149,7 @@ import { runAudioGenerate } from './services/audio-generate.mjs';
 import { runArbitrate } from './services/arbitrate.mjs';
 import { runFactResearch } from './services/fact-research.mjs';
 import { runAudioInvocation } from './services/audio-invocation.mjs';
+import { runLedgerBuild } from './services/ledger-build.mjs';
 
 const WORKLOG_PATH = process.env.WORKLOG_PATH || 'workLog.json';
 const DATA_PATH = process.env.DATA_PATH || 'data.json';
@@ -184,6 +188,7 @@ const SERVICE_HANDLERS = {
   'arbitrate': runArbitrate,
   'fact-research': runFactResearch,
   'audio-invocation': runAudioInvocation, // "Add closing prayer" to existing Saint recordings (2026-09-27)
+  'ledger-build': runLedgerBuild, // source-proof ledger per entry, writes ledger/<id>.json (2026-10-06)
 };
 
 function nowIso(){ return new Date().toISOString(); }
