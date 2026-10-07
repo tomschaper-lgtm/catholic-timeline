@@ -3291,14 +3291,60 @@
       "type": "ledger-build",
       "entityId": "em-scete-3c",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Build source ledger — Scetis",
       "payload": {
         "force": false
       },
-      "result": null,
+      "result": {
+        "entries": [
+          {
+            "id": "em-scete-3c",
+            "name": "Scetis",
+            "outcome": "built",
+            "file": "ledger/em-scete-3c.json",
+            "summary": {
+              "total": 12,
+              "verified": 0,
+              "disputed": 0,
+              "unsourced": 9,
+              "traditional": 3,
+              "missingNumbers": 2,
+              "missingNames": 9,
+              "uncoveredSentences": 2,
+              "extractorRejected": 0,
+              "suggestedSources": 0
+            },
+            "sources": "1/4 sources usable"
+          }
+        ],
+        "totals": {
+          "total": 12,
+          "verified": 0,
+          "disputed": 0,
+          "unsourced": 9,
+          "traditional": 3,
+          "missingNumbers": 2,
+          "missingNames": 9,
+          "uncoveredSentences": 2
+        },
+        "models": {
+          "extractor": {
+            "provider": "anthropic",
+            "modelId": "claude-sonnet-4-6"
+          },
+          "prover": {
+            "provider": "google",
+            "modelId": "gemini-3.5-flash-lite"
+          },
+          "judge": {
+            "provider": "openai",
+            "modelId": "gpt-5.6-luna"
+          }
+        }
+      },
       "createdAt": "2026-10-07T02:17:12.701Z",
-      "updatedAt": "2026-10-07T02:38:50.916Z",
+      "updatedAt": "2026-10-07T02:40:41.634Z",
       "error": null
     }
   ]
