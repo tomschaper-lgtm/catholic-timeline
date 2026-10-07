@@ -1,6 +1,6 @@
 <!--
-VERSION: 562
-DATE: 2026-10-06T13:10:00-05:00
+VERSION: 564
+DATE: 2026-10-06T21:07:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,30 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v564 — 2026-10-06
+
+**Ask:**
+- The "Checked ✓ Oct 5" line under the green Listened button was too much and wrapped onto two
+  lines. Put just the date on the green button itself.
+
+**Implementation:**
+- `listenedInner(on, when)` now adds a small `.rtWhen` date line under "Listened" inside the button;
+  `listenedPaint()` and the initial render both pass the date; the line under the button is left
+  empty (kept so the row's height doesn't change). `.rtListened.on` stacks its content in a column.
+
+## v563 — 2026-10-06
+
+**Ask:**
+- With a picture docked in the article's corner, the close X was too close to the picture and
+  often missed when tapped. Move it over some and down just a tad.
+
+**Implementation:**
+- FLY_ARTX_SHIFTED 104 → 114: the X's lines now end about 22px from the picture's left edge (v553 was
+  30px, v554 was 12px — this is roughly halfway). FLY_ARTX_RISE 12 → 6: it sits about 18px below the
+  sheet's top edge (v553 was 24px, v554 12px) — also halfway. Both constants only apply while the
+  picture is docked; undocked/landscape positions are untouched. The tap box (60x60) is unchanged;
+  the top-right share button rides along with the X as before.
+
 ## v562 — 2026-10-06
 
 **Ask:**
@@ -5148,6 +5172,9 @@ CHANGELOG:END
   .rtBtn.rtListened.on{background:linear-gradient(180deg,#3f8f4f,#2e7040); color:#fff; border-color:#2e7040;}
   /* v549: the checkmark is a badge on the corner, so "Listened" keeps the whole width */
   .rtBtn.rtListened{position:relative; overflow:visible;}
+  /* v564: the date sits on the green button, under the word "Listened" */
+  .rtBtn.rtListened.on{flex-direction:column; gap:0; line-height:1.05;}
+  .rtBtn.rtListened .rtWhen{display:block; font-size:13px; font-weight:500; opacity:.92; letter-spacing:.2px; white-space:nowrap;}
   .rtBtn.rtListened.on svg{position:absolute; top:-8px; right:-8px; width:22px; height:22px; padding:3px; box-sizing:border-box;
     border-radius:50%; background:#fff; color:#2e7040; border:1.5px solid #2e7040; box-shadow:0 1px 3px rgba(0,0,0,.35);}
   /* v540: playing an older recording found in the repo */
@@ -7626,7 +7653,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v562';
+const APP_VERSION = 'v564';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14480,15 +14507,15 @@ window.addEventListener('resize', () => requestAnimationFrame(fitHeaderPlace));
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitHeaderPlace());
 // ---- v543: paint the "Pronunciation checked" button ----
 // v549: gold with just the word; checked, green with a checkmark before it
-function listenedInner(on){
-  return (on ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>' : '') + '<span>Listened</span>';
+function listenedInner(on, when){   // v564: 'when' = short date (e.g. 'Oct 5'), shown on the button itself
+  return (on ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>' : '') + '<span>Listened</span>' + (on && when ? '<small class="rtWhen">' + when + '</small>' : '');
 }
 function listenedPaint(on, at){
   const b = document.getElementById('tkListenedBtn'); if(!b) return;
   b.classList.toggle('on', !!on);
-  b.innerHTML = listenedInner(!!on);
-  const when = on && at ? ' ' + new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-  const st = document.getElementById('tkListenedBtnState'); if(st) st.textContent = on ? 'Checked \u2713' + when : '';   // v548
+  const when = on && at ? new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';   // v564: no 'Checked' text
+  b.innerHTML = listenedInner(!!on, when);
+  const st = document.getElementById('tkListenedBtnState'); if(st) st.textContent = '';   // v564: date lives on the button now
 }
 // ---- v540: play a recording still in the repo when the article's link is blank ----
 // Playback only: never written into the entry, so saving can't restore an old link and the
@@ -14741,14 +14768,14 @@ function fillArticleBody(d, peek){
       '</div>' +
       // v548: "Fix" and "Listened" are regular quarter-width tools on a second row
       (() => { const on = !!(d.qc && d.qc.pronChecked) && !!d.audio && !d.audioFallback;
-        const when = on && d.qc.pronCheckedAt ? ' ' + new Date(d.qc.pronCheckedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+        const when = on && d.qc.pronCheckedAt ? new Date(d.qc.pronCheckedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
         const PRON_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4 4v-4H5.5A1.5 1.5 0 0 1 4 14.5z"/><path d="M8.5 9.5h7M8.5 12.5h4"/></svg>';
         const EAR_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>';
         return '<div class="rtRow rtRow2">' +
           // v549: each "mark it good" button sits under the action it confirms — Listened under Audio
           '<div class="rtCell" style="grid-column:2"><button type="button" class="rtBtn rtListened' + (on ? ' on' : '') + '" id="tkListenedBtn" title="I listened to the whole recording and every word is right">' +
-            listenedInner(on) + '</button>' +
-            '<div class="rtState" id="tkListenedBtnState">' + (on ? 'Checked \u2713' + esc(when) : '') + '</div></div>' +
+            listenedInner(on, esc(when)) + '</button>' +
+            '<div class="rtState" id="tkListenedBtnState"></div></div>' +
           '<div class="rtCell" style="grid-column:4"><button type="button" class="rtBtn" id="tkPronFixBtn" title="Fix a pronunciation">' + PRON_ICON + '<span>Fix</span></button><div class="rtState"></div></div>' +
         '</div>'; })() +
       '<div class="rtProofStat"><b>' + longest + ' Word' + (longest === 1 ? '' : 's') + '</b><span>' + esc(proofLabel) + '</span></div>' +
@@ -16892,8 +16919,8 @@ const FLY_DELAY = 48;             // scroll this far first, so a nudge doesn't s
 // clamp as wide as FLY_MAX (156px) for a landscape-aspect photo — so the button's own 60px box
 // needs SHIFTED >= flyW - 60 in the worst case, i.e. >= 116, to never overlap it. 122 is the
 // closest-to-the-corner value that still clears that worst case with a little room to spare.
-const FLY_ARTX_BASE = 6, FLY_ARTX_SHIFTED = 104;   // v554: was 122 — X's lines 12px from the picture
-const FLY_ARTX_RISE = 12;                             // v554: and 12px up, so 12px below the sheet's top edge
+const FLY_ARTX_BASE = 6, FLY_ARTX_SHIFTED = 114;   // v563: was 104 (v554: 122 before that) — X's lines ~22px from the picture
+const FLY_ARTX_RISE = 6;                              // v563: was 12 (v554) — X now ~18px below the sheet's top edge
 // Slides the close button out from under the corner portrait as the portrait itself arrives,
 // rather than jumping there the moment an entry merely has a photo. amt is 0 (photo not there
 // yet — or no photo at all — button sits at the plain top-right corner) through 1 (photo fully
