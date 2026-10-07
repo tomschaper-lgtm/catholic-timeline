@@ -3230,14 +3230,60 @@
       "type": "ledger-build",
       "entityId": "st-michael-archangel-0",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Build source ledger — St. Michael the Archangel",
       "payload": {
         "force": false
       },
-      "result": null,
+      "result": {
+        "entries": [
+          {
+            "id": "st-michael-archangel-0",
+            "name": "St. Michael the Archangel",
+            "outcome": "built",
+            "file": "ledger/st-michael-archangel-0.json",
+            "summary": {
+              "total": 17,
+              "verified": 2,
+              "disputed": 2,
+              "unsourced": 11,
+              "traditional": 2,
+              "missingNumbers": 2,
+              "missingNames": 13,
+              "uncoveredSentences": 5,
+              "extractorRejected": 4,
+              "suggestedSources": 0
+            },
+            "sources": "1/1 sources usable"
+          }
+        ],
+        "totals": {
+          "total": 17,
+          "verified": 2,
+          "disputed": 2,
+          "unsourced": 11,
+          "traditional": 2,
+          "missingNumbers": 2,
+          "missingNames": 13,
+          "uncoveredSentences": 5
+        },
+        "models": {
+          "extractor": {
+            "provider": "anthropic",
+            "modelId": "claude-sonnet-4-6"
+          },
+          "prover": {
+            "provider": "google",
+            "modelId": "gemini-3.5-flash-lite"
+          },
+          "judge": {
+            "provider": "openai",
+            "modelId": "gpt-5.6-luna"
+          }
+        }
+      },
       "createdAt": "2026-10-07T02:17:01.545Z",
-      "updatedAt": "2026-10-07T02:38:50.916Z",
+      "updatedAt": "2026-10-07T02:40:15.102Z",
       "error": null
     },
     {
