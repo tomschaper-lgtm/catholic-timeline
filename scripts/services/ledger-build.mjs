@@ -1,6 +1,9 @@
 // scripts/services/ledger-build.mjs
 //
-// MODULE DATE: 2026-10-06 (Tuesday) · v1.1 — v1 plus two changes: (1) pages a model discovers are only
+// MODULE DATE: 2026-10-06 (Tuesday) · v1.3 — bible.usccb.org (NABRE) is now accepted as proof of what Scripture says,
+// with its own tier, "scripture" (Tom's rule: Scripture the articles quote is NABRE; v1.1 had excluded that host).
+// v1.2 — the prover now READS THE WHOLE PAGE and may quote two pieces (see
+// step 5 below). v1.1 was v1 plus two changes: (1) pages a model discovers are only
 // SUGGESTIONS and never count as proof, and discovery is off unless payload.discover is true; (2) the
 // allowlist is widened to the official tier, with a tier recorded on every source. Written against orchestrator_9.mjs and
 // fact-research_2.mjs as uploaded 2026-10-06. If either has changed since, ask for a refresh before
@@ -31,9 +34,14 @@
 //      art.quotes are added in code as kind "quote" claims (no model involved).
 //   4. Code match: every number in a claim must appear somewhere in the fetched sources, or the claim
 //      is "unsourced" with checks.missingNumbers set (this is what should catch a changed number).
-//   5. Prover (Gemini, no search): sees claim + the top-ranked passages from the fetched pages (ranked
-//      in code) and copies an exact excerpt. Code verifies the excerpt (on the page, short, contains
-//      the claim's numbers and at least one name). Up to MAX_PROOF_ATTEMPTS, feeding back the reason.
+//   5. Prover (Gemini, no search): reads the FULL text of the article's fetched pages (not a keyword
+//      pre-selection, so a source that words things differently still gets found) and, for each claim, copies
+//      one or two exact excerpts from ONE page. Two are allowed when no single stretch holds the whole claim
+//      (name in one sentence, date in the next). Code then verifies every piece word for word on that page
+//      (case, accents, quote style, spelled numbers and "fourth"/"4th century" are evened out), that the pieces
+//      together hold the claim's numbers and at least one name, and that each piece is short. Up to
+//      MAX_PROOF_ATTEMPTS, feeding back the reason. If the pages together exceed PROVER_TEXT_BUDGET characters,
+//      each call sends the passages closest to its claims instead of everything.
 //   6. Blind judge (OpenAI, different provider from the prover): sees only claim + excerpt.
 //   7. Status: verified | disputed | unsourced | traditional.
 //   The claim text is never modified by the loop, so revisions[] stays empty in this mode.
@@ -49,8 +57,9 @@
 // Section numbers in claims are 1-based; Quick Facts claims use section "facts", quote-block claims "quotes".
 //
 // KNOWN LIMITS (v1):
-//   • Number matching is on digits plus spelled numbers three..ninety-nine. "one"/"two" and ordinals
-//     ("fourth century") are not matched. Centuries and Roman numerals are not checked.
+//   • Number matching is on digits plus spelled numbers three..ninety-nine, and "<ordinal> century" matches
+//     "4th century". "one"/"two", Roman numerals and arithmetic ("55th year" vs "aged 75") are not matched;
+//     those claims come out unsourced for a person to check.
 //   • Contradiction is only detected by the prover volunteering it or the judge saying "not".
 //   • Claims the extractor never lists are not covered; ledger.uncovered lists article sentences that
 //     contain a digit but match no claim, as a cheap measure of that gap.
@@ -82,22 +91,28 @@ const ALLOWLIST_OFFICIAL = ['usccb.org', 'vaticanstate.va', 'basilicasanpietro.v
   'missionariesofcharity.org', 'kolbeshrine.org', 'thedivinemercy.org', 'katharinedrexel.org', 'rscj.org', 'jesuits.org',
   'opusdei.org', 'duomodiorvieto.it', 'wa.catedraldevalencia.es', 'sainte-bernadette-soubirous-nevers.com', 'pastorinhos.com',
   'oca.org', 'parliament.uk'];
-// Hosts that match a listed domain but are NOT wanted (bible.usccb.org is the NAB text; you use Douay-Rheims).
-const EXCLUDED_HOSTS = ['bible.usccb.org'];
+// Hosts that match a listed domain but are NOT wanted. Empty since v1.3: bible.usccb.org (the NABRE text) was
+// excluded in v1.1 and is now the Scripture source.
+const EXCLUDED_HOSTS = [];
+// Pages of the NABRE on the bishops' site. Proof of what the TEXT says, not of history or interpretation.
+const SCRIPTURE_HOSTS = ['bible.usccb.org'];
 const ALLOWLIST = ALLOWLIST_APPROVED.concat(ALLOWLIST_OFFICIAL);
 
 const MAX_ENTRIES_PER_TASK = 15;
 const MAX_SOURCES_PER_ENTRY = 6;
 const MAX_CLAIMS_PER_ENTRY = 60;
-const CLAIMS_PER_PROVER_CALL = 8;
+const CLAIMS_PER_PROVER_CALL = 20;
 const CLAIMS_PER_JUDGE_CALL = 15;
 const MAX_PROOF_ATTEMPTS = 3;
-const MAX_EXCERPT_WORDS = 30;
+const MAX_EXCERPT_WORDS = 45;          // per piece (the prompt asks for 40; this is the hard limit)
+const MAX_EXCERPT_PIECES = 2;
 const MAX_QUOTE_EXCERPT_WORDS = 90;
+// Characters of source text sent to the prover per call (about 4 chars per token). Normal articles fit whole.
+const PROVER_TEXT_BUDGET = parseInt(process.env.LEDGER_PROVER_BUDGET || '200000', 10);
 const FETCH_TIMEOUT_MS = 20000;
 const FETCH_GAP_MS = 600;          // minimum gap between requests to the same host
 const MAX_PAGE_CHARS = 600000;
-const TOKEN_BUDGETS = [4000, 8000, 12000];
+const TOKEN_BUDGETS = [6000, 12000, 16000];
 
 // Judge must be a different provider than the prover (spec open question 1). Change modelId freely;
 // payload.models can override per task.
@@ -265,6 +280,11 @@ const RE_COMPOUND = new RegExp('\\b(' + Object.keys(TENS).join('|') + ')[-\\s]('
 // inside compounds like twenty-one.
 const SINGLE = Object.assign({}, TEENS, TENS);
 ['three','four','five','six','seven','eight','nine'].forEach(k => { SINGLE[k] = UNITS[k]; });
+// "fourth century" / "4th century" / "twenty-first century" all become "<n>th century".
+const ORD = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10, eleventh: 11,
+  twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15, sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19, twentieth: 20 };
+const ordSuffix = n => ((n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'));
+const RE_CENTURY = new RegExp('\\b(twenty[-\\s]first|' + Object.keys(ORD).join('|') + ')(?=[-\\s]+(?:century|centuries|millennium))', 'g');
 const RE_SINGLE = new RegExp('\\b(' + Object.keys(SINGLE).join('|') + ')\\b', 'g');
 
 // Normal form used for every comparison: no accents, lowercase, straight quotes/dashes, spelled
@@ -272,6 +292,7 @@ const RE_SINGLE = new RegExp('\\b(' + Object.keys(SINGLE).join('|') + ')\\b', 'g
 function norm(s){
   let t = String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   t = t.replace(/[\u2018\u2019\u02bc]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/[\u2010-\u2015\u2212]/g, '-');
+  t = t.replace(RE_CENTURY, (_m, w) => { const n = /^twenty/.test(w) ? 21 : ORD[w]; return n + ordSuffix(n); });
   t = t.replace(RE_COMPOUND, (_m, a, b) => String(TENS[a] + UNITS[b]));
   t = t.replace(RE_SINGLE, (_m, w) => String(SINGLE[w]));
   return t.replace(/\s+/g, ' ').trim();
@@ -345,9 +366,10 @@ function onAllowlist(url){
   return !!h && !hostMatches(h, EXCLUDED_HOSTS) && hostMatches(h, ALLOWLIST);
 }
 
-// 'approved' = the original six; 'official' = institutional sites added in v1.1.
+// 'approved' = the original six; 'official' = institutional sites added in v1.1; 'scripture' = the NABRE (v1.3).
 function tierOf(url){
   const h = hostOf(url);
+  if(hostMatches(h, SCRIPTURE_HOSTS)) return 'scripture';
   return hostMatches(h, ALLOWLIST_APPROVED) ? 'approved' : 'official';
 }
 
@@ -454,19 +476,23 @@ One sentence may carry several claims. Skip sentences with nothing checkable (de
 Respond with ONLY a JSON object, no preamble, no code fences:
 { "claims": [ { "section": 1, "sentence": "...", "text": "...", "kind": "date", "keys": ["..."] } ] }`;
 
-const PROVER_PROMPT = `You find the proof for factual claims about Catholic history in source passages. You receive JSON with a list of claims. Each has: cid, claim, sentence, kind, keys, optionally previousFailure (why your last attempt was rejected), and passages (each with a url and text). The passages are the ONLY material you may use. Do not use your own knowledge.
+const PROVER_PROMPT = `You find the proof for factual claims about Catholic history in source pages. You receive JSON with "sources" (each a url and the full text of that page) and "claims". Each claim has: cid, claim (what must be supported), sentence (where it appears in the article), kind, keys (names and numbers it involves), and optionally previousFailure (why your last attempt was rejected). The sources are the ONLY material you may use. Do not use your own knowledge.
 
-For each claim, choose ONE passage that directly supports it and copy an excerpt from that passage:
-- The excerpt must be copied exactly, character for character, from the passage. No ellipses, no paraphrase, no joining of separate sentences.
-- At most 25 words (for kind "quote", the full quoted words are required instead).
-- It must contain every number and date in the claim, and at least one of the named people or places in "keys".
-- If previousFailure is present, fix that specific problem or choose a different passage.
-- If no passage supports the claim, say found:false. If a passage clearly says something that contradicts the claim, return found:false, contradicts:true, with the url and the contradicting excerpt (copied exactly). Never stretch a passage to fit.
+For each claim, find where a source supports it. The source may word it differently or spread it over nearby sentences. Then copy the proof out of the page:
+- Give one or two excerpts ("excerpts"), each copied exactly, character for character, from the page text. No ellipses, no paraphrase, no changed or dropped words.
+- Use two excerpts only when no single stretch of text holds the whole claim (for example the name is in one sentence and the date is in the next). Both must come from the SAME source (one "url").
+- Each excerpt is at most 40 words. Keep each as short as it can be while still showing what it is there to show.
+- Together the excerpts must contain every number and date in the claim and at least one of the names in "keys". A spelled number ("sixteen") and a figure ("16") count as the same.
+- For kind "quote", the full quoted words must appear together in ONE excerpt, copied exactly (up to 80 words).
+- If previousFailure is present, fix that specific problem or choose different text.
+- If no source supports the claim, return found:false. If a source clearly says something that contradicts the claim, return found:false, contradicts:true, with the url and the contradicting excerpt (copied exactly). Never stretch the text to fit. Do not combine facts from different pages. Do not do arithmetic or convert calendars to make a claim fit: if the source gives a different figure, that is not support.
 
 Respond with ONLY a JSON object, no preamble, no code fences:
-{ "results": [ { "cid": "c1", "found": true, "url": "https://...", "excerpt": "..." }, { "cid": "c2", "found": false, "contradicts": false, "reason": "..." } ] }`;
+{ "results": [ { "cid": "c1", "found": true, "url": "https://...", "excerpts": ["...", "..."] }, { "cid": "c2", "found": false, "contradicts": false, "reason": "..." } ] }`;
 
 const JUDGE_PROMPT = `You judge whether a short source excerpt supports a claim. You see only the claim and the excerpt. Use nothing else, and do not use outside knowledge.
+
+The excerpt may be two quoted pieces from the same page, separated by … (they were not necessarily next to each other). Judge them together.
 
 For each item answer exactly one of:
 - "supports": the excerpt states or clearly entails the whole claim, including its dates, numbers and names.
@@ -563,48 +589,74 @@ function findUncovered(parts, claims){
 // Matching and proof
 // ---------------------------------------------------------------------------------------------
 
-// Highest-scoring passages across all fetched pages for one claim.
-function pickPassages(claim, pages, n){
-  const claimToks = contentTokens(claim.sentence + ' ' + claim.text);
-  const scored = [];
-  for(const p of pages){
-    for(const ch of p.chunks){
-      const nc = ch.n;
-      let score = 0;
-      for(const k of claim.nums) if(hasNumber(nc, k)) score += 3;
-      for(const k of claim.keys) if(nc.includes(norm(k))) score += 3;
-      if(claimToks.length){
-        const set = new Set(nc.split(/[^a-z0-9]+/));
-        score += 5 * (claimToks.filter(t => set.has(t)).length / claimToks.length);
-      }
-      if(score > 0) scored.push({ score, url: p.url, text: ch.text });
-    }
+function scoreChunk(claim, claimToks, ch){
+  const nc = ch.n;
+  let score = 0;
+  for(const k of claim.nums) if(hasNumber(nc, k)) score += 3;
+  for(const k of claim.keys) if(nc.includes(norm(k))) score += 3;
+  if(claimToks.length){
+    const set = new Set(nc.split(/[^a-z0-9]+/));
+    score += 5 * (claimToks.filter(t => set.has(t)).length / claimToks.length);
   }
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, n).map(s => ({ url: s.url, text: s.text }));
+  return score;
 }
 
-// Code's check of a proposed excerpt. Returns { ok, reason, url, excerpt }.
-function verifyExcerpt(claim, url, excerptRaw, pages){
-  const excerpt = trimPunct(excerptRaw);
+// What the prover reads for one batch of claims. Normally the FULL text of every page. Only if the pages
+// together exceed PROVER_TEXT_BUDGET characters does it fall back to the passages closest to this batch's
+// claims (kept in page order, within the budget, with a marker where text was left out).
+function buildSources(pages, batch){
+  const total = pages.reduce((a, p) => a + p.plain.length, 0);
+  if(total <= PROVER_TEXT_BUDGET) return { sources: pages.map(p => ({ url: p.url, text: p.plain })), trimmed: false };
+  const per = Math.floor(PROVER_TEXT_BUDGET / pages.length);
+  const toks = batch.map(c => contentTokens(c.sentence + ' ' + c.text));
+  const sources = pages.map(p => {
+    const ranked = p.chunks.map((ch, i) => ({ i, ch, score: Math.max(0, ...batch.map((c, j) => scoreChunk(c, toks[j], ch))) }))
+      .sort((a, b) => b.score - a.score);
+    const keep = []; let used = 0;
+    for(const r of ranked){ if(used + r.ch.text.length > per) continue; keep.push(r); used += r.ch.text.length; }
+    keep.sort((a, b) => a.i - b.i);
+    return { url: p.url, text: keep.map(r => r.ch.text).join('\n[text left out]\n') };
+  });
+  return { sources, trimmed: true };
+}
+
+// Code's check of the proposed excerpt(s). Returns { ok, reason, url, excerpt, pieces? }.
+// Every piece must appear word for word (after evening out case, accents, quote style, spelled numbers and
+// "fourth century") on ONE fetched page; the pieces together must hold the claim's numbers and at least one name.
+function verifyExcerpts(claim, url, piecesRaw, pages){
+  const pieces = (Array.isArray(piecesRaw) ? piecesRaw : [piecesRaw]).map(x => trimPunct(x)).filter(Boolean);
+  if(!pieces.length) return { ok: false, reason: 'no excerpt was given' };
+  if(pieces.length > MAX_EXCERPT_PIECES) return { ok: false, reason: 'at most ' + MAX_EXCERPT_PIECES + ' excerpts are allowed' };
   const isQuote = claim.kind === 'quote';
+  if(isQuote && pieces.length > 1) return { ok: false, reason: 'a quote must be proven by ONE excerpt that contains the whole quoted text' };
   const cap = isQuote ? MAX_QUOTE_EXCERPT_WORDS : MAX_EXCERPT_WORDS;
-  if(!excerpt || excerpt.length < 12) return { ok: false, reason: 'excerpt is empty or too short' };
-  if(wordCount(excerpt) > cap) return { ok: false, reason: 'excerpt is ' + wordCount(excerpt) + ' words; the limit is ' + cap };
-  const ne = norm(excerpt);
+  for(let i = 0; i < pieces.length; i++){
+    if(pieces[i].length < 12) return { ok: false, reason: 'excerpt ' + (i + 1) + ' is empty or too short' };
+    if(wordCount(pieces[i]) > cap) return { ok: false, reason: 'excerpt ' + (i + 1) + ' is ' + wordCount(pieces[i]) + ' words; the limit is ' + cap };
+  }
+  const norms = pieces.map(norm);
+  const onPage = pg => norms.every(n => pg.normText.includes(n));
   const pref = pages.find(p => p.url === url);
-  let page = pref && pref.normText.includes(ne) ? pref : pages.find(p => p.normText.includes(ne));
-  if(!page) return { ok: false, reason: 'excerpt was not found word for word on any fetched page (copy it exactly, no ellipses or paraphrase)' };
+  const page = (pref && onPage(pref)) ? pref : pages.find(onPage);
+  if(!page){
+    const lost = norms.findIndex(n => !pages.some(pg => pg.normText.includes(n)));
+    return { ok: false, reason: lost >= 0
+      ? 'excerpt ' + (lost + 1) + ' was not found word for word on any fetched page (copy it exactly: no ellipses, no paraphrase, no changed words)'
+      : 'the excerpts are not all on the same page' };
+  }
+  const joined = norms.join(' ');
   if(isQuote){
-    if(!ne.includes(norm(claim.text))) return { ok: false, reason: 'the excerpt must contain the whole quoted text of the claim exactly' };
+    if(!norms[0].includes(norm(claim.text))) return { ok: false, reason: 'the excerpt must contain the whole quoted text of the claim exactly' };
   }else{
-    const missing = claim.nums.filter(k => !hasNumber(ne, k));
-    if(missing.length) return { ok: false, reason: 'excerpt does not contain the number(s) ' + missing.join(', ') + ' from the claim' };
-    if(claim.keys.length && !claim.keys.some(k => ne.includes(norm(k)))){
-      return { ok: false, reason: 'excerpt contains none of the claim\'s names: ' + claim.keys.join('; ') };
+    const missing = claim.nums.filter(k => !hasNumber(joined, k));
+    if(missing.length) return { ok: false, reason: 'the excerpt(s) do not contain the number(s) ' + missing.join(', ') + ' from the claim' };
+    if(claim.keys.length && !claim.keys.some(k => joined.includes(norm(k)))){
+      return { ok: false, reason: 'the excerpt(s) contain none of the claim\'s names: ' + claim.keys.join('; ') };
     }
   }
-  return { ok: true, url: page.url, excerpt };
+  const out = { ok: true, url: page.url, excerpt: pieces.join(' \u2026 ') };
+  if(pieces.length > 1) out.pieces = pieces;
+  return out;
 }
 
 function chunkArray(arr, n){
@@ -619,10 +671,10 @@ async function proveClaims(claims, pages, roleCfg){
   for(let attempt = 0; attempt < MAX_PROOF_ATTEMPTS && pending.length; attempt++){
     const nextPending = [];
     for(const batch of chunkArray(pending, CLAIMS_PER_PROVER_CALL)){
-      const input = JSON.stringify({ claims: batch.map(c => ({
+      const { sources } = buildSources(pages, batch);
+      const input = JSON.stringify({ sources, claims: batch.map(c => ({
         cid: c.cid, claim: c.text, sentence: c.sentence, kind: c.kind, keys: c.keys.concat(c.nums),
-        previousFailure: (state.get(c.cid) || {}).reason || undefined,
-        passages: pickPassages(c, pages, 4 + 2 * attempt)
+        previousFailure: (state.get(c.cid) || {}).reason || undefined
       })) }, null, 1);
       const parsed = await callJson(roleCfg, PROVER_PROMPT, input, false);
       const byCid = new Map((Array.isArray(parsed.results) ? parsed.results : []).map(r => [String(r && r.cid), r]));
@@ -630,16 +682,17 @@ async function proveClaims(claims, pages, roleCfg){
         const r = byCid.get(c.cid);
         const st = state.get(c.cid) || {};
         if(!r){ st.reason = 'no result returned for this claim'; state.set(c.cid, st); nextPending.push(c); continue; }
+        const given = r.excerpts != null ? r.excerpts : r.excerpt;      // accept the old single-excerpt shape too
         if(r.found === false){
-          if(r.contradicts && r.excerpt){
-            const v = verifyExcerpt(Object.assign({}, c, { nums: [], keys: [] }), r.url, r.excerpt, pages);
+          if(r.contradicts && given){
+            const v = verifyExcerpts(Object.assign({}, c, { nums: [], keys: [], kind: 'event' }), String(r.url || ''), given, pages);
             if(v.ok){ st.contradicts = { url: v.url, excerpt: v.excerpt }; }
           }
-          st.reason = 'prover found no supporting passage' + (r.reason ? ': ' + String(r.reason).slice(0, 160) : '');
+          st.reason = 'prover found no supporting text' + (r.reason ? ': ' + String(r.reason).slice(0, 160) : '');
           state.set(c.cid, st); nextPending.push(c); continue;
         }
-        const v = verifyExcerpt(c, String(r.url || ''), String(r.excerpt || ''), pages);
-        if(v.ok){ st.proof = { url: v.url, excerpt: v.excerpt }; st.reason = ''; state.set(c.cid, st); }
+        const v = verifyExcerpts(c, String(r.url || ''), given, pages);
+        if(v.ok){ st.proof = { url: v.url, excerpt: v.excerpt, pieces: v.pieces }; st.reason = ''; state.set(c.cid, st); }
         else{ st.reason = v.reason; state.set(c.cid, st); nextPending.push(c); }
       }
     }
@@ -747,6 +800,7 @@ async function buildLedger(entry, opts, roles){
     const v = verdicts.get(c.cid);
     if(st && st.proof){
       rec.sources = [{ url: st.proof.url, excerpt: st.proof.excerpt, match: 'exact', tier: tierOf(st.proof.url) }];
+      if(st.proof.pieces) rec.sources[0].pieces = st.proof.pieces;
       if(v){ rec.judge = v.verdict; if(v.verdict !== 'supports' && v.reason) rec.note = v.reason; }
       else{ rec.note = 'judge returned no verdict'; }
       if(c.kind === 'tradition') rec.status = 'traditional';
@@ -775,7 +829,7 @@ async function buildLedger(entry, opts, roles){
     name: entry.n,
     articleHash: hash,
     checkedAt: new Date().toISOString().slice(0, 10),
-    generator: 'ledger-build v1.1 (2026-10-06)',
+    generator: 'ledger-build v1.3 (2026-10-06)',
     models: { extractor: roles.extractor.modelId, prover: roles.prover.modelId, judge: roles.judge.modelId },
     sourceHealth: health,
     claims: recs,
@@ -891,4 +945,4 @@ export async function runLedgerBuild(task, dataJson){
 }
 
 // Exposed for the offline test harness only.
-export const __test = { norm, numericKeys, hasNumber, splitSentences, chunkText, verifyExcerpt, articleHash, stripHtml, htmlToText, namePresence };
+export const __test = { norm, numericKeys, hasNumber, splitSentences, chunkText, verifyExcerpts, buildSources, articleHash, stripHtml, htmlToText, namePresence };
