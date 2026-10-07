@@ -19,6 +19,56 @@ the time.
 
 ---
 
+## v564 — 2026-10-06
+
+**Ask:**
+- The "Checked ✓ Oct 5" line under the green Listened button was too much and wrapped onto two
+  lines. Put just the date on the green button itself.
+
+**Implementation:**
+- `listenedInner(on, when)` now adds a small `.rtWhen` date line under "Listened" inside the button;
+  `listenedPaint()` and the initial render both pass the date; the line under the button is left
+  empty (kept so the row's height doesn't change). `.rtListened.on` stacks its content in a column.
+
+## v563 — 2026-10-06
+
+**Ask:**
+- With a picture docked in the article's corner, the close X was too close to the picture and
+  often missed when tapped. Move it over some and down just a tad.
+
+**Implementation:**
+- FLY_ARTX_SHIFTED 104 → 114: the X's lines now end about 22px from the picture's left edge (v553 was
+  30px, v554 was 12px — this is roughly halfway). FLY_ARTX_RISE 12 → 6: it sits about 18px below the
+  sheet's top edge (v553 was 24px, v554 12px) — also halfway. Both constants only apply while the
+  picture is docked; undocked/landscape positions are untouched. The tap box (60x60) is unchanged;
+  the top-right share button rides along with the X as before.
+
+## v562 — 2026-10-06
+
+**Ask:**
+- Send pronunciation fixes through the same Paste JSON box as everything else; it should see
+  which table and which entries to change.
+- Queue "Build source ledger" from Add Task, like the other per-entry services.
+
+**Implementation:**
+- Paste JSON now detects a top-level "pronunciation" array (like "patches"/"carloLinks").
+  Ops: add / update / delete on a rule's exact string_to_replace, and "title" — which takes an
+  entry id and the full announcement and writes the rule SpokenTitle:<id> (id must exist; add
+  "delete": true to remove one). Defaults match the in-app editor: alias rule, case-sensitive,
+  whole words; phrases go to the top, single words to the end; pause rules checked the same way
+  the recorder checks them; single-character keys and the SpokenTitle: prefix on add/update are
+  refused. Everything in one paste is one read-change-write of the rules file on GitHub (one
+  commit, retried if the file changed). Each op gets its own result line. Needs the GitHub
+  token; entries in the same paste stay staged as before, but the pronunciation commit is
+  immediate (same as the in-app editor).
+- lpUpdateRules(): a mutate function may return false to mean "nothing changed, don't write".
+  Existing callers return nothing, so they behave as before.
+- New service in Add Task: "Build source ledger" (ledger-build, scripts/services/ledger-build.mjs).
+  One task per entry like the other batch services; payload {force} only — it does NOT write
+  qc.ledger into data.json (writeQc stays off), so "already built" is read from finished
+  ledger-build tasks, and the service itself skips an unchanged article cheaply.
+  The checkbox is "Rebuild ledgers already built".
+
 ## v561 — 2026-10-06
 
 **Ask:**
