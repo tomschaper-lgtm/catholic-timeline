@@ -3169,14 +3169,60 @@
       "type": "ledger-build",
       "entityId": "council-of-jerusalem-49",
       "batchId": null,
-      "status": "in_progress",
+      "status": "done",
       "description": "Build source ledger — Council of Jerusalem",
       "payload": {
         "force": false
       },
-      "result": null,
+      "result": {
+        "entries": [
+          {
+            "id": "council-of-jerusalem-49",
+            "name": "Council of Jerusalem",
+            "outcome": "built",
+            "file": "ledger/council-of-jerusalem-49.json",
+            "summary": {
+              "total": 18,
+              "verified": 1,
+              "disputed": 5,
+              "unsourced": 12,
+              "traditional": 0,
+              "missingNumbers": 0,
+              "missingNames": 10,
+              "uncoveredSentences": 0,
+              "extractorRejected": 1,
+              "suggestedSources": 0
+            },
+            "sources": "2/2 sources usable"
+          }
+        ],
+        "totals": {
+          "total": 18,
+          "verified": 1,
+          "disputed": 5,
+          "unsourced": 12,
+          "traditional": 0,
+          "missingNumbers": 0,
+          "missingNames": 10,
+          "uncoveredSentences": 0
+        },
+        "models": {
+          "extractor": {
+            "provider": "anthropic",
+            "modelId": "claude-sonnet-4-6"
+          },
+          "prover": {
+            "provider": "google",
+            "modelId": "gemini-3.5-flash-lite"
+          },
+          "judge": {
+            "provider": "openai",
+            "modelId": "gpt-5.6-luna"
+          }
+        }
+      },
       "createdAt": "2026-10-07T02:16:45.489Z",
-      "updatedAt": "2026-10-07T02:38:50.916Z",
+      "updatedAt": "2026-10-07T02:39:32.701Z",
       "error": null
     },
     {
