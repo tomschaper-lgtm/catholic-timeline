@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "updated": "2026-10-08",
+  "note": "Editable rules for source-finder layer 3 (Jerome). Like ledger-allowlist.json, this is data, not code: change a number or a pattern here and the next run uses it. Patterns are regular expressions matched against the page text after lowercasing and removing accents, and only when they appear within `window` characters of the subject's name. Layer 3 finds EVIDENCE for a person to look at; it never proves anything, and when unsure it asks (review). Items marked PROVISIONAL are Claude's starting values and have not been confirmed by Tom.",
+
+  "sufficiency": {
+    "minWordsVerifyCapable": 1000,
+    "newSubjectMinDomains": 1,
+    "targetWordsVerifyCapable": 4000,
+    "minMentionsPerPage": 3,
+    "_note": "CONFIRMED: Tom wants plenty of material, judged by quality not by number of sites. minWords is the floor (ready); targetWords is the goal (Jerome runs a second allowlist search until it is reached or the fetch caps run out; below it a ready entry is flagged thin_material). Both count only SUBSTANTIVE pages: verify-capable pages where the subject's name appears at least minMentionsPerPage times. targetWords (4000) and minMentionsPerPage (3) are PROVISIONAL. CONFIRMED in principle: one verify-capable source can be enough. minWordsVerifyCapable is PROVISIONAL (about twice the target article length). newSubjectMinDomains is PROVISIONAL: raise to 2 to require two independent verify-capable websites before a brand-new subject (for example a visitor suggestion) can proceed. Reported-tier and unjudged pages never count toward this."
+  },
+
+  "window": 300,
+  "genericNameWords": ["our","lady","miracle","miracles","apparition","apparitions","council","persecution","persecutions","church","catholic","eucharistic","marian","martyrs","martyr","event","holy","great","first","second","third"],
+  "_genericNameWords": "Words skipped when choosing the part of a name that evidence must appear near (so \"Miracle of Lanciano\" is anchored on \"lanciano\"). PROVISIONAL starter list.",
+  "enforceBasisChecksInRewrite": false,
+
+  "scandal": {
+    "_note": "CONFIRMED: scandals go to review. This list is only a net for obvious names (checked against the subject's name, not the page text). Whether an entry IS a scandal is a judgment; the real recognition is Ignatius's job later. PROVISIONAL starter list for Tom to edit.",
+    "nameTerms": ["scandal", "scandals", "abuse", "abuses", "cover up", "coverup", "corruption", "simony", "pornocracy", "embezzlement"]
+  },
+
+  "categories": {
+    "s": {
+      "kind": "saint",
+      "label": "Saint",
+      "_note": "CONFIRMED: three bases. A basis counts only if its evidence appears near the saint's name on a source that can verify. PROVISIONAL: the pattern lists and the year limits.",
+      "bases": {
+        "new_testament": {
+          "maxYear": 100,
+          "patterns": ["\\bapostle\\b", "\\bevangelist\\b", "\\bnew testament\\b", "\\bacts of the apostles\\b", "\\bgospel of (matthew|mark|luke|john)\\b", "\\bdisciples? of (jesus|christ|our lord)\\b"]
+        },
+        "ancient_veneration": {
+          "maxYear": 1000,
+          "patterns": ["\\bmartyrology\\b", "\\bgeneral roman calendar\\b", "\\bfeast (day )?(is|was|falls|celebrated|kept|observed|on)\\b", "\\bvenerated (since|from|as|in)\\b", "\\bcultus\\b"]
+        },
+        "formal_canonization": {
+          "patterns": ["\\b(was|were|is|been) (formally |solemnly )?canoni[sz]ed\\b", "\\bcanoni[sz]ed (him|her|them|in|by|on)\\b", "\\bdeclared (him |her )?(a )?saint\\b", "\\bproclaimed (him |her )?(a )?saint\\b", "\\bcanoni[sz]ation (decree|bull|ceremony)\\b"]
+        }
+      },
+      "notCanonized": {
+        "_note": "Used only when NO basis was found. Signals that the person may be Blessed, Venerable or a Servant of God: review, reason 'not canonized'.",
+        "blessed": ["\\bbeatified\\b", "\\bdeclared blessed\\b", "\\bbeatification\\b"],
+        "venerable": ["\\bdeclared venerable\\b", "\\bheroic virtues\\b"],
+        "servant_of_god": ["\\bservant of god\\b", "\\bcause for (beatification|canoni[sz]ation)\\b"]
+      }
+    },
+
+    "m": {
+      "kind": "review",
+      "label": "Marian apparition",
+      "reason": "Approval level must be set by a person. The level wording is still being decided (the 2024 Vatican norms replaced the older approval language; see the design doc, section 13).",
+      "signals": {
+        "dicastery_or_holy_see": ["\\bnihil obstat\\b", "\\bin agreement with the dicastery\\b", "\\bapproved by (the )?(holy see|pope|vatican)\\b"],
+        "bishop_approved": ["\\bapproved by the (local )?bishop\\b", "\\bbishop (of [a-z ]{2,30} )?(approved|declared|recogni[sz]ed)\\b", "\\bworthy of belief\\b", "\\bapproved the (cult|devotion|apparitions?)\\b"],
+        "not_approved_or_negative": ["\\bnot (been )?(officially )?(approved|recogni[sz]ed)\\b", "\\bcondemned\\b", "\\bprohibited\\b", "\\bnon supernaturalitate\\b", "\\bnot supernatural\\b", "\\bprohibetur\\b"],
+        "tradition_only": ["\\blocal tradition\\b", "\\blong[- ]venerated\\b", "\\bpopular devotion\\b", "\\bnever (been )?(formally|officially)\\b"]
+      }
+    },
+
+    "u": {
+      "kind": "review",
+      "label": "Eucharistic miracle",
+      "reason": "Approval level must be set by a person. The level wording is still being decided (the 2024 Vatican norms replaced the older approval language; see the design doc, section 13).",
+      "signals": "same as m"
+    },
+
+    "c": { "kind": "accept", "label": "Council" },
+    "p": { "kind": "accept", "label": "Persecution" },
+    "e": { "kind": "accept", "label": "Event" },
+    "i": { "kind": "accept", "label": "Topic page" }
+  }
+}
