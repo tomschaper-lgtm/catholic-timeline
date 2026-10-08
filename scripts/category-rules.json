@@ -59,7 +59,14 @@
             "domain": "newadvent.org",
             "pathPrefix": "/summa/"
           },
-          "ccel.org"
+          {
+            "domain": "ccel.org",
+            "exclude": [
+              "/ccel/schaff/encyc",
+              "/ccel/schaff/hist",
+              "/ccel/herbermann/"
+            ]
+          }
         ]
       },
       "devotion_liturgy": {
@@ -150,6 +157,10 @@
     }
   },
   "window": 300,
+  "fetchBlockedDomains": [
+    "britannica.com"
+  ],
+  "_fetchBlockedDomains": "Sites that answered Jerome's automated fetches with HTTP 403 in the first live run (britannica.com, kids.britannica.com). They are never searched or counted, and a perspective lane whose only sites are blocked is dropped (so the independent-check lane is out until a fetchable site is chosen). Add a domain here whenever a live run shows 403s from it. PROVISIONAL.",
   "genericNameWords": [
     "our",
     "lady",
@@ -260,7 +271,6 @@
                 "\\bsermons? (on|for) (his|her|the) feast\\b",
                 "\\bpreached (a |on )?(sermon )?on (his|her|the) feast\\b",
                 "\\bearliest (account|mention|testimony)\\b",
-                "\\bcontemporary (account|witness)\\b",
                 "\\beusebius (records|relates|tells|mentions)\\b"
               ]
             },

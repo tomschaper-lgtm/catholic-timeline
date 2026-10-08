@@ -475,6 +475,23 @@ labeled as Tom's translation, never verbatim as if it were the original.
   dedication is early or modern; patterns are English-only and have never met real pages; no site in the registry
   yet is built for the Martyrology or early dedications. 87 tests pass.
 
+- **2026-10-08 — FIRST LIVE RUN of Jerome (St. Augustine rewrite, GitHub Actions, about 2.9 minutes).** Real search
+  and real fetches worked. Result: 18 usable approved pages and 89,759 words, status `ready`, 4 of 18 pages selected,
+  5 of 6 lanes covered, saint basis accepted as ancient veneration (the Orthodox Church commemorates him, a feast day,
+  relics). What it taught: (1) britannica.com refuses automated fetching (HTTP 403 on 6 pages), so the independent
+  check lane could never fill; (2) 42 candidate pages were skipped by the per-pass fetch cap, mostly vaticannews.va
+  and britannica.com; (3) lanes are assigned by site, which is crude: CCEL hosts encyclopedias that are not primary
+  texts, and EWTN's library holds saint biographies as well as Church documents; (4) the pattern "contemporary
+  account" matched a passage about the Vandal invasion, not veneration; (5) "patron saint of" matched Augustine of
+  Canterbury, a different saint, so namesakes can slip into weak signals; (6) the pool-then-select step took three
+  biographies and a theology page and no primary text. **v0.8 fixes:** `fetchBlockedDomains` in the rules (britannica.com;
+  such sites are not searched and a lane whose only sites are blocked is dropped); a lane site may `exclude` paths
+  (CCEL encyclopedias); lane picks now fill every one of the selected slots before score does; the early-witness
+  pattern "contemporary account" is removed; the result now carries `timing` (seconds, web searches, pages
+  fetched) for the article log and for cost. **Still open:** lane coverage is met by an index page (CCEL's author list)
+  without real primary text; a namesake check; a fetchable independent-history site to replace britannica.com;
+  per-page content kind (Ignatius's job). 93 tests pass.
+
 ## 13. Sufficiency, category rules and visitor input (2026-10-07, not yet built)
 
 **Status key:** CONFIRMED = Tom said so. PROPOSED = Claude's suggestion, not yet answered by Tom. OPEN = a question Tom has not decided.

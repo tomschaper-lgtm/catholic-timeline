@@ -1,6 +1,6 @@
 // scripts/services/source-finder.mjs
 //
-// MODULE DATE: 2026-10-08 (Thursday) · v0.7 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
+// MODULE DATE: 2026-10-08 (Thursday) · v0.8 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
 // Written against orchestrator.mjs / ledger-build.mjs v1.4 as uploaded to the Project 2026-10-07.
 // Design: ARTICLE-PIPELINE-DESIGN-2026-10-07.md, section 4.1 and section 9. Layer 1 uses no AI and no
 // network. Layer 2 calls Anthropic web search and fetches pages; it was tested with MOCKED search and
@@ -34,6 +34,11 @@
 //            lane in priority order first, then by score; the writer is given those, the rest are listed as
 //            alsoFound. The enough-to-write check runs on the SELECTED pages: if only one qualifies, its word
 //            count must pass the floor on its own.
+//            LIVE-PILOT FIXES (v0.8, after the first real run on St. Augustine): sites that refuse automated
+//            fetching (HTTP 403, e.g. britannica.com) are listed in the rules (fetchBlockedDomains) and are never
+//            searched or counted; a lane can exclude paths of a site (CCEL hosts encyclopedias that are not primary
+//            texts); lane picks now fill all the selected slots before score does; the result carries timing and
+//            the number of web searches (for the article log and for cost).
 //            ANCIENT SAINTS (v0.7): for a saint up to the year limit, "venerated" is judged by DIFFERENT KINDS of
 //            evidence (Roman liturgy, early calendars, the East, early witnesses, feast, tomb and relics, church
 //            dedications, patronage), counted by type, with cautions (legendary, removed from the calendar).
@@ -496,8 +501,9 @@ export function laneOf(url, lanes) {
   try { u = new URL(url); } catch (_e) { return null; }
   const host = u.hostname.toLowerCase();
   const hostOk = d => host === d || host.endsWith('.' + d);
-  for (const lane of lanes) for (const raw of lane.sites || []) { const x = siteSpec(raw); if (x.pathPrefix && hostOk(x.domain) && u.pathname.startsWith(x.pathPrefix)) return lane.id; }
-  for (const lane of lanes) for (const raw of lane.sites || []) { const x = siteSpec(raw); if (!x.pathPrefix && hostOk(x.domain)) return lane.id; }
+  const excluded = x => (x.exclude || []).some(pre => u.pathname.startsWith(pre));   // parts of a site that are NOT this kind of page
+  for (const lane of lanes) for (const raw of lane.sites || []) { const x = siteSpec(raw); if (x.pathPrefix && hostOk(x.domain) && u.pathname.startsWith(x.pathPrefix) && !excluded(x)) return lane.id; }
+  for (const lane of lanes) for (const raw of lane.sites || []) { const x = siteSpec(raw); if (!x.pathPrefix && hostOk(x.domain) && !excluded(x)) return lane.id; }
   return null;
 }
 
@@ -506,7 +512,11 @@ export function perspectivePlan(rules, category) {
   const p = rules && rules.perspectives;
   if (!p || p.enabled === false || !p.lanes) return null;
   const order = (p.byCategory && p.byCategory[category]) || [];
-  const lanes = order.filter(id => p.lanes[id]).map(id => ({ id, ...p.lanes[id] }));
+  const blocked = (rules.fetchBlockedDomains || []).map(d => String(d).toLowerCase());
+  const isBlocked = d => blocked.some(b => d === b || d.endsWith('.' + b));
+  // a lane whose every site refuses automated fetching can never be filled: leave it out instead of wasting searches on it
+  const lanes = order.filter(id => p.lanes[id]).map(id => ({ id, ...p.lanes[id] }))
+    .filter(l => (l.sites || []).some(raw => !isBlocked(siteSpec(raw).domain.toLowerCase())));
   if (!lanes.length) return null;
   return { lanes, maxExtraSearches: p.maxExtraSearches == null ? 2 : p.maxExtraSearches, maxFetchPerLane: p.maxFetchPerLane || 4,
     minWords: p.minWordsPerLane == null ? 300 : p.minWordsPerLane, minMentions: p.minMentionsPerLane == null ? 1 : p.minMentionsPerLane,
@@ -533,18 +543,18 @@ export function laneCoverage(sources, plan) {
 }
 
 // The enabled registry domains behind a lane (searches are restricted to these).
-function laneDomains(lane, reg) {
+function laneDomains(lane, reg, isBlocked = () => false) {
   const out = new Set();
   for (const raw of lane.sites || []) {
     const x = siteSpec(raw);
     const e = regEntry(reg, x.domain);
-    if (e && e.enabled !== false && e.tier !== 'scripture') out.add(x.domain);
+    if (e && e.enabled !== false && e.tier !== 'scripture' && !isBlocked(x.domain)) out.add(x.domain);
   }
   return [...out];
 }
 
 
-// subject: { name, category, year, links?[] }.  opts: { allowlistOnly, minWords?, targetWords?, minMentions?, minDomains?, perspectives?, poolTarget?, model }.
+// subject: { name, category, year, links?[] }.  opts: { allowlistOnly, minWords?, targetWords?, minMentions?, minDomains?, perspectives?, poolTarget?, blockedDomains?, model }.
 // From the layer 3 rules: minWords = floor (enough to write from; below it the open web is searched too),
 // targetWords = plenty (below it a second allowlist search runs), minMentions = how often the name must appear
 // for a page to count as substantive. Without minWords the old "MIN_ALLOWLIST_SOURCES usable pages" rule applies.
@@ -589,19 +599,26 @@ export async function findSources(subject, opts = {}, deps = {}) {
   const poolCount = () => sources.filter(s => s.usable && s.status === 'approved' && (s.mentions || 0) >= (opts.minMentions || 0)).length;
   const richApproved = () => opts.targetWords == null ? enoughApproved() : (subWords() >= opts.targetWords && sitesOk() && poolCount() >= (opts.poolTarget || 0));
 
+  // Sites that refuse automated fetching (HTTP 403) are never searched; a search that includes them only wastes fetches.
+  const blockedList = (opts.blockedDomains || []).map(x => String(x).toLowerCase());
+  const isBlocked = dm => blockedList.some(b => dm === b || dm.endsWith('.' + b));
+  const allowed = () => allowedDomains(reg).filter(dm => !isBlocked(dm.toLowerCase()));
+  let webSearches = 0, searchCalls = 0;
+  const countSearch = r => { searchCalls++; webSearches += (r && r.searches) || 0; return r; };
+
   // Pass 0 (rewrite only): the links the article already cites.
   if (Array.isArray(subject.links) && subject.links.length) {
     await runPass('existing-links', subject.links.map(u => ({ url: typeof u === 'string' ? u : u.url, title: typeof u === 'string' ? '' : (u.label || '') })), 'links already in the article');
   }
   // Pass A: allowlist only.
   if (!richApproved()) {
-    const r = await d.search({ query: queryFor(subject), allowedDomains: allowedDomains(reg), model: opts.model });
-    await runPass('allowlist', r.results, 'search restricted to ' + allowedDomains(reg).length + ' enabled domains (' + (r.searches || 0) + ' searches)');
+    const r = countSearch(await d.search({ query: queryFor(subject), allowedDomains: allowed(), model: opts.model }));
+    await runPass('allowlist', r.results, 'search restricted to ' + allowed().length + ' enabled domains (' + (r.searches || 0) + ' searches)');
   }
   // Pass A2: still short of the TARGET (plenty of material)? One more allowlist search, worded differently,
   // so thin pages do not stop the hunt while better pages are still out there. Only runs when a target is set.
   if (opts.targetWords != null && !richApproved()) {
-    const r = await d.search({ query: queryFor(subject, 'more'), allowedDomains: allowedDomains(reg), model: opts.model });
+    const r = countSearch(await d.search({ query: queryFor(subject, 'more'), allowedDomains: allowed(), model: opts.model }));
     await runPass('allowlist-more', r.results, 'second allowlist search, different wording (' + (r.searches || 0) + ' searches); substantive words so far ' + subWords());
   }
   // Lane passes (v0.5): the word target says nothing about VARIETY. For each lane this category should have but
@@ -613,10 +630,10 @@ export async function findSources(subject, opts = {}, deps = {}) {
     for (const lane of plan.lanes) {
       if (used >= plan.maxExtraSearches) break;
       if (laneCoverage(sources, plan)[lane.id].covered) continue;
-      const doms = laneDomains(lane, reg);
+      const doms = laneDomains(lane, reg, dm => isBlocked(dm.toLowerCase()));
       if (!doms.length) continue;
       used++;
-      const r = await d.search({ query: queryFor(subject, 'lane', lane), allowedDomains: doms, model: opts.model });
+      const r = countSearch(await d.search({ query: queryFor(subject, 'lane', lane), allowedDomains: doms, model: opts.model }));
       await runPass('lane:' + lane.id, r.results, 'perspective search: ' + lane.label + ' (' + doms.length + ' sites; ' + (r.searches || 0) + ' searches)', plan.maxFetchPerLane);
     }
   }
@@ -624,7 +641,7 @@ export async function findSources(subject, opts = {}, deps = {}) {
   let widened = false;
   if (!enoughApproved() && !opts.allowlistOnly) {
     widened = true;
-    const r = await d.search({ query: queryFor(subject), allowedDomains: null, model: opts.model });
+    const r = countSearch(await d.search({ query: queryFor(subject), allowedDomains: null, model: opts.model }));
     await runPass('open-web', r.results, 'open web (' + (r.searches || 0) + ' searches); new domains are unjudged until Ignatius and Tom decide');
   }
 
@@ -634,7 +651,7 @@ export async function findSources(subject, opts = {}, deps = {}) {
     unusable: sources.filter(s => !s.usable).length,
     totalWordsUsable: sources.filter(s => s.usable).reduce((n, s) => n + (s.words || 0), 0)
   };
-  return { widened, passes, counts, sources };
+  return { widened, passes, counts, webSearches, searchCalls, sources };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -659,8 +676,8 @@ export function selectSources(sources, rules, category) {
   let ctx = 0;
   const can = c => picks.length < maxSel && !picks.includes(c) && (dom[baseDomain(c.s.domain)] || 0) < maxDom && (c.s.canVerify || ctx < maxCtx);
   const add = c => { picks.push(c); dom[baseDomain(c.s.domain)] = (dom[baseDomain(c.s.domain)] || 0) + 1; if (!c.s.canVerify) ctx++; };
-  if (plan) for (const lane of plan.lanes) {            // one per lane, best first, leaving a slot for the best of the rest
-    if (picks.length >= maxSel - 1) break;
+  if (plan) for (const lane of plan.lanes) {            // one per lane, best first, in the category's priority order
+    if (picks.length >= maxSel) break;
     const c = cands.find(x => x.lane === lane.id && can(x));
     if (c) add(c);
   }
@@ -877,11 +894,12 @@ export async function runSourceFinder(task, dataJson, deps = {}) {
       ? { name: out.subject.name, category: out.subject.category, year: out.subject.year,
           links: ((((dataJson.entries || []).find(e => e.id === out.subject.id) || {}).art || {}).links || []) }
       : out.subject;
+    const tStart = Date.now();
     let rules = null, rulesError = null;
     try { rules = deps.rules || loadRules(); } catch (err) { rulesError = String((err && err.message) || err).slice(0, 300); }
     const mode = out.outcome === 'rewrite_ready' ? 'rewrite' : 'new';
     const opts = { allowlistOnly: p.allowlistOnly === true, model: p.model };
-    if (rules) { opts.minWords = rules.sufficiency.minWordsVerifyCapable; opts.targetWords = rules.sufficiency.targetWordsVerifyCapable; opts.minMentions = rules.sufficiency.minMentionsPerPage || 0; opts.minDomains = mode === 'new' ? Math.max(1, rules.sufficiency.newSubjectMinDomains || 1) : 1; opts.perspectives = perspectivePlan(rules, subject.category); opts.poolTarget = (rules.selection && rules.selection.poolTarget) || 0; }
+    if (rules) { opts.minWords = rules.sufficiency.minWordsVerifyCapable; opts.targetWords = rules.sufficiency.targetWordsVerifyCapable; opts.minMentions = rules.sufficiency.minMentionsPerPage || 0; opts.minDomains = mode === 'new' ? Math.max(1, rules.sufficiency.newSubjectMinDomains || 1) : 1; opts.perspectives = perspectivePlan(rules, subject.category); opts.poolTarget = (rules.selection && rules.selection.poolTarget) || 0; opts.blockedDomains = rules.fetchBlockedDomains || []; }
     try {
       found = await findSources(subject, opts, deps);
     } catch (err) {
@@ -890,6 +908,8 @@ export async function runSourceFinder(task, dataJson, deps = {}) {
     }
     if (found) {
       out.search = found;
+      out.timing = { seconds: Math.round((Date.now() - tStart) / 100) / 10, webSearches: found.webSearches || 0, searchCalls: found.searchCalls || 0,
+        pagesFetched: (found.passes || []).reduce((n, x) => n + (x.fetched || 0), 0) };
       out.layer2 = found.counts.usableApproved + found.counts.usableUnjudged > 0 ? 'candidates_found' : 'no_candidates';
       if (p.assess !== false) {
         try { if (!rules) throw new Error(rulesError); out.layer3 = assess(subject, found, rules, { mode }); }

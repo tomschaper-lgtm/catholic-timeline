@@ -1,5 +1,5 @@
 // scripts/tests/source-finder.test.mjs
-// MODULE DATE: 2026-10-08 (Thursday) · tests for source-finder.mjs v0.3 (v0.7: layers 1, 2 and 3, with perspective lanes, best-few selection and signal types for ancient saints; layer 2 with MOCKED search/fetch; layer 3 uses the real scripts/category-rules.json).
+// MODULE DATE: 2026-10-08 (Thursday) · tests for source-finder.mjs v0.3 (v0.8: layers 1, 2 and 3, with perspective lanes, best-few selection, signal types for ancient saints and the first live-pilot fixes; layer 2 with MOCKED search/fetch; layer 3 uses the real scripts/category-rules.json).
 // Run: node --test scripts/tests/source-finder.test.mjs
 // Synthetic tests always run. Real-data tests run only if DATA_PATH (or ./data.json) exists.
 
@@ -590,14 +590,14 @@ test('laneCoverage: verify lanes need verify-capable pages; the theology lane is
     mk('https://www.stpaulcenter.com/a', { canVerify: false }),              // reported: counts for the context lane
     mk('https://www.vatican.va/a', { canVerify: false }),                     // a verify lane, but this page cannot verify: no
     mk('https://www.ccel.org/a', { words: 100 }),                             // under minWords: not covered
-    mk('https://www.britannica.com/a', { mentions: 0 })                       // name barely there: no
+    mk('https://www.franciscanmedia.org/a', { mentions: 0 })                  // name barely there: no
   ], PLAN_S);
   assert.equal(cov.history_biography.covered, true);
   assert.equal(cov.theology_commentary.covered, true);
   assert.equal(cov.theology_commentary.contextOnly, true);
   assert.equal(cov.magisterial.covered, false);
   assert.equal(cov.primary_texts.covered, false);
-  assert.equal(cov.outside_check.covered, false);
+  assert.equal(cov.devotion_liturgy.covered, false);
 });
 
 const lanePages = {
@@ -861,4 +861,65 @@ test('signal types: in rewrite mode a failed veneration check is advisory only',
   const r = assess(bertha({ year: 304 }), found(src({ text: 'bertha is named in the roman martyrology.' })), RULES, { mode: 'rewrite' });
   assert.equal(r.status, 'ready');
   assert.ok(r.flags.includes('category_advisory'));
+});
+
+// ---------------------------------------------------------------------------------------------
+// Fixes from the first live run on St. Augustine (v0.8)
+// ---------------------------------------------------------------------------------------------
+
+test('live fix: a site that blocks automated fetching (britannica.com, 403) is never searched, and its lane is dropped', () => {
+  assert.ok(RULES.fetchBlockedDomains.includes('britannica.com'));
+  assert.ok(!perspectivePlan(RULES, 's').lanes.some(l => l.id === 'outside_check'));
+  const noBlock = perspectivePlan({ ...RULES, fetchBlockedDomains: [] }, 's');
+  assert.ok(noBlock.lanes.some(l => l.id === 'outside_check'));
+});
+
+test('live fix: findSources leaves blocked domains out of every allowlist search', async () => {
+  const m = mocks(lanePages, laneResults);
+  await findSources({ name: 'Bertha of Blangy', category: 's' }, { ...LOPTS, perspectives: PLAN_S, blockedDomains: ['vatican.va'] }, m.deps);
+  assert.ok(m.calls.search.length >= 1);
+  assert.ok(m.calls.search.every(q => !(q.allowedDomains || []).includes('vatican.va')));
+  assert.ok(m.calls.search.every(q => !(q.allowedDomains || []).includes('www.vatican.va')));
+});
+
+test('live fix: findSources and the handler report web searches and timing (for the article log and for cost)', async () => {
+  const m = mocks(lanePages, laneResults);
+  const f = await findSources({ name: 'Bertha of Blangy', category: 's' }, { ...LOPTS, perspectives: PLAN_S }, m.deps);
+  assert.equal(f.searchCalls, m.calls.search.length);
+  assert.ok(f.webSearches >= 0);
+  const m2 = mocks(lanePages, laneResults);
+  const r = await runSourceFinder({ payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', year: 723 } }, data, { ...m2.deps, rules: RULES });
+  assert.ok(r.result.timing.seconds >= 0);
+  assert.equal(r.result.timing.searchCalls, m2.calls.search.length);
+  assert.ok(r.result.timing.pagesFetched >= 1);
+});
+
+test('live fix: a CCEL encyclopedia page is not a primary text; a CCEL author page is', () => {
+  const lanes = PLAN_S.lanes;
+  assert.equal(laneOf('https://www.ccel.org/ccel/schaff/encyc01.html?term=Augustine', lanes), null);
+  assert.equal(laneOf('https://ccel.org/ccel/herbermann/cathen02.html', lanes), null);
+  assert.equal(laneOf('https://www.ccel.org/ccel/schaff/hist01.html', lanes), null);
+  assert.equal(laneOf('https://ccel.org/ccel/augustine/confess.html', lanes), 'primary_texts');
+  assert.equal(laneOf('https://ccel.org/a/augustine/index.html', lanes), 'primary_texts');
+});
+
+test('live fix: lane picks fill every slot, so the selected pages are different kinds before score decides', () => {
+  const pool = [
+    P('newadvent.org', '/cathen/a.htm', { words: 6000 }),                         // history_biography
+    P('ewtn.com', '/lib/a', { words: 6500, mentions: 60 }),                       // magisterial, high score
+    P('ewtn.com', '/lib/b', { words: 6400, mentions: 60 }),                       // magisterial again, also high score
+    P('catholic.com', '/e/a', { words: 6000, tier: 'reported', canVerify: false }),   // theology (context only)
+    P('newadvent.org', '/fathers/1101.htm', { words: 900, tier: 'primary', mentions: 4 })   // primary_texts, low score
+  ];
+  const r = selectSources(pool, RULES, 's');
+  assert.equal(r.selected.length, 4);
+  assert.deepEqual(r.selected.map(x => x.lane).sort(), ['history_biography', 'magisterial', 'primary_texts', 'theology_commentary']);
+  assert.equal(r.alsoFound.length, 1);                                            // the second EWTN page waits in alsoFound
+});
+
+test('live fix: "contemporary account" (e.g. of the Vandal invasion) is no longer an early-witness signal for veneration', () => {
+  const r = assess(bertha({ year: 430 }), found(src({ text: 'every contemporary account of bertha tells of the vandals. the orthodox church commemorates bertha.' })), RULES);
+  const sig = r.verdict.evidence.ancient_veneration && r.verdict.evidence.ancient_veneration.signals;
+  assert.ok(!sig || !sig.early_witness);
+  assert.equal(r.status, 'needs_decision');          // only one real kind (eastern) is left
 });
