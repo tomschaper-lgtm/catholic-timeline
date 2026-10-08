@@ -2,7 +2,6 @@
   "version": 1,
   "updated": "2026-10-08",
   "note": "Editable rules for source-finder layer 3 (Jerome). Like ledger-allowlist.json, this is data, not code: change a number or a pattern here and the next run uses it. Patterns are regular expressions matched against the page text after lowercasing and removing accents, and only when they appear within `window` characters of the subject's name. Layer 3 finds EVIDENCE for a person to look at; it never proves anything, and when unsure it asks (review). Items marked PROVISIONAL are Claude's starting values and have not been confirmed by Tom.",
-
   "sufficiency": {
     "minWordsVerifyCapable": 1000,
     "newSubjectMinDomains": 1,
@@ -10,17 +9,187 @@
     "minMentionsPerPage": 3,
     "_note": "CONFIRMED: Tom wants plenty of material, judged by quality not by number of sites. minWords is the floor (ready); targetWords is the goal (Jerome runs a second allowlist search until it is reached or the fetch caps run out; below it a ready entry is flagged thin_material). Both count only SUBSTANTIVE pages: verify-capable pages where the subject's name appears at least minMentionsPerPage times. targetWords (4000) and minMentionsPerPage (3) are PROVISIONAL. CONFIRMED in principle: one verify-capable source can be enough. minWordsVerifyCapable is PROVISIONAL (about twice the target article length). newSubjectMinDomains is PROVISIONAL: raise to 2 to require two independent verify-capable websites before a brand-new subject (for example a visitor suggestion) can proceed. Reported-tier and unjudged pages never count toward this."
   },
-
+  "perspectives": {
+    "_note": "Perspective lanes (Tom's rule): do not stop at one kind of site. Different sites have different strengths, so after the word target is met Jerome also looks for any lane that this category should have but does not yet. A lane is COVERED when approved pages on its sites, really about the subject, total at least minWordsPerLane. Lanes marked contextOnly count as perspective (theology, reflection) but can never verify a claim: the registry rule that reported-tier sources never count as verified still applies. Sites are listed by domain; {domain, pathPrefix} limits a site to part of it (New Advent hosts the Encyclopedia, the Fathers and the Summa under different paths). Only sites that are ENABLED in ledger-allowlist.json are ever searched. PROVISIONAL: every list, order and number here is Claude's starting guess for Tom to edit.",
+    "enabled": true,
+    "maxExtraSearches": 3,
+    "maxFetchPerLane": 4,
+    "minWordsPerLane": 300,
+    "minMentionsPerLane": 1,
+    "minLanesForRich": 3,
+    "lanes": {
+      "history_biography": {
+        "label": "History & biography",
+        "ask": "giving the history or biography of",
+        "sites": [
+          {
+            "domain": "newadvent.org",
+            "pathPrefix": "/cathen/"
+          }
+        ]
+      },
+      "theology_commentary": {
+        "label": "Theological reflection (context only)",
+        "contextOnly": true,
+        "ask": "with theological reflection or Scripture-based teaching on",
+        "sites": [
+          "stpaulcenter.com",
+          "franciscan.edu",
+          "wordonfire.org",
+          "catholic.com"
+        ]
+      },
+      "magisterial": {
+        "label": "Church documents & teaching",
+        "ask": "quoting Church documents, decrees or magisterial teaching about",
+        "sites": [
+          "vatican.va",
+          "ewtn.com"
+        ]
+      },
+      "primary_texts": {
+        "label": "Primary texts",
+        "ask": "reproducing writings by or from the time of",
+        "sites": [
+          {
+            "domain": "newadvent.org",
+            "pathPrefix": "/fathers/"
+          },
+          {
+            "domain": "newadvent.org",
+            "pathPrefix": "/summa/"
+          },
+          "ccel.org"
+        ]
+      },
+      "devotion_liturgy": {
+        "label": "Feast, devotion & liturgy",
+        "ask": "on the feast day, devotion and liturgical celebration of",
+        "sites": [
+          "franciscanmedia.org",
+          "vaticannews.va"
+        ]
+      },
+      "outside_check": {
+        "label": "Independent historical check",
+        "ask": "giving an independent, secular historical overview of",
+        "sites": [
+          "britannica.com"
+        ]
+      }
+    },
+    "byCategory": {
+      "s": [
+        "history_biography",
+        "theology_commentary",
+        "magisterial",
+        "primary_texts",
+        "devotion_liturgy",
+        "outside_check"
+      ],
+      "c": [
+        "history_biography",
+        "magisterial",
+        "primary_texts",
+        "theology_commentary",
+        "outside_check"
+      ],
+      "p": [
+        "history_biography",
+        "primary_texts",
+        "outside_check",
+        "devotion_liturgy"
+      ],
+      "m": [
+        "history_biography",
+        "devotion_liturgy",
+        "magisterial",
+        "outside_check"
+      ],
+      "u": [
+        "history_biography",
+        "devotion_liturgy",
+        "magisterial",
+        "outside_check"
+      ],
+      "e": [
+        "history_biography",
+        "magisterial",
+        "outside_check",
+        "theology_commentary"
+      ],
+      "i": [
+        "history_biography",
+        "magisterial",
+        "theology_commentary",
+        "primary_texts"
+      ]
+    }
+  },
+  "selection": {
+    "_note": "Selection (Tom's rule): Jerome searches a wide pool, then hands the writer only the best few. poolTarget = how many substantive approved pages Jerome tries to gather before it stops hunting (it still stops at the fetch caps). maxSelected / targetSelected = the best 4 are provided; fewer than 3 is flagged few_sources. Picks run lane by lane in the category's priority order (so the 4 are different KINDS of source), then fill by score. At most maxPerDomain pages from one site and maxContextOnly context-only (reported-tier) pages; at least one verify-capable page is always included if any exists. A page's score = words (up to maxWordsCredited) + how often the name appears (up to maxMentionsCredited) + name in the title + the tier weight. The floor and target word checks (sufficiency) apply to the SELECTED pages only: if only one page qualifies, its word count must pass the floor on its own. PROVISIONAL: every number here is Claude's starting guess.",
+    "poolTarget": 8,
+    "maxSelected": 4,
+    "targetSelected": 3,
+    "maxPerDomain": 2,
+    "maxContextOnly": 1,
+    "maxWordsCredited": 6000,
+    "maxMentionsCredited": 20,
+    "weights": {
+      "words": 40,
+      "mentions": 30,
+      "titleHasName": 10
+    },
+    "tierWeight": {
+      "approved": 20,
+      "primary": 15,
+      "reference": 10,
+      "official": 5,
+      "scripture": 0,
+      "reported": 0
+    }
+  },
   "window": 300,
-  "genericNameWords": ["our","lady","miracle","miracles","apparition","apparitions","council","persecution","persecutions","church","catholic","eucharistic","marian","martyrs","martyr","event","holy","great","first","second","third"],
+  "genericNameWords": [
+    "our",
+    "lady",
+    "miracle",
+    "miracles",
+    "apparition",
+    "apparitions",
+    "council",
+    "persecution",
+    "persecutions",
+    "church",
+    "catholic",
+    "eucharistic",
+    "marian",
+    "martyrs",
+    "martyr",
+    "event",
+    "holy",
+    "great",
+    "first",
+    "second",
+    "third"
+  ],
   "_genericNameWords": "Words skipped when choosing the part of a name that evidence must appear near (so \"Miracle of Lanciano\" is anchored on \"lanciano\"). PROVISIONAL starter list.",
   "enforceBasisChecksInRewrite": false,
-
   "scandal": {
     "_note": "CONFIRMED: scandals go to review. This list is only a net for obvious names (checked against the subject's name, not the page text). Whether an entry IS a scandal is a judgment; the real recognition is Ignatius's job later. PROVISIONAL starter list for Tom to edit.",
-    "nameTerms": ["scandal", "scandals", "abuse", "abuses", "cover up", "coverup", "corruption", "simony", "pornocracy", "embezzlement"]
+    "nameTerms": [
+      "scandal",
+      "scandals",
+      "abuse",
+      "abuses",
+      "cover up",
+      "coverup",
+      "corruption",
+      "simony",
+      "pornocracy",
+      "embezzlement"
+    ]
   },
-
   "categories": {
     "s": {
       "kind": "saint",
@@ -29,46 +198,204 @@
       "bases": {
         "new_testament": {
           "maxYear": 100,
-          "patterns": ["\\bapostle\\b", "\\bevangelist\\b", "\\bnew testament\\b", "\\bacts of the apostles\\b", "\\bgospel of (matthew|mark|luke|john)\\b", "\\bdisciples? of (jesus|christ|our lord)\\b"]
+          "patterns": [
+            "\\bapostle\\b",
+            "\\bevangelist\\b",
+            "\\bnew testament\\b",
+            "\\bacts of the apostles\\b",
+            "\\bgospel of (matthew|mark|luke|john)\\b",
+            "\\bdisciples? of (jesus|christ|our lord)\\b"
+          ]
         },
         "ancient_veneration": {
           "maxYear": 1000,
-          "patterns": ["\\bmartyrology\\b", "\\bgeneral roman calendar\\b", "\\bfeast (day )?(is|was|falls|celebrated|kept|observed|on)\\b", "\\bvenerated (since|from|as|in)\\b", "\\bcultus\\b"]
+          "_note": "Before the first papal canonization (993) sainthood meant early, wide, continuous veneration, so this basis looks for DIFFERENT KINDS of evidence, not for one phrase. Each signal type has a strength. Accepted when at least minDistinctTypes different types are found near the name and at least minStrong of them are strong, and none of the cautions appear. One kind alone, or only weak signals, goes to review. Types are counted, not pages: ten sites repeating one claim are one signal. decisiveTypes lists any type that is enough by itself (empty now; for example [\"liturgical\"] would let a Roman Martyrology entry alone settle it). Weak signals (patronage, place and hospital names) never count towards the strong requirement. The text cannot tell whether a church dedication is early or modern, which is why dedications are only medium. PROVISIONAL: every pattern and number is Claude's starting guess.",
+          "accept": {
+            "minDistinctTypes": 2,
+            "minStrong": 1,
+            "decisiveTypes": []
+          },
+          "signals": {
+            "liturgical": {
+              "strength": "strong",
+              "label": "Roman Martyrology, General Calendar or Roman Canon",
+              "patterns": [
+                "\\broman martyrology\\b",
+                "\\bgeneral roman calendar\\b",
+                "\\broman canon\\b",
+                "\\bcommemorated in the (roman )?(mass|liturgy)\\b"
+              ]
+            },
+            "early_calendar": {
+              "strength": "strong",
+              "label": "Early calendars and martyrologies",
+              "patterns": [
+                "\\bphilocalian\\b",
+                "\\bcalendar of 354\\b",
+                "\\bhieronymian\\b",
+                "\\bmartyrologium hieronymianum\\b",
+                "\\bcalendar of carthage\\b",
+                "\\bdepositio martyrum\\b",
+                "\\bearly (church )?calendars?\\b"
+              ]
+            },
+            "eastern": {
+              "strength": "strong",
+              "label": "Venerated in the East (Orthodox, Byzantine)",
+              "patterns": [
+                "\\borthodox (church )?(venerates|commemorates|calendar)\\b",
+                "\\bbyzantine (rite|calendar|church)\\b",
+                "\\bmenaion\\b",
+                "\\bsynaxarion\\b",
+                "\\bgreek (menology|church venerates)\\b",
+                "\\beastern churches? (venerates?|commemorates?)\\b"
+              ]
+            },
+            "early_witness": {
+              "strength": "strong",
+              "label": "Early written witness",
+              "patterns": [
+                "\\bacts of (the )?martyrs?\\b",
+                "\\bpassio\\b",
+                "\\bsermons? (on|for) (his|her|the) feast\\b",
+                "\\bpreached (a |on )?(sermon )?on (his|her|the) feast\\b",
+                "\\bearliest (account|mention|testimony)\\b",
+                "\\bcontemporary (account|witness)\\b",
+                "\\beusebius (records|relates|tells|mentions)\\b"
+              ]
+            },
+            "feast_day": {
+              "strength": "medium",
+              "label": "A feast day is kept",
+              "patterns": [
+                "\\bfeast (day )?(is|was|falls|celebrated|kept|observed|on)\\b",
+                "\\bliturgical memorial\\b"
+              ]
+            },
+            "archaeology_relics": {
+              "strength": "medium",
+              "label": "Tomb, catacomb, inscription, relics, early church over the tomb",
+              "patterns": [
+                "\\bcatacombs?\\b",
+                "\\bearly christian inscription\\b",
+                "\\bbasilica (built )?over (his|her) (tomb|grave)\\b",
+                "\\btitular church\\b",
+                "\\btitulus\\b",
+                "\\b(his|her) tomb\\b",
+                "\\brelics\\b"
+              ]
+            },
+            "early_dedication": {
+              "strength": "medium",
+              "label": "Churches dedicated to the saint",
+              "patterns": [
+                "\\bchurch (was )?dedicated to\\b",
+                "\\bdedicated to (st\\.?|saint)\\b",
+                "\\bbuilt in (his|her) honou?r\\b",
+                "\\bnamed in (his|her) honou?r\\b"
+              ]
+            },
+            "place_patronage": {
+              "strength": "weak",
+              "label": "Patronage and place names (hospitals, cities)",
+              "patterns": [
+                "\\bpatron (saint )?of\\b",
+                "\\bnamed (after|for) (him|her|st\\.?|saint)\\b",
+                "\\bhospitals?\\b",
+                "\\bcity of st\\.?\\b"
+              ]
+            }
+          },
+          "cautions": [
+            "\\blegendary\\b",
+            "\\bhistoricity\\b",
+            "\\bno historical (basis|evidence|foundation)\\b",
+            "\\bremoved from the (general )?(roman )?calendar\\b",
+            "\\bapocryphal\\b",
+            "\\bnever existed\\b",
+            "\\bdoubts? (about|as to|whether) (his|her) (existence|historicity)\\b"
+          ]
         },
         "formal_canonization": {
-          "patterns": ["\\b(was|were|is|been) (formally |solemnly )?canoni[sz]ed\\b", "\\bcanoni[sz]ed (him|her|them|in|by|on)\\b", "\\bdeclared (him |her )?(a )?saint\\b", "\\bproclaimed (him |her )?(a )?saint\\b", "\\bcanoni[sz]ation (decree|bull|ceremony)\\b"]
+          "patterns": [
+            "\\b(was|were|is|been) (formally |solemnly )?canoni[sz]ed\\b",
+            "\\bcanoni[sz]ed (him|her|them|in|by|on)\\b",
+            "\\bdeclared (him |her )?(a )?saint\\b",
+            "\\bproclaimed (him |her )?(a )?saint\\b",
+            "\\bcanoni[sz]ation (decree|bull|ceremony)\\b"
+          ]
         }
       },
       "notCanonized": {
         "_note": "Used only when NO basis was found. Signals that the person may be Blessed, Venerable or a Servant of God: review, reason 'not canonized'.",
-        "blessed": ["\\bbeatified\\b", "\\bdeclared blessed\\b", "\\bbeatification\\b"],
-        "venerable": ["\\bdeclared venerable\\b", "\\bheroic virtues\\b"],
-        "servant_of_god": ["\\bservant of god\\b", "\\bcause for (beatification|canoni[sz]ation)\\b"]
+        "blessed": [
+          "\\bbeatified\\b",
+          "\\bdeclared blessed\\b",
+          "\\bbeatification\\b"
+        ],
+        "venerable": [
+          "\\bdeclared venerable\\b",
+          "\\bheroic virtues\\b"
+        ],
+        "servant_of_god": [
+          "\\bservant of god\\b",
+          "\\bcause for (beatification|canoni[sz]ation)\\b"
+        ]
       }
     },
-
     "m": {
       "kind": "review",
       "label": "Marian apparition",
       "reason": "Approval level must be set by a person. The level wording is still being decided (the 2024 Vatican norms replaced the older approval language; see the design doc, section 13).",
       "signals": {
-        "dicastery_or_holy_see": ["\\bnihil obstat\\b", "\\bin agreement with the dicastery\\b", "\\bapproved by (the )?(holy see|pope|vatican)\\b"],
-        "bishop_approved": ["\\bapproved by the (local )?bishop\\b", "\\bbishop (of [a-z ]{2,30} )?(approved|declared|recogni[sz]ed)\\b", "\\bworthy of belief\\b", "\\bapproved the (cult|devotion|apparitions?)\\b"],
-        "not_approved_or_negative": ["\\bnot (been )?(officially )?(approved|recogni[sz]ed)\\b", "\\bcondemned\\b", "\\bprohibited\\b", "\\bnon supernaturalitate\\b", "\\bnot supernatural\\b", "\\bprohibetur\\b"],
-        "tradition_only": ["\\blocal tradition\\b", "\\blong[- ]venerated\\b", "\\bpopular devotion\\b", "\\bnever (been )?(formally|officially)\\b"]
+        "dicastery_or_holy_see": [
+          "\\bnihil obstat\\b",
+          "\\bin agreement with the dicastery\\b",
+          "\\bapproved by (the )?(holy see|pope|vatican)\\b"
+        ],
+        "bishop_approved": [
+          "\\bapproved by the (local )?bishop\\b",
+          "\\bbishop (of [a-z ]{2,30} )?(approved|declared|recogni[sz]ed)\\b",
+          "\\bworthy of belief\\b",
+          "\\bapproved the (cult|devotion|apparitions?)\\b"
+        ],
+        "not_approved_or_negative": [
+          "\\bnot (been )?(officially )?(approved|recogni[sz]ed)\\b",
+          "\\bcondemned\\b",
+          "\\bprohibited\\b",
+          "\\bnon supernaturalitate\\b",
+          "\\bnot supernatural\\b",
+          "\\bprohibetur\\b"
+        ],
+        "tradition_only": [
+          "\\blocal tradition\\b",
+          "\\blong[- ]venerated\\b",
+          "\\bpopular devotion\\b",
+          "\\bnever (been )?(formally|officially)\\b"
+        ]
       }
     },
-
     "u": {
       "kind": "review",
       "label": "Eucharistic miracle",
       "reason": "Approval level must be set by a person. The level wording is still being decided (the 2024 Vatican norms replaced the older approval language; see the design doc, section 13).",
       "signals": "same as m"
     },
-
-    "c": { "kind": "accept", "label": "Council" },
-    "p": { "kind": "accept", "label": "Persecution" },
-    "e": { "kind": "accept", "label": "Event" },
-    "i": { "kind": "accept", "label": "Topic page" }
+    "c": {
+      "kind": "accept",
+      "label": "Council"
+    },
+    "p": {
+      "kind": "accept",
+      "label": "Persecution"
+    },
+    "e": {
+      "kind": "accept",
+      "label": "Event"
+    },
+    "i": {
+      "kind": "accept",
+      "label": "Topic page"
+    }
   }
 }
