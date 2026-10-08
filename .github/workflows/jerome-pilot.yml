@@ -1,0 +1,72 @@
+# .github/workflows/jerome-pilot.yml
+# MODULE DATE: 2026-10-08 (Thursday) · v1
+# LIVE pilot of Jerome (scripts/services/source-finder.mjs). Manual only: it never runs by itself.
+# It makes REAL web searches (Anthropic API, billed per search) and fetches REAL pages. It writes nothing to the repo.
+# Run it: GitHub app or github.com > repo > Actions > "Jerome pilot" > Run workflow.
+#   - To test an EXISTING entry: fill in entry_id (for example st-augustine-430) and leave name blank.
+#   - To test a NEW subject: fill in name and category (s c p m u e i), and year if you know it.
+# Result: the summary line shows at the top of the run page; the full JSON is in the "Run Jerome" step log
+# and in the downloadable artifact "jerome-result".
+
+name: Jerome pilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      entry_id:
+        description: 'Existing entry id (rewrite test), e.g. st-augustine-430. Leave blank for a new subject.'
+        required: false
+        default: ''
+      name:
+        description: 'New subject name, e.g. St. Bertha of Blangy (ignored if entry_id is filled in)'
+        required: false
+        default: ''
+      category:
+        description: 'New subject category: s c p m u e i'
+        required: false
+        default: 's'
+      year:
+        description: 'New subject year (optional)'
+        required: false
+        default: ''
+      confirm_new:
+        description: 'Treat as new even if a similar entry exists (use only after seeing possible_match)'
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  jerome:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run Jerome
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ENTRY_ID: ${{ inputs.entry_id }}
+          SUBJECT_NAME: ${{ inputs.name }}
+          SUBJECT_CATEGORY: ${{ inputs.category }}
+          SUBJECT_YEAR: ${{ inputs.year }}
+          CONFIRM_NEW: ${{ inputs.confirm_new }}
+        run: |
+          set -e
+          if [ -n "$ENTRY_ID" ]; then
+            node scripts/services/source-finder.mjs --rewrite "$ENTRY_ID" --search > jerome-result.txt
+          else
+            ARGS=(--category "$SUBJECT_CATEGORY" --search)
+            [ -n "$SUBJECT_YEAR" ] && ARGS+=(--year "$SUBJECT_YEAR")
+            [ "$CONFIRM_NEW" = "true" ] && ARGS+=(--confirm-new)
+            node scripts/services/source-finder.mjs "$SUBJECT_NAME" "${ARGS[@]}" > jerome-result.txt
+          fi
+          cat jerome-result.txt
+          { echo '### Jerome pilot'; head -n 1 jerome-result.txt; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jerome-result
+          path: jerome-result.txt
+          if-no-files-found: ignore
