@@ -1,0 +1,59 @@
+# .github/workflows/place-files.yml
+# MODULE DATE: 2026-10-08 (Thursday) · v1
+# Puts the files from a bundle in the right folders and commits them (see scripts/services/place-files.mjs).
+#   Start it by uploading ONE file named <anything>.bundle.json into the repo's inbox/ folder (or the top folder).
+#   It runs by itself, checks every file, runs the tests that came in the bundle, and only then commits.
+#   If anything fails, nothing is changed: open the run, the summary says why. Fix the bundle and upload it again
+#   (delete the failed bundle file first).
+#   You can also start it by hand: Actions > "Place files" > Run workflow.
+# NO SECRETS are given to this workflow on purpose: it runs code from the bundle's tests.
+# A workflow file itself can never be placed by a bundle (GitHub's automatic token may not change workflows). Add those by hand.
+
+name: Place files
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'inbox/*.bundle.json'
+      - '*.bundle.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: place-files
+  cancel-in-progress: false
+
+jobs:
+  place:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Place files
+        run: node scripts/services/place-files.mjs
+
+      # Runs even when the step above failed, so bundles that DID succeed are still committed.
+      - name: Commit placed files
+        if: always()
+        run: |
+          [ -f place-summary.md ] && cat place-summary.md >> "$GITHUB_STEP_SUMMARY"
+          [ -f place-result.json ] || { echo "nothing to commit"; exit 0; }
+          git config user.name "place-files-bot"
+          git config user.email "actions@users.noreply.github.com"
+          jq -r '.files[]' place-result.json > .add-list
+          jq -r '.remove[]' place-result.json > .rm-list
+          jq -r '.message' place-result.json > .msg
+          [ -s .add-list ] && xargs -d '\n' git add -- < .add-list
+          [ -s .rm-list ] && xargs -d '\n' git rm -q --ignore-unmatch -- < .rm-list
+          if git diff --cached --quiet; then echo "no changes to commit"; exit 0; fi
+          git commit -m "$(cat .msg)"
+          for i in 1 2 3 4; do
+            if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then exit 0; fi
+            sleep $((i * 2))
+          done
+          echo "push failed after retries"; exit 1
