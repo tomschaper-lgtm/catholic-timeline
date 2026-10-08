@@ -1,12 +1,12 @@
 // scripts/tests/source-finder.test.mjs
-// MODULE DATE: 2026-10-08 (Thursday) · tests for source-finder.mjs v0.3 (v0.4: layers 1, 2 and 3; layer 2 with MOCKED search/fetch; layer 3 uses the real scripts/category-rules.json).
+// MODULE DATE: 2026-10-08 (Thursday) · tests for source-finder.mjs v0.3 (v0.7: layers 1, 2 and 3, with perspective lanes, best-few selection and signal types for ancient saints; layer 2 with MOCKED search/fetch; layer 3 uses the real scripts/category-rules.json).
 // Run: node --test scripts/tests/source-finder.test.mjs
 // Synthetic tests always run. Real-data tests run only if DATA_PATH (or ./data.json) exists.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { fold, scoreMatch, checkExistence, findSubject, runSourceFinder, findSources, safeUrl, allowedDomains, examine, assess, loadRules, evidence } from '../services/source-finder.mjs';
+import { fold, scoreMatch, checkExistence, findSubject, runSourceFinder, findSources, safeUrl, allowedDomains, examine, assess, loadRules, evidence, laneOf, laneCoverage, perspectivePlan, selectSources } from '../services/source-finder.mjs';
 import { fileURLToPath } from 'node:url';
 
 const RULES = loadRules(fileURLToPath(new URL('../category-rules.json', import.meta.url)));
@@ -311,8 +311,8 @@ test('handler: a rate-limit/credit failure is rethrown as deferred so the orches
 // ---------------------------------------------------------------------------------------------
 
 // A fetched-source stand-in. `text` is non-enumerable, as examine() makes it.
-function src({ domain = 'newadvent.org', words = 1200, text = '', status = 'approved', canVerify = true, usable = true, mentions = 10 } = {}) {
-  const o = { url: 'https://www.' + domain + '/x', domain: 'www.' + domain, status, canVerify, usable, words, mentions };
+function src({ domain = 'newadvent.org', path = '/x', words = 1200, text = '', status = 'approved', canVerify = true, usable = true, mentions = 10 } = {}) {
+  const o = { url: 'https://www.' + domain + path, domain: 'www.' + domain, status, canVerify, usable, words, mentions };
   Object.defineProperty(o, 'text', { value: text, enumerable: false });
   return o;
 }
@@ -342,7 +342,7 @@ test('one verify-capable source with enough words and a canonization -> ready, f
   assert.equal(r.status, 'ready');
   assert.equal(r.verdict.action, 'accept');
   assert.equal(r.verdict.basis, 'formal_canonization');
-  assert.deepEqual(r.flags, ['single_source', 'thin_material']);   // 1,200 words is ready, but under the 4,000-word target
+  assert.ok(r.flags.includes('single_source') && r.flags.includes('thin_material'));   // 1,200 words is ready, but under the 4,000-word target
   assert.ok(r.verdict.evidence.formal_canonization[0].includes('canonized'));
 });
 
@@ -392,11 +392,12 @@ test('saint: nothing at all near the name -> needs_decision, no basis found', ()
   assert.match(r.verdict.reasons[0].text, /no basis for sainthood/);
 });
 
-test('saint: ancient veneration counts only for a subject within the year limit', () => {
-  const t = 'bertha is named in the roman martyrology.';
+test('saint: ancient veneration needs two different kinds of signal, and only for a subject within the year limit', () => {
+  const t = 'bertha is named in the roman martyrology, and a church was dedicated to st. bertha in the fifth century.';
   const old = assess(bertha({ year: 304 }), found(src({ text: t })), RULES);
   assert.equal(old.status, 'ready');
   assert.equal(old.verdict.basis, 'ancient_veneration');
+  assert.deepEqual(Object.keys(old.verdict.evidence.ancient_veneration.signals).sort(), ['early_dedication', 'liturgical']);
   const late = assess(bertha({ year: 1500 }), found(src({ text: t })), RULES);
   assert.equal(late.status, 'needs_decision');
 });
@@ -556,4 +557,308 @@ test('layer 2: a page that only brushes the name does not count toward the targe
   const r = await findSources({ name: 'Bertha of Blangy', category: 's' }, { minWords: 1000, targetWords: 3000, minMentions: 3, minDomains: 1 }, m.deps);
   assert.ok(m.calls.search.length >= 2);
   assert.equal(r.widened, true);                       // the floor was never met either
+});
+
+// ---------------------------------------------------------------------------------------------
+// Perspective lanes (v0.5)
+// ---------------------------------------------------------------------------------------------
+
+const PLAN_S = perspectivePlan(RULES, 's');
+const BIO = 'https://www.newadvent.org/cathen/02084a.htm';
+
+test('perspectivePlan: rules give a plan per category; none for an unknown category or when switched off', () => {
+  assert.deepEqual(PLAN_S.lanes.map(l => l.id).slice(0, 3), ['history_biography', 'theology_commentary', 'magisterial']);
+  assert.equal(perspectivePlan(RULES, 'zz'), null);
+  assert.equal(perspectivePlan({ ...RULES, perspectives: { ...RULES.perspectives, enabled: false } }, 's'), null);
+  assert.equal(perspectivePlan({ sufficiency: {}, categories: {} }, 's'), null);
+});
+
+test('laneOf: a path-specific site beats a whole-domain site; unknown sites belong to no lane', () => {
+  assert.equal(laneOf(BIO, PLAN_S.lanes), 'history_biography');
+  assert.equal(laneOf('https://www.newadvent.org/fathers/1101.htm', PLAN_S.lanes), 'primary_texts');
+  assert.equal(laneOf('https://www.newadvent.org/summa/1002.htm', PLAN_S.lanes), 'primary_texts');
+  assert.equal(laneOf('https://www.vatican.va/archive/x.html', PLAN_S.lanes), 'magisterial');
+  assert.equal(laneOf('https://www.newadvent.org/other/x.htm', PLAN_S.lanes), null);
+  assert.equal(laneOf('https://example.org/x', PLAN_S.lanes), null);
+  assert.equal(laneOf('not a url', PLAN_S.lanes), null);
+});
+
+test('laneCoverage: verify lanes need verify-capable pages; the theology lane is context-only and takes reported pages', () => {
+  const mk = (url, o = {}) => ({ url, usable: true, status: 'approved', canVerify: true, words: 500, mentions: 5, ...o });
+  const cov = laneCoverage([
+    mk(BIO),
+    mk('https://www.stpaulcenter.com/a', { canVerify: false }),              // reported: counts for the context lane
+    mk('https://www.vatican.va/a', { canVerify: false }),                     // a verify lane, but this page cannot verify: no
+    mk('https://www.ccel.org/a', { words: 100 }),                             // under minWords: not covered
+    mk('https://www.britannica.com/a', { mentions: 0 })                       // name barely there: no
+  ], PLAN_S);
+  assert.equal(cov.history_biography.covered, true);
+  assert.equal(cov.theology_commentary.covered, true);
+  assert.equal(cov.theology_commentary.contextOnly, true);
+  assert.equal(cov.magisterial.covered, false);
+  assert.equal(cov.primary_texts.covered, false);
+  assert.equal(cov.outside_check.covered, false);
+});
+
+const lanePages = {
+  [BIO]: longText('Bertha of Blangy', 500),
+  'https://www.vatican.va/doc': longText('Bertha of Blangy', 50),
+  'https://www.newadvent.org/fathers/b': longText('Bertha of Blangy', 50)
+};
+const laneResults = [[{ url: BIO, title: 'Bertha' }], [{ url: 'https://www.vatican.va/doc', title: 'Bertha' }], [{ url: 'https://www.newadvent.org/fathers/b', title: 'Bertha' }]];
+const LOPTS = { minWords: 1000, targetWords: 3000, minMentions: 3, minDomains: 1 };
+
+test('layer 2: target already met, but missing lanes still get one restricted search each (in priority order)', async () => {
+  const m = mocks(lanePages, laneResults);
+  const r = await findSources({ name: 'Bertha of Blangy', category: 's' }, { ...LOPTS, perspectives: PLAN_S }, m.deps);
+  assert.deepEqual(r.passes.map(x => x.kind), ['allowlist', 'lane:magisterial', 'lane:primary_texts']);
+  assert.deepEqual(m.calls.search[1].allowedDomains, ['vatican.va']);
+  assert.deepEqual(m.calls.search[2].allowedDomains, ['newadvent.org']);
+  assert.match(m.calls.search[1].query, /Church documents|decrees|magisterial/);
+  assert.equal(r.widened, false);
+});
+
+test('layer 2: lanes whose sites are not enabled in the registry are skipped without a search', async () => {
+  const m = mocks(lanePages, laneResults);
+  await findSources({ name: 'Bertha of Blangy', category: 's' }, { ...LOPTS, perspectives: PLAN_S }, m.deps);
+  // theology (stpaulcenter etc.), devotion and outside_check have no enabled site in the test registry
+  assert.ok(m.calls.search.every(q => !(q.allowedDomains || []).includes('stpaulcenter.com')));
+  assert.equal(m.calls.search.length, 3);
+});
+
+test('layer 2: maxExtraSearches caps the lane searches; a covered lane is not searched again', async () => {
+  const one = mocks(lanePages, laneResults);
+  const r1 = await findSources({ name: 'Bertha of Blangy', category: 's' }, { ...LOPTS, perspectives: { ...PLAN_S, maxExtraSearches: 1 } }, one.deps);
+  assert.deepEqual(r1.passes.map(x => x.kind), ['allowlist', 'lane:magisterial']);
+  // the first page is a Fathers page, so primary_texts is already covered and is skipped
+  const m = mocks({ 'https://www.newadvent.org/fathers/b': longText('Bertha of Blangy', 500), 'https://www.vatican.va/doc': lanePages['https://www.vatican.va/doc'] },
+    [[{ url: 'https://www.newadvent.org/fathers/b', title: 'Bertha' }], [{ url: 'https://www.vatican.va/doc', title: 'Bertha' }]]);
+  const r2 = await findSources({ name: 'Bertha of Blangy', category: 's' }, { ...LOPTS, perspectives: PLAN_S }, m.deps);
+  assert.ok(!r2.passes.some(x => x.kind === 'lane:primary_texts'));
+});
+
+test('layer 2: no perspectives option -> no lane searches (old behaviour)', async () => {
+  const m = mocks(lanePages, laneResults);
+  const r = await findSources({ name: 'Bertha of Blangy', category: 's' }, LOPTS, m.deps);
+  assert.equal(m.calls.search.length, 1);
+  assert.ok(!r.passes.some(x => x.kind.startsWith('lane:')));
+});
+
+test('layer 2: lane pages are fetched at most maxFetchPerLane per search', async () => {
+  const pages = { [BIO]: lanePages[BIO] };
+  const cands = [];
+  for (let i = 0; i < 7; i++) { pages['https://www.vatican.va/d' + i] = longText('Bertha of Blangy', 5); cands.push({ url: 'https://www.vatican.va/d' + i, title: 'Bertha' }); }
+  const m = mocks(pages, [[{ url: BIO, title: 'B' }], cands, [{ url: BIO, title: 'B' }]]);
+  const r = await findSources({ name: 'Bertha of Blangy', category: 's' }, { ...LOPTS, perspectives: { ...PLAN_S, maxExtraSearches: 1 } }, m.deps);
+  assert.equal(r.passes.find(x => x.kind === 'lane:magisterial').fetched, PLAN_S.maxFetchPerLane);
+});
+
+test('layer 3: reports which perspectives were covered and missing; flags narrow_perspective under 3 lanes', () => {
+  const t = 'bertha was canonized.';
+  const narrow = assess(bertha(), found(src({ path: '/cathen/b.htm', words: 4500, text: t })), RULES);
+  assert.deepEqual(narrow.perspectives.covered.map(c => c.id), ['history_biography']);
+  assert.ok(narrow.perspectives.missing.includes('magisterial'));
+  assert.ok(narrow.flags.includes('narrow_perspective'));
+  const wide = assess(bertha(), found(
+    src({ path: '/cathen/b.htm', words: 4500, text: t }),
+    src({ domain: 'vatican.va', path: '/doc', words: 400, text: t }),
+    src({ domain: 'stpaulcenter.com', path: '/a', words: 400, status: 'approved', canVerify: false, text: t })), RULES);
+  assert.equal(wide.perspectives.covered.length, 3);
+  assert.ok(!wide.flags.includes('narrow_perspective'));
+  assert.equal(wide.perspectives.covered.find(c => c.id === 'theology_commentary').contextOnly, true);
+});
+
+test('layer 3: perspectives never block a ready entry, and a category with no lanes reports none', () => {
+  const r = assess(bertha(), found(src({ path: '/cathen/b.htm', words: 4500, text: 'bertha was canonized.' })), RULES);
+  assert.equal(r.status, 'ready');
+  const noLanes = assess(bertha(), found(src({ words: 4500, text: 'bertha was canonized.' })), { ...RULES, perspectives: { enabled: false } });
+  assert.equal(noLanes.perspectives, undefined);
+  assert.ok(!noLanes.flags.includes('narrow_perspective'));
+});
+
+test('handler: perspective lanes run end to end and appear in the result', async () => {
+  const m = mocks(lanePages, laneResults);
+  const noPool = { ...RULES, selection: { ...RULES.selection, poolTarget: 0 } };   // isolate the lane passes from the pool hunt
+  const r = await runSourceFinder({ payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', year: 723 } }, data, { ...m.deps, rules: noPool });
+  assert.ok(r.result.search.passes.some(x => x.kind === 'lane:magisterial'));
+  assert.ok(r.result.layer3.perspectives.covered.some(c => c.id === 'magisterial'));
+});
+
+// ---------------------------------------------------------------------------------------------
+// Selection: search wide, provide the best 3-4 (v0.6)
+// ---------------------------------------------------------------------------------------------
+
+const P = (domain, path, o = {}) => ({ url: 'https://www.' + domain + path, domain: 'www.' + domain, usable: true, status: 'approved',
+  tier: 'approved', canVerify: true, words: 2000, mentions: 10, titleHasName: true, ...o });
+
+test('selection: at most 4 pages, one per lane first, the rest listed as alsoFound', () => {
+  const pool = [
+    P('newadvent.org', '/cathen/a.htm', { words: 6000 }),            // history_biography
+    P('newadvent.org', '/cathen/b.htm', { words: 5000 }),            // same lane, second page
+    P('vatican.va', '/d1', { words: 1500 }),                         // magisterial
+    P('newadvent.org', '/fathers/f', { words: 900, tier: 'primary' }),   // primary_texts
+    P('britannica.com', '/x', { words: 800 }),                       // outside_check
+    P('franciscanmedia.org', '/y', { words: 700 })                   // devotion_liturgy
+  ];
+  const r = selectSources(pool, RULES, 's');
+  assert.equal(r.selected.length, 4);
+  const lanes = r.selected.map(x => x.lane);
+  assert.ok(lanes.includes('history_biography') && lanes.includes('magisterial') && lanes.includes('primary_texts'));
+  assert.equal(r.alsoFound.length, 2);
+  assert.ok(r.selected.every((x, i, a) => i === 0 || a[i - 1].score >= x.score));   // listed best first
+});
+
+test('selection: no more than 2 pages from one site, and only 1 context-only page', () => {
+  const pool = [
+    P('newadvent.org', '/cathen/a.htm', { words: 6000 }), P('newadvent.org', '/cathen/b.htm', { words: 5900 }), P('newadvent.org', '/cathen/c.htm', { words: 5800 }),
+    P('stpaulcenter.com', '/a', { tier: 'reported', canVerify: false, words: 3000 }), P('wordonfire.org', '/a', { tier: 'reported', canVerify: false, words: 2900 })
+  ];
+  const r = selectSources(pool, RULES, 's');
+  assert.equal(r.selected.filter(x => x.domain === 'www.newadvent.org').length, 2);
+  assert.equal(r.selected.filter(x => !x.canVerify).length, 1);
+});
+
+test('selection: unjudged, unusable and barely-mentioning pages are never selected; a verify page is always included', () => {
+  const pool = [
+    P('example-order.org', '/a', { status: 'unjudged', canVerify: undefined, words: 9000 }),
+    P('newadvent.org', '/cathen/a.htm', { usable: false }),
+    P('vatican.va', '/a', { mentions: 0, words: 9000 }),
+    P('stpaulcenter.com', '/a', { tier: 'reported', canVerify: false, words: 3000 }),
+    P('britannica.com', '/a', { words: 400 })
+  ];
+  const r = selectSources(pool, RULES, 's');
+  assert.deepEqual(r.selected.map(x => x.domain).sort(), ['www.britannica.com', 'www.stpaulcenter.com']);
+  assert.ok(r.selected.some(x => x.canVerify));
+  const onlyContext = selectSources([pool[3]], RULES, 's');
+  assert.equal(onlyContext.selected.length, 1);          // nothing verify-capable exists to add
+});
+
+test('selection: a better-scoring page wins within a lane (more words, more mentions, tier weight)', () => {
+  const r = selectSources([P('vatican.va', '/small', { words: 400, mentions: 2, titleHasName: false }), P('vatican.va', '/big', { words: 3000, mentions: 15 })], RULES, 's');
+  assert.equal(r.selected[0].url, 'https://www.vatican.va/big');
+});
+
+test('layer 3: a single qualifying page is judged on its own word count (floor applies to the selected set)', () => {
+  const t = 'bertha was canonized.';
+  const enough = assess(bertha(), found(P('newadvent.org', '/cathen/a.htm', { words: 1500, text: t })), RULES);
+  assert.equal(enough.status, 'ready');
+  assert.equal(enough.selection.selected.length, 1);
+  assert.ok(enough.flags.includes('few_sources') && enough.flags.includes('single_source'));
+  const short = assess(bertha(), found(P('newadvent.org', '/cathen/a.htm', { words: 600, text: t })), RULES);
+  assert.equal(short.status, 'too_thin');
+});
+
+test('layer 3: sufficiency counts only the SELECTED pages; the rest are alsoFound and not counted', () => {
+  const t = 'bertha was canonized.';
+  const many = [];
+  for (let i = 0; i < 6; i++) many.push(P('newadvent.org', '/cathen/p' + i, { words: 250, text: t }));   // 6 small pages: 1,500 words in all
+  const r = assess(bertha(), found(...many), RULES);
+  assert.equal(r.selection.selected.length, 2);                  // maxPerDomain 2
+  assert.equal(r.sufficiency.verifyCapableWords, 500);           // only the selected two count
+  assert.equal(r.status, 'too_thin');
+  assert.equal(r.selection.alsoFound.length, 4);
+});
+
+test('layer 3: three or more selected pages -> no few_sources flag', () => {
+  const t = 'bertha was canonized.';
+  const r = assess(bertha(), found(P('newadvent.org', '/cathen/a.htm', { words: 3000, text: t }), P('vatican.va', '/d', { words: 1500, text: t }), P('britannica.com', '/a', { words: 1200, text: t })), RULES);
+  assert.ok(!r.flags.includes('few_sources'));
+  assert.equal(r.selection.selected.length, 3);
+});
+
+test('layer 2: keeps hunting until the pool target of substantive pages (or the caps) is reached', async () => {
+  const pages = {}, results1 = [], results2 = [];
+  for (let i = 0; i < 3; i++) { pages['https://www.newadvent.org/cathen/p' + i] = longText('Bertha of Blangy', 300); results1.push({ url: 'https://www.newadvent.org/cathen/p' + i, title: 'B' }); }
+  for (let i = 0; i < 3; i++) { pages['https://www.vatican.va/q' + i] = longText('Bertha of Blangy', 300); results2.push({ url: 'https://www.vatican.va/q' + i, title: 'B' }); }
+  const base = { minWords: 1000, targetWords: 3000, minMentions: 3, minDomains: 1 };
+  const a = mocks(pages, [results1, results2]);
+  const r1 = await findSources({ name: 'Bertha of Blangy', category: 's' }, base, a.deps);
+  assert.equal(a.calls.search.length, 1);                       // no pool target: the word target alone is met
+  const b = mocks(pages, [results1, results2]);
+  const r2 = await findSources({ name: 'Bertha of Blangy', category: 's' }, { ...base, poolTarget: 5 }, b.deps);
+  assert.equal(b.calls.search.length, 2);                       // 3 pages < pool target 5: one more search
+  assert.equal(r2.counts.usableApproved, 6);
+});
+
+test('handler: summary says how many pages were selected out of how many found', async () => {
+  const m = mocks(lanePages, laneResults);
+  const r = await runSourceFinder({ payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', year: 723 } }, data, { ...m.deps, rules: RULES });
+  assert.match(r.summary, /selected \d+ of \d+ pages/);
+  assert.ok(r.result.layer3.selection.selected.length >= 1);
+});
+
+// ---------------------------------------------------------------------------------------------
+// Signal types for ancient saints (v0.7)
+// ---------------------------------------------------------------------------------------------
+
+const ANC = (text, o = {}) => assess(bertha({ year: 304 }), found(src({ text })), o.rules || RULES);
+
+test('signal types: every signal has a strength and every pattern in the rules file compiles', () => {
+  const anc = RULES.categories.s.bases.ancient_veneration;
+  for (const [type, def] of Object.entries(anc.signals)) {
+    assert.ok(['strong', 'medium', 'weak'].includes(def.strength), type);
+    for (const pat of def.patterns) assert.doesNotThrow(() => new RegExp(pat, 'gi'), type + ': ' + pat);
+  }
+  for (const pat of anc.cautions) assert.doesNotThrow(() => new RegExp(pat, 'gi'), pat);
+});
+
+test('signal types: a single kind of signal alone is not enough (review, and it says which kind)', () => {
+  const r = ANC('bertha is named in the roman martyrology. the roman martyrology lists bertha again. bertha and the roman canon.');
+  assert.equal(r.status, 'needs_decision');                       // three mentions, but ONE kind (liturgical)
+  assert.match(r.verdict.reasons[0].text, /only one kind of veneration signal \(liturgical\)/);
+  assert.ok(r.verdict.evidence.ancient_veneration.signals.liturgical);
+});
+
+test('signal types: two strong kinds are accepted (Roman and Eastern)', () => {
+  const r = ANC('bertha is in the roman martyrology; the orthodox church commemorates bertha too.');
+  assert.equal(r.status, 'ready');
+  assert.equal(r.verdict.basis, 'ancient_veneration');
+});
+
+test('signal types: strong plus medium is accepted; medium plus medium is not (no strong kind)', () => {
+  assert.equal(ANC('bertha, philocalian calendar. relics of bertha are kept in rome.').status, 'ready');
+  const mm = ANC('the feast of bertha is celebrated each year. a church was dedicated to st. bertha.');
+  assert.equal(mm.status, 'needs_decision');
+  assert.match(mm.verdict.reasons[0].text, /no strong veneration signal/);
+});
+
+test('signal types: place names, patronage and hospitals are weak and never count as strong', () => {
+  const r = ANC('bertha is the patron of travellers, a hospital is named after bertha, and a church was dedicated to st. bertha.');
+  assert.equal(r.status, 'needs_decision');
+  assert.match(r.verdict.reasons[0].text, /no strong veneration signal/);
+  assert.ok(r.verdict.evidence.ancient_veneration.signals.place_patronage);
+});
+
+test('signal types: a caution (legendary, removed from the calendar) sends it to review even with two good kinds', () => {
+  const r = ANC('bertha is in the roman martyrology and the orthodox church commemorates bertha, but bertha is legendary.');
+  assert.equal(r.status, 'needs_decision');
+  assert.match(r.verdict.reasons[0].text, /raise doubt/);
+  assert.ok(r.verdict.evidence.ancient_veneration.cautions.length >= 1);
+  assert.equal(ANC('bertha was removed from the general roman calendar; bertha is in the roman martyrology.').status, 'needs_decision');
+});
+
+test('signal types: decisiveTypes lets one kind settle it, if Tom chooses so in the rules', () => {
+  const rules2 = JSON.parse(JSON.stringify(RULES));
+  rules2.categories.s.bases.ancient_veneration.accept.decisiveTypes = ['liturgical'];
+  const r = ANC('bertha is named in the roman martyrology.', { rules: rules2 });
+  assert.equal(r.status, 'ready');
+  assert.equal(r.verdict.basis, 'ancient_veneration');
+  assert.equal(ANC('bertha is named in the roman martyrology.').status, 'needs_decision');   // default rules: not enough alone
+});
+
+test('signal types: a signal far from the name does not count', () => {
+  const far = 'bertha lived quietly. ' + 'filler words go here. '.repeat(120) + ' the roman martyrology and the orthodox church commemorates others.';
+  assert.equal(ANC(far).status, 'needs_decision');
+});
+
+test('signal types: formal canonization still works as its own basis, alongside the signals', () => {
+  const r = assess(bertha({ year: 304 }), found(src({ text: 'bertha was canonized by the church. bertha in the roman martyrology.' })), RULES);
+  assert.equal(r.status, 'ready');
+  assert.equal(r.verdict.basis, 'formal_canonization');
+});
+
+test('signal types: in rewrite mode a failed veneration check is advisory only', () => {
+  const r = assess(bertha({ year: 304 }), found(src({ text: 'bertha is named in the roman martyrology.' })), RULES, { mode: 'rewrite' });
+  assert.equal(r.status, 'ready');
+  assert.ok(r.flags.includes('category_advisory'));
 });
