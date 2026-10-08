@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "updated": "2026-10-08",
+  "note": "Rules for scripts/services/place-files.mjs, the service that puts files from a bundle into the right folders and commits them. This file is itself protected: a bundle can never change it, so a bundle cannot loosen its own checks. Edit it by hand. Every list here is PROVISIONAL (Claude's starting guess).",
+  "allowedPrefixes": [
+    "scripts/",
+    "docs/"
+  ],
+  "allowedRootPattern": "^[A-Za-z0-9][A-Za-z0-9._-]*\\.md$",
+  "_allowed": "A bundle may write under scripts/ and docs/, and top-level .md files (design docs, changelog). Nothing else.",
+  "deniedPrefixes": [
+    ".git/",
+    ".github/",
+    "node_modules/",
+    "inbox/",
+    "ledger/",
+    "sources/"
+  ],
+  "_denied": ".github/ is denied twice over: the automatic GitHub token cannot push workflow files anyway, and a workflow is code that runs with write access. Add workflows by hand. ledger/ and sources/ are written only by their own services.",
+  "protectedFiles": [
+    "data.json",
+    "workLog.json",
+    "index.html",
+    "package.json",
+    "scripts/ledger-allowlist.json",
+    "scripts/place-rules.json",
+    "scripts/services/place-files.mjs"
+  ],
+  "_protected": "Files the app or Tom edits live. A stale copy in a bundle must never overwrite them. Config files you edit (such as scripts/category-rules.json) can be sent with mode create-only, which skips the file if it already exists. scripts/services/place-files.mjs is the gatekeeper itself, so it is protected too: update it by hand.",
+  "maxFiles": 40,
+  "maxFileBytes": 1000000,
+  "maxBundleBytes": 3000000,
+  "runTests": true,
+  "_tests": "Test files in the bundle (scripts/tests/*.test.mjs) are run after the files are written. If any fail, every file is put back as it was and nothing is committed.",
+  "ledgerPath": "inbox/processed.json",
+  "intakeFolders": [
+    "inbox",
+    "."
+  ]
+}
