@@ -439,6 +439,42 @@ labeled as Tom's translation, never verbatim as if it were the original.
   (pass `allowlist-more`); the open web is still searched only when the floor is not met. A ready entry under
   the target is flagged `thin_material`. Fetch caps still apply (8 pages per pass). 57 tests pass.
 
+- **2026-10-08 — source-finder v0.5: perspective lanes** (Tom's rule: sites have different strengths, so keep
+  looking for different kinds even after the word target is met). `category-rules.json` now has `perspectives`:
+  six lanes (history & biography; theological reflection, context only; Church documents & teaching; primary
+  texts; feast, devotion & liturgy; independent historical check), each listing its sites (New Advent is split by
+  path: /cathen/ = encyclopedia, /fathers/ and /summa/ = primary texts), and a priority order per category.
+  After the allowlist passes, Jerome runs one restricted search for each lane the category should have but lacks,
+  at most 3 extra searches, at most 4 pages each. Only sites enabled in the registry are searched. A lane is
+  covered at 300 words of approved pages really about the subject; the theology lane is context only (reported-tier
+  sites such as stpaulcenter.com, franciscan.edu, wordonfire.org, catholic.com add perspective but never verify).
+  Layer 3 reports covered and missing lanes and flags `narrow_perspective` under 3 lanes; it never blocks.
+  Every list and number is provisional. Not yet covered: apparitions and miracles have no "official shrine" lane
+  (the official-tier shrine sites are many and each is about one subject). 68 tests pass.
+
+- **2026-10-08 — source-finder v0.6: search wide, provide the best 3-4** (Tom's rule). New `selection` block in
+  `category-rules.json`. Layer 2 keeps hunting until it has `poolTarget` (8, provisional) substantive approved
+  pages or hits the fetch caps. Layer 3 then picks at most `maxSelected` (4): first the best page of each lane in
+  the category's priority order (so the pages are different kinds), then the best of the rest; at most 2 pages per
+  site, at most 1 context-only page, always at least one verify-capable page. Score = words + name mentions + name
+  in title + tier weight. Output: `layer3.selection.selected` (what the writer gets) and `alsoFound` (the rest,
+  kept for reference). The enough-to-write check (floor 1,000 words, target 4,000) now runs on the SELECTED pages
+  only, so a lone qualifying page must pass the floor by its own word count. Fewer than 3 selected = `few_sources`
+  flag (informational). Not changed: sainthood-basis evidence is still read from every verify-capable page, not
+  just the selected ones. 77 tests pass.
+
+- **2026-10-08 — source-finder v0.7: signal types for ancient saints** (Tom's idea: look at churches, hospitals,
+  city names; a pre-1000 saint need not be canonized). The "ancient veneration" basis in `category-rules.json` is
+  now a set of signal types, each with a strength: strong = Roman Martyrology / General Calendar / Roman Canon;
+  early calendars (Philocalian, Hieronymian); venerated in the East; early written witness. Medium = a feast day is
+  kept; tomb, catacomb, relics; churches dedicated to the saint. Weak = patronage, hospital and city names.
+  Accepted when two different kinds are found near the name and at least one is strong, and no caution appears
+  (legendary, historicity doubted, removed from the calendar, apocryphal). One kind alone, only medium kinds, or
+  only weak kinds go to review and the reason says which. Counted by type, not by page, so copies of one claim are
+  one signal. `decisiveTypes` (empty) would let a single kind settle it. Limits: text cannot show whether a
+  dedication is early or modern; patterns are English-only and have never met real pages; no site in the registry
+  yet is built for the Martyrology or early dedications. 87 tests pass.
+
 ## 13. Sufficiency, category rules and visitor input (2026-10-07, not yet built)
 
 **Status key:** CONFIRMED = Tom said so. PROPOSED = Claude's suggestion, not yet answered by Tom. OPEN = a question Tom has not decided.
