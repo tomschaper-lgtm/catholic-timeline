@@ -1,6 +1,6 @@
 // scripts/services/source-finder.mjs
 //
-// MODULE DATE: 2026-10-08 (Thursday) · v0.4 — "Jerome", LAYERS 1 + 2 + 3 (existence check; find candidate sources, and keep looking until there is plenty of real material; is there enough, and does it fit the category).
+// MODULE DATE: 2026-10-08 (Thursday) · v0.7 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
 // Written against orchestrator.mjs / ledger-build.mjs v1.4 as uploaded to the Project 2026-10-07.
 // Design: ARTICLE-PIPELINE-DESIGN-2026-10-07.md, section 4.1 and section 9. Layer 1 uses no AI and no
 // network. Layer 2 calls Anthropic web search and fetches pages; it was tested with MOCKED search and
@@ -12,7 +12,13 @@
 //   Layer 2: find candidate source pages. Pass A searches ONLY the enabled allowlist domains
 //            (Anthropic web search with allowed_domains). Only if the allowlist did not yield enough
 //            verify-capable text (layer 3 rules: sufficiency.minWordsVerifyCapable, on
-//            newSubjectMinDomains sites) does pass B search the open web. One good source can be enough. In rewrite mode the
+//            newSubjectMinDomains sites) does pass B search the open web. One good source can be enough.
+//            PERSPECTIVE LANES (v0.5): sites have different strengths (biography, theology, Church documents,
+//            primary texts, feast and devotion, an independent check). Even when the word target is met, Jerome
+//            runs up to perspectives.maxExtraSearches extra allowlist searches for lanes this category should
+//            have but does not yet (rules: perspectives). Lanes are Claude's starting guess; Tom edits them.
+//            POOL (v0.6): Jerome keeps hunting until it has rules.selection.poolTarget substantive approved pages
+//            (or hits the fetch caps), because layer 3 then picks only the best few from the pool. In rewrite mode the
 //            entry's existing article links are tried first. The model only SUGGESTS URLs; code fetches
 //            every page itself and records HTTP status, word count, and whether the subject's name is
 //            really on the page. Pages from domains not in the registry are marked "unjudged" and are
@@ -24,6 +30,13 @@
 //                             category rules say review: not canonized, scandal, apparition/miracle, ...)
 //              too_thin       something usable was found but not enough, and nothing pending could fix it
 //              not_found      nothing usable
+//            SELECTION (v0.6): from everything found, layer 3 picks the best 3-4 pages (maxSelected 4): one per
+//            lane in priority order first, then by score; the writer is given those, the rest are listed as
+//            alsoFound. The enough-to-write check runs on the SELECTED pages: if only one qualifies, its word
+//            count must pass the floor on its own.
+//            ANCIENT SAINTS (v0.7): for a saint up to the year limit, "venerated" is judged by DIFFERENT KINDS of
+//            evidence (Roman liturgy, early calendars, the East, early witnesses, feast, tomb and relics, church
+//            dedications, patronage), counted by type, with cautions (legendary, removed from the calendar).
 //            Layer 3 finds EVIDENCE (short lowercased excerpts near the subject's name) for a person to
 //            look at. It cannot prove a claim, and it does NOT check that two sources agree on who the
 //            person is (same dates, same facts): that is Ignatius's and Aquinas's job. Not built: Ignatius,
@@ -231,7 +244,7 @@ export function checkExistence(name, entries, opts = {}) {
 export function findSubject(input, dataJson) {
   const entries = (dataJson && dataJson.entries) || [];
   const mode = input.mode === 'rewrite' || (!input.mode && input.entityId && !input.name) ? 'rewrite' : 'new';
-  const note = 'Layers 2-3 (search for sources, "enough to write from") are not built yet; no sources were looked for.';
+  const note = 'Layer 1 result (who the subject is). Sources are searched and assessed in layers 2-3 whenever search is on; see the search and layer3 fields.';
 
   if (mode === 'rewrite') {
     const id = input.entityId;
@@ -460,15 +473,78 @@ export async function examine(cand, subject, reg, deps) {
   return out;
 }
 
-const queryFor = (subject, variant) => {
+const queryFor = (subject, variant, lane) => {
   const label = CATEGORY_LABEL[subject.category] || 'subject';
+  if (variant === 'lane') return 'Find pages ' + lane.ask + ' this ' + label + ' in Catholic history: "' + subject.name + '"' +
+    (subject.year != null ? ' (around the year ' + subject.year + ')' : '') + '.';
   if (variant === 'more') return 'Find additional in-depth pages about this ' + label + ' in Catholic history: "' + subject.name + '"' +
     (subject.year != null ? ' (around the year ' + subject.year + ')' : '') + '. Look for the full life or history, sources, and primary texts, not short summaries.';
   return 'Find web pages that give a substantial account of this ' + label + ' in Catholic history: "' + subject.name + '"' +
     (subject.year != null ? ' (around the year ' + subject.year + ')' : '') + '. Prefer reference works, official Church sources and long-form biographies.';
 };
 
-// subject: { name, category, year, links?[] }.  opts: { allowlistOnly, minWords?, targetWords?, minMentions?, minDomains?, model }.
+// ---------------------------------------------------------------------------------------------
+// Perspective lanes (Tom's rule: different sites have different strengths; gather several kinds)
+// ---------------------------------------------------------------------------------------------
+
+const siteSpec = x => (typeof x === 'string' ? { domain: x } : x);
+
+// Which lane does this URL belong to? A site with a pathPrefix is more specific than a whole-domain site,
+// so path matches are tried first. A page belongs to at most one lane.
+export function laneOf(url, lanes) {
+  let u;
+  try { u = new URL(url); } catch (_e) { return null; }
+  const host = u.hostname.toLowerCase();
+  const hostOk = d => host === d || host.endsWith('.' + d);
+  for (const lane of lanes) for (const raw of lane.sites || []) { const x = siteSpec(raw); if (x.pathPrefix && hostOk(x.domain) && u.pathname.startsWith(x.pathPrefix)) return lane.id; }
+  for (const lane of lanes) for (const raw of lane.sites || []) { const x = siteSpec(raw); if (!x.pathPrefix && hostOk(x.domain)) return lane.id; }
+  return null;
+}
+
+// The lanes this category should have, in priority order; null when the rules define none (feature off).
+export function perspectivePlan(rules, category) {
+  const p = rules && rules.perspectives;
+  if (!p || p.enabled === false || !p.lanes) return null;
+  const order = (p.byCategory && p.byCategory[category]) || [];
+  const lanes = order.filter(id => p.lanes[id]).map(id => ({ id, ...p.lanes[id] }));
+  if (!lanes.length) return null;
+  return { lanes, maxExtraSearches: p.maxExtraSearches == null ? 2 : p.maxExtraSearches, maxFetchPerLane: p.maxFetchPerLane || 4,
+    minWords: p.minWordsPerLane == null ? 300 : p.minWordsPerLane, minMentions: p.minMentionsPerLane == null ? 1 : p.minMentionsPerLane,
+    minLanesForRich: p.minLanesForRich == null ? 3 : p.minLanesForRich };
+}
+
+// Words gathered per lane from approved, usable pages that are really about the subject. A normal lane needs
+// verify-capable pages; a contextOnly lane accepts any approved page (it adds perspective, never proof).
+export function laneCoverage(sources, plan) {
+  const cov = {};
+  for (const lane of plan.lanes) cov[lane.id] = { id: lane.id, label: lane.label, contextOnly: !!lane.contextOnly, words: 0, pages: 0 };
+  for (const s of sources || []) {
+    if (!s.usable || s.status !== 'approved') continue;
+    const id = laneOf(s.url, plan.lanes);
+    if (!id) continue;
+    const lane = plan.lanes.find(l => l.id === id);
+    if (!lane.contextOnly && !s.canVerify) continue;
+    if ((s.mentions || 0) < plan.minMentions) continue;
+    cov[id].words += s.words || 0;
+    cov[id].pages += 1;
+  }
+  for (const id of Object.keys(cov)) cov[id].covered = cov[id].words >= plan.minWords;
+  return cov;
+}
+
+// The enabled registry domains behind a lane (searches are restricted to these).
+function laneDomains(lane, reg) {
+  const out = new Set();
+  for (const raw of lane.sites || []) {
+    const x = siteSpec(raw);
+    const e = regEntry(reg, x.domain);
+    if (e && e.enabled !== false && e.tier !== 'scripture') out.add(x.domain);
+  }
+  return [...out];
+}
+
+
+// subject: { name, category, year, links?[] }.  opts: { allowlistOnly, minWords?, targetWords?, minMentions?, minDomains?, perspectives?, poolTarget?, model }.
 // From the layer 3 rules: minWords = floor (enough to write from; below it the open web is searched too),
 // targetWords = plenty (below it a second allowlist search runs), minMentions = how often the name must appear
 // for a page to count as substantive. Without minWords the old "MIN_ALLOWLIST_SOURCES usable pages" rule applies.
@@ -480,7 +556,7 @@ export async function findSources(subject, opts = {}, deps = {}) {
   const sources = [];
   const passes = [];
 
-  const runPass = async (kind, cands, note) => {
+  const runPass = async (kind, cands, note, maxFetch = MAX_FETCH_PER_PASS) => {
     const fresh = [];
     for (const c of cands) {
       const u = safeUrl(c.url) || String(c.url);
@@ -493,7 +569,7 @@ export async function findSources(subject, opts = {}, deps = {}) {
     for (const c of fresh) {
       const url = safeUrl(c.url);
       const needsFetch = url && !hostMatches(new URL(url).hostname.toLowerCase(), NEVER_HOSTS);
-      if (needsFetch && fetched >= MAX_FETCH_PER_PASS) { got.push({ url: c.url, status: 'skipped', usable: false, note: 'fetch limit for this pass reached' }); continue; }
+      if (needsFetch && fetched >= maxFetch) { got.push({ url: c.url, status: 'skipped', usable: false, note: 'fetch limit for this pass reached' }); continue; }
       const ex = await examine({ ...c, via: kind }, subject, reg, d);
       if (ex.http !== undefined) fetched++;
       got.push(ex);
@@ -510,7 +586,8 @@ export async function findSources(subject, opts = {}, deps = {}) {
   const sitesOk = () => new Set(substantivePages().map(s => baseDomain(s.domain))).size >= (opts.minDomains || 1);
   // enough = the floor (enough to write from); rich = the target (plenty to write from).
   const enoughApproved = () => opts.minWords == null ? usableApproved() >= MIN_ALLOWLIST_SOURCES : (subWords() >= opts.minWords && sitesOk());
-  const richApproved = () => opts.targetWords == null ? enoughApproved() : (subWords() >= opts.targetWords && sitesOk());
+  const poolCount = () => sources.filter(s => s.usable && s.status === 'approved' && (s.mentions || 0) >= (opts.minMentions || 0)).length;
+  const richApproved = () => opts.targetWords == null ? enoughApproved() : (subWords() >= opts.targetWords && sitesOk() && poolCount() >= (opts.poolTarget || 0));
 
   // Pass 0 (rewrite only): the links the article already cites.
   if (Array.isArray(subject.links) && subject.links.length) {
@@ -527,6 +604,22 @@ export async function findSources(subject, opts = {}, deps = {}) {
     const r = await d.search({ query: queryFor(subject, 'more'), allowedDomains: allowedDomains(reg), model: opts.model });
     await runPass('allowlist-more', r.results, 'second allowlist search, different wording (' + (r.searches || 0) + ' searches); substantive words so far ' + subWords());
   }
+  // Lane passes (v0.5): the word target says nothing about VARIETY. For each lane this category should have but
+  // does not yet (in priority order, at most maxExtraSearches in all), one allowlist search restricted to that
+  // lane's sites. Runs even when the target is already met, and in rewrite mode too.
+  if (opts.perspectives) {
+    const plan = opts.perspectives;
+    let used = 0;
+    for (const lane of plan.lanes) {
+      if (used >= plan.maxExtraSearches) break;
+      if (laneCoverage(sources, plan)[lane.id].covered) continue;
+      const doms = laneDomains(lane, reg);
+      if (!doms.length) continue;
+      used++;
+      const r = await d.search({ query: queryFor(subject, 'lane', lane), allowedDomains: doms, model: opts.model });
+      await runPass('lane:' + lane.id, r.results, 'perspective search: ' + lane.label + ' (' + doms.length + ' sites; ' + (r.searches || 0) + ' searches)', plan.maxFetchPerLane);
+    }
+  }
   // Pass B: open web, only when the allowlist came up short.
   let widened = false;
   if (!enoughApproved() && !opts.allowlistOnly) {
@@ -542,6 +635,45 @@ export async function findSources(subject, opts = {}, deps = {}) {
     totalWordsUsable: sources.filter(s => s.usable).reduce((n, s) => n + (s.words || 0), 0)
   };
   return { widened, passes, counts, sources };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Selection: from the whole pool, the best few pages (Tom's rule: search wide, provide the best 3-4)
+// ---------------------------------------------------------------------------------------------
+
+export function selectSources(sources, rules, category) {
+  const cfg = rules.selection || {};
+  const maxSel = cfg.maxSelected || 4, maxDom = cfg.maxPerDomain || 2, maxCtx = cfg.maxContextOnly == null ? 1 : cfg.maxContextOnly;
+  const W = cfg.weights || { words: 40, mentions: 30, titleHasName: 10 };
+  const tw = cfg.tierWeight || {};
+  const plan = perspectivePlan(rules, category);
+  const minM = plan ? plan.minMentions : 1;
+  const score = s => Math.round(((Math.min(s.words || 0, cfg.maxWordsCredited || 6000) / (cfg.maxWordsCredited || 6000)) * (W.words || 0) +
+    (Math.min(s.mentions || 0, cfg.maxMentionsCredited || 20) / (cfg.maxMentionsCredited || 20)) * (W.mentions || 0) +
+    (s.titleHasName ? (W.titleHasName || 0) : 0) + (tw[s.tier] || 0)) * 10) / 10;
+  const cands = (sources || [])
+    .filter(s => s.usable && s.status === 'approved' && (s.mentions || 0) >= minM)
+    .map(s => ({ s, lane: plan ? laneOf(s.url, plan.lanes) : null, score: score(s) }))
+    .sort((a, b) => b.score - a.score);
+  const picks = [], dom = {};
+  let ctx = 0;
+  const can = c => picks.length < maxSel && !picks.includes(c) && (dom[baseDomain(c.s.domain)] || 0) < maxDom && (c.s.canVerify || ctx < maxCtx);
+  const add = c => { picks.push(c); dom[baseDomain(c.s.domain)] = (dom[baseDomain(c.s.domain)] || 0) + 1; if (!c.s.canVerify) ctx++; };
+  if (plan) for (const lane of plan.lanes) {            // one per lane, best first, leaving a slot for the best of the rest
+    if (picks.length >= maxSel - 1) break;
+    const c = cands.find(x => x.lane === lane.id && can(x));
+    if (c) add(c);
+  }
+  for (const c of cands) if (can(c)) add(c);
+  if (!picks.some(c => c.s.canVerify)) {                // never hand over context only
+    const v = cands.find(c => c.s.canVerify);
+    if (v) { picks.sort((a, b) => a.score - b.score); if (picks.length >= maxSel) picks[0] = v; else picks.push(v); }
+  }
+  picks.sort((a, b) => b.score - a.score);
+  const brief = c => ({ url: c.s.url, title: c.s.title, domain: c.s.domain, tier: c.s.tier, lane: c.lane, canVerify: !!c.s.canVerify,
+    words: c.s.words, mentions: c.s.mentions, score: c.score });
+  return { picked: picks.map(c => c.s), selected: picks.map(brief),
+    alsoFound: cands.filter(c => !picks.includes(c)).map(c => ({ url: c.s.url, domain: c.s.domain, lane: c.lane, words: c.s.words, score: c.score })) };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -598,7 +730,9 @@ export function assess(subject, found, rules, opts = {}) {
   const unjudged = usable.filter(s => s.status === 'unjudged');
   const sum = list => list.reduce((n, s) => n + (s.words || 0), 0);
   const minM = suff.minMentionsPerPage || 0;
-  const substantive = verify.filter(s => (s.mentions || 0) >= minM);   // really about the subject, not a passing mention
+  const selection = selectSources(found.sources, rules, subject.category);
+  // The enough-to-write-from check runs on the SELECTED pages only: what the writer will actually be given.
+  const substantive = selection.picked.filter(s => s.canVerify && (s.mentions || 0) >= minM);   // really about the subject, not a passing mention
   const verifyWords = sum(substantive);
   const domains = new Set(substantive.map(s => baseDomain(s.domain)));
   const minDomains = mode === 'new' ? Math.max(1, suff.newSubjectMinDomains || 1) : 1;
@@ -612,6 +746,18 @@ export function assess(subject, found, rules, opts = {}) {
   const out = { mode, sufficiency, flags, decisions };
 
   if (!usable.length) { out.status = 'not_found'; out.reason = 'no page was fetched that names the subject'; return out; }
+  out.selection = { selected: selection.selected, alsoFound: selection.alsoFound };
+  if (selection.selected.length < (((rules.selection || {}).targetSelected) || 3)) flags.push('few_sources');
+
+  // Perspective coverage (reported, never blocking): which kinds of site did we manage to hear from?
+  const plan = perspectivePlan(rules, subject.category);
+  if (plan) {
+    const cov = laneCoverage(found.sources || [], plan);
+    const covered = plan.lanes.filter(l => cov[l.id].covered).map(l => ({ id: l.id, label: l.label, words: cov[l.id].words, pages: cov[l.id].pages, ...(l.contextOnly ? { contextOnly: true } : {}) }));
+    const missing = plan.lanes.filter(l => !cov[l.id].covered).map(l => l.id);
+    out.perspectives = { wanted: plan.lanes.map(l => l.id), covered, missing };
+    if (covered.length < Math.min(plan.minLanesForRich, plan.lanes.length)) flags.push('narrow_perspective');
+  }
 
   // 1. Enough to write from?
   if (!enough) {
@@ -648,8 +794,30 @@ export function assess(subject, found, rules, opts = {}) {
     reasons.push({ kind: 'category', text: 'category "' + subject.category + '" is not in the rules file' });
   } else if (cat.kind === 'saint') {
     const yr = subject.year;
+    const partial = [];            // veneration signals that were found but did not add up to a basis
     for (const [name, b] of Object.entries(cat.bases || {})) {
       if (b.maxYear != null && !(yr != null && yr <= b.maxYear)) continue;
+      if (b.signals) {
+        // Different KINDS of evidence, not one phrase (see category-rules.json, ancient_veneration).
+        const sig = {};
+        for (const [type, def] of Object.entries(b.signals)) {
+          const h = find(def.patterns);
+          if (h.length) sig[type] = { strength: def.strength, excerpts: h };
+        }
+        const types = Object.keys(sig);
+        if (!types.length) continue;
+        const cautions = find(b.cautions);
+        const rule = b.accept || {};
+        const strong = types.filter(t => sig[t].strength === 'strong');
+        const decisive = (rule.decisiveTypes || []).some(t => sig[t]);
+        const meets = decisive || (types.length >= (rule.minDistinctTypes == null ? 2 : rule.minDistinctTypes) && strong.length >= (rule.minStrong == null ? 1 : rule.minStrong));
+        ev[name] = { signals: sig, ...(cautions.length ? { cautions } : {}) };
+        if (meets && !cautions.length) { if (!basis) basis = name; }
+        else if (cautions.length) partial.push('veneration signals found (' + types.join(', ') + ') but the sources raise doubt about the person; a human must decide');
+        else partial.push(strong.length ? 'only one kind of veneration signal (' + types.join(', ') + '); ' + (rule.minDistinctTypes || 2) + ' different kinds are needed'
+          : 'no strong veneration signal (only ' + types.join(', ') + '); at least one strong kind is needed');
+        continue;
+      }
       const hits = find(b.patterns);
       if (hits.length) { ev[name] = hits; if (!basis) basis = name; }
     }
@@ -657,7 +825,8 @@ export function assess(subject, found, rules, opts = {}) {
       const nc = {};
       for (const [name, pats] of Object.entries(cat.notCanonized || {})) { if (name.startsWith('_')) continue; const h = find(pats); if (h.length) nc[name] = h; }
       if (Object.keys(nc).length) { ev.not_canonized = nc; reasons.push({ kind: 'basis', text: 'not canonized: the sources suggest ' + Object.keys(nc).join(' / ').replace(/_/g, ' ') + ' status, and no basis for sainthood was found' }); }
-      else reasons.push({ kind: 'basis', text: 'no basis for sainthood found near the name (New Testament figure, ancient veneration, or formal canonization)' });
+      else if (partial.length) reasons.push({ kind: 'basis', text: partial.join('; ') + '; no other basis for sainthood found' });
+    else reasons.push({ kind: 'basis', text: 'no basis for sainthood found near the name (New Testament figure, ancient veneration, or formal canonization)' });
     }
   } else if (cat.kind === 'review') {
     let sig = cat.signals;
@@ -712,7 +881,7 @@ export async function runSourceFinder(task, dataJson, deps = {}) {
     try { rules = deps.rules || loadRules(); } catch (err) { rulesError = String((err && err.message) || err).slice(0, 300); }
     const mode = out.outcome === 'rewrite_ready' ? 'rewrite' : 'new';
     const opts = { allowlistOnly: p.allowlistOnly === true, model: p.model };
-    if (rules) { opts.minWords = rules.sufficiency.minWordsVerifyCapable; opts.targetWords = rules.sufficiency.targetWordsVerifyCapable; opts.minMentions = rules.sufficiency.minMentionsPerPage || 0; opts.minDomains = mode === 'new' ? Math.max(1, rules.sufficiency.newSubjectMinDomains || 1) : 1; }
+    if (rules) { opts.minWords = rules.sufficiency.minWordsVerifyCapable; opts.targetWords = rules.sufficiency.targetWordsVerifyCapable; opts.minMentions = rules.sufficiency.minMentionsPerPage || 0; opts.minDomains = mode === 'new' ? Math.max(1, rules.sufficiency.newSubjectMinDomains || 1) : 1; opts.perspectives = perspectivePlan(rules, subject.category); opts.poolTarget = (rules.selection && rules.selection.poolTarget) || 0; }
     try {
       found = await findSources(subject, opts, deps);
     } catch (err) {
@@ -741,7 +910,10 @@ export async function runSourceFinder(task, dataJson, deps = {}) {
   }
   if (cnt) summary += ' | sources: ' + cnt.usableApproved + ' usable allowlisted, ' + cnt.usableUnjudged + ' usable unjudged, ' +
     cnt.unusable + ' unusable, ' + cnt.totalWordsUsable + ' words' + (found.widened ? ' (widened to open web)' : '') +
-    (out.layer3 ? ' | layer 3: ' + out.layer3.status + (out.layer3.reason ? ' — ' + out.layer3.reason : '') + (out.layer3.flags && out.layer3.flags.length ? ' [' + out.layer3.flags.join(', ') + ']' : '') : '');
+    (out.layer3 ? ' | layer 3: ' + out.layer3.status + (out.layer3.reason ? ' — ' + out.layer3.reason : '') + (out.layer3.flags && out.layer3.flags.length ? ' [' + out.layer3.flags.join(', ') + ']' : '') : '') +
+    (out.layer3 && out.layer3.selection ? ' | selected ' + out.layer3.selection.selected.length + ' of ' + (out.layer3.selection.selected.length + out.layer3.selection.alsoFound.length) + ' pages' : '') +
+    (out.layer3 && out.layer3.perspectives ? ' | perspectives ' + out.layer3.perspectives.covered.length + '/' + out.layer3.perspectives.wanted.length +
+      ' (' + out.layer3.perspectives.covered.map(c => c.id).join(', ') + (out.layer3.perspectives.missing.length ? '; missing ' + out.layer3.perspectives.missing.join(', ') : '') + ')' : '');
   else if (out.search && out.search.error) summary += ' | source search failed: ' + out.search.error;
   return { result: out, summary: summary.slice(0, 900), provider: found ? FINDER_MODEL.provider : 'none', tokensUsed };
 }
