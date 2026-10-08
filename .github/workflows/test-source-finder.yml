@@ -1,0 +1,26 @@
+# .github/workflows/test-source-finder.yml
+# MODULE DATE: 2026-10-08 (Thursday) · v1
+# Runs the source-finder tests. No network, no API key, no secrets: every search and fetch in the tests is mocked.
+# Start it by hand: GitHub app or github.com > repo > Actions > "Test source-finder" > Run workflow.
+# It also runs by itself whenever a file under scripts/ changes.
+
+name: Test source-finder
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/test-source-finder.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # DATA_PATH makes the real-data tests run against the repo's data.json (skipped if the file is missing).
+      - name: Run tests
+        run: DATA_PATH=data.json node --test scripts/tests/source-finder.test.mjs
