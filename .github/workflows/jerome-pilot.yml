@@ -1,5 +1,8 @@
 # .github/workflows/jerome-pilot.yml
-# MODULE DATE: 2026-10-08 (Thursday) · v2.1 — adds the article log (steps, minutes, tokens, cost) and commits it; adds a model box
+# MODULE DATE: 2026-10-09 (Friday) · v2.2 — article log (steps, minutes, tokens, cost) committed each run; model box; FASTER CHECKOUT (UNTESTED)
+# v2.2: the checkout step took 3m20s on one run (Jerome's own work was 30 s). It now downloads no file contents up front and then only
+#   scripts/ plus the top-level files (data.json, article-log.json), because Jerome needs nothing else. If a run fails at checkout or is not
+#   faster, put back the v2.1 file (the same step with no 'with:' block).
 # LIVE pilot of Jerome (scripts/services/source-finder.mjs). Manual only: it never runs by itself.
 # It makes REAL web searches (Anthropic API, billed per search) and fetches REAL pages.
 # NEW in v2: each run is added to article-log.json in the repo (a short numbered log of what happened, how long each step took,
@@ -54,6 +57,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          filter: blob:none            # do not download file contents until they are needed
+          sparse-checkout: scripts     # cone mode: the scripts/ folder plus every top-level file
       - uses: actions/setup-node@v4
         with:
           node-version: 20
