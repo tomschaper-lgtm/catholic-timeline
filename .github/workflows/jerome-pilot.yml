@@ -1,5 +1,6 @@
 # .github/workflows/jerome-pilot.yml
-# MODULE DATE: 2026-10-09 (Friday) · v2.2 — article log (steps, minutes, tokens, cost) committed each run; model box; FASTER CHECKOUT (UNTESTED)
+# MODULE DATE: 2026-10-09 (Friday) · v2.3 — article log (steps, minutes, tokens, cost) committed each run; DROPDOWNS for model and category; FASTER CHECKOUT (UNTESTED)
+# v2.3: the model and the category are now pick lists. To add a model to the list, add a line under options: (it must also be in scripts/pricing.json, or the log shows 'cost unknown').
 # v2.2: the checkout step took 3m20s on one run (Jerome's own work was 30 s). It now downloads no file contents up front and then only
 #   scripts/ plus the top-level files (data.json, article-log.json), because Jerome needs nothing else. If a run fails at checkout or is not
 #   faster, put back the v2.1 file (the same step with no 'with:' block).
@@ -27,17 +28,32 @@ on:
         required: false
         default: ''
       category:
-        description: 'New subject category: s c p m u e i'
+        description: 'New subject category (ignored when an entry id is filled in)'
+        type: choice
         required: false
-        default: 's'
+        default: 's - Saint'
+        options:
+          - 's - Saint'
+          - 'c - Council'
+          - 'p - Persecution'
+          - 'm - Marian apparition'
+          - 'u - Eucharistic miracle'
+          - 'e - Event'
+          - 'i - Topic page'
       year:
         description: 'New subject year (optional)'
         required: false
         default: ''
       model:
-        description: 'Model for the search step (blank = the default, claude-sonnet-4-6). To compare cost: claude-sonnet-5-5, claude-haiku-5-5'
+        description: 'Model for the search step (Haiku 5.5 cost $0.06 on Augustine, Sonnet 5.5 $0.25, Sonnet 4.6 $0.38)'
+        type: choice
         required: false
-        default: ''
+        default: 'claude-haiku-5-5'
+        options:
+          - 'claude-haiku-5-5'
+          - 'claude-sonnet-5-5'
+          - 'claude-sonnet-4-6'
+          - 'claude-opus-5-5'
       confirm_new:
         description: 'Treat as new even if a similar entry exists (use only after seeing possible_match)'
         type: boolean
@@ -79,7 +95,8 @@ jobs:
           if [ -n "$ENTRY_ID" ]; then
             node scripts/services/source-finder.mjs --rewrite "$ENTRY_ID" --search --log "${MODEL_ARGS[@]}" > jerome-result.txt 2> jerome-log.txt
           else
-            ARGS=(--category "$SUBJECT_CATEGORY" --search --log "${MODEL_ARGS[@]}")
+            CAT_LETTER="${SUBJECT_CATEGORY%% *}"          # 's - Saint' -> 's'
+            ARGS=(--category "$CAT_LETTER" --search --log "${MODEL_ARGS[@]}")
             [ -n "$SUBJECT_YEAR" ] && ARGS+=(--year "$SUBJECT_YEAR")
             [ "$CONFIRM_NEW" = "true" ] && ARGS+=(--confirm-new)
             node scripts/services/source-finder.mjs "$SUBJECT_NAME" "${ARGS[@]}" > jerome-result.txt 2> jerome-log.txt
