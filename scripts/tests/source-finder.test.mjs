@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { fold, scoreMatch, checkExistence, findSubject, runSourceFinder, findSources, safeUrl, allowedDomains, examine, assess, loadRules, evidence, laneOf, laneCoverage, perspectivePlan, selectSources, runJerome, compactResult } from '../services/source-finder.mjs';
+import { fold, scoreMatch, checkExistence, findSubject, runSourceFinder, findSources, safeUrl, allowedDomains, examine, assess, loadRules, evidence, laneOf, laneCoverage, perspectivePlan, selectSources, runJerome, compactResult, newTally, addUsage } from '../services/source-finder.mjs';
 import { fileURLToPath } from 'node:url';
 
 const RULES = loadRules(fileURLToPath(new URL('../category-rules.json', import.meta.url)));
@@ -998,4 +998,25 @@ test('timing carries the model and token counts for the cost column', async () =
   assert.equal(r.result.timing.model, 'claude-sonnet-4-6');
   assert.equal(typeof r.result.timing.inputTokens, 'number');
   assert.equal(typeof r.result.timing.outputTokens, 'number');
+});
+
+test('token tally: new input, output, cache reads and writes are kept apart; a request with a prompt over 100,000 tokens goes in its own bucket', () => {
+  const t = newTally();
+  addUsage(t, { input_tokens: 9000, output_tokens: 700, cache_read_input_tokens: 4000, cache_creation_input_tokens: 1000 });
+  addUsage(t, { input_tokens: 3000, output_tokens: 300 });
+  assert.deepEqual([t.input, t.output, t.cacheRead, t.cacheWrite], [12000, 1000, 4000, 1000]);
+  addUsage(t, { input_tokens: 60000, output_tokens: 900, cache_read_input_tokens: 50000 });      // prompt = 110,000 -> long bucket
+  assert.deepEqual([t.long.input, t.long.output, t.long.cacheRead], [60000, 900, 50000]);
+  assert.equal(t.input, 12000);                                                                  // the normal bucket did not change
+  addUsage(t, undefined);                                                                         // a response with no usage block changes nothing
+  addUsage(t, {});
+  assert.equal(t.output, 1000);
+});
+
+test('timing in the result carries cache tokens, and a longPrompt bucket only when there was one', async () => {
+  const m = mocks(lanePages, laneResults);
+  const r = await runSourceFinder({ payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's' } }, data, { ...m.deps, rules: RULES });
+  assert.equal(r.result.timing.cacheReadTokens, 0);
+  assert.equal(r.result.timing.cacheWriteTokens, 0);
+  assert.equal(r.result.timing.longPrompt, undefined);
 });

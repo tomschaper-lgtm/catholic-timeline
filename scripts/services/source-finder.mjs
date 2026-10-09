@@ -1,6 +1,6 @@
 // scripts/services/source-finder.mjs
 //
-// MODULE DATE: 2026-10-08 (Thursday) · v0.9 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
+// MODULE DATE: 2026-10-08 (Thursday) · v0.9.2 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
 // Written against orchestrator.mjs / ledger-build.mjs v1.4 as uploaded to the Project 2026-10-07.
 // Design: ARTICLE-PIPELINE-DESIGN-2026-10-07.md, section 4.1 and section 9. Layer 1 uses no AI and no
 // network. Layer 2 calls Anthropic web search and fetches pages; it was tested with MOCKED search and
@@ -322,7 +322,17 @@ const NEVER_HOSTS = ['wikipedia.org', 'wikimedia.org', 'wikiwand.com', 'dbpedia.
   'youtu.be', 'medium.com', 'substack.com', 'blogspot.com', 'wordpress.com', 'tumblr.com', 'linkedin.com'];
 
 let tokensUsed = 0;
-let usageTally = { input: 0, output: 0 };   // this run's search-call tokens, for the cost column
+// This run's search-call tokens, for the cost column. input = NEW input as the API reports it (cache reads and writes are separate).
+// Requests whose whole prompt (input + cache read + cache write) is over LONG_PROMPT_TOKENS go in `long`, because some models
+// (Haiku 5.5) charge a higher price for those. The bucket split is harmless for models that do not.
+const LONG_PROMPT_TOKENS = 100000;
+export const newTally = () => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, long: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } });
+let usageTally = newTally();
+export function addUsage(t, u) {
+  const i = (u && u.input_tokens) || 0, o = (u && u.output_tokens) || 0, cr = (u && u.cache_read_input_tokens) || 0, cw = (u && u.cache_creation_input_tokens) || 0;
+  const b = (i + cr + cw) > LONG_PROMPT_TOKENS ? t.long : t;
+  b.input += i; b.output += o; b.cacheRead += cr; b.cacheWrite += cw;
+}
 const lastHit = new Map();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const wordCount = s => String(s || '').trim().split(/\s+/).filter(Boolean).length;
@@ -437,8 +447,7 @@ async function realSearch({ query, allowedDomains, model }) {
   }
   const data = await res.json();
   tokensUsed += ((data.usage && data.usage.input_tokens) || 0) + ((data.usage && data.usage.output_tokens) || 0);
-  usageTally.input += (data.usage && data.usage.input_tokens) || 0;
-  usageTally.output += (data.usage && data.usage.output_tokens) || 0;
+  addUsage(usageTally, data.usage);
   const results = [];
   let searches = 0;
   for (const b of data.content || []) {
@@ -892,7 +901,7 @@ export function assess(subject, found, rules, opts = {}) {
 export async function runSourceFinder(task, dataJson, deps = {}) {
   const p = task.payload || {};
   tokensUsed = 0;
-  usageTally = { input: 0, output: 0 };
+  usageTally = newTally();
   const out = findSubject({ mode: p.mode, name: p.name, category: p.category, year: p.year, entityId: p.entityId || task.entityId }, dataJson);
 
   const proceed = p.search !== false && (out.outcome === 'new_subject' || out.outcome === 'rewrite_ready' ||
@@ -919,7 +928,10 @@ export async function runSourceFinder(task, dataJson, deps = {}) {
       out.search = found;
       out.timing = { seconds: Math.round((Date.now() - tStart) / 100) / 10, webSearches: found.webSearches || 0, searchCalls: found.searchCalls || 0,
         pagesFetched: (found.passes || []).reduce((n, x) => n + (x.fetched || 0), 0),
-        model: p.model || FINDER_MODEL.modelId, inputTokens: usageTally.input, outputTokens: usageTally.output };
+        model: p.model || FINDER_MODEL.modelId, inputTokens: usageTally.input, outputTokens: usageTally.output,
+        cacheReadTokens: usageTally.cacheRead, cacheWriteTokens: usageTally.cacheWrite,
+        ...(usageTally.long.input || usageTally.long.output || usageTally.long.cacheRead || usageTally.long.cacheWrite
+          ? { longPrompt: { inputTokens: usageTally.long.input, outputTokens: usageTally.long.output, cacheReadTokens: usageTally.long.cacheRead, cacheWriteTokens: usageTally.long.cacheWrite } } : {}) };
       out.layer2 = found.counts.usableApproved + found.counts.usableUnjudged > 0 ? 'candidates_found' : 'no_candidates';
       if (p.assess !== false) {
         try { if (!rules) throw new Error(rulesError); out.layer3 = assess(subject, found, rules, { mode }); }
@@ -978,7 +990,7 @@ export async function runJerome(task, dataJson, _workLog, deps = {}) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// CLI:  node scripts/services/source-finder.mjs "St. Bertha" --category s [--year 723] [--search] [--confirm-new] [--log] [--job <id>]
+// CLI:  node scripts/services/source-finder.mjs "St. Bertha" --category s [--year 723] [--search] [--confirm-new] [--log] [--job <id>] [--model <model id>]
 //       node scripts/services/source-finder.mjs --rewrite st-augustine-430 [--search]
 // Without --search only layer 1 runs (no network). --search needs ANTHROPIC_API_KEY.
 // ---------------------------------------------------------------------------------------------
@@ -987,12 +999,12 @@ async function cli(argv) {
   const args = argv.slice(2);
   const get = flag => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined; };
   const rewrite = get('--rewrite');
-  const name = args.find((a, i) => !a.startsWith('--') && !['--category', '--year', '--rewrite', '--job'].includes(args[i - 1]));
+  const name = args.find((a, i) => !a.startsWith('--') && !['--category', '--year', '--rewrite', '--job', '--model'].includes(args[i - 1]));
   const dataJson = JSON.parse(readFileSync(DATA_PATH, 'utf8'));
   const task = { payload: rewrite
-    ? { mode: 'rewrite', entityId: rewrite, search: args.includes('--search') }
+    ? { mode: 'rewrite', entityId: rewrite, search: args.includes('--search'), model: get('--model') }
     : { mode: 'new', name, category: get('--category'), year: get('--year'), search: args.includes('--search'),
-        confirmNew: args.includes('--confirm-new') } };
+        confirmNew: args.includes('--confirm-new'), model: get('--model') } };
   const out = await runSourceFinder(task, dataJson);
   console.log(out.summary);
   console.log(JSON.stringify(out.result, null, 2));

@@ -500,13 +500,29 @@ labeled as Tom's translation, never verbatim as if it were the original.
   model, input and output tokens, web searches). Steps are written by code from real numbers, never by an AI. Dollars are worked
   out when the log is shown, from pricing.json, so a price change corrects every old job. Confirmed on Anthropic's pricing page
   (2026-10-08): web search is $10 per 1,000 searches plus token cost; web fetch is free (Jerome fetches with its own code). NOT
-  confirmed: the per-token price for claude-sonnet-4-6 ($3 in / $15 out is the usual Sonnet-class price, marked `verified:false`,
-  so costs show an asterisk until Tom confirms). The task keeps a compact result in workLog.json (no per-page records). The Jerome
+  confirmed: the per-token price for claude-sonnet-4-6 (it is not in the current-models table of aipricing.guru, the third-party
+  aggregator Tom pointed to on 2026-10-08; $3 in / $15 out is assumed, `verified:false`, costs show an asterisk until Tom confirms).
+  That aggregator lists Claude Sonnet 5.5 at $2 in / $10 out and Opus 5.5 at $4 / $20 (entered, unverified); its Haiku 5.5 row had
+  scrambled columns, so Haiku is not priced. The pilot workflow has a `model` box to compare models on the same subject. The task keeps a compact result in workLog.json (no per-page records). The Jerome
   pilot workflow now logs and commits article-log.json. A live Augustine run would have read: 11 web searches, 2.9 min, $0.11 in
   search costs (tokens were not recorded then). **Not built:** the Log view in the website (needs index.html), the Add Task option
   for `source-find` in the app, steps for the writer, verifier, reworder and recorder (they call addStep with the same jobId),
   events such as "Tom approved a new site". The placing service gained PATCH mode (v0.2): small edits applied to the file as it is
   in the repo now, refused if the text to find is missing or ambiguous. 100 source-finder tests, 18 log tests, 34 placing tests pass.
+
+- **2026-10-09 — v0.9.2: verified prices, cache and long-prompt costing.** Tom opened Anthropic's own pricing page (and sent
+  screenshots); every price in `scripts/pricing.json` now comes from it and is marked verified: Sonnet 4.6 $3 / $15 (so the
+  assumed price was right and the first live run's $0.38 was correct), Sonnet 5.5 $2 / $10, Opus 5.5 $4 / $20, Fable 5.1 $10 / $50,
+  Haiku 5.5 $0.10 / $0.50 for prompts up to 100,000 tokens and $0.50 / $2.50 above (each request is priced on its own, and the
+  prompt counts cache reads and writes). Cache writes (5-minute) are 1.25x the input price and cache reads 0.1x (0.05x on
+  Opus 5.5 and Sonnet 5.5, 0.025x on Fable 5.1). Web search is $10 per 1,000 searches; web fetch is free. The log now records
+  new input, output, cache reads and cache writes separately, and requests over 100,000 tokens in their own bucket.
+  **Do not compare models by price per token:** the page says Claude 4.7 and later models use a tokenizer that makes about 30% more
+  tokens for the same text, so Sonnet 5.5 is only about 10% cheaper per job than Sonnet 4.6, not a third. Estimates for the first
+  Augustine run (7 searches, 78.8k in, 5.1k out on 4.6): Sonnet 4.6 $0.38 (actual), Sonnet 5.5 about $0.34, Haiku 5.5 about
+  $0.08; the $0.07 of search charges is the same for all. Caching is requested per API call (one `cache_control` field at the
+  top of the request), not an account setting; it will pay off for the writer, verifier and reworder, which re-send the same
+  pages. 24 log tests, 102 Jerome tests pass.
 
 ## 13. Sufficiency, category rules and visitor input (2026-10-07, not yet built)
 

@@ -1,20 +1,56 @@
 {
-  "version": 1,
-  "updated": "2026-10-08",
-  "note": "Prices used to turn the raw usage in article-log.json into dollars. The log stores tokens and searches, not dollars, so changing a price here corrects every old job at the next view. Confirm everything against https://www.anthropic.com/pricing before trusting a total. A price with verified:false is an assumption and its cost is shown with an asterisk.",
-
+  "version": 2,
+  "updated": "2026-10-09",
+  "note": "Prices used to turn the raw usage in article-log.json into dollars. The log stores tokens and searches, not dollars, so changing a price here corrects every old job at the next view. All prices are USD per million tokens (MTok). 'cacheWrite' is the 5-minute cache write price; cache reads are what a repeated, cached prompt costs. A price with verified:false is an assumption and its cost is shown with an asterisk.",
+  "verifiedFrom": "platform.claude.com/docs/en/about-claude/pricing (Anthropic's pricing page), read 2026-10-09 and matched against Tom's screenshots of the same page",
   "webSearchPer1000": 10,
   "webSearchVerified": true,
-  "_webSearch": "Confirmed 2026-10-08 on Anthropic's pricing page (docs.anthropic.com/en/docs/about-claude/pricing): web search is $10 per 1,000 searches, plus the normal token cost of the content it returns; a search that errors is not billed. The web fetch tool is free, and Jerome fetches pages with its own code, which costs nothing.",
-
+  "_webSearch": "Anthropic's pricing page: web search is $10 per 1,000 searches, plus the normal token cost of the content it returns; a search that errors is not billed. The web fetch tool is free, and Jerome fetches pages with its own code, which costs nothing.",
+  "_tokenizer": "IMPORTANT FOR COMPARING MODELS: Anthropic's page says Claude 4.7 and later models use a newer tokenizer that produces about 30% more tokens for the same text; Claude Sonnet 4.6 and earlier use the previous one. So a model with a lower price per token can cost nearly the same per job. Compare the cost of a whole run, not the price per million.",
   "models": {
     "claude-sonnet-4-6": {
       "inputPerMTok": 3,
       "outputPerMTok": 15,
-      "verified": false,
-      "_source": "ASSUMED. $3 input / $15 output per million tokens is the usual Sonnet-class list price, but this exact model name was not confirmed on the pricing page when this file was written. Check it, then set verified to true."
+      "cacheWritePerMTok": 3.75,
+      "cacheReadPerMTok": 0.3,
+      "verified": true
+    },
+    "claude-sonnet-5-5": {
+      "inputPerMTok": 2,
+      "outputPerMTok": 10,
+      "cacheWritePerMTok": 2.5,
+      "cacheReadPerMTok": 0.1,
+      "verified": true
+    },
+    "claude-opus-5-5": {
+      "inputPerMTok": 4,
+      "outputPerMTok": 20,
+      "cacheWritePerMTok": 5,
+      "cacheReadPerMTok": 0.2,
+      "verified": true
+    },
+    "claude-fable-5-1": {
+      "inputPerMTok": 10,
+      "outputPerMTok": 50,
+      "cacheWritePerMTok": 12.5,
+      "cacheReadPerMTok": 0.25,
+      "verified": true
+    },
+    "claude-haiku-5-5": {
+      "inputPerMTok": 0.1,
+      "outputPerMTok": 0.5,
+      "cacheWritePerMTok": 0.125,
+      "cacheReadPerMTok": 0.01,
+      "verified": true,
+      "longPrompt": {
+        "thresholdTokens": 100000,
+        "inputPerMTok": 0.5,
+        "outputPerMTok": 2.5,
+        "cacheWritePerMTok": 0.625,
+        "cacheReadPerMTok": 0.05
+      },
+      "_longPrompt": "Haiku 5.5 is priced by the length of each request's prompt: a request whose prompt (all input tokens, including cache reads and writes) is over 100,000 tokens pays the higher prices. Each request is priced on its own, so the log keeps requests over the threshold in a separate bucket."
     }
   },
-
-  "_howToAdd": "Add each model a service uses, spelled exactly as the service reports it, with inputPerMTok and outputPerMTok in dollars per million tokens. Services that charge by something else (audio by characters, images by picture) report a dollar amount themselves as otherUsd on their step."
+  "_notEntered": "Other models on the page (Opus 5 / 4.x, Sonnet 5 / 4.5, Haiku 4.5 and older, Mythos) are not entered because nothing uses them yet. Add a model here, spelled exactly as the service reports it, before using it. Batch API (50% off), data residency (1.1x for US-only inference) and fast mode multipliers are not applied because nothing uses them. A step that charges by something else (audio by characters, images by picture) reports its own dollars as usage.otherUsd."
 }

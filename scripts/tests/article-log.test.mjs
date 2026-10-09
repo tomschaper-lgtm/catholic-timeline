@@ -12,10 +12,23 @@ const PRICING = loadPricing(fileURLToPath(new URL('../pricing.json', import.meta
 const dir = () => mkdtempSync(join(tmpdir(), 'alog-'));
 const AT = '2026-10-08T22:46:43.000Z';
 
-test('pricing file loads: web search price is confirmed, the model price is marked as an assumption', () => {
+test('pricing file: web search and every listed model price came from Anthropic\'s own page and are marked verified', () => {
   assert.equal(PRICING.webSearchPer1000, 10);
   assert.equal(PRICING.webSearchVerified, true);
-  assert.equal(PRICING.models['claude-sonnet-4-6'].verified, false);
+  for (const [id, m] of Object.entries(PRICING.models)) assert.equal(m.verified, true, id);
+  const s46 = PRICING.models['claude-sonnet-4-6'];
+  assert.deepEqual([s46.inputPerMTok, s46.outputPerMTok, s46.cacheWritePerMTok, s46.cacheReadPerMTok], [3, 15, 3.75, 0.30]);
+});
+
+test('pricing file: the 5.5 family and Fable, with cache prices', () => {
+  const m = PRICING.models;
+  assert.deepEqual([m['claude-sonnet-5-5'].inputPerMTok, m['claude-sonnet-5-5'].outputPerMTok, m['claude-sonnet-5-5'].cacheReadPerMTok], [2, 10, 0.10]);
+  assert.deepEqual([m['claude-opus-5-5'].inputPerMTok, m['claude-opus-5-5'].outputPerMTok, m['claude-opus-5-5'].cacheReadPerMTok], [4, 20, 0.20]);
+  assert.deepEqual([m['claude-fable-5-1'].inputPerMTok, m['claude-fable-5-1'].outputPerMTok, m['claude-fable-5-1'].cacheReadPerMTok], [10, 50, 0.25]);
+  const h = m['claude-haiku-5-5'];
+  assert.deepEqual([h.inputPerMTok, h.outputPerMTok, h.cacheReadPerMTok], [0.10, 0.50, 0.01]);
+  assert.deepEqual([h.longPrompt.thresholdTokens, h.longPrompt.inputPerMTok, h.longPrompt.outputPerMTok], [100000, 0.50, 2.50]);
+  assert.match(PRICING._tokenizer, /30% more tokens/);
 });
 
 test('loadLog: missing or damaged file gives an empty log, never a crash', () => {
@@ -51,13 +64,40 @@ test('usage is stored raw (tokens, model, searches), and empty usage is dropped'
   assert.equal(addStep(job, { who: 'Jerome', text: 'y', at: AT, usage: { inputTokens: 0 } }).usage, undefined);
 });
 
-test('cost: searches at $10 per 1,000 plus tokens by model; an unconfirmed model price is flagged as assumed', () => {
+test('cost: searches at $10 per 1,000 plus tokens by model; verified prices carry no asterisk', () => {
   const step = { usage: { model: 'claude-sonnet-4-6', inputTokens: 200000, outputTokens: 10000, webSearches: 5 } };
   const c = costOfStep(step, PRICING);
   // 5 searches = $0.05; tokens = 200000*3/1e6 + 10000*15/1e6 = $0.60 + $0.15 = $0.75
   assert.equal(c.usd, 0.8);
-  assert.equal(c.assumed, true);
+  assert.equal(c.assumed, false);
   assert.equal(c.missing, false);
+});
+
+test('cost: a price marked unverified is flagged as assumed', () => {
+  const shaky = { ...PRICING, models: { m: { inputPerMTok: 1, outputPerMTok: 2, verified: false } } };
+  assert.equal(costOfStep({ usage: { model: 'm', inputTokens: 1e6 } }, shaky).assumed, true);
+  assert.equal(costOfStep({ usage: { webSearches: 1 } }, { ...PRICING, webSearchVerified: false }).assumed, true);
+});
+
+test('cost: cache reads and writes are priced separately from new input (Sonnet 5.5: write $2.50, read $0.10 per million)', () => {
+  const step = { usage: { model: 'claude-sonnet-5-5', inputTokens: 10000, cacheWriteTokens: 100000, cacheReadTokens: 1000000, outputTokens: 2000 } };
+  // 10000*2 + 100000*2.5 + 1000000*0.10 + 2000*10, all /1e6 = 0.02 + 0.25 + 0.10 + 0.02 = 0.39
+  assert.equal(costOfStep(step, PRICING).usd, 0.39);
+});
+
+test('cost: a cache price that is not in the pricing file is reported missing, never guessed', () => {
+  const noCache = { webSearchPer1000: 10, models: { m: { inputPerMTok: 1, outputPerMTok: 2, verified: true } } };
+  const c = costOfStep({ usage: { model: 'm', inputTokens: 1000, cacheReadTokens: 5000 } }, noCache);
+  assert.equal(c.missing, true);
+});
+
+test('cost: Haiku 5.5 prices requests over 100,000 tokens at the higher rates, each bucket on its own', () => {
+  const small = { usage: { model: 'claude-haiku-5-5', inputTokens: 80000, outputTokens: 5000 } };
+  assert.equal(costOfStep(small, PRICING).usd, 0.0105);            // 80000*0.10 + 5000*0.50 = 8000 + 2500 = 10500 / 1e6
+  const both = { usage: { model: 'claude-haiku-5-5', inputTokens: 80000, outputTokens: 5000, longPrompt: { inputTokens: 150000, outputTokens: 4000 } } };
+  // normal bucket 0.0105 + long bucket 150000*0.50 + 4000*2.50 = 75000 + 10000 = 85000 / 1e6 = 0.085  -> 0.0955
+  assert.equal(costOfStep(both, PRICING).usd, 0.0955);
+  assert.equal(costOfStep({ usage: { model: 'claude-sonnet-5-5', inputTokens: 150000, longPrompt: { inputTokens: 150000 } } }, PRICING).usd, 0.6);   // no tier on Sonnet: same price for both buckets
 });
 
 test('cost: a confirmed price is not marked assumed; a model with no price is reported as missing, not guessed', () => {
@@ -80,7 +120,7 @@ test('job cost adds the steps that can be priced and keeps the flags', () => {
   const job = { steps: [{ usage: { webSearches: 10 } }, { text: 'no usage' }, { usage: { model: 'claude-sonnet-4-6', inputTokens: 1e6 } }] };
   const c = costOfJob(job, PRICING);
   assert.equal(c.usd, 3.1);
-  assert.equal(c.assumed, true);
+  assert.equal(c.assumed, false);
 });
 
 test('stepDetail and renderJob: minutes, tokens by model, searches, cost, total', () => {
@@ -91,9 +131,21 @@ test('stepDetail and renderJob: minutes, tokens by model, searches, cost, total'
   const lines = renderJob(job, PRICING);
   assert.match(lines[0], /^St\. Augustine \(rewrite\) — 2026-10-08 22:46 UTC$/);
   assert.equal(lines[1], '1. Jerome: Got request for rewrite of St. Augustine');
-  assert.match(lines[2], /^2\. Jerome: Found 18 usable pages on 7 sites, 89,759 words in all \(2\.9 min, 41\.2k in \/ 3\.1k out tokens \(claude-sonnet-4-6\), 5 web searches, \$0\.\d\d\*\)$/);
-  assert.match(lines[3], /^Total task 2\.9 min · cost \$0\.\d\d\*$/);
-  assert.match(lines[4], /not confirmed/);
+  assert.match(lines[2], /^2\. Jerome: Found 18 usable pages on 7 sites, 89,759 words in all \(2\.9 min, 41\.2k in \/ 3\.1k out tokens \(claude-sonnet-4-6\), 5 web searches, \$0\.22\)$/);
+  assert.match(lines[3], /^Total task 2\.9 min · cost \$0\.22$/);
+  assert.equal(lines.length, 4);                                    // verified prices: no asterisk, no "not confirmed" line
+});
+
+test('renderJob shows cached tokens, and an asterisk plus a note when a price is unverified', () => {
+  const job = openJob({ jobs: [] }, { id: 'j', title: 'T', at: AT });
+  addStep(job, { who: 'Augustine', text: 'wrote it', at: AT, seconds: 120, usage: { model: 'claude-sonnet-5-5', inputTokens: 5000, cacheReadTokens: 200000, outputTokens: 3000 } });
+  assert.match(renderJob(job, PRICING)[1], /5k in \+ 200k cached \/ 3k out tokens \(claude-sonnet-5-5\), \$0\.06\)$/);   // 5000*2 + 200000*0.10 + 3000*10 = 0.06
+  const shaky = { ...PRICING, models: { m: { inputPerMTok: 1, outputPerMTok: 2, verified: false } } };
+  const job2 = openJob({ jobs: [] }, { id: 'k', title: 'T', at: AT });
+  addStep(job2, { who: 'X', text: 'y', at: AT, usage: { model: 'm', inputTokens: 1e6 } });
+  const lines = renderJob(job2, shaky);
+  assert.match(lines[1], /\$1\.00\*\)$/);
+  assert.match(lines[lines.length - 1], /not confirmed/);
 });
 
 test('renderJob without pricing still shows time and raw usage, and says the cost is unknown', () => {
@@ -138,7 +190,10 @@ test('jeromeSteps: request, what was found with time and usage, the ranking, and
   assert.equal(st[0].text, 'Got request for rewrite of St. Augustine');
   assert.equal(st[1].text, 'Found 18 usable pages on 2 sites, 89,759 words in all');
   assert.equal(st[1].seconds, 174.2);
-  assert.deepEqual(st[1].usage, { model: 'claude-sonnet-4-6', inputTokens: 41200, outputTokens: 3100, webSearches: 5 });
+  assert.deepEqual(st[1].usage, { model: 'claude-sonnet-4-6', inputTokens: 41200, outputTokens: 3100, webSearches: 5 });   // fields that were not measured are left out
+  const withCache = jeromeSteps({ ...RESULT, timing: { ...RESULT.timing, cacheReadTokens: 900, longPrompt: { inputTokens: 120000, outputTokens: 800 } } }, { at: AT });
+  assert.equal(withCache[1].usage.cacheReadTokens, 900);
+  assert.deepEqual(withCache[1].usage.longPrompt, { inputTokens: 120000, outputTokens: 800 });
   assert.equal(st[2].text, 'Ranked the sites and kept the best 2 of 3: 1 newadvent.org (history biography) 100; 2 ewtn.com (magisterial) 100');
   assert.equal(st[3].text, 'Enough to write from; basis: ancient veneration; flags: single_source');
 });

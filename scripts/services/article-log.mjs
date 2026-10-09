@@ -1,10 +1,12 @@
 // scripts/services/article-log.mjs
-// MODULE DATE: 2026-10-08 (Thursday) · v0.1 — the article log: a short, readable record of what happened on each article job.
+// MODULE DATE: 2026-10-09 (Friday) · v0.2 — the article log: a short, readable record of what happened on each article job.
 //
 // WHAT IT KEEPS (article-log.json, repo root, committed like workLog.json):
 //   { "version": 1, "jobs": [ { "id", "title", "kind": "rewrite" | "new", "startedAt", "requestedBy", "status", "totalSeconds",
 //        "steps": [ { "n", "who", "text", "at", "seconds",
-//                     "usage": { "model", "inputTokens", "outputTokens", "webSearches", "otherUsd" } } ] } ] }
+//                     "usage": { "model", "inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens", "webSearches",
+//                                "longPrompt": { same four token fields, for requests over the long-prompt threshold }, "otherUsd" } } ] } ] }
+//   inputTokens is the NEW (uncached) input, as the API reports it; cache reads and writes are separate and priced separately.
 //   Each service adds its own steps to the SAME job by passing the same jobId (task.payload.jobId, else the task id).
 //   Steps are written by CODE from real numbers (pages, words, seconds, tokens), never by an AI, so the numbers can be trusted.
 //   The log is kept apart from workLog.json so the work log's pruning never touches it. It keeps the newest MAX_JOBS jobs,
@@ -62,7 +64,12 @@ export function addStep(job, { who, text, at, seconds = null, usage = null }) {
   if (usage) {
     const u = {};
     if (usage.model) u.model = usage.model;
-    for (const k of ['inputTokens', 'outputTokens', 'webSearches', 'otherUsd']) if (usage[k]) u[k] = usage[k];
+    for (const k of ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'webSearches', 'otherUsd']) if (usage[k]) u[k] = usage[k];
+    if (usage.longPrompt) {
+      const lp = {};
+      for (const k of ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens']) if (usage.longPrompt[k]) lp[k] = usage.longPrompt[k];
+      if (Object.keys(lp).length) u.longPrompt = lp;
+    }
     if (Object.keys(u).length) step.usage = u;
   }
   job.steps.push(step);
@@ -84,7 +91,21 @@ export function prune(log, { maxJobs = MAX_JOBS, maxAgeDays = MAX_AGE_DAYS, now 
 
 // ---- cost ----
 // Returns { usd, assumed, missing }: usd is null when nothing could be priced. assumed = used a price marked unverified.
-// missing = the step spent something the pricing file has no price for.
+// missing = the step spent something the pricing file has no price for (never guessed).
+// Tokens are priced in buckets: the normal bucket, and (for a model with a longPrompt price, such as Haiku 5.5) a second bucket for
+// requests whose prompt was over the threshold. Within a bucket: new input, cache writes (5-minute), cache reads, output.
+function bucketCost(b, rates) {
+  let usd = 0, missing = false;
+  const parts = [['inputTokens', 'inputPerMTok'], ['outputTokens', 'outputPerMTok'], ['cacheReadTokens', 'cacheReadPerMTok'], ['cacheWriteTokens', 'cacheWritePerMTok']];
+  for (const [tok, rate] of parts) {
+    if (!b[tok]) continue;
+    if (rates[rate] == null) missing = true;
+    else usd += b[tok] * rates[rate] / 1e6;
+  }
+  return { usd, missing };
+}
+const hasTokens = b => !!(b && (b.inputTokens || b.outputTokens || b.cacheReadTokens || b.cacheWriteTokens));
+
 export function costOfStep(step, pricing) {
   const u = step && step.usage;
   if (!u || !pricing) return { usd: null, assumed: false, missing: !!u };
@@ -93,13 +114,17 @@ export function costOfStep(step, pricing) {
     if (pricing.webSearchPer1000 != null) { usd += u.webSearches * pricing.webSearchPer1000 / 1000; priced = true; if (pricing.webSearchVerified === false) assumed = true; }
     else missing = true;
   }
-  if (u.inputTokens || u.outputTokens) {
+  if (hasTokens(u) || hasTokens(u.longPrompt)) {
     const m = pricing.models && pricing.models[u.model];
-    if (m && m.inputPerMTok != null && m.outputPerMTok != null) {
-      usd += ((u.inputTokens || 0) * m.inputPerMTok + (u.outputTokens || 0) * m.outputPerMTok) / 1e6;
-      priced = true;
+    if (!m) missing = true;
+    else {
+      for (const [bucket, rates] of [[u, m], [u.longPrompt, m.longPrompt ? { ...m, ...m.longPrompt } : m]]) {
+        if (!hasTokens(bucket)) continue;
+        const c = bucketCost(bucket, rates);
+        if (c.missing) missing = true; else { usd += c.usd; priced = true; }
+      }
       if (m.verified === false) assumed = true;
-    } else missing = true;
+    }
   }
   if (u.otherUsd) { usd += u.otherUsd; priced = true; }
   return { usd: priced ? Math.round(usd * 1e6) / 1e6 : null, assumed, missing };
@@ -127,7 +152,10 @@ export function stepDetail(step, pricing) {
   if (t) bits.push(t);
   const u = step.usage;
   if (u) {
-    if (u.inputTokens || u.outputTokens) bits.push(k(u.inputTokens || 0) + ' in / ' + k(u.outputTokens || 0) + ' out tokens' + (u.model ? ' (' + u.model + ')' : ''));
+    const lp = u.longPrompt || {};
+    const inT = (u.inputTokens || 0) + (lp.inputTokens || 0), outT = (u.outputTokens || 0) + (lp.outputTokens || 0);
+    const cached = (u.cacheReadTokens || 0) + (lp.cacheReadTokens || 0);
+    if (inT || outT || cached) bits.push(k(inT) + ' in' + (cached ? ' + ' + k(cached) + ' cached' : '') + ' / ' + k(outT) + ' out tokens' + (u.model ? ' (' + u.model + ')' : ''));
     if (u.webSearches) bits.push(u.webSearches + ' web search' + (u.webSearches === 1 ? '' : 'es'));
     const c = costOfStep(step, pricing);
     const m = money(c);
@@ -159,6 +187,8 @@ export function renderJob(job, pricing = null) {
 const siteName = d => String(d || '').replace(/^www\./, '');
 const baseDom = h => String(h || '').toLowerCase().split('.').slice(-2).join('.');
 
+const dropUndefined = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
+
 // Steps from a (raw) source-finder result. result.timing is added by runSourceFinder when a search ran.
 export function jeromeSteps(result, { at } = {}) {
   const steps = [];
@@ -182,7 +212,8 @@ export function jeromeSteps(result, { at } = {}) {
     const tm = result.timing || {};
     steps.push({ who: 'Jerome', at, seconds: tm.seconds,
       text: 'Found ' + pages + ' usable pages on ' + new Set(hosts.map(baseDom)).size + ' sites, ' + c.totalWordsUsable.toLocaleString('en-US') + ' words in all',
-      usage: { model: tm.model, inputTokens: tm.inputTokens, outputTokens: tm.outputTokens, webSearches: tm.webSearches } });
+      usage: dropUndefined({ model: tm.model, inputTokens: tm.inputTokens, outputTokens: tm.outputTokens, cacheReadTokens: tm.cacheReadTokens,
+               cacheWriteTokens: tm.cacheWriteTokens, longPrompt: tm.longPrompt, webSearches: tm.webSearches }) });
   } else if (result.search && result.search.error) {
     steps.push({ who: 'Jerome', text: 'Source search failed: ' + result.search.error, at });
     return steps;
