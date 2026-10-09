@@ -1,5 +1,5 @@
 # .github/workflows/jerome-pilot.yml
-# MODULE DATE: 2026-10-08 (Thursday) · v2 — adds the article log (steps, minutes, tokens, cost) and commits it
+# MODULE DATE: 2026-10-08 (Thursday) · v2.1 — adds the article log (steps, minutes, tokens, cost) and commits it; adds a model box
 # LIVE pilot of Jerome (scripts/services/source-finder.mjs). Manual only: it never runs by itself.
 # It makes REAL web searches (Anthropic API, billed per search) and fetches REAL pages.
 # NEW in v2: each run is added to article-log.json in the repo (a short numbered log of what happened, how long each step took,
@@ -29,6 +29,10 @@ on:
         default: 's'
       year:
         description: 'New subject year (optional)'
+        required: false
+        default: ''
+      model:
+        description: 'Model for the search step (blank = the default, claude-sonnet-4-6). To compare cost: claude-sonnet-5-5, claude-haiku-5-5'
         required: false
         default: ''
       confirm_new:
@@ -61,12 +65,15 @@ jobs:
           SUBJECT_CATEGORY: ${{ inputs.category }}
           SUBJECT_YEAR: ${{ inputs.year }}
           CONFIRM_NEW: ${{ inputs.confirm_new }}
+          MODEL_ID: ${{ inputs.model }}
         run: |
           set -e
+          MODEL_ARGS=()
+          [ -n "$MODEL_ID" ] && MODEL_ARGS=(--model "$MODEL_ID")
           if [ -n "$ENTRY_ID" ]; then
-            node scripts/services/source-finder.mjs --rewrite "$ENTRY_ID" --search --log > jerome-result.txt 2> jerome-log.txt
+            node scripts/services/source-finder.mjs --rewrite "$ENTRY_ID" --search --log "${MODEL_ARGS[@]}" > jerome-result.txt 2> jerome-log.txt
           else
-            ARGS=(--category "$SUBJECT_CATEGORY" --search --log)
+            ARGS=(--category "$SUBJECT_CATEGORY" --search --log "${MODEL_ARGS[@]}")
             [ -n "$SUBJECT_YEAR" ] && ARGS+=(--year "$SUBJECT_YEAR")
             [ "$CONFIRM_NEW" = "true" ] && ARGS+=(--confirm-new)
             node scripts/services/source-finder.mjs "$SUBJECT_NAME" "${ARGS[@]}" > jerome-result.txt 2> jerome-log.txt
