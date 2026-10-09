@@ -1,5 +1,5 @@
 // scripts/tests/place-files.test.mjs
-// MODULE DATE: 2026-10-08 (Thursday) · tests for scripts/services/place-files.mjs v0.1. Uses temporary folders; never touches the repo.
+// MODULE DATE: 2026-10-08 (Thursday) · tests for scripts/services/place-files.mjs v0.2 (patch mode added). Uses temporary folders; never touches the repo.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
@@ -245,4 +245,122 @@ test('command line: exit code 1 when a bundle is refused, and the summary says n
   assert.match(read(root, 'place-summary.md'), /FAILED, nothing was changed/);
   assert.deepEqual(JSON.parse(read(root, 'place-result.json')).files, []);
   assert.equal(existsSync(join(root, 'workLog.json')), false);
+});
+
+// ---------------------------------------------------------------------------------------------
+// Patch mode (v0.2): small edits applied to the file as it is in the repo NOW
+// ---------------------------------------------------------------------------------------------
+
+const patch = (path, edits, extra = {}) => ({ path, mode: 'patch', edits, sha256: sha256(Buffer.from(JSON.stringify(edits), 'utf8')), ...extra });
+const ORCH = "import { a } from './a.mjs';\nimport { runLedgerBuild } from './services/ledger-build.mjs';\n\nconst SERVICE_HANDLERS = {\n  'ledger-build': runLedgerBuild, // source-proof ledger\n};\n";
+
+test('patch: edits are applied to the file in the repo, leaving everything else (even recent changes) alone', () => {
+  const root = tmp();
+  put(root, 'scripts/orchestrator.mjs', ORCH + "// a line Tom added after Claude last saw the file\n");
+  const r = placeBundle(bundle(patch('scripts/orchestrator.mjs', [
+    { find: "import { runLedgerBuild } from './services/ledger-build.mjs';", replace: "import { runLedgerBuild } from './services/ledger-build.mjs';\nimport { runJerome } from './services/source-finder.mjs';" },
+    { find: "  'ledger-build': runLedgerBuild,", replace: "  'source-find': runJerome,\n  'ledger-build': runLedgerBuild," }])), { root, rules: RULES });
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.deepEqual(r.placed, [{ path: 'scripts/orchestrator.mjs', status: 'changed' }]);
+  const out = read(root, 'scripts/orchestrator.mjs');
+  assert.ok(out.includes("import { runJerome } from './services/source-finder.mjs';"));
+  assert.ok(out.includes("  'source-find': runJerome,\n  'ledger-build': runLedgerBuild, // source-proof ledger"));   // the original comment stays on its own line
+  assert.ok(out.includes('// a line Tom added after Claude last saw the file'));
+});
+
+test('patch: a find that is not in the file refuses the whole bundle (the file changed since Claude saw it)', () => {
+  const root = tmp();
+  put(root, 'scripts/orchestrator.mjs', ORCH);
+  put(root, 'scripts/other.json', '{"v":1}');
+  const r = placeBundle(bundle(file('scripts/other.json', '{"v":2}'), patch('scripts/orchestrator.mjs', [{ find: 'text that is not there', replace: 'x' }])), { root, rules: RULES });
+  assert.equal(r.ok, false);
+  assert.match(r.errors.join(' '), /not in the file as it is now/);
+  assert.equal(read(root, 'scripts/other.json'), '{"v":1}');                       // nothing else was placed either
+  assert.equal(read(root, 'scripts/orchestrator.mjs'), ORCH);
+});
+
+test('patch: a find that appears more than once is refused', () => {
+  const root = tmp();
+  put(root, 'scripts/x.mjs', 'const a = 1;\nconst a = 1;\n');
+  assert.match(placeBundle(bundle(patch('scripts/x.mjs', [{ find: 'const a = 1;', replace: 'const a = 2;' }])), { root, rules: RULES }).errors.join(' '), /appears 2 times/);
+});
+
+test('patch: the file must exist; protected files cannot be patched; bad edits, bad checksums and too many edits are refused', () => {
+  const root = tmp();
+  assert.match(placeBundle(bundle(patch('scripts/missing.mjs', [{ find: 'a', replace: 'b' }])), { root, rules: RULES }).errors.join(' '), /to exist already/);
+  put(root, 'index.html', '<html>');
+  assert.match(placeBundle(bundle(patch('index.html', [{ find: '<html>', replace: '<html lang="en">' }])), { root, rules: RULES }).errors.join(' '), /protected/);
+  put(root, 'scripts/x.mjs', 'const a = 1;\n');
+  assert.match(placeBundle(bundle(patch('scripts/x.mjs', [])), { root, rules: RULES }).errors.join(' '), /no edits/);
+  assert.match(placeBundle(bundle(patch('scripts/x.mjs', [{ find: '', replace: 'b' }])), { root, rules: RULES }).errors.join(' '), /needs text/);
+  assert.match(placeBundle(bundle(patch('scripts/x.mjs', [{ find: 'a', replace: 5 }])), { root, rules: RULES }).errors.join(' '), /needs text/);
+  const damaged = patch('scripts/x.mjs', [{ find: 'const a = 1;', replace: 'const a = 2;' }]);
+  damaged.edits[0].replace = 'const a = 3;';                                        // edited after the checksum was made
+  assert.match(placeBundle(bundle(damaged), { root, rules: RULES }).errors.join(' '), /checksum/);
+  const many = Array.from({ length: 21 }, (_, i) => ({ find: 'x' + i, replace: 'y' }));
+  assert.match(placeBundle(bundle(patch('scripts/x.mjs', many)), { root, rules: RULES }).errors.join(' '), /too many edits/);
+  assert.equal(read(root, 'scripts/x.mjs'), 'const a = 1;\n');
+});
+
+test('patch: a patch that leaves the file with a syntax error, or invalid JSON, is refused and nothing changes', () => {
+  const root = tmp();
+  put(root, 'scripts/x.mjs', 'const a = 1;\n');
+  put(root, 'scripts/c.json', '{"a":1}');
+  assert.match(placeBundle(bundle(patch('scripts/x.mjs', [{ find: 'const a = 1;', replace: 'const = ;' }])), { root, rules: RULES }).errors.join(' '), /syntax error/);
+  assert.match(placeBundle(bundle(patch('scripts/c.json', [{ find: '"a":1', replace: '"a":' }])), { root, rules: RULES }).errors.join(' '), /not valid JSON/);
+  assert.equal(read(root, 'scripts/x.mjs'), 'const a = 1;\n');
+});
+
+test('patch: edits apply in order, and "$" in the new text is kept literally', () => {
+  const root = tmp();
+  put(root, 'scripts/x.mjs', 'const a = 1;\n');
+  const r = placeBundle(bundle(patch('scripts/x.mjs', [{ find: 'const a = 1;', replace: 'const a = 2;' }, { find: 'const a = 2;', replace: "const price = '$&$1 $$';" }])), { root, rules: RULES });
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.equal(read(root, 'scripts/x.mjs'), "const price = '$&$1 $$';\n");
+});
+
+test('patch: an edit that changes nothing is reported unchanged and not committed', () => {
+  const root = tmp();
+  put(root, 'scripts/x.mjs', 'const a = 1;\n');
+  const r = placeBundle(bundle(patch('scripts/x.mjs', [{ find: 'const a = 1;', replace: 'const a = 1;' }])), { root, rules: RULES });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.unchanged, ['scripts/x.mjs']);
+  assert.equal(r.placed.length, 0);
+});
+
+test('patch: if the bundle\'s tests fail, the patched file is put back exactly as it was', () => {
+  const root = tmp();
+  put(root, 'scripts/x.mjs', 'const a = 1;\n');
+  const r = placeBundle(bundle(patch('scripts/x.mjs', [{ find: 'const a = 1;', replace: 'const a = 2;' }]), file('scripts/tests/t.test.mjs', 'export {};\n')),
+    { root, rules: RULES, deps: { runTests: failTests } });
+  assert.equal(r.ok, false);
+  assert.equal(read(root, 'scripts/x.mjs'), 'const a = 1;\n');
+});
+
+test('patch: buildBundle reads path:patch=edits.json and the service accepts the result end to end', () => {
+  const src = tmp(), dst = tmp();
+  put(src, 'edits.json', JSON.stringify([{ find: "  'ledger-build': runLedgerBuild,", replace: "  'source-find': runJerome,\n  'ledger-build': runLedgerBuild," }]));
+  put(dst, 'scripts/orchestrator.mjs', ORCH);
+  const b = buildBundle(['scripts/orchestrator.mjs:patch=edits.json'], 'patch test', src);
+  assert.equal(b.files[0].mode, 'patch');
+  assert.equal(b.files[0].content, undefined);
+  const r = placeBundle(b, { root: dst, rules: RULES });
+  assert.equal(r.ok, true, r.errors.join('; '));
+  assert.match(read(dst, 'scripts/orchestrator.mjs'), /'source-find': runJerome,/);
+});
+
+test('patch: through the command line, with a mix of replaced files and a patch, and the summary says which is which', () => {
+  const root = tmp();
+  put(root, 'scripts/place-rules.json', readFileSync(fileURLToPath(new URL('../place-rules.json', import.meta.url)), 'utf8'));
+  put(root, 'scripts/orchestrator.mjs', ORCH);
+  put(root, 'edits.json', JSON.stringify([{ find: "  'ledger-build': runLedgerBuild,", replace: "  'source-find': runJerome,\n  'ledger-build': runLedgerBuild," }]));
+  put(root, 'docs/n.md', '# n\n');
+  const make = spawnSync(process.execPath, [SERVICE, '--make', '--message', 'mix', '--out', 'inbox/m.bundle.json', 'docs/n.md', 'scripts/orchestrator.mjs:patch=edits.json'], { cwd: root, encoding: 'utf8' });
+  assert.equal(make.status, 0, make.stderr);
+  rmSync(join(root, 'docs/n.md'));
+  const run = spawnSync(process.execPath, [SERVICE], { cwd: root, encoding: 'utf8' });
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+  assert.match(read(root, 'scripts/orchestrator.mjs'), /'source-find': runJerome,/);
+  assert.equal(read(root, 'docs/n.md'), '# n\n');
+  assert.deepEqual(JSON.parse(read(root, 'place-result.json')).files.sort(), ['docs/n.md', 'inbox/processed.json', 'scripts/orchestrator.mjs']);
 });
