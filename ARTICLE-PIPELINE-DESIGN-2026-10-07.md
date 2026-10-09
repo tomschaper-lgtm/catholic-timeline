@@ -580,6 +580,18 @@ labeled as Tom's translation, never verbatim as if it were the original.
   tables) and its date line is refreshed. **Not built:** Ignatius himself; checking the lookup on a real run; a "Listed on" column for the
   not-enabled tables. 30 log tests, 127 Jerome tests, 18 lookup tests, 14 registry-date tests pass.
 
+- **2026-10-09 — v0.9.7: Jerome's handoff file, `sources/<entry-id>.json`** (the interface between Jerome and everything after him; Tom: "we need to get
+  the pipeline done"; proofing and keeping existing articles is later). `scripts/services/sources-file.mjs`: runJerome (the orchestrator task) and the
+  pilot now save one file per entry, following the 2026-10-07 storage decision (sections 9-10): a manifest line per chosen page (url, title, domain,
+  tier, lane, words, mentions, score, hash, fetchedAt), the verdict, flags and covered/missing perspectives, the apparition authority in short form,
+  the `unsure` pages that could make the material enough (for Ignatius), and `alsoFound`. **Full page text is stored only for a registry source whose
+  entry has `"storage": "full"`** (Tom's per-source decision; nothing has that field yet, so for now every file is manifest-only and the writer and
+  verifier fetch the pages again, which is free); Scripture is never stored whatever the setting; the lowercased copy Jerome analyses is never stored.
+  The id is the timeline's own id for a rewrite, slug(name)-year for a new subject; an id that is not a plain file name is refused. `getSourceTexts`
+  returns each page's text (stored or fetched again) with a drift note: `same`, `changed` (still returned: the web moves) or `unavailable` (no text, so a
+  caller can stop instead of writing from nothing). No file is written when no search ran. **Next in the pipeline:** wire `ledger-build` (Thomas) to
+  read these files instead of the article's own links, then the writer (Augustine), the reworder, Ignatius, audio. 13 file tests, 133 Jerome tests pass.
+
 ## 13. Sufficiency, category rules and visitor input (2026-10-07, not yet built)
 
 **Status key:** CONFIRMED = Tom said so. PROPOSED = Claude's suggestion, not yet answered by Tom. OPEN = a question Tom has not decided.

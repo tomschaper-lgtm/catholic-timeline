@@ -1,6 +1,6 @@
 // scripts/services/source-finder.mjs
 //
-// MODULE DATE: 2026-10-08 (Thursday) · v0.9.6 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
+// MODULE DATE: 2026-10-08 (Thursday) · v0.9.7 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
 // Written against orchestrator.mjs / ledger-build.mjs v1.4 as uploaded to the Project 2026-10-07.
 // Design: ARTICLE-PIPELINE-DESIGN-2026-10-07.md, section 4.1 and section 9. Layer 1 uses no AI and no
 // network. Layer 2 calls Anthropic web search and fetches pages; it was tested with MOCKED search and
@@ -38,6 +38,9 @@
 //            'source-find'). It runs runSourceFinder, adds Jerome's steps to article-log.json (scripts/services/article-log.mjs),
 //            returns filesToCommit so the orchestrator commits the log, and stores only a compact result on the task (the
 //            long per-page records stay out of workLog.json). Token use is counted by model for the cost column.
+//            SOURCES FILE (v0.9.7): runJerome also writes sources/<entry-id>.json (scripts/services/sources-file.mjs): the four chosen pages with
+//            hashes (and full text only for registry sources Tom has set to storage "full"), the unsure pages and the verdict. This is what Augustine and
+//            Thomas read.
 //            AUTHORITY LOOKUP (v0.9.6): for apparitions and miracles (rules: authorityLookup) Jerome also asks which diocese judges the
 //            subject and what its official website is (scripts/services/authority-finder.mjs). Code checks the page; the site goes into
 //            ignatius-queue.json as "waiting" for IGNATIUS (not built) to decide. Jerome never approves a site.
@@ -96,6 +99,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { recordJerome, LOG_PATH, renderJob, loadPricing } from './article-log.mjs';
 import { findAuthority, queueItemsFor, addToQueue, loadQueue, saveQueue, QUEUE_PATH } from './authority-finder.mjs';
+import { buildSourcesFile, writeSourcesFile, SOURCES_DIR } from './sources-file.mjs';
 
 const DATA_PATH = process.env.DATA_PATH || 'data.json';
 const T_FUZZY = 0.8;
@@ -526,6 +530,7 @@ export async function examine(cand, subject, reg, deps) {
   if (!out.usable) out.note = 'the subject\'s name does not appear on the page';
   // Page text for layer 3: in memory only (non-enumerable, so it never reaches JSON, logs or the result).
   Object.defineProperty(out, 'text', { value: asciiFold(f.text).toLowerCase().replace(/\s+/g, ' '), enumerable: false });
+  Object.defineProperty(out, 'plain', { value: f.text, enumerable: false });     // original-case text: written to sources/<id>.json ONLY for registry sources set to storage "full"
   return out;
 }
 
@@ -1066,6 +1071,20 @@ export function recordHandoff({ result, task, jobId, queuePath = QUEUE_PATH, now
   return { added: r.added, merged: r.merged, skipped: r.skipped, changed };
 }
 
+// Save the sources file for this run (see sources-file.mjs). Returns { path } or { skipped: reason }. Never throws.
+export function recordSources({ result, task, jobId, dir = SOURCES_DIR, registry, now = new Date() }) {
+  try {
+    if (!result || !result.layer3 || !result.layer3.selection) return { skipped: 'no search was run' };
+    let reg = registry;
+    if (!reg) { try { reg = loadRegistry(); } catch (_e) { reg = null; } }
+    const storageOf = d => { const e = reg ? regEntry(reg, d) : null; return e && e.storage === 'full' ? 'full' : 'excerpts'; };
+    const file = buildSourcesFile(result, { task, jobId, now, finder: 'source-finder v0.9.7', storageOf });
+    return { path: writeSourcesFile(file, dir), entryId: file.entryId, outcome: file.outcome, stored: file.sources.filter(x => x.storage === 'full').length };
+  } catch (err) {
+    return { skipped: String((err && err.message) || err).slice(0, 140) };
+  }
+}
+
 // What is kept on the task in workLog.json: everything a person or the next step needs, minus the long per-page records.
 export function compactResult(r) {
   const c = { ...r };
@@ -1083,6 +1102,8 @@ export async function runJerome(task, dataJson, _workLog, deps = {}) {
     filesToCommit.push(logPath);
     const h = recordHandoff({ result: out.result, task, jobId: job.id, queuePath: deps.queuePath || QUEUE_PATH, now: deps.now });
     if (h.changed) { filesToCommit.push(deps.queuePath || QUEUE_PATH); note = ' | handed ' + (h.added + h.merged) + ' site(s) to Ignatius'; }
+    const sf = recordSources({ result: out.result, task, jobId: job.id, dir: deps.sourcesDir || SOURCES_DIR, registry: deps.registry, now: deps.now });
+    if (sf.path) { filesToCommit.push(sf.path); note += ' | saved ' + sf.path; }
   } catch (err) {
     note = ' | article log not written: ' + String((err && err.message) || err).slice(0, 120);
   }
@@ -1113,6 +1134,9 @@ async function cli(argv) {
     console.error('\n' + renderJob(job, loadPricing()).join('\n'));
     const h = recordHandoff({ result: out.result, task, jobId: job.id });
     if (h.changed) console.error('\nHanded to Ignatius: ' + (h.added + h.merged) + ' site(s) now waiting in ' + QUEUE_PATH);
+    const sf = recordSources({ result: out.result, task, jobId: job.id });
+    if (sf.path) console.error('\nSaved ' + sf.path + ' (' + sf.outcome + (sf.stored ? '; full text stored for ' + sf.stored + ' public-domain source(s)' : '; no full text stored') + ')');
+    else console.error('\nSources file not saved: ' + sf.skipped);
   }
 }
 

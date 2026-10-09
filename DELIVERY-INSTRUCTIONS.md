@@ -72,6 +72,10 @@ After that, everything else goes by bundle.
 
 Each article job is recorded in `article-log.json` (repo root): numbered steps with who did it, what happened, minutes, and raw usage (model, tokens, web searches). Code writes the steps from real numbers; never write them by hand or with an AI. A service adds its steps with `addStep` from `scripts/services/article-log.mjs`, using the SAME `jobId` for every service on one article (the task's `payload.jobId`, default the task id), and returns `filesToCommit: ['article-log.json']`. Dollars are not stored; they are computed from `scripts/pricing.json` when the log is shown. A service that charges by something other than tokens (audio, images) reports its own dollars as `usage.otherUsd`. Jerome (task type `source-find`) already logs. The website Log view and the Add Task option for `source-find` need `index.html`, which Claude has not seen.
 
+## Jerome's handoff file (v3.1)
+
+Each Jerome run saves `sources/<entry-id>.json` (see `scripts/services/sources-file.mjs`): the chosen pages with hashes, the verdict, the unsure pages. The writer and the verifier read it with `loadSources` and `getSourceTexts`; they never read Jerome's task result. Full page text is in the file only for registry sources Tom has set to `"storage": "full"`; everything else is fetched again at use, and a page that no longer matches its hash comes back marked `changed`. Scripture is never stored. The `sources/` folder is written by the services and the pilot workflow, never by a bundle.
+
 ## The source registry and its approval dates (v3)
 
 `scripts/ledger-allowlist.json` is the list of websites the pipeline may trust, and `SOURCE-ALLOWLIST.md` is the page that shows them with their descriptions (the page is generated from the registry). Both are protected: a bundle cannot change them. Rules for any session that touches them:

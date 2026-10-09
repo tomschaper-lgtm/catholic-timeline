@@ -1,12 +1,12 @@
 // scripts/tests/source-finder.test.mjs
-// MODULE DATE: 2026-10-08 (Thursday) · tests for source-finder.mjs v0.3 (v0.9.6: layers 1, 2 and 3, with perspective lanes, best-few selection, signal types for ancient saints and the first live-pilot fixes; layer 2 with MOCKED search/fetch; layer 3 uses the real scripts/category-rules.json).
+// MODULE DATE: 2026-10-08 (Thursday) · tests for source-finder.mjs v0.3 (v0.9.7: layers 1, 2 and 3, with perspective lanes, best-few selection, signal types for ancient saints and the first live-pilot fixes; layer 2 with MOCKED search/fetch; layer 3 uses the real scripts/category-rules.json).
 // Run: node --test scripts/tests/source-finder.test.mjs
 // Synthetic tests always run. Real-data tests run only if DATA_PATH (or ./data.json) exists.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { fold, scoreMatch, checkExistence, findSubject, runSourceFinder, findSources, safeUrl, allowedDomains, examine, assess, loadRules, evidence, laneOf, laneCoverage, perspectivePlan, selectSources, runJerome, compactResult, newTally, addUsage, recordHandoff } from '../services/source-finder.mjs';
+import { fold, scoreMatch, checkExistence, findSubject, runSourceFinder, findSources, safeUrl, allowedDomains, examine, assess, loadRules, evidence, laneOf, laneCoverage, perspectivePlan, selectSources, runJerome, compactResult, newTally, addUsage, recordHandoff, recordSources } from '../services/source-finder.mjs';
 import { fileURLToPath } from 'node:url';
 
 const RULES = loadRules(fileURLToPath(new URL('../category-rules.json', import.meta.url)));
@@ -934,9 +934,10 @@ import { loadLog as _loadLog } from '../services/article-log.mjs';
 
 test('runJerome: logs Jerome\'s steps, returns the log file to commit, and keeps the task result compact', async () => {
   const m = mocks(lanePages, laneResults);
-  const logPath = _join(_mk(_join(_tmp(), 'rj-')), 'article-log.json');
-  const out = await runJerome({ id: 'task-9', payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', year: 723 } }, data, {}, { ...m.deps, rules: RULES, logPath });
-  assert.deepEqual(out.filesToCommit, [logPath]);
+  const rjDir = _mk(_join(_tmp(), 'rj-'));
+  const logPath = _join(rjDir, 'article-log.json'), sourcesDir = _join(rjDir, 'sources');
+  const out = await runJerome({ id: 'task-9', payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', year: 723 } }, data, {}, { ...m.deps, rules: RULES, logPath, sourcesDir });
+  assert.deepEqual(out.filesToCommit, [logPath, _join(sourcesDir, 'st-bertha-of-blangy-723.json')]);       // the log, then the sources file
   const job = _loadLog(logPath).jobs[0];
   assert.equal(job.id, 'task-9');
   assert.equal(job.steps[0].text, 'Got request for new article: St. Bertha of Blangy');
@@ -949,9 +950,10 @@ test('runJerome: logs Jerome\'s steps, returns the log file to commit, and keeps
 
 test('runJerome: the third argument the orchestrator passes (the work log) is not mistaken for dependencies', async () => {
   const m = mocks(lanePages, laneResults);
-  const logPath = _join(_mk(_join(_tmp(), 'rj-')), 'article-log.json');
+  const wlDir = _mk(_join(_tmp(), 'rj-'));
+  const logPath = _join(wlDir, 'article-log.json');
   const workLog = { tasks: [{ id: 'a' }], search: 'not a function', rules: 'not rules' };      // looks like deps by accident
-  const out = await runJerome({ id: 't', payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's' } }, data, workLog, { ...m.deps, rules: RULES, logPath });
+  const out = await runJerome({ id: 't', payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's' } }, data, workLog, { ...m.deps, rules: RULES, logPath, sourcesDir: _join(wlDir, 'sources') });
   assert.equal(out.result.outcome, 'new_subject');
   assert.ok(out.result.layer3);
 });
@@ -1247,9 +1249,9 @@ test('recordHandoff: a new site goes into ignatius-queue.json as waiting, once; 
 test('runJerome: hands a new diocese site to Ignatius, returns the queue file to commit, and says so in the summary', async () => {
   const m = mocks(authPages(), laneResults);
   const dir = _mk(_join(_tmp(), 'rj2-'));
-  const logPath = _join(dir, 'article-log.json'), queuePath = _join(dir, 'ignatius-queue.json');
-  const out = await runJerome({ id: 'task-12', payload: { ...APPARITION.payload } }, data, {}, { ...m.deps, rules: NOPOOL, logPath, queuePath, askAuthority: async () => ({ text: DIOCESE_REPLY, searches: 2 }) });
-  assert.deepEqual(out.filesToCommit, [logPath, queuePath]);
+  const logPath = _join(dir, 'article-log.json'), queuePath = _join(dir, 'ignatius-queue.json'), sourcesDir = _join(dir, 'sources');
+  const out = await runJerome({ id: 'task-12', payload: { ...APPARITION.payload } }, data, {}, { ...m.deps, rules: NOPOOL, logPath, queuePath, sourcesDir, askAuthority: async () => ({ text: DIOCESE_REPLY, searches: 2 }) });
+  assert.deepEqual(out.filesToCommit, [logPath, queuePath, _join(sourcesDir, 'st-bertha-of-blangy-723.json')]);
   assert.match(out.summary, /handed 1 site\(s\) to Ignatius/);
   const item = _loadQueue(queuePath).items[0];
   assert.deepEqual([item.domain, item.subjects[0].jobId], ['arras.diocese.example', 'task-12']);
@@ -1257,10 +1259,73 @@ test('runJerome: hands a new diocese site to Ignatius, returns the queue file to
   assert.ok(job.steps.some(s => /^Handed to Ignatius: Diocese website arras\.diocese\.example \(Diocese of Arras — Blangy, France\); the page loads/.test(s.text)));
 });
 
-test('runJerome: with no new site, only the log is committed', async () => {
+test('runJerome: with no new site, the Ignatius queue is not committed (the log and the sources file are)', async () => {
   const m = mocks(authPages(), laneResults);
   const dir = _mk(_join(_tmp(), 'rj3-'));
-  const logPath = _join(dir, 'article-log.json'), queuePath = _join(dir, 'ignatius-queue.json');
-  const out = await runJerome({ id: 'task-13', payload: { ...APPARITION.payload } }, data, {}, { ...m.deps, rules: NOPOOL, logPath, queuePath, askAuthority: async () => ({ text: JSON.stringify({ diocese: 'D', official_site_url: null }), searches: 1 }) });
-  assert.deepEqual(out.filesToCommit, [logPath]);
+  const logPath = _join(dir, 'article-log.json'), queuePath = _join(dir, 'ignatius-queue.json'), sourcesDir = _join(dir, 'sources');
+  const out = await runJerome({ id: 'task-13', payload: { ...APPARITION.payload } }, data, {}, { ...m.deps, rules: NOPOOL, logPath, queuePath, sourcesDir, askAuthority: async () => ({ text: JSON.stringify({ diocese: 'D', official_site_url: null }), searches: 1 }) });
+  assert.deepEqual(out.filesToCommit, [logPath, _join(sourcesDir, 'st-bertha-of-blangy-723.json')]);
+});
+
+// ---------------------------------------------------------------------------------------------
+// The sources file (v0.9.7): sources/<entry-id>.json, Jerome's handoff to Augustine and Thomas
+// ---------------------------------------------------------------------------------------------
+import { loadSources as _loadSources } from '../services/sources-file.mjs';
+
+const fullReg = { ...reg, domains: reg.domains.map(d => (d.domain === 'newadvent.org' ? { ...d, storage: 'full' } : d)) };
+
+test('runJerome: saves sources/<entry-id>.json with the chosen pages, returns it to commit, and says so in the summary', async () => {
+  const m = mocks(lanePages, laneResults);
+  const dir = _mk(_join(_tmp(), 'rs-'));
+  const logPath = _join(dir, 'article-log.json'), sourcesDir = _join(dir, 'sources');
+  const out = await runJerome({ id: 'task-21', payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', year: 723 } }, data, {}, { ...m.deps, rules: NOPOOL, logPath, sourcesDir });
+  const path = _join(sourcesDir, 'st-bertha-of-blangy-723.json');
+  assert.ok(out.filesToCommit.includes(path));
+  assert.match(out.summary, /saved .*st-bertha-of-blangy-723\.json/);
+  const f = _loadSources('st-bertha-of-blangy-723', sourcesDir);
+  assert.deepEqual([f.version, f.mode, f.jobId, f.outcome], [1, 'new', _loadLog(logPath).jobs[0].id, out.result.layer3.status]);
+  assert.ok(f.sources.length >= 1 && f.sources.every(s => /^[0-9a-f]{16}$/.test(s.hash) && s.status === 'approved'));
+  assert.equal(f.totalWords, f.sources.reduce((n, s) => n + s.words, 0));
+});
+
+test('runJerome: full text goes into the file only for a registry source set to storage "full"', async () => {
+  const dir = _mk(_join(_tmp(), 'rs2-')), sourcesDir = _join(dir, 'sources');
+  const m = mocks(lanePages, laneResults);
+  await runJerome({ id: 'task-22', payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', year: 723 } }, data, {}, { ...m.deps, registry: fullReg, rules: NOPOOL, logPath: _join(dir, 'l.json'), sourcesDir });
+  const f = _loadSources('st-bertha-of-blangy-723', sourcesDir);
+  const na = f.sources.filter(s => s.domain === 'newadvent.org'), other = f.sources.filter(s => s.domain !== 'newadvent.org');
+  assert.ok(na.length && na.every(s => s.storage === 'full' && typeof s.text === 'string' && s.text.includes('Bertha of Blangy')));
+  assert.ok(other.every(s => s.storage === 'excerpts' && s.text === undefined));
+});
+
+test('runJerome: a rewrite is saved under the timeline id', async () => {
+  const dir = _mk(_join(_tmp(), 'rs3-')), sourcesDir = _join(dir, 'sources');
+  const m = mocks(lanePages, laneResults);
+  const d2 = { entries: [{ id: 'st-bertha-723', n: 'St. Bertha of Blangy', t: 's', y: 723, r: 'west', d: 'x', art: { sections: [{ h: 'A', b: 'B' }], quotes: [], links: [] } }] };
+  const out = await runJerome({ id: 'task-23', payload: { mode: 'rewrite', entityId: 'st-bertha-723', search: true } }, d2, {}, { ...m.deps, registry: reg, rules: NOPOOL, logPath: _join(dir, 'l.json'), sourcesDir });
+  assert.equal(out.result.outcome, 'rewrite_ready');
+  assert.ok(out.filesToCommit.includes(_join(sourcesDir, 'st-bertha-723.json')));
+  const f = _loadSources('st-bertha-723', sourcesDir);
+  assert.deepEqual([f.entryId, f.mode, f.subject.name], ['st-bertha-723', 'rewrite', 'St. Bertha of Blangy']);
+});
+
+test('runJerome: a layer-1 answer (no search) saves no sources file', async () => {
+  const dir = _mk(_join(_tmp(), 'rs4-')), sourcesDir = _join(dir, 'sources');
+  const out = await runJerome({ id: 'task-24', payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', search: false } }, data, {}, { rules: NOPOOL, logPath: _join(dir, 'l.json'), sourcesDir });
+  assert.equal(out.filesToCommit.some(p => p.includes('sources')), false);
+  assert.equal(existsSync(sourcesDir), false);
+});
+
+test('recordSources: never throws; an id that cannot be a file name is reported instead', () => {
+  const r = recordSources({ result: { subject: { id: '../../evil', name: 'x' }, mode: 'new', layer3: { status: 'ready', selection: { selected: [], alsoFound: [] } } }, task: {}, dir: _join(_mk(_join(_tmp(), 'rs5-')), 's'), registry: reg });
+  assert.match(r.skipped, /not a valid entry id/);
+  assert.equal(recordSources({ result: {}, task: {} }).skipped, 'no search was run');
+  assert.equal(recordSources({ result: null, task: {} }).skipped, 'no search was run');
+});
+
+test('the page text kept in memory for the sources file never reaches the JSON result or the compact task result', async () => {
+  const m = mocks(lanePages, laneResults);
+  const r = await runSourceFinder({ payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', year: 723 } }, data, { ...m.deps, rules: NOPOOL });
+  assert.ok(!JSON.stringify(r.result).includes('Bertha of Blangy was a widow'));
+  assert.ok(r.result.search.sources.every(s => typeof s.plain === 'undefined' || !Object.keys(s).includes('plain')));
 });
