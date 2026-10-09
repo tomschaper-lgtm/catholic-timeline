@@ -1,5 +1,5 @@
 // scripts/tests/source-finder.test.mjs
-// MODULE DATE: 2026-10-08 (Thursday) · tests for source-finder.mjs v0.3 (v0.9: layers 1, 2 and 3, with perspective lanes, best-few selection, signal types for ancient saints and the first live-pilot fixes; layer 2 with MOCKED search/fetch; layer 3 uses the real scripts/category-rules.json).
+// MODULE DATE: 2026-10-08 (Thursday) · tests for source-finder.mjs v0.3 (v0.9.3: layers 1, 2 and 3, with perspective lanes, best-few selection, signal types for ancient saints and the first live-pilot fixes; layer 2 with MOCKED search/fetch; layer 3 uses the real scripts/category-rules.json).
 // Run: node --test scripts/tests/source-finder.test.mjs
 // Synthetic tests always run. Real-data tests run only if DATA_PATH (or ./data.json) exists.
 
@@ -830,7 +830,7 @@ test('signal types: place names, patronage and hospitals are weak and never coun
 });
 
 test('signal types: a caution (legendary, removed from the calendar) sends it to review even with two good kinds', () => {
-  const r = ANC('bertha is in the roman martyrology and the orthodox church commemorates bertha, but bertha is legendary.');
+  const r = ANC('bertha is in the roman martyrology and the orthodox church commemorates bertha, but bertha is a legendary figure.');
   assert.equal(r.status, 'needs_decision');
   assert.match(r.verdict.reasons[0].text, /raise doubt/);
   assert.ok(r.verdict.evidence.ancient_veneration.cautions.length >= 1);
@@ -1019,4 +1019,63 @@ test('timing in the result carries cache tokens, and a longPrompt bucket only wh
   assert.equal(r.result.timing.cacheReadTokens, 0);
   assert.equal(r.result.timing.cacheWriteTokens, 0);
   assert.equal(r.result.timing.longPrompt, undefined);
+});
+
+// ---------------------------------------------------------------------------------------------
+// Fixes from the first run on St. Pachomius (v0.9.3): site signals and tighter cautions
+// ---------------------------------------------------------------------------------------------
+
+const PACH = { name: 'St. Pachomius', category: 's', year: 346 };
+const page = (url, o = {}) => { const x = { url, domain: new URL(url).hostname, usable: true, status: 'approved', canVerify: true, tier: 'official', words: 1400, mentions: 20 , ...o }; Object.defineProperty(x, 'text', { value: o.text || '', enumerable: false }); return x; };
+const OCA = 'https://www.oca.org/saints/lives/2026/05/15/101384-venerable-pachomius-the-great-founder-of-coenobitic-monasticism';
+const VN = 'https://www.vaticannews.va/en/saints/05/09/st--pachomius--abbot.html';
+
+test('site signals: an Orthodox saints entry and a Vatican News saint-of-the-day page are accepted as two kinds of veneration, with no matching phrase on the page', () => {
+  const r = assess(PACH, found(page(OCA), page(VN, { mentions: 2, tier: 'approved' }), page('https://www.ewtn.com/catholicism/library/st-pachomius-abbot-5721', { words: 3500, tier: 'approved' })), RULES);
+  assert.equal(r.status, 'ready');
+  assert.equal(r.verdict.basis, 'ancient_veneration');
+  const sig = r.verdict.evidence.ancient_veneration.signals;
+  assert.equal(sig.eastern.strength, 'strong');
+  assert.equal(sig.feast_day.strength, 'medium');
+  assert.match(sig.eastern.excerpts[0], /^\[site\] Orthodox Church in America/);
+  assert.ok(sig.eastern.excerpts[0].includes(OCA));
+});
+
+test('site signals: the page must be on the site, under the path, name the saint in its web address, and name him on the page', () => {
+  const BASE = page('https://www.ewtn.com/catholicism/library/st-pachomius-abbot-5721', { words: 3500, tier: 'approved' });   // keeps the material sufficient, so a verdict exists
+  const none = (...ps) => assess(PACH, found(BASE, ...ps), RULES).verdict.evidence.ancient_veneration;
+  assert.equal(none(page('https://www.oca.org/orthodoxy/church-history/monasticism1')), undefined);                      // not under /saints/
+  assert.equal(none(page('https://www.oca.org/saints/lives/2026/05/15/101385-venerable-theodore-the-sanctified')), undefined);   // another saint's slug
+  assert.equal(none(page('https://www.vaticannews.va/en/saints/05/09.html', { mentions: 1 })), undefined);                      // a date list, no name in the address
+  assert.equal(none(page(OCA, { mentions: 0 })), undefined);                                                                    // does not actually name him
+  assert.equal(none(page(OCA, { canVerify: false, tier: 'reported' })), undefined);                                            // a page that cannot verify never counts
+  assert.equal(none(page('https://example.org/saints/pachomius')), undefined);                                                 // an unlisted site
+});
+
+test('site signals: one site alone is still only one kind, so it goes to review like any single signal', () => {
+  const r = assess({ ...PACH, year: 346 }, found(page(OCA), page('https://www.newadvent.org/cathen/12748b.htm', { tier: 'approved', words: 18000, mentions: 7 })), RULES);
+  assert.equal(r.status, 'needs_decision');
+  assert.match(r.verdict.reasons[0].text, /only one kind of veneration signal \(eastern\)/);
+});
+
+test('site signals: only for a saint within the year limit, like every veneration signal', () => {
+  const r = assess({ ...PACH, year: 1500 }, found(page(OCA), page(VN, { mentions: 2 })), RULES);
+  assert.equal(r.status, 'needs_decision');
+  assert.equal(r.verdict.evidence.ancient_veneration, undefined);
+});
+
+test('cautions: a legendary ANGEL in a translator\'s note is not a doubt about the saint, but "a legendary figure" or removal from the calendar is', () => {
+  const ok = assess(PACH, found(page(OCA), page(VN, { mentions: 2 }), page('https://ccel.org/ccel/pearse/morefathers/files/palladius_lausiac_02_text.htm', { tier: 'primary', words: 48000,
+    text: 'the angel here seems to him legendary, since he is not mentioned in the lives. pachomius received first his own brother.' })), RULES);
+  assert.equal(ok.status, 'ready');
+  assert.equal(ok.verdict.evidence.ancient_veneration.cautions, undefined);
+  const doubt = assess(PACH, found(page(OCA), page(VN, { mentions: 2 }), page('https://www.newadvent.org/cathen/x.htm', { tier: 'approved', text: 'pachomius was removed from the general roman calendar in 1969.' })), RULES);
+  assert.equal(doubt.status, 'needs_decision');
+  assert.match(doubt.verdict.reasons[0].text, /raise doubt/);
+});
+
+test('bases: when veneration and canonization both qualify, veneration leads and the other is recorded as also qualified', () => {
+  const r = assess(bertha({ year: 304 }), found(src({ text: 'bertha is named in the roman martyrology, and a church was dedicated to st. bertha. bertha was canonized.' })), RULES);
+  assert.equal(r.verdict.basis, 'ancient_veneration');
+  assert.deepEqual(r.verdict.evidence.also_qualified, ['formal_canonization']);
 });

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-10-08",
+  "updated": "2026-10-09",
   "note": "Editable rules for source-finder layer 3 (Jerome). Like ledger-allowlist.json, this is data, not code: change a number or a pattern here and the next run uses it. Patterns are regular expressions matched against the page text after lowercasing and removing accents, and only when they appear within `window` characters of the subject's name. Layer 3 finds EVIDENCE for a person to look at; it never proves anything, and when unsure it asks (review). Items marked PROVISIONAL are Claude's starting values and have not been confirmed by Tom.",
   "sufficiency": {
     "minWordsVerifyCapable": 1000,
@@ -317,14 +317,39 @@
             }
           },
           "cautions": [
-            "\\blegendary\\b",
-            "\\bhistoricity\\b",
+            "\\blegendary (figure|saint|martyr|person|character)\\b",
+            "\\bhistoricity (of (the saint|his|her|this saint)|is (doubted|disputed|questioned|uncertain))\\b",
             "\\bno historical (basis|evidence|foundation)\\b",
             "\\bremoved from the (general )?(roman )?calendar\\b",
             "\\bapocryphal\\b",
             "\\bnever existed\\b",
             "\\bdoubts? (about|as to|whether) (his|her) (existence|historicity)\\b"
-          ]
+          ],
+          "siteSignals": [
+            {
+              "domain": "oca.org",
+              "pathPrefix": "/saints/",
+              "signal": "eastern",
+              "nameInSlug": true,
+              "label": "Orthodox Church in America: its own saints entry for him"
+            },
+            {
+              "domain": "vaticannews.va",
+              "pathPrefix": "/en/saints/",
+              "signal": "feast_day",
+              "nameInSlug": true,
+              "label": "Vatican News saint-of-the-day entry (a feast day on the calendar)"
+            },
+            {
+              "domain": "franciscanmedia.org",
+              "pathPrefix": "/saint-of-the-day/",
+              "signal": "feast_day",
+              "nameInSlug": true,
+              "label": "Franciscan Media saint-of-the-day entry (a feast day) [PROVISIONAL path, not yet seen on a real run]"
+            }
+          ],
+          "_siteSignals": "Some evidence is WHERE a page lives, not what it says: an Orthodox site does not write 'the Orthodox Church commemorates him', it simply has its own entry for him. A verify-capable page on one of these sites, whose web address contains the saint's name (nameInSlug) and which names him at least minMentions times (default 1), counts as that signal type. Found on the first Pachomius run: the OCA entry (29 mentions) and Vatican News's saint-of-the-day page. Vatican News counts only as a feast day (medium), not as the Roman Martyrology, because it also lists local and recent saints. Known limit: a namesake saint's page can match (augustine-of-canterbury for Augustine of Hippo). PROVISIONAL.",
+          "_cautions": "TIGHTENED 2026-10-09 after the first Pachomius run: the bare words 'legendary' and 'historicity' matched a translator's note about a legendary ANGEL in the Lausiac History and blocked a saint venerated for 1,600 years. A caution now has to say something about the person or the calendar."
         },
         "formal_canonization": {
           "patterns": [

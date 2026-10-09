@@ -524,6 +524,23 @@ labeled as Tom's translation, never verbatim as if it were the original.
   top of the request), not an account setting; it will pay off for the writer, verifier and reworder, which re-send the same
   pages. 24 log tests, 102 Jerome tests pass.
 
+- **2026-10-09 — v0.9.3: what the first Pachomius run taught (a false negative).** St. Pachomius (founder of Christian monasticism,
+  venerated East and West for 1,600 years) came back with "no basis for sainthood found". Causes, all visible in the saved result:
+  (1) the Orthodox Church in America's own entry for him was fetched, verify-capable and named him 29 times, but an Orthodox site does
+  not write "the Orthodox Church commemorates him", so no phrase matched; (2) Vatican News had his saint-of-the-day page; (3) the one
+  text signal found (Roman Martyrology) was about his BROTHER, because a relative's sentence sat within the name window; (4) the
+  caution word "legendary" matched a translator's note about a legendary ANGEL in the Lausiac History and blocked acceptance.
+  Fixes: **site signals** in the rules (a verify-capable page on oca.org under /saints/, or Vatican News /en/saints/, or Franciscan
+  Media /saint-of-the-day/, whose web address contains the saint's name, counts as that signal: OCA = eastern, strong; the other two
+  = a feast day, medium); **cautions tightened** (the bare words "legendary" and "historicity" are gone; a caution now has to speak
+  of the person or the calendar); step 4 of the log now says why ("advice only (rewrite): no basis for sainthood found..."); when
+  both veneration and canonization qualify, veneration leads and the other is recorded as also qualified; the log's closing line
+  now reads "Total working time" (it is the steps' own time; GitHub's run time adds about a minute of setup, and one run lost 3m20s
+  in checkout). Replaying the real Pachomius sources through the new rules: ready, basis ancient veneration, no flags, even as a new
+  subject. **Known limits:** a relative's or namesake's sentence can still trigger a text signal (the excerpt shown to a person is
+  how it gets caught), a namesake's saint page can match a site signal, and the Franciscan Media path is a guess not yet seen on a
+  real run. 26 log tests, 108 Jerome tests pass.
+
 ## 13. Sufficiency, category rules and visitor input (2026-10-07, not yet built)
 
 **Status key:** CONFIRMED = Tom said so. PROPOSED = Claude's suggestion, not yet answered by Tom. OPEN = a question Tom has not decided.

@@ -1,6 +1,6 @@
 // scripts/services/source-finder.mjs
 //
-// MODULE DATE: 2026-10-08 (Thursday) · v0.9.2 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
+// MODULE DATE: 2026-10-08 (Thursday) · v0.9.3 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
 // Written against orchestrator.mjs / ledger-build.mjs v1.4 as uploaded to the Project 2026-10-07.
 // Design: ARTICLE-PIPELINE-DESIGN-2026-10-07.md, section 4.1 and section 9. Layer 1 uses no AI and no
 // network. Layer 2 calls Anthropic web search and fetches pages; it was tested with MOCKED search and
@@ -829,6 +829,7 @@ export function assess(subject, found, rules, opts = {}) {
   } else if (cat.kind === 'saint') {
     const yr = subject.year;
     const partial = [];            // veneration signals that were found but did not add up to a basis
+    const qualified = [];          // every basis that qualified, in priority order (the first becomes verdict.basis)
     for (const [name, b] of Object.entries(cat.bases || {})) {
       if (b.maxYear != null && !(yr != null && yr <= b.maxYear)) continue;
       if (b.signals) {
@@ -838,6 +839,22 @@ export function assess(subject, found, rules, opts = {}) {
           const h = find(def.patterns);
           if (h.length) sig[type] = { strength: def.strength, excerpts: h };
         }
+        // SITE signals: evidence that is where a page lives (an Orthodox site's own entry for him), not what it says.
+        for (const v of verify) {
+          let u;
+          try { u = new URL(v.url); } catch (_e) { continue; }
+          const host = u.hostname.toLowerCase(), path = u.pathname.toLowerCase();
+          for (const sd of b.siteSignals || []) {
+            if (!(host === sd.domain || host.endsWith('.' + sd.domain))) continue;
+            if (sd.pathPrefix && !path.startsWith(sd.pathPrefix)) continue;
+            if (sd.nameInSlug && !(lead && path.includes(lead))) continue;
+            if ((v.mentions || 0) < (sd.minMentions || 1)) continue;
+            const def = b.signals[sd.signal];
+            if (!def) continue;
+            const slot = sig[sd.signal] || (sig[sd.signal] = { strength: def.strength, excerpts: [] });
+            if (slot.excerpts.length < 4) slot.excerpts.push('[site] ' + sd.label + ': ' + v.url);
+          }
+        }
         const types = Object.keys(sig);
         if (!types.length) continue;
         const cautions = find(b.cautions);
@@ -846,15 +863,16 @@ export function assess(subject, found, rules, opts = {}) {
         const decisive = (rule.decisiveTypes || []).some(t => sig[t]);
         const meets = decisive || (types.length >= (rule.minDistinctTypes == null ? 2 : rule.minDistinctTypes) && strong.length >= (rule.minStrong == null ? 1 : rule.minStrong));
         ev[name] = { signals: sig, ...(cautions.length ? { cautions } : {}) };
-        if (meets && !cautions.length) { if (!basis) basis = name; }
+        if (meets && !cautions.length) { qualified.push(name); if (!basis) basis = name; }
         else if (cautions.length) partial.push('veneration signals found (' + types.join(', ') + ') but the sources raise doubt about the person; a human must decide');
         else partial.push(strong.length ? 'only one kind of veneration signal (' + types.join(', ') + '); ' + (rule.minDistinctTypes || 2) + ' different kinds are needed'
           : 'no strong veneration signal (only ' + types.join(', ') + '); at least one strong kind is needed');
         continue;
       }
       const hits = find(b.patterns);
-      if (hits.length) { ev[name] = hits; if (!basis) basis = name; }
+      if (hits.length) { ev[name] = hits; qualified.push(name); if (!basis) basis = name; }
     }
+    if (qualified.length > 1) ev.also_qualified = qualified.slice(1);
     if (!basis) {
       const nc = {};
       for (const [name, pats] of Object.entries(cat.notCanonized || {})) { if (name.startsWith('_')) continue; const h = find(pats); if (h.length) nc[name] = h; }

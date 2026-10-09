@@ -1,5 +1,5 @@
 // scripts/tests/article-log.test.mjs
-// MODULE DATE: 2026-10-08 (Thursday) · tests for scripts/services/article-log.mjs v0.1 (temp files only).
+// MODULE DATE: 2026-10-09 (Friday) · tests for scripts/services/article-log.mjs v0.3 (temp files only).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -132,7 +132,7 @@ test('stepDetail and renderJob: minutes, tokens by model, searches, cost, total'
   assert.match(lines[0], /^St\. Augustine \(rewrite\) — 2026-10-08 22:46 UTC$/);
   assert.equal(lines[1], '1. Jerome: Got request for rewrite of St. Augustine');
   assert.match(lines[2], /^2\. Jerome: Found 18 usable pages on 7 sites, 89,759 words in all \(2\.9 min, 41\.2k in \/ 3\.1k out tokens \(claude-sonnet-4-6\), 5 web searches, \$0\.22\)$/);
-  assert.match(lines[3], /^Total task 2\.9 min · cost \$0\.22$/);
+  assert.match(lines[3], /^Total working time 2\.9 min · cost \$0\.22$/);
   assert.equal(lines.length, 4);                                    // verified prices: no asterisk, no "not confirmed" line
 });
 
@@ -232,4 +232,18 @@ test('recordJerome: creates the job, adds the steps, and a later call with the s
 test('recordJerome without a task id or jobId makes a readable id', () => {
   const p = join(dir(), 'l.json');
   assert.equal(recordJerome({ result: RESULT, task: { payload: {} }, logPath: p, now: new Date(AT) }).id, 'job-202610082246-st-augustine');
+});
+
+test('jeromeSteps: a rewrite whose saint check only advised says why, in plain words', () => {
+  const r = JSON.parse(JSON.stringify(RESULT));
+  r.layer3.verdict = { action: 'accept', basis: null, reasons: [], advisory: [{ kind: 'basis', text: 'no basis for sainthood found near the name' }] };
+  r.layer3.flags = ['category_advisory'];
+  const st = jeromeSteps(r, { at: AT });
+  assert.match(st[3].text, /advice only \(rewrite\): no basis for sainthood found near the name/);
+});
+
+test('jeromeSteps: when two bases qualify, the first leads and the other is shown', () => {
+  const r = JSON.parse(JSON.stringify(RESULT));
+  r.layer3.verdict = { basis: 'ancient_veneration', evidence: { also_qualified: ['formal_canonization'] } };
+  assert.match(jeromeSteps(r, { at: AT })[3].text, /basis: ancient veneration \(also formal canonization\)/);
 });

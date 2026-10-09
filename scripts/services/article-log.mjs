@@ -1,5 +1,5 @@
 // scripts/services/article-log.mjs
-// MODULE DATE: 2026-10-09 (Friday) · v0.2 — the article log: a short, readable record of what happened on each article job.
+// MODULE DATE: 2026-10-09 (Friday) · v0.3 — the article log: a short, readable record of what happened on each article job.
 //
 // WHAT IT KEEPS (article-log.json, repo root, committed like workLog.json):
 //   { "version": 1, "jobs": [ { "id", "title", "kind": "rewrite" | "new", "startedAt", "requestedBy", "status", "totalSeconds",
@@ -175,7 +175,7 @@ export function renderJob(job, pricing = null) {
     lines.push(s.n + '. ' + s.who + ': ' + s.text + (d ? ' (' + d + ')' : ''));
   }
   const c = costOfJob(job, pricing);
-  const total = ['Total task ' + (mins(job.totalSeconds) || '0 min')];
+  const total = ['Total working time ' + (mins(job.totalSeconds) || '0 min')];   // the steps' own time; GitHub's run time adds about a minute of setup
   const m = money(c);
   if (m) total.push('cost ' + m);
   lines.push(total.join(' · '));
@@ -225,7 +225,8 @@ export function jeromeSteps(result, { at } = {}) {
   }
   if (L3) {
     const bits = [L3.status === 'ready' ? 'Enough to write from' : L3.status === 'needs_decision' ? 'Needs a decision' : L3.status === 'too_thin' ? 'Too thin' : L3.status === 'not_found' ? 'Nothing found' : 'Check: ' + L3.status];
-    if (L3.verdict && L3.verdict.basis) bits.push('basis: ' + L3.verdict.basis.replace(/_/g, ' '));
+    if (L3.verdict && L3.verdict.basis) bits.push('basis: ' + L3.verdict.basis.replace(/_/g, ' ') + (L3.verdict.evidence && L3.verdict.evidence.also_qualified ? ' (also ' + L3.verdict.evidence.also_qualified.map(x => x.replace(/_/g, ' ')).join(', ') + ')' : ''));
+    if (L3.verdict && L3.verdict.advisory && L3.verdict.advisory.length) bits.push('advice only (rewrite): ' + L3.verdict.advisory.map(x => x.text).join('; '));
     if (L3.reason) bits.push(L3.reason);
     if (L3.flags && L3.flags.length) bits.push('flags: ' + L3.flags.join(', '));
     steps.push({ who: 'Jerome', at, text: bits.join('; ') });
