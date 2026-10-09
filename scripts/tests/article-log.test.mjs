@@ -247,3 +247,34 @@ test('jeromeSteps: when two bases qualify, the first leads and the other is show
   r.layer3.verdict = { basis: 'ancient_veneration', evidence: { also_qualified: ['formal_canonization'] } };
   assert.match(jeromeSteps(r, { at: AT })[3].text, /basis: ancient veneration \(also formal canonization\)/);
 });
+
+test('jeromeSteps: a thin result lists the unjudged sites that could help, so a person knows what to approve', () => {
+  const r = JSON.parse(JSON.stringify(RESULT));
+  r.layer3.status = 'needs_decision';
+  r.layer3.reason = 'approved sources alone are too thin (656 of 1000 words)';
+  r.layer3.decisions = [{ kind: 'unjudged_sources', urls: ['https://www.kofc.org/a', 'https://www.kofc.org/b', 'https://www.example-order.org/c', 'not a url'] }];
+  const st = jeromeSteps(r, { at: AT });
+  assert.equal(st[st.length - 1].text, 'Unjudged sites waiting for approval: kofc.org (2 pages), example-order.org');
+});
+
+const AUTH = (c, extra = {}) => ({ ...RESULT, authority: { found: true, diocese: 'Diocese of Niigata', place: 'Akita', country: 'Japan', confidence: 'high', candidates: [c], ...extra } });
+const lastText = r => { const st = jeromeSteps(r, { at: AT }); return st[st.length - 1].text; };
+
+test('jeromeSteps: a new, verified diocese site is "handed to Ignatius" with what the code checked', () => {
+  assert.equal(lastText(AUTH({ url: 'https://n.example/', domain: 'n.example', role: 'diocese', registry: 'new', verified: true, checks: { dioceseMentions: 9, churchWords: 30 } })),
+    'Handed to Ignatius: Diocese website n.example (Diocese of Niigata — Akita, Japan); the page loads, names the diocese 9 time(s) and reads like a church site; waiting for his decision');
+});
+
+test('jeromeSteps: a site the code could not confirm is still handed over, but says so plainly', () => {
+  assert.match(lastText(AUTH({ domain: 'n.example', role: 'diocese', registry: 'new', verified: false, note: 'the page never names the diocese (niigata)' })),
+    /Handed to Ignatius: .*NOT confirmed as a church site \(the page never names the diocese \(niigata\)\); waiting for his decision/);
+});
+
+test('jeromeSteps: approved, switched-off and skipped sites, other official sites, nothing found, and a failed lookup', () => {
+  assert.equal(lastText(AUTH({ domain: 'vatican.va', role: 'alternate', registry: 'approved' })), 'Other official website vatican.va is already an approved source');
+  assert.match(lastText(AUTH({ domain: 'x.org', role: 'diocese', registry: 'disabled' })), /is on the registry but switched off$/);
+  assert.match(lastText(AUTH({ url: 'http://x', domain: '', role: 'diocese', registry: 'blocked', note: 'not a plain https address on a real host' })), /was skipped: not a plain https address/);
+  assert.equal(lastText({ ...RESULT, authority: { found: false, note: 'no diocese site located' } }), 'Could not find the diocese\'s own website (no diocese site located)');
+  assert.equal(lastText({ ...RESULT, authority: { found: false, error: 'model unavailable' } }), 'Diocese lookup failed: model unavailable');
+  assert.equal(jeromeSteps(RESULT, { at: AT }).some(s => /diocese/i.test(s.text)), false);       // no lookup, no lines
+});

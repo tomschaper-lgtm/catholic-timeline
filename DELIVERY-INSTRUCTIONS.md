@@ -1,6 +1,6 @@
 # How Claude delivers files in this project
 
-**Last updated:** 2026-10-08 (Thursday) · v2 (adds patch mode and the article log)
+**Last updated:** 2026-10-09 (Friday) · v3 (adds approval dates on the source registry and the Ignatius queue)
 **For:** any Claude chat in the Church Timeline Website project. Read this before handing Tom any file.
 
 ## The situation
@@ -72,10 +72,19 @@ After that, everything else goes by bundle.
 
 Each article job is recorded in `article-log.json` (repo root): numbered steps with who did it, what happened, minutes, and raw usage (model, tokens, web searches). Code writes the steps from real numbers; never write them by hand or with an AI. A service adds its steps with `addStep` from `scripts/services/article-log.mjs`, using the SAME `jobId` for every service on one article (the task's `payload.jobId`, default the task id), and returns `filesToCommit: ['article-log.json']`. Dollars are not stored; they are computed from `scripts/pricing.json` when the log is shown. A service that charges by something other than tokens (audio, images) reports its own dollars as `usage.otherUsd`. Jerome (task type `source-find`) already logs. The website Log view and the Add Task option for `source-find` need `index.html`, which Claude has not seen.
 
+## The source registry and its approval dates (v3)
+
+`scripts/ledger-allowlist.json` is the list of websites the pipeline may trust, and `SOURCE-ALLOWLIST.md` is the page that shows them with their descriptions (the page is generated from the registry). Both are protected: a bundle cannot change them. Rules for any session that touches them:
+- **Every entry must carry `addedAt` (the day it was put on the list), `approvedAt` (the day it was approved, null while it is only listed and switched off) and `approvedBy` (who).** Never add or enable a site without them. Use `stampApproval`, `entryFromQueueItem` and `addApproved` from `scripts/services/registry-dates.mjs`; they refuse an approval that names nobody.
+- After any change to the registry, regenerate the page's "Approved" column with `node scripts/services/registry-dates.mjs --backfill` (it only fills dates that are missing, so it is safe to repeat), and update the date line.
+- **Jerome never approves a site.** For apparitions and miracles it finds the diocese's own website and writes it to `ignatius-queue.json` as `waiting`. Only Ignatius (not built yet) decides, and he must quote what shows the site is the diocese's own. Until he exists, nothing in the queue is approved; do not approve queue items on his behalf.
+- The old sites get their dates from the repository's own history through the "Registry dates" workflow (run it with Dry run ticked first). Do not invent dates.
+
 ## Other workflows Tom has
 
 - **Test source-finder** (`.github/workflows/test-source-finder.yml`): runs the Jerome tests. Starts by itself when anything under `scripts/` changes, or by hand in Actions. Green means all tests pass.
-- **Jerome pilot** (`.github/workflows/jerome-pilot.yml`, v2): a LIVE run of Jerome (real web search, real fetches, uses the `ANTHROPIC_API_KEY` secret). By hand only, with fields for an existing entry id or a new subject. The summary line and the numbered article log show at the top of the run; the run also commits `article-log.json`. It shares the `orchestrator` concurrency group so it never overlaps an orchestrator run.
+- **Registry dates** (`.github/workflows/registry-dates.yml`): by hand only. Dates the registry from git history and adds the Approved column to SOURCE-ALLOWLIST.md. Dry run first.
+- **Jerome pilot** (`.github/workflows/jerome-pilot.yml`, v2.4): a LIVE run of Jerome (real web search, real fetches, uses the `ANTHROPIC_API_KEY` secret). By hand only, with fields for an existing entry id or a new subject. The summary line and the numbered article log show at the top of the run; the run also commits `article-log.json`. It shares the `orchestrator` concurrency group so it never overlaps an orchestrator run.
 - **Orchestrator** (`orchestrator.yml`): the existing Task Automation runner. Handlers return `filesToCommit`; it commits them itself. Do not replace it with the placing service.
 
 ## If something fails

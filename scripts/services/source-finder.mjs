@@ -1,6 +1,6 @@
 // scripts/services/source-finder.mjs
 //
-// MODULE DATE: 2026-10-08 (Thursday) · v0.9.3 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
+// MODULE DATE: 2026-10-08 (Thursday) · v0.9.6 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
 // Written against orchestrator.mjs / ledger-build.mjs v1.4 as uploaded to the Project 2026-10-07.
 // Design: ARTICLE-PIPELINE-DESIGN-2026-10-07.md, section 4.1 and section 9. Layer 1 uses no AI and no
 // network. Layer 2 calls Anthropic web search and fetches pages; it was tested with MOCKED search and
@@ -38,6 +38,9 @@
 //            'source-find'). It runs runSourceFinder, adds Jerome's steps to article-log.json (scripts/services/article-log.mjs),
 //            returns filesToCommit so the orchestrator commits the log, and stores only a compact result on the task (the
 //            long per-page records stay out of workLog.json). Token use is counted by model for the cost column.
+//            AUTHORITY LOOKUP (v0.9.6): for apparitions and miracles (rules: authorityLookup) Jerome also asks which diocese judges the
+//            subject and what its official website is (scripts/services/authority-finder.mjs). Code checks the page; the site goes into
+//            ignatius-queue.json as "waiting" for IGNATIUS (not built) to decide. Jerome never approves a site.
 //            LIVE-PILOT FIXES (v0.8, after the first real run on St. Augustine): sites that refuse automated
 //            fetching (HTTP 403, e.g. britannica.com) are listed in the rules (fetchBlockedDomains) and are never
 //            searched or counted; a lane can exclude paths of a site (CCEL hosts encyclopedias that are not primary
@@ -92,6 +95,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { recordJerome, LOG_PATH, renderJob, loadPricing } from './article-log.mjs';
+import { findAuthority, queueItemsFor, addToQueue, loadQueue, saveQueue, QUEUE_PATH } from './authority-finder.mjs';
 
 const DATA_PATH = process.env.DATA_PATH || 'data.json';
 const T_FUZZY = 0.8;
@@ -328,6 +332,7 @@ let tokensUsed = 0;
 const LONG_PROMPT_TOKENS = 100000;
 export const newTally = () => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, long: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } });
 let usageTally = newTally();
+let authoritySearches = 0;   // web searches spent on the diocese lookup, added to the run's total
 export function addUsage(t, u) {
   const i = (u && u.input_tokens) || 0, o = (u && u.output_tokens) || 0, cr = (u && u.cache_read_input_tokens) || 0, cw = (u && u.cache_creation_input_tokens) || 0;
   const b = (i + cr + cw) > LONG_PROMPT_TOKENS ? t.long : t;
@@ -425,10 +430,10 @@ async function realFetchPage(url) {
 
 // ---- web search (real): Anthropic web_search; URLs are harvested from the tool-result blocks, not from the
 // model's prose, so nothing the model merely says can become a candidate. ----
-async function realSearch({ query, allowedDomains, model }) {
+async function realSearch({ query, allowedDomains, model, maxUses }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('Missing ANTHROPIC_API_KEY secret (needed for source search).');
-  const tool = { type: 'web_search_20250305', name: 'web_search', max_uses: MAX_SEARCHES };
+  const tool = { type: 'web_search_20250305', name: 'web_search', max_uses: maxUses || MAX_SEARCHES };
   if (allowedDomains && allowedDomains.length) tool.allowed_domains = allowedDomains;
   const body = {
     model: model || FINDER_MODEL.modelId, max_tokens: 2000, tools: [tool],
@@ -457,6 +462,35 @@ async function realSearch({ query, allowedDomains, model }) {
     }
   }
   return { results, searches };
+}
+
+// ---- one question to the model with web search, answered in text (used for the diocese lookup). The model's words are only ever
+// parsed and then CHECKED by code (the page is fetched and read); nothing it says is trusted on its own. ----
+async function realAsk({ prompt, maxUses, model }) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('Missing ANTHROPIC_API_KEY secret (needed for the diocese lookup).');
+  const body = {
+    model: model || FINDER_MODEL.modelId, max_tokens: 1500,
+    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses || 2 }],
+    system: 'You research facts with the search tool and never answer from memory. Reply only in the format you are asked for.',
+    messages: [{ role: 'user', content: prompt }]
+  };
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST', headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const err = new Error('Anthropic ask ' + res.status + ': ' + String(await res.text().catch(() => '')).slice(0, 300));
+    err.status = res.status;
+    if (res.status === 429 || /quota|credit|billing/i.test(err.message)) err.deferred = true;
+    throw err;
+  }
+  const data = await res.json();
+  tokensUsed += ((data.usage && data.usage.input_tokens) || 0) + ((data.usage && data.usage.output_tokens) || 0);
+  addUsage(usageTally, data.usage);
+  let searches = 0;
+  for (const b of data.content || []) if (b.type === 'server_tool_use') searches++;
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text || '').join('\n').trim();
+  return { text, searches };
 }
 
 // ---- classify + fetch one candidate ----
@@ -537,7 +571,8 @@ export function perspectivePlan(rules, category) {
   if (!lanes.length) return null;
   return { lanes, maxExtraSearches: p.maxExtraSearches == null ? 2 : p.maxExtraSearches, maxFetchPerLane: p.maxFetchPerLane || 4,
     minWords: p.minWordsPerLane == null ? 300 : p.minWordsPerLane, minMentions: p.minMentionsPerLane == null ? 1 : p.minMentionsPerLane,
-    minLanesForRich: p.minLanesForRich == null ? 3 : p.minLanesForRich };
+    minLanesForRich: p.minLanesForRich == null ? 3 : p.minLanesForRich,
+    searchesPerLane: p.searchesPerLane || 1 };
 }
 
 // Words gathered per lane from approved, usable pages that are really about the subject. A normal lane needs
@@ -650,7 +685,7 @@ export async function findSources(subject, opts = {}, deps = {}) {
       const doms = laneDomains(lane, reg, dm => isBlocked(dm.toLowerCase()));
       if (!doms.length) continue;
       used++;
-      const r = countSearch(await d.search({ query: queryFor(subject, 'lane', lane), allowedDomains: doms, model: opts.model }));
+      const r = countSearch(await d.search({ query: queryFor(subject, 'lane', lane), allowedDomains: doms, model: opts.model, maxUses: plan.searchesPerLane }));
       await runPass('lane:' + lane.id, r.results, 'perspective search: ' + lane.label + ' (' + doms.length + ' sites; ' + (r.searches || 0) + ' searches)', plan.maxFetchPerLane);
     }
   }
@@ -793,8 +828,11 @@ export function assess(subject, found, rules, opts = {}) {
     if (covered.length < Math.min(plan.minLanesForRich, plan.lanes.length)) flags.push('narrow_perspective');
   }
 
-  // 1. Enough to write from?
+  // 1. Enough to write from? (Thin material no longer stops the checks: the category result is worked out too and reported beside it,
+  //    so a Blessed with thin sources shows BOTH "too thin" and "not canonized".)
+  let thin = false;
   if (!enough) {
+    thin = true;
     const withUnjudged = verifyWords + sum(unjudged);   // unjudged pages are assumed substantive until Ignatius looks
     if (unjudged.length && withUnjudged >= suff.minWordsVerifyCapable) {
       out.status = 'needs_decision';
@@ -807,10 +845,10 @@ export function assess(subject, found, rules, opts = {}) {
         ? 'only ' + verifyWords + ' words of real material (need ' + suff.minWordsVerifyCapable + ') on ' + domains.size + ' verify-capable site(s)' + (domains.size < minDomains ? '; need ' + minDomains + ' independent sites' : '')
         : 'nothing found that can verify: ' + (reported.length ? reported.length + ' reported-tier page(s) cannot carry verification' : unjudged.length + ' unjudged page(s) are not yet approved');
     }
-    return out;
+  } else {
+    if (domains.size === 1) flags.push('single_source');
+    if (!rich) flags.push('thin_material');
   }
-  if (domains.size === 1) flags.push('single_source');
-  if (!rich) flags.push('thin_material');
 
   // 2. Category rules. Evidence comes from verify-capable pages only.
   const reasons = [];            // { kind, text }
@@ -886,6 +924,12 @@ export function assess(subject, found, rules, opts = {}) {
     const sigs = {};
     for (const [name, pats] of Object.entries(sig || {})) { const h = find(pats); if (h.length) sigs[name] = h; }
     if (Object.keys(sigs).length) ev.approval_signals = sigs;
+    // Approval news usually appears in REPORTED sources (National Catholic Register, OSV...), which cannot verify. Show what they say as leads
+    // to check against the bishop's or the Dicastery's own statement; this is never proof and never changes the verdict.
+    const repText = reported.map(v => v.text || '').join(' ');
+    const repSigs = {};
+    for (const [name, pats] of Object.entries(sig || {})) { const h = evidence(repText, pats, lead, window); if (h.length) repSigs[name] = h; }
+    if (Object.keys(repSigs).length) ev.approval_signals_reported = repSigs;
     reasons.push({ kind: 'basis', text: cat.reason || 'this category is set to review' });
   } else if (cat.kind === 'reject') {
     reasons.push({ kind: 'reject', text: cat.reason || 'this category is not accepted' });
@@ -899,7 +943,13 @@ export function assess(subject, found, rules, opts = {}) {
     basis, reasons: blocking, ...(advisory.length ? { advisory } : {}), evidence: ev };
   if (advisory.length) flags.push('category_advisory');
 
-  if (out.verdict.action === 'accept') { out.status = 'ready'; }
+  if (thin) {
+    // keep the sufficiency status; add the category result beside it
+    if (out.verdict.action !== 'accept') {
+      decisions.push({ kind: 'category_' + out.verdict.action, reason: blocking.map(r => r.text).join('; ') });
+      out.reason = (out.reason ? out.reason + '. ALSO: ' : '') + decisions[decisions.length - 1].reason;
+    }
+  } else if (out.verdict.action === 'accept') { out.status = 'ready'; }
   else {
     out.status = 'needs_decision';
     decisions.push({ kind: 'category_' + out.verdict.action, reason: blocking.map(r => r.text).join('; ') });
@@ -920,6 +970,7 @@ export async function runSourceFinder(task, dataJson, deps = {}) {
   const p = task.payload || {};
   tokensUsed = 0;
   usageTally = newTally();
+  authoritySearches = 0;
   const out = findSubject({ mode: p.mode, name: p.name, category: p.category, year: p.year, entityId: p.entityId || task.entityId }, dataJson);
 
   const proceed = p.search !== false && (out.outcome === 'new_subject' || out.outcome === 'rewrite_ready' ||
@@ -944,17 +995,31 @@ export async function runSourceFinder(task, dataJson, deps = {}) {
     }
     if (found) {
       out.search = found;
-      out.timing = { seconds: Math.round((Date.now() - tStart) / 100) / 10, webSearches: found.webSearches || 0, searchCalls: found.searchCalls || 0,
-        pagesFetched: (found.passes || []).reduce((n, x) => n + (x.fetched || 0), 0),
-        model: p.model || FINDER_MODEL.modelId, inputTokens: usageTally.input, outputTokens: usageTally.output,
-        cacheReadTokens: usageTally.cacheRead, cacheWriteTokens: usageTally.cacheWrite,
-        ...(usageTally.long.input || usageTally.long.output || usageTally.long.cacheRead || usageTally.long.cacheWrite
-          ? { longPrompt: { inputTokens: usageTally.long.input, outputTokens: usageTally.long.output, cacheReadTokens: usageTally.long.cacheRead, cacheWriteTokens: usageTally.long.cacheWrite } } : {}) };
       out.layer2 = found.counts.usableApproved + found.counts.usableUnjudged > 0 ? 'candidates_found' : 'no_candidates';
       if (p.assess !== false) {
         try { if (!rules) throw new Error(rulesError); out.layer3 = assess(subject, found, rules, { mode }); }
         catch (err) { out.layer3 = { status: 'error', reason: String((err && err.message) || err).slice(0, 300) }; }
       }
+      // Which diocese judges this, and what is its own website? Only for categories the rules list (apparitions, miracles); never fails the run.
+      const al = rules && rules.authorityLookup;
+      if (p.authority !== false && al && al.enabled !== false && (al.categories || []).includes(subject.category)) {
+        try {
+          out.authority = await findAuthority({
+            subject: { name: subject.name, year: subject.year, region: out.subject && out.subject.region }, label: CATEGORY_LABEL[subject.category] || 'subject',
+            ask: deps.askAuthority || (a => realAsk({ ...a, model: p.model })), fetchPage: deps.fetchPage || realFetchPage,
+            reg: deps.registry || loadRegistry(), helpers: { safeUrl, regEntry, neverHosts: NEVER_HOSTS }, cfg: al });
+          authoritySearches = out.authority.searches || 0;
+        } catch (err) {
+          if (err && err.deferred) throw err;
+          out.authority = { found: false, error: String((err && err.message) || err).slice(0, 200) };
+        }
+      }
+      out.timing = { seconds: Math.round((Date.now() - tStart) / 100) / 10, webSearches: (found.webSearches || 0) + authoritySearches, searchCalls: (found.searchCalls || 0) + (authoritySearches ? 1 : 0),
+        pagesFetched: (found.passes || []).reduce((n, x) => n + (x.fetched || 0), 0),
+        model: p.model || FINDER_MODEL.modelId, inputTokens: usageTally.input, outputTokens: usageTally.output,
+        cacheReadTokens: usageTally.cacheRead, cacheWriteTokens: usageTally.cacheWrite,
+        ...(usageTally.long.input || usageTally.long.output || usageTally.long.cacheRead || usageTally.long.cacheWrite
+          ? { longPrompt: { inputTokens: usageTally.long.input, outputTokens: usageTally.long.output, cacheReadTokens: usageTally.long.cacheRead, cacheWriteTokens: usageTally.long.cacheWrite } } : {}) };
     }
   }
 
@@ -986,6 +1051,21 @@ export async function runSourceFinder(task, dataJson, deps = {}) {
 // A failure to write the log never fails the task: it is reported in the summary instead.
 // ---------------------------------------------------------------------------------------------
 
+// Put the NEW diocese sites found in this run into ignatius-queue.json as "waiting". Returns { added, merged, skipped, changed }.
+export function recordHandoff({ result, task, jobId, queuePath = QUEUE_PATH, now = new Date() }) {
+  const a = result && result.authority;
+  const none = { added: 0, merged: 0, skipped: 0, changed: false };
+  if (!a || !a.candidates) return none;
+  const p = (task && task.payload) || {};
+  const items = queueItemsFor(a, { subject: { name: (result.subject && result.subject.name) || p.name || 'Untitled' }, jobId: jobId || p.jobId || (task && task.id) || null, at: now.toISOString() });
+  if (!items.length) return none;
+  const q = loadQueue(queuePath);
+  const r = addToQueue(q, items);
+  const changed = r.added > 0 || r.merged > 0;
+  if (changed) saveQueue(q, queuePath);
+  return { added: r.added, merged: r.merged, skipped: r.skipped, changed };
+}
+
 // What is kept on the task in workLog.json: everything a person or the next step needs, minus the long per-page records.
 export function compactResult(r) {
   const c = { ...r };
@@ -999,8 +1079,10 @@ export async function runJerome(task, dataJson, _workLog, deps = {}) {
   let note = '';
   const filesToCommit = [];
   try {
-    recordJerome({ result: out.result, task, logPath, now: deps.now });
+    const job = recordJerome({ result: out.result, task, logPath, now: deps.now });
     filesToCommit.push(logPath);
+    const h = recordHandoff({ result: out.result, task, jobId: job.id, queuePath: deps.queuePath || QUEUE_PATH, now: deps.now });
+    if (h.changed) { filesToCommit.push(deps.queuePath || QUEUE_PATH); note = ' | handed ' + (h.added + h.merged) + ' site(s) to Ignatius'; }
   } catch (err) {
     note = ' | article log not written: ' + String((err && err.message) || err).slice(0, 120);
   }
@@ -1029,6 +1111,8 @@ async function cli(argv) {
   if (args.includes('--log')) {                                // add this run to article-log.json (the pilot workflow commits it)
     const job = recordJerome({ result: out.result, task: { payload: { ...task.payload, jobId: get('--job') } } });
     console.error('\n' + renderJob(job, loadPricing()).join('\n'));
+    const h = recordHandoff({ result: out.result, task, jobId: job.id });
+    if (h.changed) console.error('\nHanded to Ignatius: ' + (h.added + h.merged) + ' site(s) now waiting in ' + QUEUE_PATH);
   }
 }
 

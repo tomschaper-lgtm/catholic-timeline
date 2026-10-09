@@ -131,7 +131,9 @@
         "theology_commentary",
         "primary_texts"
       ]
-    }
+    },
+    "searchesPerLane": 1,
+    "_searchesPerLane": "Web searches one perspective-lane search may use (the default for any search is 3). Found on the Akita run: two lane searches on sites with nothing about the subject used 6 searches ($0.06) and found no usable page. One search per lane keeps the lane idea and cuts that waste. PROVISIONAL."
   },
   "selection": {
     "_note": "Selection (Tom's rule): Jerome searches a wide pool, then hands the writer only the best few. poolTarget = how many substantive approved pages Jerome tries to gather before it stops hunting (it still stops at the fetch caps). maxSelected / targetSelected = the best 4 are provided; fewer than 3 is flagged few_sources. Picks run lane by lane in the category's priority order (so the 4 are different KINDS of source), then fill by score. At most maxPerDomain pages from one site and maxContextOnly context-only (reported-tier) pages; at least one verify-capable page is always included if any exists. A page's score = words (up to maxWordsCredited) + how often the name appears (up to maxMentionsCredited) + name in the title + the tier weight. The floor and target word checks (sufficiency) apply to the SELECTED pages only: if only one page qualifies, its word count must pass the floor on its own. PROVISIONAL: every number here is Claude's starting guess.",
@@ -155,6 +157,16 @@
       "scripture": 0,
       "reported": 0
     }
+  },
+  "authorityLookup": {
+    "enabled": true,
+    "categories": [
+      "m",
+      "u"
+    ],
+    "maxSearches": 2,
+    "maxCandidates": 3,
+    "_note": "Tom's idea: for an apparition or miracle, Jerome also finds the OFFICIAL website of the diocese whose bishop judges it, because that bishop's statement is the authority for its approval. Jerome only PROPOSES: code fetches the page and checks it names the diocese and reads like a church site, then the site is put in ignatius-queue.json as waiting. IGNATIUS (not built yet) decides and approves; nothing here edits the registry. Costs one extra model call with up to maxSearches web searches (about $0.02-0.04). Set enabled to false to switch it off, or add a category letter to the list."
   },
   "window": 300,
   "fetchBlockedDomains": [
@@ -381,7 +393,7 @@
     "m": {
       "kind": "review",
       "label": "Marian apparition",
-      "reason": "Approval level must be set by a person. The level wording is still being decided (the 2024 Vatican norms replaced the older approval language; see the design doc, section 13).",
+      "reason": "Apparition: a person sets the approval level; check the bishop's or the Dicastery's own statement (2024 norms).",
       "signals": {
         "dicastery_or_holy_see": [
           "\\bnihil obstat\\b",
@@ -408,13 +420,15 @@
           "\\bpopular devotion\\b",
           "\\bnever (been )?(formally|officially)\\b"
         ]
-      }
+      },
+      "_note": "Short text on purpose: it shows in the article log. Background: the May 2024 DDF norms replaced the older approval language; see the design doc, section 13."
     },
     "u": {
       "kind": "review",
       "label": "Eucharistic miracle",
-      "reason": "Approval level must be set by a person. The level wording is still being decided (the 2024 Vatican norms replaced the older approval language; see the design doc, section 13).",
-      "signals": "same as m"
+      "reason": "Eucharistic miracle: a person sets the approval level; check the bishop's or the Dicastery's own statement (2024 norms).",
+      "signals": "same as m",
+      "_note": "Short text on purpose: it shows in the article log. Background: the May 2024 DDF norms replaced the older approval language; see the design doc, section 13."
     },
     "c": {
       "kind": "accept",

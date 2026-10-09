@@ -1,5 +1,5 @@
 // scripts/services/article-log.mjs
-// MODULE DATE: 2026-10-09 (Friday) · v0.3 — the article log: a short, readable record of what happened on each article job.
+// MODULE DATE: 2026-10-09 (Friday) · v0.5 — the article log: a short, readable record of what happened on each article job.
 //
 // WHAT IT KEEPS (article-log.json, repo root, committed like workLog.json):
 //   { "version": 1, "jobs": [ { "id", "title", "kind": "rewrite" | "new", "startedAt", "requestedBy", "status", "totalSeconds",
@@ -230,6 +230,33 @@ export function jeromeSteps(result, { at } = {}) {
     if (L3.reason) bits.push(L3.reason);
     if (L3.flags && L3.flags.length) bits.push('flags: ' + L3.flags.join(', '));
     steps.push({ who: 'Jerome', at, text: bits.join('; ') });
+    // Unjudged sites that could make the material enough: a person (and later Ignatius) decides whether to approve them.
+    const uj = (L3.decisions || []).find(d => d.kind === 'unjudged_sources');
+    if (uj && uj.urls && uj.urls.length) {
+      const count = {};
+      for (const u of uj.urls) { try { const h = new URL(u).hostname.replace(/^www\./, ''); count[h] = (count[h] || 0) + 1; } catch (_e) { /* skip */ } }
+      steps.push({ who: 'Jerome', at, text: 'Unjudged sites waiting for approval: ' + Object.entries(count).map(([h, n]) => h + (n > 1 ? ' (' + n + ' pages)' : '')).join(', ') });
+    }
+  }
+  // The diocese lookup (apparitions and miracles): what was found and handed to Ignatius.
+  const au = result.authority;
+  if (au) {
+    if (au.error) steps.push({ who: 'Jerome', at, text: 'Diocese lookup failed: ' + au.error });
+    else if (!au.found) steps.push({ who: 'Jerome', at, text: 'Could not find the diocese\'s own website' + (au.note ? ' (' + au.note + ')' : '') });
+    else {
+      const where = [au.diocese, [au.place, au.country].filter(Boolean).join(', ')].filter(Boolean).join(' — ');
+      for (const c of au.candidates) {
+        const lead = (c.role === 'diocese' ? 'Diocese' : 'Other official') + ' website ' + (c.domain || c.url) + (c.role === 'diocese' && where ? ' (' + where + ')' : '');
+        if (c.registry === 'new') {
+          const ck = c.checks || {};
+          steps.push({ who: 'Jerome', at, text: 'Handed to Ignatius: ' + lead + '; ' + (c.verified
+            ? 'the page loads, names the diocese ' + ck.dioceseMentions + ' time(s) and reads like a church site'
+            : 'NOT confirmed as a church site (' + (c.note || 'unknown') + ')') + '; waiting for his decision' });
+        } else if (c.registry === 'approved') steps.push({ who: 'Jerome', at, text: lead + ' is already an approved source' });
+        else if (c.registry === 'disabled') steps.push({ who: 'Jerome', at, text: lead + ' is on the registry but switched off' });
+        else steps.push({ who: 'Jerome', at, text: lead + ' was skipped: ' + (c.note || 'not an allowed kind of site') });
+      }
+    }
   }
   return steps;
 }

@@ -1,12 +1,12 @@
 // scripts/tests/source-finder.test.mjs
-// MODULE DATE: 2026-10-08 (Thursday) · tests for source-finder.mjs v0.3 (v0.9.3: layers 1, 2 and 3, with perspective lanes, best-few selection, signal types for ancient saints and the first live-pilot fixes; layer 2 with MOCKED search/fetch; layer 3 uses the real scripts/category-rules.json).
+// MODULE DATE: 2026-10-08 (Thursday) · tests for source-finder.mjs v0.3 (v0.9.6: layers 1, 2 and 3, with perspective lanes, best-few selection, signal types for ancient saints and the first live-pilot fixes; layer 2 with MOCKED search/fetch; layer 3 uses the real scripts/category-rules.json).
 // Run: node --test scripts/tests/source-finder.test.mjs
 // Synthetic tests always run. Real-data tests run only if DATA_PATH (or ./data.json) exists.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { fold, scoreMatch, checkExistence, findSubject, runSourceFinder, findSources, safeUrl, allowedDomains, examine, assess, loadRules, evidence, laneOf, laneCoverage, perspectivePlan, selectSources, runJerome, compactResult, newTally, addUsage } from '../services/source-finder.mjs';
+import { fold, scoreMatch, checkExistence, findSubject, runSourceFinder, findSources, safeUrl, allowedDomains, examine, assess, loadRules, evidence, laneOf, laneCoverage, perspectivePlan, selectSources, runJerome, compactResult, newTally, addUsage, recordHandoff } from '../services/source-finder.mjs';
 import { fileURLToPath } from 'node:url';
 
 const RULES = loadRules(fileURLToPath(new URL('../category-rules.json', import.meta.url)));
@@ -1078,4 +1078,189 @@ test('bases: when veneration and canonization both qualify, veneration leads and
   const r = assess(bertha({ year: 304 }), found(src({ text: 'bertha is named in the roman martyrology, and a church was dedicated to st. bertha. bertha was canonized.' })), RULES);
   assert.equal(r.verdict.basis, 'ancient_veneration');
   assert.deepEqual(r.verdict.evidence.also_qualified, ['formal_canonization']);
+});
+
+// ---------------------------------------------------------------------------------------------
+// From the first NEW-subject run (Blessed Michael McGivney): thin material no longer hides the category check (v0.9.4)
+// ---------------------------------------------------------------------------------------------
+
+const MCG = { name: 'Michael McGivney', category: 's', year: 1890 };
+const unj = (host, o = {}) => ({ url: 'https://' + host + '/mcgivney', domain: host, usable: true, status: 'unjudged', canVerify: undefined, tier: undefined, words: 800, mentions: 12, ...o });
+
+test('thin material AND a Blessed: the status is the sufficiency one, and "not canonized" is reported beside it', () => {
+  const r = assess(MCG, found(src({ words: 656, text: 'michael mcgivney was beatified in 2020 and is venerable no longer; his cause continues.' }), unj('www.kofc.org')), RULES);
+  assert.equal(r.status, 'needs_decision');                                    // thin, but unjudged pages might fix it
+  assert.deepEqual(r.decisions.map(d => d.kind), ['unjudged_sources', 'category_review']);
+  assert.match(r.verdict.reasons[0].text, /not canonized/);
+  assert.match(r.reason, /too thin.*ALSO: not canonized/);
+  assert.ok(!r.flags.includes('single_source') && !r.flags.includes('thin_material'));      // those flags describe an entry that has enough
+});
+
+test('thin material and nothing to fix it: still too_thin, and the category result is there too', () => {
+  const r = assess(MCG, found(src({ words: 656, text: 'michael mcgivney was beatified in 2020.' })), RULES);
+  assert.equal(r.status, 'too_thin');
+  assert.match(r.verdict.reasons[0].text, /not canonized/);
+  assert.equal(r.decisions.length, 1);
+  assert.equal(r.decisions[0].kind, 'category_review');
+});
+
+test('thin material but the saint check passes: no category decision is added and the status is unchanged', () => {
+  const r = assess(MCG, found(src({ words: 656, text: 'michael mcgivney was canonized by the church.' }), unj('www.kofc.org')), RULES);
+  assert.equal(r.status, 'needs_decision');
+  assert.deepEqual(r.decisions.map(d => d.kind), ['unjudged_sources']);
+  assert.equal(r.verdict.action, 'accept');
+  assert.equal(r.verdict.basis, 'formal_canonization');
+});
+
+test('no usable page at all is still not_found, with no verdict', () => {
+  const r = assess(MCG, found(src({ usable: false })), RULES);
+  assert.equal(r.status, 'not_found');
+  assert.equal(r.verdict, undefined);
+});
+
+// ---------------------------------------------------------------------------------------------
+// From the Our Lady of Akita run (v0.9.5): cheaper lane searches, approval leads from reported pages, short reasons
+// ---------------------------------------------------------------------------------------------
+
+test('lane searches use one web search each (the rules say so); the normal passes keep the default', async () => {
+  assert.equal(PLAN_S.searchesPerLane, 1);
+  const m = mocks(lanePages, laneResults);
+  await findSources({ name: 'Bertha of Blangy', category: 's' }, { ...LOPTS, perspectives: PLAN_S }, m.deps);
+  assert.equal(m.calls.search[0].maxUses, undefined);                 // the first allowlist search: default
+  assert.ok(m.calls.search.slice(1).every(q => q.maxUses === 1));     // each lane search: one
+  const custom = perspectivePlan({ ...RULES, perspectives: { ...RULES.perspectives, searchesPerLane: 2 } }, 's');
+  assert.equal(custom.searchesPerLane, 2);
+});
+
+const AKITA = { name: 'Our Lady of Akita', category: 'm', year: 1973 };
+const rep = (text, o = {}) => src({ domain: 'ncregister.com', canVerify: false, tier: 'reported', words: 2500, text, ...o });
+
+test('apparition: approval wording on a REPORTED page is shown as a lead, separately from verified evidence, and never changes the verdict', () => {
+  const r = assess(AKITA, found(src({ domain: 'ewtn.com', words: 1700, text: 'the message of our lady of akita to sister agnes.' }),
+    rep('in 1984 the bishop approved the devotion to our lady of akita, declaring it worthy of belief.')), RULES);
+  assert.equal(r.status, 'needs_decision');
+  assert.equal(r.verdict.evidence.approval_signals, undefined);              // nothing verifiable said it
+  assert.ok(r.verdict.evidence.approval_signals_reported.bishop_approved);   // but a reported page did: a lead to check
+  assert.equal(r.verdict.action, 'review');
+});
+
+test('apparition: evidence from verify-capable pages and from reported pages are kept in separate fields', () => {
+  const r = assess(AKITA, found(src({ domain: 'vatican.va', words: 1700, text: 'a nihil obstat was issued for our lady of akita.' }),
+    rep('the bishop approved our lady of akita as worthy of belief.')), RULES);
+  assert.ok(r.verdict.evidence.approval_signals.dicastery_or_holy_see);
+  assert.ok(r.verdict.evidence.approval_signals_reported.bishop_approved);
+});
+
+test('apparition: approval wording far from the name on a reported page is not a lead', () => {
+  const far = 'the bishop approved the devotion. ' + 'filler words go here. '.repeat(120) + ' our lady of akita is discussed.';
+  const r = assess(AKITA, found(src({ domain: 'ewtn.com', words: 1700, text: 'our lady of akita.' }), rep(far)), RULES);
+  assert.equal(r.verdict.evidence.approval_signals_reported, undefined);
+});
+
+test('apparition and miracle reasons are short enough for the log', () => {
+  assert.ok(RULES.categories.m.reason.length < 140);
+  assert.ok(RULES.categories.u.reason.length < 140);
+  assert.match(RULES.categories.m.reason, /a person sets the approval level/);
+});
+
+test('rewrite of an apparition: the review is advice only, and the reason in the log is the short one', () => {
+  const r = assess(AKITA, found(src({ domain: 'ewtn.com', words: 1700, text: 'our lady of akita.' })), RULES, { mode: 'rewrite' });
+  assert.equal(r.status, 'ready');
+  assert.equal(r.verdict.advisory[0].text, RULES.categories.m.reason);
+});
+
+// ---------------------------------------------------------------------------------------------
+// Diocese lookup and the handoff to Ignatius (v0.9.6)
+// ---------------------------------------------------------------------------------------------
+import { loadQueue as _loadQueue } from '../services/authority-finder.mjs';
+
+const DIOCESE_REPLY = JSON.stringify({ place: 'Blangy', country: 'France', diocese: 'Diocese of Arras', official_site_url: 'https://arras.diocese.example/', alternates: [], confidence: 'high', note: 'test' });
+const CHURCH_PAGE = 'The Diocese of Arras. Bishop and priests. Parishes, the cathedral and Mass times. Arras news. '.repeat(12);
+const authPages = () => ({ ...lanePages, 'https://arras.diocese.example/': CHURCH_PAGE });
+const NOPOOL = { ...RULES, selection: { ...RULES.selection, poolTarget: 0 } };
+const APPARITION = { payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 'm', year: 723 } };
+
+test('diocese lookup: an apparition gets the diocese and its site checked, and the searches are added to the run total', async () => {
+  const m = mocks(authPages(), laneResults);
+  const asked = [];
+  const r = await runSourceFinder(APPARITION, data, { ...m.deps, rules: NOPOOL, askAuthority: async a => { asked.push(a); return { text: DIOCESE_REPLY, searches: 2 }; } });
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].maxUses, 2);
+  const a = r.result.authority;
+  assert.deepEqual([a.found, a.diocese, a.candidates[0].registry, a.candidates[0].verified], [true, 'Diocese of Arras', 'new', true]);
+  const base = r.result.search.webSearches;
+  assert.equal(r.result.timing.webSearches, base + 2);
+  assert.equal(r.result.timing.searchCalls, r.result.search.searchCalls + 1);
+});
+
+test('diocese lookup: saints (and other categories not in the rules) are not looked up', async () => {
+  const m = mocks(authPages(), laneResults);
+  let asked = 0;
+  const r = await runSourceFinder({ payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', year: 723 } }, data, { ...m.deps, rules: NOPOOL, askAuthority: async () => { asked++; return { text: DIOCESE_REPLY, searches: 1 }; } });
+  assert.equal(asked, 0);
+  assert.equal(r.result.authority, undefined);
+});
+
+test('diocese lookup: payload authority:false and the rules switch both turn it off', async () => {
+  const off = async rules => {
+    const m = mocks(authPages(), laneResults);
+    let asked = 0;
+    const payload = rules ? APPARITION.payload : { ...APPARITION.payload, authority: false };
+    const r = await runSourceFinder({ payload }, data, { ...m.deps, rules: rules || NOPOOL, askAuthority: async () => { asked++; return { text: DIOCESE_REPLY, searches: 1 }; } });
+    return [asked, r.result.authority];
+  };
+  assert.deepEqual(await off(null), [0, undefined]);
+  assert.deepEqual(await off({ ...NOPOOL, authorityLookup: { ...NOPOOL.authorityLookup, enabled: false } }), [0, undefined]);
+});
+
+test('diocese lookup: a failing model call is reported on the result and the run still finishes', async () => {
+  const m = mocks(authPages(), laneResults);
+  const r = await runSourceFinder(APPARITION, data, { ...m.deps, rules: NOPOOL, askAuthority: async () => { throw new Error('model unavailable'); } });
+  assert.deepEqual([r.result.authority.found, r.result.authority.error], [false, 'model unavailable']);
+  assert.ok(r.result.layer3);
+});
+
+test('diocese lookup: a quota error is passed up (deferred), not swallowed', async () => {
+  const m = mocks(authPages(), laneResults);
+  const err = Object.assign(new Error('quota'), { deferred: true });
+  await assert.rejects(runSourceFinder(APPARITION, data, { ...m.deps, rules: NOPOOL, askAuthority: async () => { throw err; } }), /quota/);
+});
+
+test('the rules file turns the lookup on for apparitions and miracles only', () => {
+  assert.deepEqual(RULES.authorityLookup.categories, ['m', 'u']);
+  assert.equal(RULES.authorityLookup.enabled, true);
+});
+
+test('recordHandoff: a new site goes into ignatius-queue.json as waiting, once; with nothing new the file is not touched', () => {
+  const dir = _mk(_join(_tmp(), 'ho-'));
+  const queuePath = _join(dir, 'ignatius-queue.json');
+  const result = { subject: { name: 'Our Lady of Akita' }, authority: { diocese: 'Diocese of Niigata', place: 'Akita', country: 'Japan', confidence: 'high',
+    candidates: [{ url: 'https://n.example/', domain: 'n.example', role: 'diocese', registry: 'new', verified: true, checks: {}, suggestedEntry: { domain: 'n.example' } }] } };
+  const now = new Date('2026-10-09T17:00:00Z');
+  assert.deepEqual(recordHandoff({ result, task: { id: 't1', payload: {} }, queuePath, now }), { added: 1, merged: 0, skipped: 0, changed: true });
+  const q = _loadQueue(queuePath);
+  assert.deepEqual([q.items[0].status, q.items[0].subjects[0].jobId, q.items[0].firstSeen], ['waiting', 't1', '2026-10-09T17:00:00.000Z']);
+  assert.equal(recordHandoff({ result: { subject: result.subject, authority: { candidates: [{ registry: 'approved' }] } }, task: { id: 't2', payload: {} }, queuePath, now }).changed, false);
+  assert.equal(recordHandoff({ result: {}, task: {}, queuePath }).changed, false);
+});
+
+test('runJerome: hands a new diocese site to Ignatius, returns the queue file to commit, and says so in the summary', async () => {
+  const m = mocks(authPages(), laneResults);
+  const dir = _mk(_join(_tmp(), 'rj2-'));
+  const logPath = _join(dir, 'article-log.json'), queuePath = _join(dir, 'ignatius-queue.json');
+  const out = await runJerome({ id: 'task-12', payload: { ...APPARITION.payload } }, data, {}, { ...m.deps, rules: NOPOOL, logPath, queuePath, askAuthority: async () => ({ text: DIOCESE_REPLY, searches: 2 }) });
+  assert.deepEqual(out.filesToCommit, [logPath, queuePath]);
+  assert.match(out.summary, /handed 1 site\(s\) to Ignatius/);
+  const item = _loadQueue(queuePath).items[0];
+  assert.deepEqual([item.domain, item.subjects[0].jobId], ['arras.diocese.example', 'task-12']);
+  const job = _loadLog(logPath).jobs[0];
+  assert.ok(job.steps.some(s => /^Handed to Ignatius: Diocese website arras\.diocese\.example \(Diocese of Arras — Blangy, France\); the page loads/.test(s.text)));
+});
+
+test('runJerome: with no new site, only the log is committed', async () => {
+  const m = mocks(authPages(), laneResults);
+  const dir = _mk(_join(_tmp(), 'rj3-'));
+  const logPath = _join(dir, 'article-log.json'), queuePath = _join(dir, 'ignatius-queue.json');
+  const out = await runJerome({ id: 'task-13', payload: { ...APPARITION.payload } }, data, {}, { ...m.deps, rules: NOPOOL, logPath, queuePath, askAuthority: async () => ({ text: JSON.stringify({ diocese: 'D', official_site_url: null }), searches: 1 }) });
+  assert.deepEqual(out.filesToCommit, [logPath]);
 });

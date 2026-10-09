@@ -541,6 +541,45 @@ labeled as Tom's translation, never verbatim as if it were the original.
   how it gets caught), a namesake's saint page can match a site signal, and the Franciscan Media path is a guess not yet seen on a
   real run. 26 log tests, 108 Jerome tests pass.
 
+- **2026-10-09 — FIRST NEW-SUBJECT RUN: Blessed Michael McGivney** (Haiku 5.5; 1.9 min; 16 web searches; $0.18, of which $0.16 is
+  search charges). 24 usable pages on 13 sites, but only 656 words from approved, verify-capable sites (floor 1,000), so the run
+  stopped at "needs a decision: approved sources are too thin, unjudged pages might make it enough". That is the design working: the
+  pipeline refused to treat unvetted pages as proof of a subject the registry knows little about. Two gaps found and fixed in v0.9.4:
+  (1) thin material used to END the checks, so the Blessed check ("not canonized") never ran; the category result is now worked out
+  and reported beside the sufficiency result ("too thin ... ALSO: not canonized"); (2) the log did not say WHICH unjudged sites could
+  help, so a person could not tell what to approve; it now lists them. The open-web passes cost most of the 16 searches; a niche
+  subject costs about twice an Augustine run. Approving a site means adding it to scripts/ledger-allowlist.json (a protected file:
+  by hand or from the app, never in a bundle). 27 log tests, 112 Jerome tests pass.
+
+- **2026-10-09 — Our Lady of Akita (rewrite, Haiku 5.5; 1.0 min; 10 web searches; $0.12) and v0.9.5.** Only ONE verify-capable page was
+  found (EWTN's text of the message, 1,723 words); everything else was reported-tier news (National Catholic Register, OSV, Aleteia,
+  Detroit Catholic, EWTN News). Result: "ready" (the 1,000-word floor was met) but flagged few_sources, single_source, thin_material and
+  narrow_perspective. The approved list simply has nothing on how Akita's approval stands, and the approval wording sits in reported
+  articles, which the approval check did not read, so it found no approval evidence at all. Two lane searches (history, devotion) found
+  nothing about Akita on their sites yet used 6 of the 10 searches (about $0.06), and 38 candidate pages (mostly vaticannews.va,
+  newadvent.org and franciscanmedia.org pages not about Akita) were skipped by the fetch cap. v0.9.5: (1) a lane search now uses ONE web
+  search (rules: perspectives.searchesPerLane); (2) for apparitions and miracles, approval wording found on REPORTED pages is shown as
+  `approval_signals_reported`, clearly separate from verified evidence, as leads to check against the bishop's or the Dicastery's own
+  statement (never proof, never changes the verdict); (3) the review reason is short enough to read in the log. **Still open:** the
+  registry has no source for apparition approval status. Candidates for a person to consider approving: the diocese that issued the
+  decision, the Dicastery's published documents, or the shrine's own site; none was checked here. 27 log tests, 118 Jerome tests pass.
+
+- **2026-10-09 — v0.9.6: the diocese lookup and the Ignatius queue; and dates on the approved-sources list** (both Tom's requests).
+  (1) **Diocese lookup.** For apparitions and miracles (rules: `authorityLookup`, categories m and u) Jerome makes one extra model call, with up to
+  2 web searches, asking which diocese judges the subject and what its OWN website is (not a parish, news site, Wikipedia or pilgrim blog). Code
+  then fetches the page and checks that it loads, names the diocese's place, and reads like a church site (at least 3 church words, in several
+  languages). The reply never counts on its own. Result: `authority` on the run, a log line "Handed to Ignatius: Diocese website ...", and, for a site
+  not on the registry, an item in `ignatius-queue.json` marked `waiting` with a ready registry entry (`suggestedEntry`: tier official, with
+  why/useFor/limits). Sites already approved, switched off or never allowed are reported but not queued. **Jerome only proposes; IGNATIUS decides**
+  (he is not built: the queue just waits; nothing is approved on his behalf). A site Ignatius has already decided is never queued again; a site
+  already waiting just gains the new subject. (2) **Approval dates.** Every registry entry now carries `addedAt` (put on the list), `approvedAt`
+  (first enabled; null while only listed) and `approvedBy`. The 49 enabled sites and 59 listed-only sites are dated from the repository's own
+  history by the "Registry dates" workflow (dry run first); `approvedBy` stays empty for them because the committer of a file is not necessarily
+  the approver. Future approvals are stamped by `stampApproval` / `entryFromQueueItem` / `addApproved` (`scripts/services/registry-dates.mjs`), which
+  refuse an approval that names nobody. SOURCE-ALLOWLIST.md gets an "Approved" column in its six enabled-source tables (not in the not-enabled
+  tables) and its date line is refreshed. **Not built:** Ignatius himself; checking the lookup on a real run; a "Listed on" column for the
+  not-enabled tables. 30 log tests, 127 Jerome tests, 18 lookup tests, 14 registry-date tests pass.
+
 ## 13. Sufficiency, category rules and visitor input (2026-10-07, not yet built)
 
 **Status key:** CONFIRMED = Tom said so. PROPOSED = Claude's suggestion, not yet answered by Tom. OPEN = a question Tom has not decided.
