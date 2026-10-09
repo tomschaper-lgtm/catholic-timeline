@@ -1,5 +1,6 @@
 # .github/workflows/jerome-pilot.yml
-# MODULE DATE: 2026-10-09 (Friday) · v2.3 — article log (steps, minutes, tokens, cost) committed each run; DROPDOWNS for model and category; FASTER CHECKOUT (UNTESTED)
+# MODULE DATE: 2026-10-09 (Friday) · v2.4 — article log (steps, minutes, tokens, cost) committed each run; DROPDOWNS for model and category; FASTER CHECKOUT (UNTESTED); SAVES THE IGNATIUS QUEUE
+# v2.4: for an apparition or miracle Jerome also finds the diocese's own website and puts it in ignatius-queue.json for Ignatius; that file is committed with the log.
 # v2.3: the model and the category are now pick lists. To add a model to the list, add a line under options: (it must also be in scripts/pricing.json, or the log shows 'cost unknown').
 # v2.2: the checkout step took 3m20s on one run (Jerome's own work was 30 s). It now downloads no file contents up front and then only
 #   scripts/ plus the top-level files (data.json, article-log.json), because Jerome needs nothing else. If a run fails at checkout or is not
@@ -110,6 +111,7 @@ jobs:
           git config user.name "jerome-bot"
           git config user.email "actions@users.noreply.github.com"
           git add article-log.json
+          [ -f ignatius-queue.json ] && git add ignatius-queue.json
           if git diff --cached --quiet; then echo "log unchanged"; exit 0; fi
           git commit -m "Article log: Jerome pilot $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           for i in 1 2 3 4; do

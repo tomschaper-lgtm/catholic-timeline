@@ -1,0 +1,60 @@
+# .github/workflows/registry-dates.yml
+# MODULE DATE: 2026-10-09 (Friday) · v1 — dates for the approved-sources list
+# Adds "addedAt" (the day a site was put on the list) and "approvedAt" (the day it was approved, i.e. first enabled) to every entry of
+# scripts/ledger-allowlist.json, taking the dates from this repository's own history, and adds an "Approved" column to SOURCE-ALLOWLIST.md.
+# Run it by hand: GitHub app or github.com > repo > Actions > "Registry dates" > Run workflow.
+#   FIRST run it with "Dry run" ticked (the default): it only prints what it would do (how many sites it can date, which it cannot).
+#   Then run it again with "Dry run" unticked to write and commit the two files.
+# It only fills in entries that have no date yet, so running it again later is harmless. approvedBy stays empty for the old sites: the person who
+# committed a file is not necessarily the person who approved a site. New approvals are stamped with who and when by the code that adds them.
+# NO SECRETS are given to this workflow.
+
+name: Registry dates
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run: print what would change, write nothing'
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: write
+
+# Same group as the orchestrator, so the two never change the registry at the same moment.
+concurrency:
+  group: orchestrator
+  cancel-in-progress: false
+
+jobs:
+  dates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # the whole history: the dates come from it
+          filter: blob:none       # but not the contents of every old file, only what is asked for
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Work out the dates
+        env:
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY" = "true" ]; then node scripts/services/registry-dates.mjs --backfill --dry; else node scripts/services/registry-dates.mjs --backfill; fi
+      - name: Commit the registry and the page
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          git config user.name "registry-dates-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add scripts/ledger-allowlist.json
+          [ -f SOURCE-ALLOWLIST.md ] && git add SOURCE-ALLOWLIST.md
+          if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
+          git commit -m "Registry: approval dates for the approved sources"
+          for i in 1 2 3 4; do
+            if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then exit 0; fi
+            sleep $((i * 2))
+          done
+          echo "push failed after retries"; exit 1
