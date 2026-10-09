@@ -1,12 +1,12 @@
 // scripts/tests/source-finder.test.mjs
-// MODULE DATE: 2026-10-08 (Thursday) · tests for source-finder.mjs v0.3 (v0.8: layers 1, 2 and 3, with perspective lanes, best-few selection, signal types for ancient saints and the first live-pilot fixes; layer 2 with MOCKED search/fetch; layer 3 uses the real scripts/category-rules.json).
+// MODULE DATE: 2026-10-08 (Thursday) · tests for source-finder.mjs v0.3 (v0.9: layers 1, 2 and 3, with perspective lanes, best-few selection, signal types for ancient saints and the first live-pilot fixes; layer 2 with MOCKED search/fetch; layer 3 uses the real scripts/category-rules.json).
 // Run: node --test scripts/tests/source-finder.test.mjs
 // Synthetic tests always run. Real-data tests run only if DATA_PATH (or ./data.json) exists.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { fold, scoreMatch, checkExistence, findSubject, runSourceFinder, findSources, safeUrl, allowedDomains, examine, assess, loadRules, evidence, laneOf, laneCoverage, perspectivePlan, selectSources } from '../services/source-finder.mjs';
+import { fold, scoreMatch, checkExistence, findSubject, runSourceFinder, findSources, safeUrl, allowedDomains, examine, assess, loadRules, evidence, laneOf, laneCoverage, perspectivePlan, selectSources, runJerome, compactResult } from '../services/source-finder.mjs';
 import { fileURLToPath } from 'node:url';
 
 const RULES = loadRules(fileURLToPath(new URL('../category-rules.json', import.meta.url)));
@@ -922,4 +922,80 @@ test('live fix: "contemporary account" (e.g. of the Vandal invasion) is no longe
   const sig = r.verdict.evidence.ancient_veneration && r.verdict.evidence.ancient_veneration.signals;
   assert.ok(!sig || !sig.early_witness);
   assert.equal(r.status, 'needs_decision');          // only one real kind (eastern) is left
+});
+
+// ---------------------------------------------------------------------------------------------
+// runJerome: the orchestrator entry point, with the article log (v0.9)
+// ---------------------------------------------------------------------------------------------
+import { mkdtempSync as _mk, writeFileSync } from 'node:fs';
+import { tmpdir as _tmp } from 'node:os';
+import { join as _join } from 'node:path';
+import { loadLog as _loadLog } from '../services/article-log.mjs';
+
+test('runJerome: logs Jerome\'s steps, returns the log file to commit, and keeps the task result compact', async () => {
+  const m = mocks(lanePages, laneResults);
+  const logPath = _join(_mk(_join(_tmp(), 'rj-')), 'article-log.json');
+  const out = await runJerome({ id: 'task-9', payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', year: 723 } }, data, {}, { ...m.deps, rules: RULES, logPath });
+  assert.deepEqual(out.filesToCommit, [logPath]);
+  const job = _loadLog(logPath).jobs[0];
+  assert.equal(job.id, 'task-9');
+  assert.equal(job.steps[0].text, 'Got request for new article: St. Bertha of Blangy');
+  assert.ok(job.steps.some(s => /^Found \d+ usable pages on \d+ sites/.test(s.text) && s.seconds != null));
+  assert.equal(out.result.search.sources, undefined);                     // the long per-page records stay out of workLog.json
+  assert.ok(out.result.search.counts && out.result.search.passes);
+  assert.ok(out.result.layer3.selection.selected.length >= 1);            // the part Ignatius and a person need is kept
+  assert.match(out.summary, /layer 3:/);
+});
+
+test('runJerome: the third argument the orchestrator passes (the work log) is not mistaken for dependencies', async () => {
+  const m = mocks(lanePages, laneResults);
+  const logPath = _join(_mk(_join(_tmp(), 'rj-')), 'article-log.json');
+  const workLog = { tasks: [{ id: 'a' }], search: 'not a function', rules: 'not rules' };      // looks like deps by accident
+  const out = await runJerome({ id: 't', payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's' } }, data, workLog, { ...m.deps, rules: RULES, logPath });
+  assert.equal(out.result.outcome, 'new_subject');
+  assert.ok(out.result.layer3);
+});
+
+test('runJerome: a task id, a payload jobId, or neither all give a job; two services share one job via jobId', async () => {
+  const logPath = _join(_mk(_join(_tmp(), 'rj-')), 'article-log.json');
+  for (const task of [{ id: 'x1', payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', search: false } },
+                      { id: 'x2', payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', search: false, jobId: 'x1' } }]) {
+    await runJerome(task, data, {}, { rules: RULES, logPath });
+  }
+  const log = _loadLog(logPath);
+  assert.equal(log.jobs.length, 1);
+  assert.equal(log.jobs[0].id, 'x1');
+  assert.ok(log.jobs[0].steps.length >= 2);
+});
+
+test('runJerome: an unwritable log never fails the task; it is reported in the summary', async () => {
+  const blocker = _join(_mk(_join(_tmp(), 'rj-')), 'a-file');
+  writeFileSync(blocker, 'x');                                            // a regular file, so nothing can be created beneath it
+  const out = await runJerome({ id: 'x', payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's', search: false } }, data, {}, { rules: RULES, logPath: _join(blocker, 'sub', 'article-log.json') });
+  assert.equal(out.filesToCommit, undefined);
+  assert.match(out.summary, /article log not written/);
+});
+
+test('runJerome: a layer-1 answer (already on the timeline) is logged too', async () => {
+  const logPath = _join(_mk(_join(_tmp(), 'rj-')), 'article-log.json');
+  const exists = data.entries[0];
+  const out = await runJerome({ id: 'e1', payload: { mode: 'new', name: exists.n, category: exists.t, year: exists.y, search: false } }, data, {}, { rules: RULES, logPath });
+  assert.equal(out.result.outcome, 'exists');
+  assert.match(_loadLog(logPath).jobs[0].steps[1].text, /Already on the timeline/);
+});
+
+test('compactResult: strips only the long per-page records', () => {
+  const r = { outcome: 'x', search: { widened: false, passes: [1], counts: { a: 1 }, sources: [{}, {}], webSearches: 3, searchCalls: 2 }, layer3: { status: 'ready' } };
+  const c = compactResult(r);
+  assert.deepEqual(Object.keys(c.search).sort(), ['counts', 'passes', 'searchCalls', 'webSearches', 'widened']);
+  assert.equal(c.layer3.status, 'ready');
+  assert.equal(r.search.sources.length, 2);                    // the original is untouched
+});
+
+test('timing carries the model and token counts for the cost column', async () => {
+  const m = mocks(lanePages, laneResults);
+  const r = await runSourceFinder({ payload: { mode: 'new', name: 'St. Bertha of Blangy', category: 's' } }, data, { ...m.deps, rules: RULES });
+  assert.equal(r.result.timing.model, 'claude-sonnet-4-6');
+  assert.equal(typeof r.result.timing.inputTokens, 'number');
+  assert.equal(typeof r.result.timing.outputTokens, 'number');
 });

@@ -492,6 +492,22 @@ labeled as Tom's translation, never verbatim as if it were the original.
   without real primary text; a namesake check; a fetchable independent-history site to replace britannica.com;
   per-page content kind (Ignatius's job). 93 tests pass.
 
+- **2026-10-08 — v0.9: Jerome in the orchestrator, and the article log** (Tom's ask: a short readable record of each
+  article job, kept a while, with the time each step took and, later, its cost). Built: `runJerome(task, data)` in
+  source-finder.mjs, registered as task type `source-find` by a two-line patch to scripts/orchestrator.mjs (an import and one
+  SERVICE_HANDLERS line); `scripts/services/article-log.mjs`; `article-log.json` at the repo root (newest 200 jobs, nothing older
+  than 90 days; both are guesses, set in the module); `scripts/pricing.json`. A job has numbered steps (who, text, time, raw usage:
+  model, input and output tokens, web searches). Steps are written by code from real numbers, never by an AI. Dollars are worked
+  out when the log is shown, from pricing.json, so a price change corrects every old job. Confirmed on Anthropic's pricing page
+  (2026-10-08): web search is $10 per 1,000 searches plus token cost; web fetch is free (Jerome fetches with its own code). NOT
+  confirmed: the per-token price for claude-sonnet-4-6 ($3 in / $15 out is the usual Sonnet-class price, marked `verified:false`,
+  so costs show an asterisk until Tom confirms). The task keeps a compact result in workLog.json (no per-page records). The Jerome
+  pilot workflow now logs and commits article-log.json. A live Augustine run would have read: 11 web searches, 2.9 min, $0.11 in
+  search costs (tokens were not recorded then). **Not built:** the Log view in the website (needs index.html), the Add Task option
+  for `source-find` in the app, steps for the writer, verifier, reworder and recorder (they call addStep with the same jobId),
+  events such as "Tom approved a new site". The placing service gained PATCH mode (v0.2): small edits applied to the file as it is
+  in the repo now, refused if the text to find is missing or ambiguous. 100 source-finder tests, 18 log tests, 34 placing tests pass.
+
 ## 13. Sufficiency, category rules and visitor input (2026-10-07, not yet built)
 
 **Status key:** CONFIRMED = Tom said so. PROPOSED = Claude's suggestion, not yet answered by Tom. OPEN = a question Tom has not decided.

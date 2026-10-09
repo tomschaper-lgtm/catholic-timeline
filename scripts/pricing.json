@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "updated": "2026-10-08",
+  "note": "Prices used to turn the raw usage in article-log.json into dollars. The log stores tokens and searches, not dollars, so changing a price here corrects every old job at the next view. Confirm everything against https://www.anthropic.com/pricing before trusting a total. A price with verified:false is an assumption and its cost is shown with an asterisk.",
+
+  "webSearchPer1000": 10,
+  "webSearchVerified": true,
+  "_webSearch": "Confirmed 2026-10-08 on Anthropic's pricing page (docs.anthropic.com/en/docs/about-claude/pricing): web search is $10 per 1,000 searches, plus the normal token cost of the content it returns; a search that errors is not billed. The web fetch tool is free, and Jerome fetches pages with its own code, which costs nothing.",
+
+  "models": {
+    "claude-sonnet-4-6": {
+      "inputPerMTok": 3,
+      "outputPerMTok": 15,
+      "verified": false,
+      "_source": "ASSUMED. $3 input / $15 output per million tokens is the usual Sonnet-class list price, but this exact model name was not confirmed on the pricing page when this file was written. Check it, then set verified to true."
+    }
+  },
+
+  "_howToAdd": "Add each model a service uses, spelled exactly as the service reports it, with inputPerMTok and outputPerMTok in dollars per million tokens. Services that charge by something else (audio by characters, images by picture) report a dollar amount themselves as otherUsd on their step."
+}

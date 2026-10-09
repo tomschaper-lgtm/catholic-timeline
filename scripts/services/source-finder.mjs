@@ -1,6 +1,6 @@
 // scripts/services/source-finder.mjs
 //
-// MODULE DATE: 2026-10-08 (Thursday) · v0.8 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
+// MODULE DATE: 2026-10-08 (Thursday) · v0.9 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
 // Written against orchestrator.mjs / ledger-build.mjs v1.4 as uploaded to the Project 2026-10-07.
 // Design: ARTICLE-PIPELINE-DESIGN-2026-10-07.md, section 4.1 and section 9. Layer 1 uses no AI and no
 // network. Layer 2 calls Anthropic web search and fetches pages; it was tested with MOCKED search and
@@ -34,6 +34,10 @@
 //            lane in priority order first, then by score; the writer is given those, the rest are listed as
 //            alsoFound. The enough-to-write check runs on the SELECTED pages: if only one qualifies, its word
 //            count must pass the floor on its own.
+//            ORCHESTRATOR + ARTICLE LOG (v0.9): runJerome(task, data) is the entry point for the orchestrator (task type
+//            'source-find'). It runs runSourceFinder, adds Jerome's steps to article-log.json (scripts/services/article-log.mjs),
+//            returns filesToCommit so the orchestrator commits the log, and stores only a compact result on the task (the
+//            long per-page records stay out of workLog.json). Token use is counted by model for the cost column.
 //            LIVE-PILOT FIXES (v0.8, after the first real run on St. Augustine): sites that refuse automated
 //            fetching (HTTP 403, e.g. britannica.com) are listed in the rules (fetchBlockedDomains) and are never
 //            searched or counted; a lane can exclude paths of a site (CCEL hosts encyclopedias that are not primary
@@ -87,6 +91,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { recordJerome, LOG_PATH, renderJob, loadPricing } from './article-log.mjs';
 
 const DATA_PATH = process.env.DATA_PATH || 'data.json';
 const T_FUZZY = 0.8;
@@ -317,6 +322,7 @@ const NEVER_HOSTS = ['wikipedia.org', 'wikimedia.org', 'wikiwand.com', 'dbpedia.
   'youtu.be', 'medium.com', 'substack.com', 'blogspot.com', 'wordpress.com', 'tumblr.com', 'linkedin.com'];
 
 let tokensUsed = 0;
+let usageTally = { input: 0, output: 0 };   // this run's search-call tokens, for the cost column
 const lastHit = new Map();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const wordCount = s => String(s || '').trim().split(/\s+/).filter(Boolean).length;
@@ -431,6 +437,8 @@ async function realSearch({ query, allowedDomains, model }) {
   }
   const data = await res.json();
   tokensUsed += ((data.usage && data.usage.input_tokens) || 0) + ((data.usage && data.usage.output_tokens) || 0);
+  usageTally.input += (data.usage && data.usage.input_tokens) || 0;
+  usageTally.output += (data.usage && data.usage.output_tokens) || 0;
   const results = [];
   let searches = 0;
   for (const b of data.content || []) {
@@ -884,6 +892,7 @@ export function assess(subject, found, rules, opts = {}) {
 export async function runSourceFinder(task, dataJson, deps = {}) {
   const p = task.payload || {};
   tokensUsed = 0;
+  usageTally = { input: 0, output: 0 };
   const out = findSubject({ mode: p.mode, name: p.name, category: p.category, year: p.year, entityId: p.entityId || task.entityId }, dataJson);
 
   const proceed = p.search !== false && (out.outcome === 'new_subject' || out.outcome === 'rewrite_ready' ||
@@ -909,7 +918,8 @@ export async function runSourceFinder(task, dataJson, deps = {}) {
     if (found) {
       out.search = found;
       out.timing = { seconds: Math.round((Date.now() - tStart) / 100) / 10, webSearches: found.webSearches || 0, searchCalls: found.searchCalls || 0,
-        pagesFetched: (found.passes || []).reduce((n, x) => n + (x.fetched || 0), 0) };
+        pagesFetched: (found.passes || []).reduce((n, x) => n + (x.fetched || 0), 0),
+        model: p.model || FINDER_MODEL.modelId, inputTokens: usageTally.input, outputTokens: usageTally.output };
       out.layer2 = found.counts.usableApproved + found.counts.usableUnjudged > 0 ? 'candidates_found' : 'no_candidates';
       if (p.assess !== false) {
         try { if (!rules) throw new Error(rulesError); out.layer3 = assess(subject, found, rules, { mode }); }
@@ -939,7 +949,36 @@ export async function runSourceFinder(task, dataJson, deps = {}) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// CLI:  node scripts/services/source-finder.mjs "St. Bertha" --category s [--year 723] [--search] [--confirm-new]
+// Orchestrator entry point (task type 'source-find').  The orchestrator calls handler(task, dataJson, workLog).
+//   task.payload: the same fields as runSourceFinder, plus  jobId (links this run to the article job's log; defaults to the
+//   task id) and requestedBy (optional name shown in the log).
+// Adds Jerome's steps to article-log.json and returns filesToCommit: [that file] so the orchestrator commits it.
+// A failure to write the log never fails the task: it is reported in the summary instead.
+// ---------------------------------------------------------------------------------------------
+
+// What is kept on the task in workLog.json: everything a person or the next step needs, minus the long per-page records.
+export function compactResult(r) {
+  const c = { ...r };
+  if (c.search && c.search.sources) c.search = { widened: c.search.widened, passes: c.search.passes, counts: c.search.counts, webSearches: c.search.webSearches, searchCalls: c.search.searchCalls };
+  return c;
+}
+
+export async function runJerome(task, dataJson, _workLog, deps = {}) {
+  const out = await runSourceFinder(task, dataJson, deps);
+  const logPath = deps.logPath || LOG_PATH;
+  let note = '';
+  const filesToCommit = [];
+  try {
+    recordJerome({ result: out.result, task, logPath, now: deps.now });
+    filesToCommit.push(logPath);
+  } catch (err) {
+    note = ' | article log not written: ' + String((err && err.message) || err).slice(0, 120);
+  }
+  return { ...out, result: compactResult(out.result), summary: (out.summary + note).slice(0, 900), ...(filesToCommit.length ? { filesToCommit } : {}) };
+}
+
+// ---------------------------------------------------------------------------------------------
+// CLI:  node scripts/services/source-finder.mjs "St. Bertha" --category s [--year 723] [--search] [--confirm-new] [--log] [--job <id>]
 //       node scripts/services/source-finder.mjs --rewrite st-augustine-430 [--search]
 // Without --search only layer 1 runs (no network). --search needs ANTHROPIC_API_KEY.
 // ---------------------------------------------------------------------------------------------
@@ -948,7 +987,7 @@ async function cli(argv) {
   const args = argv.slice(2);
   const get = flag => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined; };
   const rewrite = get('--rewrite');
-  const name = args.find((a, i) => !a.startsWith('--') && !['--category', '--year', '--rewrite'].includes(args[i - 1]));
+  const name = args.find((a, i) => !a.startsWith('--') && !['--category', '--year', '--rewrite', '--job'].includes(args[i - 1]));
   const dataJson = JSON.parse(readFileSync(DATA_PATH, 'utf8'));
   const task = { payload: rewrite
     ? { mode: 'rewrite', entityId: rewrite, search: args.includes('--search') }
@@ -957,6 +996,10 @@ async function cli(argv) {
   const out = await runSourceFinder(task, dataJson);
   console.log(out.summary);
   console.log(JSON.stringify(out.result, null, 2));
+  if (args.includes('--log')) {                                // add this run to article-log.json (the pilot workflow commits it)
+    const job = recordJerome({ result: out.result, task: { payload: { ...task.payload, jobId: get('--job') } } });
+    console.error('\n' + renderJob(job, loadPricing()).join('\n'));
+  }
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) cli(process.argv).catch(e => { console.error(e.message || e); process.exit(1); });
