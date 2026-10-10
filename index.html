@@ -1,6 +1,6 @@
 <!--
-VERSION: 564
-DATE: 2026-10-06T21:07:00-05:00
+VERSION: 565
+DATE: 2026-10-10T10:03:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,23 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v565 — 2026-10-10
+
+**Ask:**
+- In the select-images workflow I pick a final image but it never shows in the card: the saved
+  path is Images/Saints/st-thomas-the-apostle-72.jpg and it overlaps the Images folder in Media
+  Base Paths.
+
+**Implementation:**
+- `resolveAsset()` (the one place every image and audio URL is joined from the base + the saved
+  path) now drops a leading folder from the saved path when the base already ends in that same
+  folder (base ".../Images" + "Images/Saints/x.jpg" -> ".../Images/Saints/x.jpg"; case-insensitive,
+  and only when the path has more after it), and collapses stray double slashes after the host
+  (the saved base was "https://catholictimeline.org//Images"). Older entries that store a bare
+  name ("Peter.jpg", "Saints/st-peter-claver-1654.jpg") resolve exactly as before, and the two
+  "Images/..." entries that were doubled now load too. Saving the base paths also collapses
+  accidental double slashes. No data was changed.
+
 ## v564 — 2026-10-06
 
 **Ask:**
@@ -5176,7 +5193,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v564';
+const APP_VERSION = 'v565';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -7257,7 +7274,16 @@ function resolveAsset(path, base){
   if(!path) return '';
   if(/^(https?:)?\/\//i.test(path) || path.startsWith('/') || path.startsWith('data:')) return path;
   if(!base) return path;
-  return base.replace(/\/+$/, '') + '/' + path.replace(/^\/+/, '');
+  // v565: the image workflow saves a path that already starts with its folder ("Images/Saints/x.jpg") while the
+  // base folder setting may end in that same folder (".../Images"): drop the repeated folder so it is not doubled.
+  // Only when more follows it, so a plain file called like the folder is left alone. Then collapse stray double
+  // slashes (but not the one after "https:").
+  const b = base.replace(/\/+$/, '');
+  let p = path.replace(/^\/+/, '');
+  const lastSeg = b.split('/').pop();
+  const slash = p.indexOf('/');
+  if(lastSeg && slash > 0 && p.slice(0, slash).toLowerCase() === lastSeg.toLowerCase()) p = p.slice(slash + 1);
+  return (b + '/' + p).replace(/([^:])\/{2,}/g, '$1/');
 }
 function prefillAssetBase(){
   document.getElementById('imgBase').value = (db.settings && db.settings.imageBase) || '';
@@ -7265,8 +7291,9 @@ function prefillAssetBase(){
 }
 document.getElementById('assetBaseSave').addEventListener('click', async () => {
   db.settings = db.settings || {};
-  db.settings.imageBase = document.getElementById('imgBase').value.trim();
-  db.settings.audioBase = document.getElementById('audioBase').value.trim();
+  // v565: collapse accidental double slashes (not the one after "https:")
+  db.settings.imageBase = document.getElementById('imgBase').value.trim().replace(/([^:])\/{2,}/g, '$1/');
+  db.settings.audioBase = document.getElementById('audioBase').value.trim().replace(/([^:])\/{2,}/g, '$1/');
   render();
   await saveDb(true);
   setStatus('Base paths saved');
