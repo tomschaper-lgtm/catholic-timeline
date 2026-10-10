@@ -31,6 +31,25 @@ def main():
     items = job.get("items") or []
     os.makedirs(out_dir, exist_ok=True)
 
+    # 2026-10-07: read-only mode for the recorder's pronunciation check — Kokoro's sounds for each
+    # word, no audio: {"g2p": ["Wojtyła", ...], "out_dir": ...} -> results.json {"g2p": {word: sounds}}
+    if job.get("g2p"):
+        from kokoro import KPipeline
+        pipe = KPipeline(lang_code="a", model=False)
+        got = {}
+        for w in job["g2p"]:
+            try:
+                ps, _ = pipe.g2p(w)
+                if ps:
+                    got[w] = ps
+            except Exception as e:
+                print("[kokoro] could not read %r: %s" % (w, e), flush=True)
+        os.makedirs(job["out_dir"], exist_ok=True)
+        with open(os.path.join(job["out_dir"], "results.json"), "w", encoding="utf-8") as f:
+            json.dump({"g2p": got}, f, ensure_ascii=False)
+        print("[kokoro] read %d of %d words" % (len(got), len(job["g2p"])), flush=True)
+        return
+
     t0 = time.time()
     from kokoro import KPipeline
     lang = "b" if voice.startswith(("bf_", "bm_")) else "a"  # a = American, b = British English
