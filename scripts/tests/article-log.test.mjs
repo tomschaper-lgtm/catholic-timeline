@@ -278,3 +278,55 @@ test('jeromeSteps: approved, switched-off and skipped sites, other official site
   assert.equal(lastText({ ...RESULT, authority: { found: false, error: 'model unavailable' } }), 'Diocese lookup failed: model unavailable');
   assert.equal(jeromeSteps(RESULT, { at: AT }).some(s => /diocese/i.test(s.text)), false);       // no lookup, no lines
 });
+
+// ---- Thomas's steps (v0.6) ----
+import { ledgerSteps as _ledgerSteps, recordLedger as _recordLedger, loadLog as _loadLogT } from '../services/article-log.mjs';
+import { mkdtempSync as _mkT } from 'node:fs';
+import { tmpdir as _tmpT } from 'node:os';
+import { join as _joinT } from 'node:path';
+
+const LEDGER = {
+  summary: { total: 30, verified: 20, reported: 3, traditional: 2, disputed: 1, unsourced: 4, missingNumbers: 2, extractorRejected: 1 },
+  sourceHealth: [{ url: 'https://a', ok: true, jerome: { drift: 'changed' } }, { url: 'https://b', ok: true, jerome: { drift: 'similar' } }, { url: 'https://c', ok: false }],
+  claims: [{ status: 'verified', sources: [{}], judge: 'supports' }, { status: 'reported', sources: [{}], judge: 'supports' }, { status: 'disputed', sources: [{}], judge: 'not' },
+    { status: 'traditional', sources: [{}], judge: 'partial' }, { status: 'unsourced', sources: [] }],
+  pipeline: { linked: 2, notLinked: 3 },
+  usage: [{ role: 'extractor', model: 'claude-sonnet-4-6', inputTokens: 3000, outputTokens: 2000 }, { role: 'prover', model: 'gemini-3.5-flash-lite', inputTokens: 90000, outputTokens: 4000 },
+    { role: 'judge', model: 'gpt-5.6-luna', inputTokens: 5000, outputTokens: 2000, cacheReadTokens: 100 }],
+  seconds: 83.4
+};
+
+test('ledgerSteps: what was read, what was listed, found and judged, and the result, with tokens per role on the right steps', () => {
+  const st = _ledgerSteps(LEDGER, { at: AT });
+  assert.deepEqual(st.map(s => s.who), ['Thomas', 'Thomas', 'Thomas', 'Thomas', 'Thomas']);
+  assert.equal(st[0].text, 'Read 2 of 3 source page(s) (Jerome\'s file: 2 linked in the article, 3 not linked, so only suggestions); 1 page(s) differ in length from what Jerome saw');
+  assert.equal(st[1].text, 'Listed 30 claims to check (1 dropped: not copied word for word)');
+  assert.equal(st[2].text, 'Found a word-for-word excerpt for 4 of 30 claims');
+  assert.equal(st[3].text, 'Judged 4 excerpt(s) blind: 2 supported');
+  assert.equal(st[4].text, 'Result: 20 verified, 3 reported, 2 traditional, 1 disputed, 4 unsourced; 2 with numbers absent from the sources');
+  assert.deepEqual(st.map(s => s.usage), [undefined, { model: 'claude-sonnet-4-6', inputTokens: 3000, outputTokens: 2000 }, { model: 'gemini-3.5-flash-lite', inputTokens: 90000, outputTokens: 4000 },
+    { model: 'gpt-5.6-luna', inputTokens: 5000, outputTokens: 2000, cacheReadTokens: 100 }, undefined]);
+  assert.equal(st[4].seconds, 83.4);
+});
+
+test('ledgerSteps: with no Jerome file, no drift, no reported claims and no usage the lines are plain', () => {
+  const st = _ledgerSteps({ summary: { total: 2, verified: 2, traditional: 0, disputed: 0, unsourced: 0 }, sourceHealth: [{ ok: true }], claims: [] }, { at: AT });
+  assert.equal(st[0].text, 'Read 1 of 1 source page(s)');
+  assert.equal(st[1].text, 'Listed 2 claims to check');
+  assert.equal(st[4].text, 'Result: 2 verified, 0 traditional, 0 disputed, 0 unsourced');
+  assert.deepEqual(st.map(s => s.usage), [undefined, undefined, undefined, undefined, undefined]);
+});
+
+test('recordLedger: a check is its own job (kind check); a shared job id from the pipeline joins Jerome\'s steps; several entries in one task get separate jobs', () => {
+  const path = _joinT(_mkT(_joinT(_tmpT(), 'rl-')), 'article-log.json');
+  const entry = { id: 'st-x-1', n: 'St. X' };
+  const j1 = _recordLedger({ entry, ledger: LEDGER, task: { id: 't-1', payload: {} }, logPath: path, now: new Date('2026-10-09T18:00:00Z') });
+  assert.deepEqual([j1.id, j1.title, j1.kind, j1.steps.length], ['t-1', 'St. X', 'check', 5]);
+  const j2 = _recordLedger({ entry, ledger: LEDGER, task: { id: 't-2', payload: { jobId: 'pipeline-9' } }, logPath: path });
+  const j3 = _recordLedger({ entry, ledger: LEDGER, task: { id: 't-3', payload: { jobId: 'pipeline-9' } }, logPath: path });
+  assert.equal(j2.id, 'pipeline-9');
+  assert.equal(j3.steps.length, 10);                                   // the same job, two checks
+  const m = _recordLedger({ entry, ledger: LEDGER, task: { id: 't-4', payload: {} }, multi: true, logPath: path });
+  assert.equal(m.id, 't-4:st-x-1');
+  assert.equal(_loadLogT(path).jobs.length, 3);
+});

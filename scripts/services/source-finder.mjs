@@ -1,6 +1,6 @@
 // scripts/services/source-finder.mjs
 //
-// MODULE DATE: 2026-10-08 (Thursday) · v0.9.7 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
+// MODULE DATE: 2026-10-08 (Thursday) · v0.9.8 — "Jerome", LAYERS 1 + 2 + 3 (existence check; search a wide pool of sources, including several kinds of perspective; pick the best 3-4 and check there is enough; does it fit the category).
 // Written against orchestrator.mjs / ledger-build.mjs v1.4 as uploaded to the Project 2026-10-07.
 // Design: ARTICLE-PIPELINE-DESIGN-2026-10-07.md, section 4.1 and section 9. Layer 1 uses no AI and no
 // network. Layer 2 calls Anthropic web search and fetches pages; it was tested with MOCKED search and
@@ -38,6 +38,7 @@
 //            'source-find'). It runs runSourceFinder, adds Jerome's steps to article-log.json (scripts/services/article-log.mjs),
 //            returns filesToCommit so the orchestrator commits the log, and stores only a compact result on the task (the
 //            long per-page records stay out of workLog.json). Token use is counted by model for the cost column.
+//            v0.9.8: the registry reader moved to registry.mjs (shared with ledger-build); nothing else changed.
 //            SOURCES FILE (v0.9.7): runJerome also writes sources/<entry-id>.json (scripts/services/sources-file.mjs): the four chosen pages with
 //            hashes (and full text only for registry sources Tom has set to storage "full"), the unsure pages and the verdict. This is what Augustine and
 //            Thomas read.
@@ -100,6 +101,7 @@ import { fileURLToPath } from 'node:url';
 import { recordJerome, LOG_PATH, renderJob, loadPricing } from './article-log.mjs';
 import { findAuthority, queueItemsFor, addToQueue, loadQueue, saveQueue, QUEUE_PATH } from './authority-finder.mjs';
 import { buildSourcesFile, writeSourcesFile, SOURCES_DIR } from './sources-file.mjs';
+import { loadRegistry, regEntry } from './registry.mjs';
 
 const DATA_PATH = process.env.DATA_PATH || 'data.json';
 const T_FUZZY = 0.8;
@@ -310,7 +312,6 @@ export function findSubject(input, dataJson) {
 // LAYER 2 — find candidate sources
 // ---------------------------------------------------------------------------------------------
 
-const ALLOWLIST_PATH = process.env.LEDGER_ALLOWLIST_PATH || 'scripts/ledger-allowlist.json';
 const CACHE_DIR = process.env.SOURCE_CACHE_DIR || '.cache/source-finder';
 const MIN_ALLOWLIST_SOURCES = 2;   // FALLBACK only (used when no layer 3 rules are given): fewer usable allowlisted pages than this -> widen to the open web
 const MAX_FETCH_PER_PASS = 8;
@@ -347,21 +348,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const wordCount = s => String(s || '').trim().split(/\s+/).filter(Boolean).length;
 const hostMatches = (h, list) => list.some(d => h === d || h.endsWith('.' + d));
 
-export function loadRegistry(path = ALLOWLIST_PATH) {
-  if (!existsSync(path)) throw new Error('allowlist registry not found at ' + path + ' (commit scripts/ledger-allowlist.json first)');
-  const r = JSON.parse(readFileSync(path, 'utf8'));
-  if (!(r && r.tiers && Array.isArray(r.domains))) throw new Error('allowlist registry at ' + path + ' is not in the expected shape');
-  return r;
-}
-
-// Most specific registry entry for a host (bible.usccb.org beats usccb.org).
-export function regEntry(reg, host) {
-  let best = null;
-  for (const e of reg.domains) {
-    if (host === e.domain || host.endsWith('.' + e.domain)) { if (!best || e.domain.length > best.domain.length) best = e; }
-  }
-  return best;
-}
+// The registry reader lives in registry.mjs, shared with ledger-build (Thomas), so both always agree on which sites count.
+export { loadRegistry, regEntry };
 
 // https only, a real hostname, no IPs, no localhost, no credentials, no fragment.
 export function safeUrl(raw) {

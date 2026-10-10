@@ -8,6 +8,20 @@
   "_webSearch": "Anthropic's pricing page: web search is $10 per 1,000 searches, plus the normal token cost of the content it returns; a search that errors is not billed. The web fetch tool is free, and Jerome fetches pages with its own code, which costs nothing.",
   "_tokenizer": "IMPORTANT FOR COMPARING MODELS: Anthropic's page says Claude 4.7 and later models use a newer tokenizer that produces about 30% more tokens for the same text; Claude Sonnet 4.6 and earlier use the previous one. So a model with a lower price per token can cost nearly the same per job. Compare the cost of a whole run, not the price per million.",
   "models": {
+    "gemini-3.5-flash-lite": {
+      "inputPerMTok": 0.3,
+      "outputPerMTok": 2.5,
+      "verified": true,
+      "_source": "ai.google.dev/gemini-api/docs/latest-model (Google's own page), read 2026-10-09: $0.30 in / $2.50 out per 1M tokens. Thinking tokens are billed as output. No cache price entered: Thomas does not use Gemini's cache."
+    },
+    "gpt-5.6-luna": {
+      "inputPerMTok": 0.2,
+      "outputPerMTok": 1.2,
+      "cacheReadPerMTok": 0.02,
+      "cacheWritePerMTok": 0.25,
+      "verified": true,
+      "_source": "developers.openai.com/api/docs/models/gpt-5.6-luna (OpenAI's own page), read 2026-10-09: $0.20 in / $0.02 cached in / $1.20 out per 1M tokens; cache writes at 1.25x the input rate. Reasoning tokens are billed as output. Prompts over 272K input tokens cost 2x input and 1.5x output (Thomas's judge prompts are tiny)."
+    },
     "claude-sonnet-4-6": {
       "inputPerMTok": 3,
       "outputPerMTok": 15,

@@ -1,6 +1,13 @@
 // scripts/services/ledger-build.mjs
 //
-// MODULE DATE: 2026-10-06 (Tuesday) · v1.3 — bible.usccb.org (NABRE) is now accepted as proof of what Scripture says,
+// MODULE DATE: 2026-10-09 (Friday) · v1.4 — (1) the REGISTRY (scripts/ledger-allowlist.json, read through registry.mjs, the same reader Jerome uses) now
+// decides which sites may be used and at what tier; the built-in lists below are only the fallback when the registry is missing or unreadable
+// (ledger.allowlist.from says which was used). A tier that cannot verify (canVerify:false, e.g. "reported") gives status "reported", never "verified".
+// (2) JEROME'S HANDOFF: when sources/<entry-id>.json exists, its stored text (sources set to storage "full") is used instead of fetching, and the pages
+// Jerome chose that the article does NOT link are listed as suggestions, never as proof (proof still comes only from the article's own links); a
+// linked page whose length has changed a lot since Jerome saw it is flagged. (3) Per-role token usage is recorded (ledger.usage) and a Thomas job
+// is written to article-log.json, so the cost of a check is measured, not guessed.
+// v1.3 — bible.usccb.org (NABRE) is now accepted as proof of what Scripture says,
 // with its own tier, "scripture" (Tom's rule: Scripture the articles quote is NABRE; v1.1 had excluded that host).
 // v1.2 — the prover now READS THE WHOLE PAGE and may quote two pieces (see
 // step 5 below). v1.1 was v1 plus two changes: (1) pages a model discovers are only
@@ -70,6 +77,9 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { loadRegistry, regEntry } from './registry.mjs';
+import { loadSources } from './sources-file.mjs';
+import { recordLedger, LOG_PATH } from './article-log.mjs';
 
 // ---------------------------------------------------------------------------------------------
 // Settings
@@ -98,6 +108,23 @@ const EXCLUDED_HOSTS = [];
 const SCRIPTURE_HOSTS = ['bible.usccb.org'];
 const ALLOWLIST = ALLOWLIST_APPROVED.concat(ALLOWLIST_OFFICIAL);
 
+// v1.4: the registry decides. The lists above are the fallback only (registry missing, unreadable or in the wrong shape).
+let REGISTRY = null;
+let allowlistFrom = 'built-in';
+function initAllowlist(){
+  try{ REGISTRY = loadRegistry(); allowlistFrom = 'registry'; }
+  catch(_e){ REGISTRY = null; allowlistFrom = 'built-in'; }
+  return allowlistFrom;
+}
+function registryEntryFor(url){ return REGISTRY ? regEntry(REGISTRY, hostOf(url)) : null; }
+// May a match on a page of this tier be called "verified"? A registry tier with canVerify:false (the "reported" tier) cannot: its ceiling is "reported".
+function tierCanVerify(tier){
+  if(!REGISTRY) return true;
+  const t = REGISTRY.tiers && REGISTRY.tiers[tier];
+  return !t || t.canVerify !== false;
+}
+function allowedDomainList(){ return REGISTRY ? REGISTRY.domains.filter(d => d.enabled !== false).map(d => d.domain) : ALLOWLIST; }
+
 const MAX_ENTRIES_PER_TASK = 15;
 const MAX_SOURCES_PER_ENTRY = 6;
 const MAX_CLAIMS_PER_ENTRY = 60;
@@ -124,6 +151,27 @@ const ROLES = {
 
 let tokensUsed = 0;
 
+// v1.4: tokens by role (extractor, prover, judge), so the cost of a check is measured. Tallied for every call that returned, even one that was
+// cut off and retried, because the provider bills it either way.
+const usageTally = {};
+function tallyUsage(roleCfg, u){
+  if(!u) return;
+  const key = roleCfg.role || roleCfg.provider;
+  const t = usageTally[key] || (usageTally[key] = { role: key, provider: roleCfg.provider, model: roleCfg.modelId, calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 });
+  t.calls++; t.inputTokens += u.input || 0; t.outputTokens += u.output || 0; t.cacheReadTokens += u.cacheRead || 0; t.cacheWriteTokens += u.cacheWrite || 0;
+}
+const snapshotUsage = () => JSON.parse(JSON.stringify(usageTally));
+function usageSince(before){
+  const out = [];
+  for(const [k, t] of Object.entries(usageTally)){
+    const b = before[k] || {};
+    const d = { role: t.role, provider: t.provider, model: t.model, calls: t.calls - (b.calls || 0), inputTokens: t.inputTokens - (b.inputTokens || 0), outputTokens: t.outputTokens - (b.outputTokens || 0),
+      cacheReadTokens: t.cacheReadTokens - (b.cacheReadTokens || 0), cacheWriteTokens: t.cacheWriteTokens - (b.cacheWriteTokens || 0) };
+    if(d.calls > 0) out.push(d);
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Providers — same endpoints/auth as fact-research.mjs (copied, not imported, so each service
 // file stands alone). Search is only ever turned on for source discovery.
@@ -149,7 +197,8 @@ async function callAnthropic(systemPrompt, userInput, maxTokens, apiKey, model, 
   const text = (data.content || []).filter(c => c.type === 'text').map(c => c.text || '').join('\n').trim();
   const truncated = data.stop_reason === 'max_tokens';
   const used = ((data.usage && data.usage.input_tokens) || 0) + ((data.usage && data.usage.output_tokens) || 0);
-  return { text, truncated, used };
+  const u = data.usage || {};
+  return { text, truncated, used, usage: { input: u.input_tokens || 0, output: u.output_tokens || 0, cacheRead: u.cache_read_input_tokens || 0, cacheWrite: u.cache_creation_input_tokens || 0 } };
 }
 
 async function callOpenAI(systemPrompt, userInput, maxTokens, apiKey, model, search){
@@ -168,7 +217,9 @@ async function callOpenAI(systemPrompt, userInput, maxTokens, apiKey, model, sea
     .join('\n').trim();
   const truncated = data.status === 'incomplete' ||
     (data.incomplete_details && data.incomplete_details.reason === 'max_output_tokens');
-  return { text, truncated, used: (data.usage && data.usage.total_tokens) || 0 };
+  const u = data.usage || {};
+  const cached = (u.input_tokens_details && u.input_tokens_details.cached_tokens) || 0;      // billed at the cached rate; output_tokens already includes reasoning
+  return { text, truncated, used: u.total_tokens || 0, usage: { input: Math.max(0, (u.input_tokens || 0) - cached), output: u.output_tokens || 0, cacheRead: cached, cacheWrite: 0 } };
 }
 
 // Search grounding can't be combined with responseMimeType json, so search-on asks for JSON in the
@@ -192,7 +243,10 @@ async function callGoogle(systemPrompt, userInput, maxTokens, apiKey, model, sea
   const cand = (data.candidates || [])[0];
   const parts = (cand && cand.content && cand.content.parts) || [];
   const text = parts.map(p => p.text || '').join('').trim();
-  return { text, truncated: !!(cand && cand.finishReason === 'MAX_TOKENS'), used: (data.usageMetadata && data.usageMetadata.totalTokenCount) || 0 };
+  const um = data.usageMetadata || {};
+  const cachedG = um.cachedContentTokenCount || 0;                                          // thinking tokens are billed as output
+  return { text, truncated: !!(cand && cand.finishReason === 'MAX_TOKENS'), used: um.totalTokenCount || 0,
+    usage: { input: Math.max(0, (um.promptTokenCount || 0) - cachedG), output: (um.candidatesTokenCount || 0) + (um.thoughtsTokenCount || 0), cacheRead: cachedG, cacheWrite: 0 } };
 }
 
 const PROVIDERS = {
@@ -218,8 +272,9 @@ async function callJson(roleCfg, systemPrompt, userInput, search){
   let lastErr;
   for(let attempt = 0; attempt < TOKEN_BUDGETS.length; attempt++){
     try{
-      const { text, truncated, used } = await prov.call(systemPrompt, userInput, TOKEN_BUDGETS[attempt], apiKey, roleCfg.modelId, !!search);
+      const { text, truncated, used, usage } = await prov.call(systemPrompt, userInput, TOKEN_BUDGETS[attempt], apiKey, roleCfg.modelId, !!search);
       tokensUsed += used || 0;
+      tallyUsage(roleCfg, usage);
       if(truncated) lastErr = new Error(roleCfg.provider + ' hit its token limit (budget ' + TOKEN_BUDGETS[attempt] + ')');
       else if(!text) lastErr = new Error(roleCfg.provider + ' returned no output text.');
       else{
@@ -363,12 +418,16 @@ function hostMatches(h, list){ return list.some(d => h === d || h.endsWith('.' +
 
 function onAllowlist(url){
   const h = hostOf(url);
-  return !!h && !hostMatches(h, EXCLUDED_HOSTS) && hostMatches(h, ALLOWLIST);
+  if(!h) return false;
+  if(REGISTRY){ const e = regEntry(REGISTRY, h); return !!(e && e.enabled !== false); }   // listed but switched off = not allowed
+  return !hostMatches(h, EXCLUDED_HOSTS) && hostMatches(h, ALLOWLIST);
 }
 
-// 'approved' = the original six; 'official' = institutional sites added in v1.1; 'scripture' = the NABRE (v1.3).
+// With the registry: the tier it gives the site. Built-in fallback: 'approved' = the original six; 'official' = institutional sites added in
+// v1.1; 'scripture' = the NABRE (v1.3).
 function tierOf(url){
   const h = hostOf(url);
+  if(REGISTRY){ const e = regEntry(REGISTRY, h); if(e) return e.tier; }
   if(hostMatches(h, SCRIPTURE_HOSTS)) return 'scripture';
   return hostMatches(h, ALLOWLIST_APPROVED) ? 'approved' : 'official';
 }
@@ -441,7 +500,11 @@ function namePresence(name, normText){
 async function gatherPages(entry, urls){
   const pages = [], health = [];
   for(const url of [...new Set(urls)].slice(0, MAX_SOURCES_PER_ENTRY)){
-    if(!onAllowlist(url)){ health.push({ url, ok: false, note: 'not an approved source (outside the allowed domains)' }); continue; }
+    if(!onAllowlist(url)){
+      const re = registryEntryFor(url);
+      health.push({ url, ok: false, note: re && re.enabled === false ? 'listed in the allowlist but not enabled' : 'not an approved source (outside the allowed domains)' });
+      continue;
+    }
     const f = await fetchSource(url);
     if(!f.ok){ health.push({ url, ok: false, http: f.http, note: f.note }); continue; }
     const normText = norm(f.text);
@@ -451,7 +514,7 @@ async function gatherPages(entry, urls){
       continue;
     }
     health.push({ url, ok: true, http: f.http, namePresent: presence, chars: f.text.length, tier: tierOf(url) });
-    pages.push({ url, plain: f.text, normText, chunks: chunkText(f.text).map(t => ({ text: t, n: norm(t) })) });
+    pages.push({ url, plain: f.text, normText, tier: tierOf(url), chunks: chunkText(f.text).map(t => ({ text: t, n: norm(t) })) });
   }
   return { pages, health };
 }
@@ -502,7 +565,7 @@ For each item answer exactly one of:
 Respond with ONLY a JSON object, no preamble, no code fences:
 { "verdicts": [ { "cid": "c1", "verdict": "supports", "reason": "one short sentence" } ] }`;
 
-const DISCOVER_PROMPT = `You suggest web pages for checking facts in an article about a Catholic saint or event. Search the web. Propose at most 3 page URLs, ONLY from these domains: ${ALLOWLIST.join(', ')}. Prefer the New Advent Catholic Encyclopedia article on the subject. Only propose a URL you actually found in search results. Respond with ONLY a JSON object, no preamble: { "urls": ["https://..."] }`;
+const discoverPrompt = () => `You suggest web pages for checking facts in an article about a Catholic saint or event. Search the web. Propose at most 3 page URLs, ONLY from these domains: ${allowedDomainList().join(', ')}. Prefer the New Advent Catholic Encyclopedia article on the subject. Only propose a URL you actually found in search results. Respond with ONLY a JSON object, no preamble: { "urls": ["https://..."] }`;
 
 // ---------------------------------------------------------------------------------------------
 // Article -> claims
@@ -720,12 +783,57 @@ async function judgeClaims(items, roleCfg){
 
 async function discoverUrls(entry, roleCfg){
   try{
-    const parsed = await callJson(roleCfg, DISCOVER_PROMPT, JSON.stringify({ name: entry.n, year: entry.y }), true);
+    const parsed = await callJson(roleCfg, discoverPrompt(), JSON.stringify({ name: entry.n, year: entry.y }), true);
     return (Array.isArray(parsed.urls) ? parsed.urls : []).map(u => String(u).trim()).filter(onAllowlist).slice(0, 3);
   }catch(err){
     if(err && err.deferred) throw err;
     return [];                              // discovery is a bonus; failing it just leaves claims unsourced
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// v1.4: Jerome's handoff file (sources/<entry-id>.json, see sources-file.mjs)
+// ---------------------------------------------------------------------------------------------
+
+// The same page, whatever the www., trailing slash or fragment.
+const urlKey = u => { try{ const x = new URL(u); return x.hostname.toLowerCase().replace(/^www\./, '') + x.pathname.replace(/\/+$/, '') + x.search; }catch(_e){ return String(u); } };
+
+function readSourcesFile(id){
+  try{ return loadSources(id); }catch(_e){ return null; }       // missing or unreadable: the ledger is built exactly as before
+}
+
+// Sources Jerome stored in full (public-domain sites Tom set to storage "full") are used as they are: the check is then against the very text the
+// writer saw, and no download is needed. Only for pages the article itself links.
+function seedStoredText(sf, linkUrls){
+  const stored = new Map((sf.sources || []).filter(x => typeof x.text === 'string' && x.text).map(x => [urlKey(x.url), x.text]));
+  for(const u of linkUrls){
+    const t = stored.get(urlKey(u));
+    if(t && onAllowlist(u)) pageCache.set(u, Promise.resolve({ url: u, ok: true, http: 200, text: t.slice(0, MAX_PAGE_CHARS), note: '' }));
+  }
+}
+
+// What Jerome's file adds to the ledger: which of his pages the article links, a length check on those, and his unlinked pages as SUGGESTIONS.
+// Proof still comes only from the article's own links, so an unlinked page never reaches the prover or the judge. Jerome and this file extract
+// page text differently, so hashes cannot be compared; a change of more than a quarter in length is the signal.
+async function pipelineInfo(entry, sf, linkUrls, health, pages){
+  const linkedKeys = new Set(linkUrls.map(urlKey));
+  const linked = (sf.sources || []).filter(x => linkedKeys.has(urlKey(x.url)));
+  const unlinked = (sf.sources || []).filter(x => !linkedKeys.has(urlKey(x.url)));
+  for(const x of linked){
+    const hl = health.find(h => urlKey(h.url) === urlKey(x.url));
+    const pg = pages.find(p => urlKey(p.url) === urlKey(x.url));
+    if(hl && hl.ok && pg && x.words){
+      const now = wordCount(pg.plain), ratio = now / x.words;
+      hl.jerome = { n: x.n, wordsThen: x.words, wordsNow: now, drift: (ratio < 0.75 || ratio > 1.25) ? 'changed' : 'similar' };
+    }
+  }
+  let suggestions = [];
+  if(unlinked.length){
+    const g = await gatherPages(entry, unlinked.map(x => x.url));
+    suggestions = g.health.map(h => Object.assign({}, h, { from: 'Jerome', note: h.ok ? 'Jerome\'s page: loads and mentions the entry; add it to the article\'s links to use it' : h.note }));
+  }
+  return { suggestions, info: { file: 'sources/' + sf.entryId + '.json', jobId: sf.jobId || null, builtAt: sf.builtAt || null, outcome: sf.outcome || null,
+    jeromePages: (sf.sources || []).length, linked: linked.length, notLinked: unlinked.length } };
 }
 
 async function buildLedger(entry, opts, roles){
@@ -734,7 +842,11 @@ async function buildLedger(entry, opts, roles){
 
   // 1 & 2. Sources
   const linkUrls = ((entry.art && entry.art.links) || []).map(l => l && l.url).filter(Boolean);
+  // v1.4: Jerome's handoff file, when there is one: stored text is used instead of fetching, and (below) his pages the article does not link become suggestions.
+  const sf = opts.useSources === false ? null : readSourcesFile(entry.id);
+  if(sf) seedStoredText(sf, linkUrls);
   const { pages, health } = await gatherPages(entry, linkUrls);
+  const pipeline = sf ? await pipelineInfo(entry, sf, linkUrls, health, pages) : null;
   // Suggestions only (v1.1): pages a model finds are checked and listed, but never added to `pages`, so the
   // prover and judge never see them. Proof must come from the article's own links.
   let suggestedSources = [];
@@ -745,6 +857,7 @@ async function buildLedger(entry, opts, roles){
       suggestedSources = g.health.map(h => Object.assign({}, h, { note: h.ok ? 'loads and mentions the entry; add it to the article\'s links to use it' : h.note }));
     }
   }
+  if(pipeline) suggestedSources = suggestedSources.concat(pipeline.suggestions.filter(x => !suggestedSources.some(y => urlKey(y.url) === urlKey(x.url))));
   const noPageReason = !linkUrls.length ? 'the article has no source links'
     : 'none of the article\'s links could be used as proof (see sourceHealth)';
   const goodSuggestion = suggestedSources.find(h => h.ok);
@@ -804,7 +917,7 @@ async function buildLedger(entry, opts, roles){
       if(v){ rec.judge = v.verdict; if(v.verdict !== 'supports' && v.reason) rec.note = v.reason; }
       else{ rec.note = 'judge returned no verdict'; }
       if(c.kind === 'tradition') rec.status = 'traditional';
-      else rec.status = v && v.verdict === 'supports' ? 'verified' : 'disputed';
+      else rec.status = v && v.verdict === 'supports' ? (tierCanVerify(tierOf(st.proof.url)) ? 'verified' : 'reported') : 'disputed';     // v1.4: a source whose tier cannot verify gives 'reported'
       if(rec.status === 'disputed' && !v) rec.status = 'unsourced';
     }else if(st && st.contradicts){
       rec.sources = [{ url: st.contradicts.url, excerpt: st.contradicts.excerpt, match: 'exact', tier: tierOf(st.contradicts.url) }];
@@ -818,7 +931,7 @@ async function buildLedger(entry, opts, roles){
   }
 
   const recs = out.map(o => o.rec);
-  const counts = { total: recs.length, verified: 0, disputed: 0, unsourced: 0, traditional: 0 };
+  const counts = { total: recs.length, verified: 0, reported: 0, disputed: 0, unsourced: 0, traditional: 0 };
   recs.forEach(r => { counts[r.status]++; });
   const missingNumbers = recs.filter(r => r.checks && r.checks.missingNumbers).length;
   const missingNames = recs.filter(r => r.checks && r.checks.missingNames).length;
@@ -829,7 +942,8 @@ async function buildLedger(entry, opts, roles){
     name: entry.n,
     articleHash: hash,
     checkedAt: new Date().toISOString().slice(0, 10),
-    generator: 'ledger-build v1.3 (2026-10-06)',
+    generator: 'ledger-build v1.4 (2026-10-09)',
+    allowlist: { from: allowlistFrom },
     models: { extractor: roles.extractor.modelId, prover: roles.prover.modelId, judge: roles.judge.modelId },
     sourceHealth: health,
     claims: recs,
@@ -840,6 +954,7 @@ async function buildLedger(entry, opts, roles){
   };
   if(uncovered.length) ledger.uncovered = uncovered;
   if(suggestedSources.length) ledger.suggestedSources = suggestedSources;
+  if(pipeline) ledger.pipeline = pipeline.info;
   return ledger;
 }
 
@@ -852,7 +967,7 @@ function safeFileId(id){ return String(id).replace(/[^a-zA-Z0-9._-]/g, '_'); }
 function resolveRoles(payload){
   const roles = {};
   for(const k of Object.keys(ROLES)){
-    roles[k] = Object.assign({}, ROLES[k]);
+    roles[k] = Object.assign({ role: k }, ROLES[k]);
     const o = payload.models && payload.models[k];
     if(typeof o === 'string' && o.trim()) roles[k].modelId = o.trim();
   }
@@ -869,10 +984,13 @@ export async function runLedgerBuild(task, dataJson){
   if(ids.length > MAX_ENTRIES_PER_TASK){
     return { result: null, summary: 'skipped \u2014 ' + ids.length + ' entries on one task; the limit is ' + MAX_ENTRIES_PER_TASK };
   }
-  const opts = { discover: payload.discover === true, force: !!payload.force, writeQc: !!payload.writeQc };
+  const opts = { discover: payload.discover === true, force: !!payload.force, writeQc: !!payload.writeQc, useSources: payload.useSources !== false };   // v1.4: useSources:false ignores sources/<id>.json
   const roles = resolveRoles(payload);
 
   tokensUsed = 0;
+  for(const k of Object.keys(usageTally)) delete usageTally[k];
+  initAllowlist();                       // v1.4: the registry, or the built-in lists if it cannot be read
+  let logWritten = false;
   mkdirSync(LEDGER_DIR, { recursive: true });
   const files = [];
   const entries = [];
@@ -895,9 +1013,13 @@ export async function runLedgerBuild(task, dataJson){
       }catch(_e){ /* unreadable ledger: rebuild */ }
     }
     try{
+      const t0 = Date.now(), before = snapshotUsage();
       const ledger = await buildLedger(entry, opts, roles);
+      ledger.usage = usageSince(before);                                  // v1.4: tokens by role, for this article only
+      ledger.seconds = Math.round((Date.now() - t0) / 100) / 10;
       writeFileSync(path, (MINIFY ? JSON.stringify(ledger) : JSON.stringify(ledger, null, 1)) + '\n');
       files.push(path);
+      try{ recordLedger({ entry, ledger, task, multi: ids.length > 1 }); logWritten = true; }catch(_e){ /* the article log is optional */ }
       if(opts.writeQc){
         entry.qc = entry.qc || {};
         const s = ledger.summary;
@@ -918,14 +1040,14 @@ export async function runLedgerBuild(task, dataJson){
   }
 
   const built = entries.filter(e => e.outcome === 'built');
-  const tot = { total: 0, verified: 0, disputed: 0, unsourced: 0, traditional: 0, missingNumbers: 0, missingNames: 0, uncoveredSentences: 0 };
+  const tot = { total: 0, verified: 0, reported: 0, disputed: 0, unsourced: 0, traditional: 0, missingNumbers: 0, missingNames: 0, uncoveredSentences: 0 };
   built.forEach(e => Object.keys(tot).forEach(k => { tot[k] += (e.summary && e.summary[k]) || 0; }));
   const remaining = stoppedEarly ? ids.slice(ids.indexOf((entries[entries.length - 1] || {}).id)) : [];
 
   const parts = [];
   if(built.length){
     parts.push(built.length + ' ledger' + (built.length === 1 ? '' : 's') + ': ' + tot.total + ' claims \u2014 ' +
-      tot.verified + ' verified, ' + tot.traditional + ' traditional, ' + tot.disputed + ' disputed, ' + tot.unsourced +
+      tot.verified + ' verified, ' + tot.reported + ' reported, ' + tot.traditional + ' traditional, ' + tot.disputed + ' disputed, ' + tot.unsourced +
       ' unsourced (' + tot.missingNumbers + ' with numbers absent from sources; ' + tot.missingNames + ' claims name something no source mentions); ' + tot.uncoveredSentences + ' digit-bearing sentences with no claim');
   }
   const other = entries.filter(e => e.outcome !== 'built');
@@ -933,16 +1055,17 @@ export async function runLedgerBuild(task, dataJson){
   if(stoppedEarly) parts.push('stopped early \u2014 ' + stoppedEarly + '; re-queue ' + remaining.join(', '));
 
   const outcome = {
-    result: { entries, totals: tot, models: roles, stoppedEarly: stoppedEarly || undefined, remaining: remaining.length ? remaining : undefined },
+    result: { entries, totals: tot, models: roles, allowlist: allowlistFrom, usage: usageSince({}), stoppedEarly: stoppedEarly || undefined, remaining: remaining.length ? remaining : undefined },
     summary: parts.join(' | ').slice(0, 900) || 'nothing to build',
     provider: [...new Set(Object.values(roles).map(r => r.provider))].join('+'),
     tokensUsed
   };
   const commit = files.slice();
   if(dataTouched) commit.push(DATA_PATH);
+  if(logWritten) commit.push(LOG_PATH);
   if(commit.length) outcome.filesToCommit = commit;
   return outcome;
 }
 
 // Exposed for the offline test harness only.
-export const __test = { norm, numericKeys, hasNumber, splitSentences, chunkText, verifyExcerpts, buildSources, articleHash, stripHtml, htmlToText, namePresence };
+export const __test = { norm, numericKeys, hasNumber, splitSentences, chunkText, verifyExcerpts, buildSources, articleHash, stripHtml, htmlToText, namePresence, urlKey, tierCanVerify, initAllowlist, onAllowlist, tierOf };

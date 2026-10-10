@@ -76,6 +76,10 @@ Each article job is recorded in `article-log.json` (repo root): numbered steps w
 
 Each Jerome run saves `sources/<entry-id>.json` (see `scripts/services/sources-file.mjs`): the chosen pages with hashes, the verdict, the unsure pages. The writer and the verifier read it with `loadSources` and `getSourceTexts`; they never read Jerome's task result. Full page text is in the file only for registry sources Tom has set to `"storage": "full"`; everything else is fetched again at use, and a page that no longer matches its hash comes back marked `changed`. Scripture is never stored. The `sources/` folder is written by the services and the pilot workflow, never by a bundle.
 
+## Thomas (ledger-build) and the registry (v3.2)
+
+`scripts/services/ledger-build.mjs` is Tom's live file and is large: change it ONLY with a find-and-replace patch (`file:patch=edits.json` in `place-files.mjs --make`), written against a copy Tom has uploaded in the current chat, never against the project-knowledge copy, which can be several versions behind (it was v1.1 when the live file was v1.3). Both Jerome and Thomas read the registry through `scripts/services/registry.mjs`; do not copy that logic into either. A source whose registry tier has `canVerify:false` can only ever be `reported`. Thomas records tokens per role and writes a `check` job to `article-log.json`; any new model he or Jerome uses needs a verified price in `scripts/pricing.json` first.
+
 ## The source registry and its approval dates (v3)
 
 `scripts/ledger-allowlist.json` is the list of websites the pipeline may trust, and `SOURCE-ALLOWLIST.md` is the page that shows them with their descriptions (the page is generated from the registry). Both are protected: a bundle cannot change them. Rules for any session that touches them:

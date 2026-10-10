@@ -1,5 +1,5 @@
 // scripts/services/article-log.mjs
-// MODULE DATE: 2026-10-09 (Friday) · v0.5 — the article log: a short, readable record of what happened on each article job.
+// MODULE DATE: 2026-10-09 (Friday) · v0.6 — the article log: a short, readable record of what happened on each article job.
 //
 // WHAT IT KEEPS (article-log.json, repo root, committed like workLog.json):
 //   { "version": 1, "jobs": [ { "id", "title", "kind": "rewrite" | "new", "startedAt", "requestedBy", "status", "totalSeconds",
@@ -275,3 +275,57 @@ export function recordJerome({ result, task, logPath = LOG_PATH, now = new Date(
   saveLog(log, logPath);
   return job;
 }
+
+// ---- Thomas's steps (ledger-build: the source check of one article) ----
+// ledger: the ledger object ledger-build writes (summary, sourceHealth, claims, pipeline?, usage?: [{ role, provider, model, calls, inputTokens, outputTokens,
+// cacheReadTokens?, cacheWriteTokens? }], seconds?). The cost is NOT stored in the log: each step carries its role's tokens and model, and the dollars are worked out
+// from scripts/pricing.json when a job is viewed, like Jerome's.
+const usageOf = u => u ? dropUndefined({ model: u.model, inputTokens: u.inputTokens || undefined, outputTokens: u.outputTokens || undefined,
+  cacheReadTokens: u.cacheReadTokens || undefined, cacheWriteTokens: u.cacheWriteTokens || undefined }) : null;
+
+export function ledgerSteps(ledger, { at } = {}) {
+  const s = ledger.summary || {};
+  const claims = ledger.claims || [];
+  const health = ledger.sourceHealth || [];
+  const by = r => (ledger.usage || []).find(u => u.role === r);
+  const steps = [];
+
+  let read = 'Read ' + health.filter(h => h.ok).length + ' of ' + health.length + ' source page(s)';
+  const pl = ledger.pipeline;
+  if (pl) read += ' (Jerome\'s file: ' + pl.linked + ' linked in the article, ' + pl.notLinked + ' not linked, so only suggestions)';
+  const drifted = health.filter(h => h.jerome && h.jerome.drift === 'changed').length;
+  if (drifted) read += '; ' + drifted + ' page(s) differ in length from what Jerome saw';
+  steps.push({ who: 'Thomas', at, text: read });
+
+  const ex = by('extractor');
+  steps.push({ who: 'Thomas', at, text: 'Listed ' + (s.total || 0) + ' claims to check' + (s.extractorRejected ? ' (' + s.extractorRejected + ' dropped: not copied word for word)' : ''), usage: usageOf(ex) });
+
+  const withProof = claims.filter(c => c.sources && c.sources.length && c.status !== 'unsourced').length;
+  const pv = by('prover');
+  steps.push({ who: 'Thomas', at, text: 'Found a word-for-word excerpt for ' + withProof + ' of ' + (s.total || 0) + ' claims', usage: usageOf(pv) });
+
+  const judged = claims.filter(c => c.judge);
+  const jd = by('judge');
+  steps.push({ who: 'Thomas', at, text: 'Judged ' + judged.length + ' excerpt(s) blind: ' + judged.filter(c => c.judge === 'supports').length + ' supported', usage: usageOf(jd) });
+
+  const parts = [(s.verified || 0) + ' verified'];
+  if (s.reported) parts.push(s.reported + ' reported');
+  parts.push((s.traditional || 0) + ' traditional', (s.disputed || 0) + ' disputed', (s.unsourced || 0) + ' unsourced');
+  steps.push({ who: 'Thomas', at, text: 'Result: ' + parts.join(', ') + (s.missingNumbers ? '; ' + s.missingNumbers + ' with numbers absent from the sources' : ''), seconds: ledger.seconds });
+  for (const st of steps) if (!st.usage) delete st.usage;          // a step with no measured tokens carries no usage at all
+  return steps;
+}
+
+export function recordLedger({ entry, ledger, task, multi = false, logPath = LOG_PATH, now = new Date() }) {
+  const at = now.toISOString();
+  const p = (task && task.payload) || {};
+  const log = loadLog(logPath);
+  const base = p.jobId || (task && task.id) || jobIdFor(entry.n, at);
+  const id = !p.jobId && multi ? base + ':' + entry.id : base;
+  const job = openJob(log, { id, title: entry.n || entry.id, kind: 'check', requestedBy: p.requestedBy, at });
+  for (const st of ledgerSteps(ledger, { at })) addStep(job, st);
+  prune(log, { now });
+  saveLog(log, logPath);
+  return job;
+}
+

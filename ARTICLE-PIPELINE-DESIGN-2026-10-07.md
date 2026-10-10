@@ -592,6 +592,27 @@ labeled as Tom's translation, never verbatim as if it were the original.
   caller can stop instead of writing from nothing). No file is written when no search ran. **Next in the pipeline:** wire `ledger-build` (Thomas) to
   read these files instead of the article's own links, then the writer (Augustine), the reworder, Ignatius, audio. 13 file tests, 133 Jerome tests pass.
 
+- **2026-10-09 — THOMAS (ledger-build) v1.4: registry, Jerome's handoff, measured cost.** Tom: "Go" (build Thomas before Augustine; reasons: it mostly
+  exists, it is the only way to judge Augustine's output, and it doubles as the proofing check for existing articles later). **Finding first: the
+  live `ledger-build.mjs` was v1.3 and did NOT read the registry** (the "v1.4 registry" in the 2026-10-06 decisions notes had not reached the repo; the
+  project copy was v1.1). Thomas still used his own hard-coded list of about 30 sites, so a page Jerome picked from a registry-only site would have been
+  refused as "not an approved source". Changes (a 20-edit find-and-replace patch against the live file, so nothing else is touched): (1) **The registry
+  decides** which sites may be used and at what tier, through `scripts/services/registry.mjs`, the one reader now shared with Jerome (Jerome re-exports it);
+  the built-in lists remain the fallback if the registry is missing or damaged, and `ledger.allowlist.from` says which was used; a site listed but switched
+  off is reported as "listed in the allowlist but not enabled". (2) **A tier with `canVerify:false` ("reported") gives status `reported`, never `verified`**
+  (a rejected excerpt is still `disputed`). (3) **Jerome's file:** stored text (sources set to storage "full") is used as stored for pages the article
+  links; Jerome's pages the article does NOT link are `suggestedSources` (`from: "Jerome"`), never proof, which keeps the rule from Part 7 of the
+  decisions notes (proof only from the article's own links: a reader following those links must be able to find it). For articles Augustine writes this
+  is automatic, because he will write his links from Jerome's pages; for existing articles it is the proofing question, set aside for later. A linked page
+  whose length differs from Jerome's by more than a quarter is flagged `changed` (hashes cannot be compared: Jerome and Thomas extract page text
+  differently). `payload.useSources:false` ignores the file. (4) **Measured cost:** tokens are tallied per role from each provider's own usage report
+  (Gemini thinking tokens and OpenAI reasoning tokens count as output; cached input is separate) into `ledger.usage`, and a Thomas job (kind `check`) with a
+  step per role is written to `article-log.json`, so dollars come from `scripts/pricing.json`, which now has verified prices for `gemini-3.5-flash-lite`
+  ($0.30/$2.50, Google's own page) and `gpt-5.6-luna` ($0.20/$1.20, OpenAI's own page). The full-library estimate can now be replaced with measured numbers
+  after a pilot. 20 offline tests for the patched file (fake websites and fake Anthropic, Google and OpenAI endpoints), 5 registry tests, 33 log tests.
+  **Not done:** a UI for `reported` (the ledger viewer is still unbuilt, and must say "Source excerpt", never "Verified"); the existing 3-model design is
+  unchanged; Thomas has still never run against the live APIs (everything above is offline-tested).
+
 ## 13. Sufficiency, category rules and visitor input (2026-10-07, not yet built)
 
 **Status key:** CONFIRMED = Tom said so. PROPOSED = Claude's suggestion, not yet answered by Tom. OPEN = a question Tom has not decided.
