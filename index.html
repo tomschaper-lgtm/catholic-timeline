@@ -1,6 +1,6 @@
 <!--
-VERSION: 565
-DATE: 2026-10-10T10:03:00-05:00
+VERSION: 566
+DATE: 2026-10-10T12:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,22 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v566 — 2026-10-10
+
+**Ask:**
+- v565 was running but the timing-gap fix wasn't: two chats had each built v562–v564 from v561.
+  Bring this chat's three changes onto the running v565 without losing anything from it.
+
+**Implementation:**
+- Built on v565 (other chat: v562 Paste-JSON pronunciation + ledger task, v563 X spacing, v564
+  date on the Listened button, v565 image-path fix — all kept). Added this chat's:
+  - Share row: icon bottom on the text baseline; the section headings' rule under "Share this
+    article" (the "Report an issue" divider is dropped after it); "Miracle" in the year's gold.
+  - Press-and-hold works on section headings too (no "Link to an entry" there).
+  - Timing gaps: timings that don't match their sentence exactly are filled from the text between
+    matched neighbours — paired by ≥ 75% shared words, then by position. Sync line shows
+    "N/N sentences linked (x by word match, y by position)".
+
 ## v565 — 2026-10-10
 
 **Ask:**
@@ -2116,11 +2132,12 @@ CHANGELOG:END
   /* v552: share lives at the end of the article now */
   #article .artShareBtn{display:none !important;}
   /* v557: same lettering as the section headings, icon after the words, no circle */
-  .artShareRow{display:flex; align-items:center; gap:10px; margin:30px 0 6px; padding:10px 0; width:100%;
-    background:none; border:none; color:var(--gold-bright);
+  .artShareRow{display:flex; align-items:baseline; gap:10px; margin:30px 0 6px; padding:10px 0 5px; width:100%;   /* v562: baseline, heading rule */
+    background:none; border:none; border-bottom:1px solid rgba(201,165,66,.35); color:var(--gold-bright);
     font-family:'Cinzel',serif; font-size:calc(15px * var(--txt)); letter-spacing:.14em; text-transform:uppercase;
     text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent;}
-  .artShareRow .artShareIcon{display:inline-flex; align-items:center; flex:none;}
+  .artShareRow .artShareIcon{display:inline-flex; align-items:center; flex:none; position:relative; top:var(--shareIconDrop, 3px);}   /* v562: tray bottom on the baseline */
+  .artShareRow ~ .reportIssueBtn{border-top:none;}   /* v562: the share row's rule is the divider */
   .artShareRow svg{width:25px; height:25px;}
   .artShareRow:active{opacity:.7;}
   .audBarPlay svg{width:26px; height:26px;}   /* v552: smaller ▶ to match the smaller button */
@@ -2265,7 +2282,7 @@ CHANGELOG:END
   }
   .ahYear{font-family:'Cinzel',serif; color:var(--gold-bright); font-size:30px; font-weight:700; line-height:1;}
   /* v556: "Eucharistic Miracle" beside the year, in gold italics (alone, a little larger, with no year) */
-  .ahKind{margin-left:12px; color:var(--gold); font-family:'EB Garamond', Georgia, serif; font-style:italic; font-weight:600; font-size:24px; line-height:1; letter-spacing:.01em; white-space:nowrap;}   /* v561: bigger, semi-bold */
+  .ahKind{margin-left:12px; color:var(--gold-bright);   /* v562: same colour as the year */ font-family:'EB Garamond', Georgia, serif; font-style:italic; font-weight:600; font-size:24px; line-height:1; letter-spacing:.01em; white-space:nowrap;}   /* v561: bigger, semi-bold */
   .ahYearRow:not(:has(.ahYear)) .ahKind{margin-left:0; font-size:27px;}
   .ahYearRow:has(.ahKind){align-items:baseline;}
   .review-on .ahYear{cursor:pointer;}
@@ -5193,7 +5210,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v565';
+const APP_VERSION = 'v566';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14260,10 +14277,105 @@ function applyCueMarkup(cues){
     matches.push({ idx, start: at, end: at + searchText.length });
     searchFrom = at + searchText.length;
   });
+  // v564: timings that didn't match exactly get the text between their matched neighbours
+  const { extra, shares } = fillCueGaps(flat, map, matches, cues);
+  const all = matches.concat(extra).sort((a, b) => a.start - b.start);
   // Wrap in reverse document order — see cueWrapRange's comment on why.
-  matches.slice().reverse().forEach(m => {
+  all.slice().reverse().forEach(m => {
     cueEls[m.idx] = cueWrapRange(map, m.start, m.end, m.idx, 'sentCue');
   });
+  shares.forEach(([idx, owner]) => { cueEls[idx] = cueEls[owner]; });
+}
+// ---- v564: fill the gaps left by timings whose text didn't match exactly ----
+let cueGapStats = { word: 0, position: 0 };
+const cueWords = (s) => (String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]+/g) || []);
+function cueWordMatch(a, b){
+  if(!a.length || !b.length) return 0;
+  const pool = new Map(); b.forEach(w => pool.set(w, (pool.get(w) || 0) + 1));
+  let shared = 0;
+  a.forEach(w => { const n = pool.get(w); if(n){ shared++; pool.set(w, n - 1); } });
+  return shared / Math.max(a.length, b.length);
+}
+const CUE_WORD_MATCH = 0.75;
+// The sentences inside flat[g0, g1): split after . ! ? (and closing quotes) and wherever the text
+// moves to another heading or paragraph.
+function cueGapSentences(flat, map, g0, g1){
+  const blockOf = (k) => { const n = map[k] && map[k].node; const el = n && n.parentElement; return el ? el.closest('.arth, p, li, blockquote, .artProse') : null; };
+  const segs = [];
+  let st = g0;
+  const push = (a, b) => {
+    while(a < b && flat[a] === ' ') a++;
+    while(b > a && flat[b - 1] === ' ') b--;
+    if(b > a && /[\p{L}\p{N}]/u.test(flat.slice(a, b))) segs.push({ start: a, end: b, words: cueWords(flat.slice(a, b)) });
+  };
+  for(let k = g0; k < g1; k++){
+    const endHere = /[.!?]/.test(flat[k]) && (k + 1 >= g1 || /[\s\u201d\u2019"')\]]/.test(flat[k + 1]));
+    if(endHere){
+      let e = k + 1;
+      while(e < g1 && /[\u201d\u2019"')\]]/.test(flat[e])) e++;
+      push(st, e); st = e; k = e - 1; continue;
+    }
+    if(k + 1 < g1 && blockOf(k) !== blockOf(k + 1)){ push(st, k + 1); st = k + 1; }
+  }
+  push(st, g1);
+  return segs;
+}
+function fillCueGaps(flat, map, matches, cues){
+  cueGapStats = { word: 0, position: 0 };
+  const extra = [], shares = [];
+  const byIdx = new Map(matches.map(m => [m.idx, m]));
+  const anchors = matches.slice().sort((a, b) => a.idx - b.idx);
+  // gaps: [prev anchor .. next anchor], plus before the first and after the last
+  const bounds = [{ idx: -1, end: 0 }].concat(anchors).concat([{ idx: cues.length, start: flat.length }]);
+  for(let a = 0; a < bounds.length - 1; a++){
+    const L = bounds[a], R = bounds[a + 1];
+    const missed = [];
+    for(let i = L.idx + 1; i < R.idx; i++) if(cues[i] && cues[i].text && !byIdx.has(i)) missed.push(i);
+    if(!missed.length) continue;
+    const g0 = L.idx < 0 ? 0 : L.end, g1 = R.idx >= cues.length ? flat.length : R.start;
+    if(g1 <= g0) continue;
+    const segs = cueGapSentences(flat, map, g0, g1);
+    if(!segs.length) continue;
+    // 1. word match, keeping order
+    const pairOf = new Map();   // cue idx -> seg index
+    let last = -1;
+    missed.forEach(ci => {
+      const w = cueWords(cues[ci].text);
+      let best = -1, bestScore = CUE_WORD_MATCH;
+      for(let j = last + 1; j < segs.length; j++){
+        if(segs[j].used) continue;
+        const sc = cueWordMatch(w, segs[j].words);
+        if(sc >= bestScore){ best = j; bestScore = sc; }
+      }
+      if(best >= 0){ pairOf.set(ci, best); segs[best].used = true; last = best; cueGapStats.word++; }
+    });
+    // 2. position, between the word-matched pairs
+    const fixed = missed.filter(ci => pairOf.has(ci));
+    const groups = [];   // runs of unpaired cues with the segment window they may use
+    let run = [], lo = 0;
+    missed.forEach(ci => {
+      if(pairOf.has(ci)){ if(run.length) groups.push({ cs: run, lo, hi: pairOf.get(ci) }); run = []; lo = pairOf.get(ci) + 1; }
+      else run.push(ci);
+    });
+    if(run.length) groups.push({ cs: run, lo, hi: segs.length });
+    groups.forEach(g => {
+      const free = [];
+      for(let j = g.lo; j < g.hi; j++) if(!segs[j].used) free.push(j);
+      if(!free.length) return;
+      const n = Math.min(g.cs.length, free.length);
+      for(let k = 0; k < n; k++){
+        let js = [free[k]];
+        if(k === n - 1 && free.length > n) js = free.slice(k);   // one timing left for several sentences: take them all
+        const seg0 = segs[js[0]], seg1 = segs[js[js.length - 1]];
+        extra.push({ idx: g.cs[k], start: seg0.start, end: seg1.end });
+        js.forEach(j => { segs[j].used = true; });
+        cueGapStats.position++;
+      }
+      for(let k = n; k < g.cs.length; k++){ shares.push([g.cs[k], g.cs[n - 1]]); cueGapStats.position++; }   // several timings, one sentence
+    });
+    pairOf.forEach((j, ci) => extra.push({ idx: ci, start: segs[j].start, end: segs[j].end }));
+  }
+  return { extra, shares };
 }
 // Builds cueSectionHeading (parallel to currentCues): for each cue, the .arth element that
 // governs it. Deliberately does NOT depend on that cue's own sentence having successfully
@@ -14358,7 +14470,10 @@ async function wireSentenceCues(d, host){
   }
   const matched = cueEls.filter(arr => arr && arr.length).length;
   const sectionsFound = new Set(cueSectionHeading.filter(Boolean)).size;
-  if(statusEl) statusEl.textContent = 'Sentence sync: ' + matched + '/' + cues.length + ' sentences linked · ' + sectionsFound + ' section(s) mapped for follow-scroll';
+  const filled = cueGapStats.word + cueGapStats.position;
+  if(statusEl) statusEl.textContent = 'Sentence sync: ' + matched + '/' + cues.length + ' sentences linked' +
+    (filled ? ' (' + [cueGapStats.word ? cueGapStats.word + ' by word match' : '', cueGapStats.position ? cueGapStats.position + ' by position' : ''].filter(Boolean).join(', ') + ')' : '') +   // v564
+    ' \u00b7 ' + sectionsFound + ' section(s) mapped for follow-scroll';
 }
 // Tap a highlighted sentence/heading to jump playback there and start playing.
 document.getElementById('artBody').addEventListener('click', (e) => {
@@ -14877,8 +14992,11 @@ function openLinkPicker(x, y){
   const range = lpCaretFromPoint(x, y);
   const node = range && range.startContainer;
   if(!node || node.nodeType !== 3) return; // didn't land on actual text — quietly do nothing
-  const proseEl = node.parentElement && node.parentElement.closest('.artProse');
+  const proseEl = node.parentElement && node.parentElement.closest('.artProse, #artStoryText .arth');   // v563
   if(!proseEl || node.parentElement.closest('a')) return;
+  const inHeading = proseEl.classList.contains('arth');
+  const toLink = document.getElementById('lpToLink');
+  if(toLink) toLink.style.display = inHeading ? 'none' : '';   // v563: headings can't hold links
   const text = node.textContent;
   const offset = Math.max(0, Math.min(range.startOffset, text.length));
   const tokens = lpTokensOf(text);
@@ -15939,12 +16057,13 @@ document.getElementById('lpToolOk').addEventListener('click', async () => {
 });
 // ---- Press and hold a word (Review Mode, owner) opens the same picker as triple-tap ----
 let lpHold = null, lpSuppressClickUntil = 0;
+const LP_TEXT_SEL = '.artProse, #artStoryText .arth';   // v563: story paragraphs and section headings
 const LP_HOLD_MS = 500;
 function lpHoldCancel(){ if(lpHold){ clearTimeout(lpHold.timer); lpHold = null; } }
 document.getElementById('artBody').addEventListener('pointerdown', (e) => {
   lpHoldCancel();
   if(!lpEligible() || (e.pointerType === 'mouse' && e.button !== 0)) return;
-  if(e.target.closest('a, button, input, .entrylink') || !e.target.closest('.artProse')) return;
+  if(e.target.closest('a, button, input, .entrylink') || !e.target.closest(LP_TEXT_SEL)) return;   // v563: headings too
   const x = e.clientX, y = e.clientY;
   lpHold = { x, y, id: e.pointerId, top: document.getElementById('article').scrollTop, timer: setTimeout(() => {
     lpHold = null;
