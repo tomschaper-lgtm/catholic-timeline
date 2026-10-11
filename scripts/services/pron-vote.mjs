@@ -197,8 +197,25 @@ export async function pronVote(entry, rawRulesLoader){
   const checkedFile = await readJson(CHECKED_FILE, { about: 'Words the recorder has already compared (Kokoro vs Claude, OpenAI, Gemini). Delete a word to have it checked again.', words: {} });
   checkedFile.words = checkedFile.words || {};
   const max = parseInt(process.env.PRON_VOTE_MAX, 10) || 40;
-  const items = capitalizedWords(entry, dict.rules, checkedFile.words).slice(0, max);
+  const today0 = new Date().toISOString().slice(0, 10);
+  let items = capitalizedWords(entry, dict.rules, checkedFile.words);
   if(!items.length) return { checked: 0, corrected: [], files: [] };
+  // First, one model picks the words worth checking — names, places, foreign words a voice might
+  // get wrong — so ordinary words ("Church", "Soldier", "Christ") never go to the vote. The ones it
+  // passes over are remembered as not needed. If no model answers, everything is checked as before.
+  const pre = await preselect(entry, items);
+  let skippedCount = 0;
+  if(pre){
+    const keep = new Set(pre.words);
+    for(const it of items) if(!keep.has(it.word)){ checkedFile.words[it.word] = { date: today0, result: 'not-needed', by: pre.by }; skippedCount++; }
+    items = items.filter(it => keep.has(it.word));
+    console.log('[pron-vote] ' + pre.by + ' picked ' + items.length + ' of ' + (items.length + skippedCount) + ' words to check: ' + items.map(i => i.word).join(', '));
+  }
+  items = items.slice(0, max);
+  if(!items.length){
+    if(skippedCount){ await fs.mkdir(path.dirname(CHECKED_FILE), { recursive: true }); await fs.writeFile(CHECKED_FILE, JSON.stringify(checkedFile, null, 1)); }
+    return { checked: 0, corrected: [], picked: pre ? 0 : undefined, skipped: skippedCount, files: skippedCount ? [CHECKED_FILE] : [] };
+  }
 
   const readings = await kokoroReadings(items.map(i => i.word));
   const svcs = Object.keys(KEYS).filter(s => process.env[KEYS[s]]);
@@ -230,7 +247,7 @@ export async function pronVote(entry, rawRulesLoader){
     }
   }
   const files = [];
-  if(checked){
+  if(checked || skippedCount){
     await fs.mkdir(path.dirname(CHECKED_FILE), { recursive: true });
     await fs.writeFile(CHECKED_FILE, JSON.stringify(checkedFile, null, 1));
     files.push(CHECKED_FILE);
@@ -241,7 +258,29 @@ export async function pronVote(entry, rawRulesLoader){
   }
   for(const l of log) console.log('[pron-vote] ' + l);
   for(const e of errors) console.log('[pron-vote] ' + e);
-  return { checked, corrected, errors, files };
+  return { checked, corrected, errors, files, picked: pre ? items.length : undefined, skipped: skippedCount, pickedBy: pre && pre.by };
+}
+
+// Step 1: which of the article's capitalized words are worth checking at all? One model decides
+// (Claude, else OpenAI, else Gemini). Returns { words: [...], by } or null if none could answer.
+const PRE_PROMPT = 'You help prepare a Catholic history article to be read aloud by an American English text-to-speech voice. ' +
+  'From the numbered list of capitalized words taken from the article, pick ONLY the ones such a voice might plausibly mispronounce: ' +
+  'personal and place names that are not everyday English (e.g. Sabaria, Pannonia, Amiens, Wojtyła, Chalcedon), foreign, Latin or Greek words, ' +
+  'unusual saints\' names and titles. Do NOT pick ordinary English words or very familiar names (e.g. Christ, Christian, Church, Roman, Bishop, ' +
+  'Soldier, Martin, Rome, Peter, Mary, France, Hungary). When unsure whether a name is familiar, pick it. ' +
+  'Answer with JSON only: {"words":["<exactly as listed>", ...]} — an empty list if none.';
+async function preselect(entry, items){
+  const user = 'Article: ' + plain(entry.n) + '\n\n' + items.map((it, i) => (i + 1) + '. ' + it.word).join('\n');
+  for(const svc of ['anthropic', 'openai', 'gemini'].filter(x => process.env[KEYS[x]])){
+    try{
+      const t = String(await callModel(svc, PRE_PROMPT, user)).replace(/```(?:json)?/g, '');
+      const j = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1));
+      const listed = new Set(items.map(i => i.word));
+      const words = (Array.isArray(j.words) ? j.words : []).map(w => String(w).trim()).filter(w => listed.has(w));
+      return { words, by: NAMES[svc] };
+    }catch(e){ console.log('[pron-vote] word picking: ' + NAMES[svc] + ' failed (' + String(e.message || e).slice(0, 100) + ')'); }
+  }
+  return null;
 }
 
 

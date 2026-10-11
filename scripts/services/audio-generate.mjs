@@ -661,8 +661,9 @@ function romanISummary(r){
 function voteSummary(v){
   if(!v || v.skipped) return '';
   if(v.error) return ' \u2014 pronunciation check skipped (' + v.error.slice(0, 100) + ')';
+  if(!v.checked && v.pickedBy && v.skipped) return ' \u2014 pronunciation check: ' + v.pickedBy + ' found nothing unusual (' + v.skipped + ' ordinary word' + (v.skipped === 1 ? '' : 's') + ' skipped)';
   if(!v.checked) return v.errors && v.errors.length ? ' \u2014 pronunciation check: no answers (' + v.errors.join('; ').slice(0, 160) + ')' : '';
-  return ' \u2014 pronunciation check: ' + v.checked + ' name' + (v.checked === 1 ? '' : 's') + ' compared' +
+  return ' \u2014 pronunciation check: ' + (v.pickedBy ? v.pickedBy + ' picked ' + v.picked + ' word' + (v.picked === 1 ? '' : 's') + ' to check (' + v.skipped + ' ordinary skipped), ' : '') + v.checked + ' compared' +
     (v.corrected.length ? ', ' + v.corrected.length + ' added to the dictionary: ' + v.corrected.map(c => c.word + ' \u2192 ' + c.respell + ' (' + c.votes.join(' + ') + ')').join('; ') : ', all as Kokoro says them') +
     (v.errors && v.errors.length ? ' [' + v.errors.join('; ').slice(0, 120) + ']' : '');
 }
