@@ -1,5 +1,6 @@
 # .github/workflows/jerome-pilot.yml
-# MODULE DATE: 2026-10-09 (Friday) · v2.5 — article log (steps, minutes, tokens, cost) committed each run; DROPDOWNS for model and category; FASTER CHECKOUT (UNTESTED); SAVES THE IGNATIUS QUEUE AND THE SOURCES FILE
+# MODULE DATE: 2026-10-11 (Sunday) · v2.6 — FIX: the checkout now includes the sources/ folder (v2.5 left it out, so the final commit step failed and the sources file was not saved); article log (steps, minutes, tokens, cost) committed each run; DROPDOWNS for model and category; FASTER CHECKOUT (UNTESTED); SAVES THE IGNATIUS QUEUE AND THE SOURCES FILE
+# v2.6: sparse-checkout now lists scripts AND sources. In v2.5 it listed only scripts, so 'git add sources' was refused ("outside of your sparse-checkout definition"), the step failed, and sources/<entry-id>.json was never committed (seen 2026-10-11 on st-augustine-430).
 # v2.5: each run also saves sources/<entry-id>.json (the four chosen pages, hashes, verdict) and this step commits the sources/ folder.
 # v2.4: for an apparition or miracle Jerome also finds the diocese's own website and puts it in ignatius-queue.json for Ignatius; that file is committed with the log.
 # v2.3: the model and the category are now pick lists. To add a model to the list, add a line under options: (it must also be in scripts/pricing.json, or the log shows 'cost unknown').
@@ -77,7 +78,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           filter: blob:none            # do not download file contents until they are needed
-          sparse-checkout: scripts     # cone mode: the scripts/ folder plus every top-level file
+          sparse-checkout: |           # cone mode: these folders plus every top-level file
+            scripts
+            sources
       - uses: actions/setup-node@v4
         with:
           node-version: 20
