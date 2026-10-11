@@ -1,1 +1,16 @@
-
+{
+  "about": "Models the router may use, with prices in US dollars per million tokens (MTok). 'in'/'out' are standard prices; 'batchIn'/'batchOut' the Batch API prices (half). tier: 1 = simple (picking, yes/no, classification), 2 = standard (proofreading, rewording, pronunciation judgement), 3 = deep (writing articles, research). The router picks the cheapest model whose tier is at least the job's tier, from providers that have a key. A model with no price is used only after priced ones. Update prices whenever you check the providers' pricing pages; set \"off\": true to stop using a model.",
+  "updated": "2026-10-11",
+  "jobs": {
+    "pron-pick": 1,
+    "roman-i": 1,
+    "pron-vote": 2
+  },
+  "models": [
+    { "provider": "anthropic", "id": "claude-haiku-5-5",  "tier": 1, "in": 0.10, "out": 0.50, "batchIn": 0.05, "batchOut": 0.25, "note": "prices for prompts up to 100,000 tokens (from the Claude pricing page, 2026-10-11)" },
+    { "provider": "anthropic", "id": "claude-sonnet-5-5", "tier": 2, "in": 2.00, "out": 10.00, "batchIn": 1.00, "batchOut": 5.00 },
+    { "provider": "anthropic", "id": "claude-opus-5-5",   "tier": 3, "in": 4.00, "out": 20.00, "batchIn": 2.00, "batchOut": 10.00 },
+    { "provider": "openai",    "id": "gpt-6-luna",        "tier": 2, "in": null, "out": null, "note": "price not filled in yet — add from platform.openai.com pricing" },
+    { "provider": "gemini",    "id": "gemini-flash-latest", "tier": 2, "in": null, "out": null, "note": "price not filled in yet — add from ai.google.dev pricing" }
+  ]
+}
