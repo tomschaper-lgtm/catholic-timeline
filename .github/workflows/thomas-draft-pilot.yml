@@ -1,0 +1,110 @@
+# .github/workflows/thomas-draft-pilot.yml
+# MODULE DATE: 2026-10-11 (Sunday) · v1.0 — first run form for Thomas checking a DRAFT. UNTESTED LIVE.
+# Thomas (scripts/services/ledger-build.mjs, v1.4) checks every claim in drafts/<entry-id>.json (written by Augustine) against the pages the draft links.
+# Manual only. It makes REAL model calls (Anthropic, Google, OpenAI) using the three API-key secrets already set for the orchestrator.
+# It does NOT touch data.json and does NOT touch the live article's ledger: the result goes to ledger-drafts/<entry-id>.json.
+# The code-computed age ("at the age of seventy-five", "(at age 75)") is stripped from the copy that is checked, because no source states it (decision D13).
+#   The draft file itself is never changed. The summary says how many age phrases were stripped.
+# Run it: GitHub app or github.com > repo > Actions > "Thomas draft check" > Run workflow, then type the entry id (for example st-augustine-430).
+# Commits ledger-drafts/<entry-id>.json and article-log.json. Same concurrency group as the other workflows.
+
+name: Thomas draft check
+
+on:
+  workflow_dispatch:
+    inputs:
+      entry_id:
+        description: 'Entry id of the draft to check, e.g. st-augustine-430 (all lowercase)'
+        required: true
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: orchestrator
+  cancel-in-progress: false
+
+jobs:
+  thomas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            drafts
+            sources
+            ledger-drafts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run Thomas on the draft
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LEDGER_DIR: ledger-drafts
+          ENTRY_ID: ${{ inputs.entry_id }}
+        run: |
+          set +e
+          node --input-type=module > thomas-result.txt 2> thomas-log.txt <<'JS'
+          import { readFileSync, existsSync } from 'node:fs';
+          import { pathToFileURL } from 'node:url';
+          const id = (process.env.ENTRY_ID || '').trim();
+          const path = 'drafts/' + id + '.json';
+          if (!id || !existsSync(path)) { console.log('error: no draft file ' + path + ' (run Augustine first)'); process.exit(1); }
+          const draft = JSON.parse(readFileSync(path, 'utf8'));
+          if (!draft.entry || !draft.entry.art) { console.log('error: ' + path + ' has no entry.art'); process.exit(1); }
+          // Strip the code-computed age so the number check does not look for it in the sources.
+          const ones = ['', 'one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+          const tens = ['', '', 'twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+          const spell = n => n < 20 ? ones[n] : n < 100 ? tens[Math.floor(n / 10)] + (n % 10 ? '-' + ones[n % 10] : '') : n === 100 ? 'one hundred' : 'one hundred ' + spell(n - 100);
+          const entry = JSON.parse(JSON.stringify(draft.entry));
+          let stripped = 0;
+          const age = draft.lifespan && draft.lifespan.age;
+          if (Number.isInteger(age) && age > 0 && age <= 120) {
+            const alt = '(?:' + spell(age) + '|' + age + ')';
+            const inText = new RegExp(',?\\s*\\b(?:at about|at the age of about|at the age of|at|aged about|aged)\\s+' + alt + '\\b', 'gi');
+            const inFact = new RegExp('\\s*\\((?:at |estimated )?(?:age |about )?' + alt + '\\)', 'gi');
+            const cut = (s, re) => String(s || '').replace(re, () => { stripped++; return ''; });
+            (entry.art.sections || []).forEach(s => { s.b = cut(s.b, inText); });
+            (entry.facts || []).forEach(f => { f.value = cut(f.value, inFact); });
+          }
+          const mod = await import(pathToFileURL(process.cwd() + '/scripts/services/ledger-build.mjs').href);
+          const task = { id: 'thomas-draft-' + Date.now(), type: 'ledger-build', entityId: id, payload: { entityIds: [id], force: true } };
+          const out = await mod.runLedgerBuild(task, { entries: [entry] });
+          console.log('[checked a copy of ' + path + ' with ' + stripped + ' age phrase(s) stripped; draft file unchanged]');
+          console.log(out.summary);
+          console.log(JSON.stringify(out.result, null, 1));
+          const e = out.result && out.result.entries && out.result.entries[0];
+          process.exit(e && e.outcome === 'built' ? 0 : 1);
+          JS
+          CODE=$?
+          cat thomas-result.txt
+          cat thomas-log.txt
+          { echo '### Thomas draft check'; head -n 2 thomas-result.txt; echo; echo '```'; cat thomas-result.txt; cat thomas-log.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $CODE
+      - name: Commit the draft ledger and the article log
+        run: |
+          git config user.name "thomas-bot"
+          git config user.email "actions@users.noreply.github.com"
+          [ -f article-log.json ] && git add article-log.json
+          [ -d ledger-drafts ] && git add ledger-drafts
+          if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
+          git commit -m "Draft ledger: Thomas draft check $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for i in 1 2 3 4; do
+            if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then exit 0; fi
+            sleep $((i * 2))
+          done
+          echo "push failed after retries"; exit 1
+      - name: Keep the result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: thomas-result
+          path: |
+            thomas-result.txt
+            thomas-log.txt
+          if-no-files-found: ignore
