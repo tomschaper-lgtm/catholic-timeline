@@ -203,6 +203,9 @@ export function applyPronunciation(text, rules, useIpa){
     if(!isWordChar(text[i - 1])){
       for(const r of rules){
         if(!(text.startsWith(r.from, i) && !isWordChar(text[i + r.from.length]))) continue;
+        // A bare roman numeral ("X" -> "the tenth") never applies to a letter hyphenated onto a word:
+        // "X-shaped", "X-ray", "V-neck" stay as written; "Pius X" is still "Pius the tenth". (2026-10-11)
+        if(/^[IVXLCDM]+$/.test(r.from) && ((text[i + r.from.length] === '-' && isWordChar(text[i + r.from.length + 1])) || (text[i - 1] === '-' && isWordChar(text[i - 2])))) continue;
         if(r.pause){ pauseAt.add(i + r.pauseAt); count++; continue; }   // mark it; keep looking for a sound/spelling rule here
         hit = r; break;
       }
