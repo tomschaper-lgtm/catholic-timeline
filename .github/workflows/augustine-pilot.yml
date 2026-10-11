@@ -1,0 +1,142 @@
+# .github/workflows/augustine-pilot.yml
+# MODULE DATE: 2026-10-11 (Sunday) · v1.0 — first run form for Augustine (article-write). UNTESTED LIVE.
+# LIVE pilot of Augustine (scripts/services/article-writer.mjs). Manual only: it never runs by itself.
+# It makes REAL model calls (Anthropic API, Claude Sonnet 5.5, up to 3 attempts) using the ANTHROPIC_API_KEY secret.
+# Augustine writes ONLY a draft: drafts/<entry-id>.json. He never touches data.json. Nothing goes live until you approve.
+# He reads sources/<entry-id>.json, which Jerome must have saved first. If Jerome has not run on that entry, he stops and says so.
+# Run it: GitHub app or github.com > repo > Actions > "Augustine pilot" > Run workflow.
+#   - To write a draft for an EXISTING entry: fill in entry_id (for example st-augustine-430) and leave name blank.
+#   - To write a NEW subject: fill in name and category, and year if you know it (Jerome must have run on the same name first).
+# Result: the one-line summary and the details show at the top of the run page; the run commits drafts/<entry-id>.json and article-log.json.
+# Same concurrency group as the orchestrator and Jerome pilot, so they never write the log at the same moment.
+
+name: Augustine pilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      entry_id:
+        description: 'Existing entry id, e.g. st-augustine-430. Leave blank for a new subject.'
+        required: false
+        default: ''
+      name:
+        description: 'New subject name (ignored if entry_id is filled in)'
+        required: false
+        default: ''
+      category:
+        description: 'New subject category (ignored when an entry id is filled in)'
+        type: choice
+        required: false
+        default: 's - Saint'
+        options:
+          - 's - Saint'
+          - 'c - Council'
+          - 'p - Persecution'
+          - 'm - Marian apparition'
+          - 'u - Eucharistic miracle'
+          - 'e - Event'
+          - 'i - Topic page'
+      year:
+        description: 'New subject year (optional)'
+        required: false
+        default: ''
+      length:
+        description: 'Article length (auto = from the entry tier, lowered if the sources are thin)'
+        type: choice
+        required: false
+        default: 'auto'
+        options:
+          - 'auto'
+          - 'major'
+          - 'standard'
+          - 'lesser'
+      override:
+        description: 'Write even though Jerome did not say ready (use only after you have decided)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: orchestrator
+  cancel-in-progress: false
+
+jobs:
+  augustine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            sources
+            drafts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run Augustine
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ENTRY_ID: ${{ inputs.entry_id }}
+          SUBJECT_NAME: ${{ inputs.name }}
+          SUBJECT_CATEGORY: ${{ inputs.category }}
+          SUBJECT_YEAR: ${{ inputs.year }}
+          LENGTH: ${{ inputs.length }}
+          OVERRIDE: ${{ inputs.override }}
+        run: |
+          set +e
+          node --input-type=module > augustine-result.txt 2> augustine-log.txt <<'JS'
+          import { readFileSync, existsSync } from 'node:fs';
+          import { pathToFileURL } from 'node:url';
+          const mod = await import(pathToFileURL(process.cwd() + '/scripts/services/article-writer.mjs').href);
+          const env = process.env;
+          const entryId = (env.ENTRY_ID || '').trim();
+          const payload = {};
+          if (env.LENGTH && env.LENGTH !== 'auto') payload.length = env.LENGTH;
+          if (env.OVERRIDE === 'true') payload.override = true;
+          const task = { id: 'augustine-pilot-' + Date.now(), type: 'article-write', payload };
+          if (entryId) {
+            task.entityId = entryId;
+          } else {
+            payload.name = (env.SUBJECT_NAME || '').trim();
+            payload.category = (env.SUBJECT_CATEGORY || 's').split(' ')[0];
+            const y = Number(env.SUBJECT_YEAR);
+            if (env.SUBJECT_YEAR && !Number.isNaN(y)) payload.year = y;
+          }
+          let dataJson = { entries: [] };
+          if (existsSync('data.json')) dataJson = JSON.parse(readFileSync('data.json', 'utf8'));
+          const out = await mod.runArticleWrite(task, dataJson, null, {});
+          console.log(out.summary);
+          console.log(JSON.stringify(out.result, null, 1));
+          process.exit(out.result && out.result.outcome === 'written' ? 0 : 1);
+          JS
+          CODE=$?
+          cat augustine-result.txt
+          cat augustine-log.txt
+          { echo '### Augustine pilot'; head -n 1 augustine-result.txt; echo; echo '```'; cat augustine-result.txt; cat augustine-log.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $CODE
+      - name: Commit the draft and the article log
+        run: |
+          git config user.name "augustine-bot"
+          git config user.email "actions@users.noreply.github.com"
+          [ -f article-log.json ] && git add article-log.json
+          [ -d drafts ] && git add drafts
+          if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
+          git commit -m "Draft: Augustine pilot $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for i in 1 2 3 4; do
+            if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then exit 0; fi
+            sleep $((i * 2))
+          done
+          echo "push failed after retries"; exit 1
+      - name: Keep the result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: augustine-result
+          path: |
+            augustine-result.txt
+            augustine-log.txt
+          if-no-files-found: ignore
