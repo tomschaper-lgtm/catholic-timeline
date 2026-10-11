@@ -1,0 +1,1092 @@
+{
+ "id": "st-augustine-430",
+ "name": "St. Augustine",
+ "articleHash": "2d5fc18b2e2d90a1",
+ "checkedAt": "2026-10-11",
+ "generator": "ledger-build v1.4 (2026-10-09)",
+ "allowlist": {
+  "from": "registry"
+ },
+ "models": {
+  "extractor": "claude-sonnet-4-6",
+  "prover": "gemini-3.5-flash-lite",
+  "judge": "gpt-5.6-luna"
+ },
+ "sourceHealth": [
+  {
+   "url": "https://www.newadvent.org/cathen/02084a.htm",
+   "ok": true,
+   "http": 200,
+   "namePresent": "full",
+   "chars": 36936,
+   "tier": "approved",
+   "jerome": {
+    "n": 1,
+    "wordsThen": 6266,
+    "wordsNow": 6266,
+    "drift": "similar"
+   }
+  },
+  {
+   "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+   "ok": true,
+   "http": 200,
+   "namePresent": "full",
+   "chars": 37251,
+   "tier": "approved",
+   "jerome": {
+    "n": 2,
+    "wordsThen": 6588,
+    "wordsNow": 6588,
+    "drift": "similar"
+   }
+  },
+  {
+   "url": "https://ccel.org/a/augustine/confessions/confessions.html",
+   "ok": true,
+   "http": 200,
+   "namePresent": "full",
+   "chars": 9633,
+   "tier": "primary",
+   "jerome": {
+    "n": 4,
+    "wordsThen": 1583,
+    "wordsNow": 1583,
+    "drift": "similar"
+   }
+  },
+  {
+   "url": "https://www.catholic.com/encyclopedia/augustine-of-hippo-saint",
+   "ok": true,
+   "http": 200,
+   "namePresent": "full",
+   "chars": 148275,
+   "tier": "reported",
+   "jerome": {
+    "n": 3,
+    "wordsThen": 24755,
+    "wordsNow": 24755,
+    "drift": "similar"
+   }
+  }
+ ],
+ "claims": [
+  {
+   "cid": "c1",
+   "section": 1,
+   "sentence": "Augustine was born on November 13, 354, at Tagaste, a small city of Numidia in North Africa.",
+   "text": "Augustine was born on November 13, 354, at Tagaste, a small city of Numidia in North Africa.",
+   "kind": "date",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "Augustine was born at Tagaste on 13 November, 354.",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c2",
+   "section": 1,
+   "sentence": "Augustine was born on November 13, 354, at Tagaste, a small city of Numidia in North Africa.",
+   "text": "Tagaste was a small city of Numidia in North Africa.",
+   "kind": "place",
+   "status": "disputed",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "Tagaste, now Souk-Ahras, about 60 miles from Bona (ancient Hippo-Regius ), was at that time a small free city of proconsular Numidia",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "partial",
+   "note": "It identifies Tagaste as a small city of Numidia but does not state that it was in North Africa."
+  },
+  {
+   "cid": "c3",
+   "section": 1,
+   "sentence": "His father, Patricius, sat on the town council and was still a pagan.",
+   "text": "Augustine's father Patricius sat on the town council and was a pagan.",
+   "kind": "person",
+   "status": "disputed",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "his father , Patricius, one of the curiales of the city, was still a pagan .",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "checks": {
+    "missingNames": [
+     "town council"
+    ]
+   },
+   "note": "It calls Patricius one of the city’s curiales and says he was pagan, but does not explicitly state that he sat on the town council.",
+   "judge": "partial"
+  },
+  {
+   "cid": "c4",
+   "section": 1,
+   "sentence": "His mother, Monica, was a Christian whose virtues, the sources say, at last won her husband to baptism.",
+   "text": "Augustine's mother Monica was a Christian who won her husband Patricius to baptism.",
+   "kind": "person",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "the admirable virtues that made Monica the ideal of Christian mothers at length brought her husband the grace of baptism and of a holy death",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c5",
+   "section": 1,
+   "sentence": "As a child Augustine was signed with the cross and enrolled among the catechumens.",
+   "text": "As a child Augustine was signed with the cross and enrolled among the catechumens.",
+   "kind": "tradition",
+   "status": "traditional",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "His mother had him signed with the cross and enrolled among the catechumens .",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c6",
+   "section": 1,
+   "sentence": "Once, gravely ill, he asked for baptism, but he recovered and the sacrament was put off, as was common then.",
+   "text": "Augustine as a child asked for baptism when gravely ill but recovered and the sacrament was deferred.",
+   "kind": "tradition",
+   "status": "traditional",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "Once, when very ill, he asked for baptism , but, all danger being soon passed, he deferred receiving the sacrament",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c7",
+   "section": 2,
+   "sentence": "Patricius wished his gifted son to study at Carthage, but the money took months to gather.",
+   "text": "Patricius wished Augustine to study at Carthage.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "Patricius, proud of his son's success in the schools of Tagaste and Madaura determined to send him to Carthage to prepare for a forensic career. But, unfortunately, it required several months to collect the necessary means",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c8",
+   "section": 2,
+   "sentence": "Augustine spent his sixteenth year at home in idleness, and by his own account he gave himself over to pleasure.",
+   "text": "Augustine spent his sixteenth year at home in idleness, by his own account giving himself to pleasure.",
+   "kind": "attribution",
+   "status": "disputed",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "Augustine had to spend his sixteenth year at Tagaste in an idleness which was fatal to his virtue ; he gave himself up to pleasure with all the vehemence of an ardent nature .",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "partial",
+   "note": "It confirms Augustine spent his sixteenth year in idleness and pursued pleasure, but does not say this was by his own account."
+  },
+  {
+   "cid": "c9",
+   "section": 2,
+   "sentence": "He reached Carthage near the end of 370, and the great city drew him further from his course.",
+   "text": "Augustine reached Carthage near the end of 370.",
+   "kind": "date",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "when he reached Carthage , towards the end of the year 370",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c10",
+   "section": 2,
+   "sentence": "He formed a liaison with a woman who bore him a son, Adeodatus.",
+   "text": "Augustine formed a liaison with a woman who bore him a son named Adeodatus.",
+   "kind": "person",
+   "status": "disputed",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "Before the age of twenty he was the father of a boy who bore the pious name of Adeodatus (Given by God).",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "partial",
+   "note": "It confirms Augustine fathered a son named Adeodatus but does not state that he formed a liaison with the child’s mother."
+  },
+  {
+   "cid": "c11",
+   "section": 2,
+   "sentence": "In 373 he read Cicero's Hortensius, and a love of wisdom woke in him.",
+   "text": "In 373 Augustine read Cicero's Hortensius.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "In fact, in 373, an entirely new inclination manifested itself in his life, brought about by the reading Cicero's \"Hortensius\" whence he imbibed a love of the wisdom which Cicero so eloquently praises.",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c12",
+   "section": 2,
+   "sentence": "For nine years he followed the Manichaeans, though he never rose above the rank of \"auditor.\"",
+   "text": "Augustine followed the Manichaeans for nine years, never rising above the rank of auditor.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "he was never initiated or numbered among the \"elect,\" but remained an \"auditor\" the lowest degree in the hierarchy . … The illusion had lasted nine years.",
+     "match": "exact",
+     "tier": "approved",
+     "pieces": [
+      "he was never initiated or numbered among the \"elect,\" but remained an \"auditor\" the lowest degree in the hierarchy .",
+      "The illusion had lasted nine years."
+     ]
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c13",
+   "section": 2,
+   "sentence": "When their celebrated bishop Faustus came to Carthage, he could not answer Augustine's questions, and the spell was broken.",
+   "text": "Manichaean bishop Faustus came to Carthage and could not answer Augustine's questions.",
+   "kind": "event",
+   "status": "disputed",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "Faustus of Mileve, the celebrated Manich&aelig;an bishop , at last came to Carthage ; Augustine visited and questioned him, and discovered in his responses the vulgar rhetorician, the utter stranger to all scientific culture. The spell was broken",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "partial",
+   "note": "It says Augustine questioned Faustus and found his responses inadequate, but does not explicitly say Faustus could not answer the questions."
+  },
+  {
+   "cid": "c14",
+   "section": 2,
+   "sentence": "A bishop consoled her with the assurance that \"the son of so many tears could not perish.\"",
+   "text": "\"the son of so many tears could not perish.\"",
+   "kind": "quote",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "the advice of a saintly bishop , who declared that \"the son of so many tears could not perish.\"",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c15",
+   "section": 3,
+   "sentence": "In 383 Augustine left for Rome, slipping away by night because Monica did not want to be parted from him.",
+   "text": "In 383 Augustine left for Rome, slipping away by night from Monica.",
+   "kind": "date",
+   "status": "unsourced",
+   "sources": [],
+   "note": "excerpt 1 is 46 words; the limit is 45"
+  },
+  {
+   "cid": "c16",
+   "section": 3,
+   "sentence": "He then won a teaching post at Milan, where he began to attend the preaching of Bishop Ambrose.",
+   "text": "Augustine won a teaching post at Milan and attended the preaching of Bishop Ambrose.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "he applied for a vacant professorship at Milan , obtained it, and was accepted by the prefect, Symmachus. … Having visited Bishop Ambrose , the fascination of that saint's kindness induced him to become a regular attendant at his preachings.",
+     "match": "exact",
+     "tier": "approved",
+     "pieces": [
+      "he applied for a vacant professorship at Milan , obtained it, and was accepted by the prefect, Symmachus.",
+      "Having visited Bishop Ambrose , the fascination of that saint's kindness induced him to become a regular attendant at his preachings."
+     ]
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c17",
+   "section": 3,
+   "sentence": "He read Plato and Plotinus, and he turned to the Scriptures, especially the letters of St. Paul.",
+   "text": "Augustine read Plato and Plotinus and turned to the Scriptures, especially the letters of St. Paul.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "At the same time he was reading the older Greek philosophers, Plato and Plotinus. … Finally turning to the New Testament, especially to the writings of St. Paul",
+     "match": "exact",
+     "tier": "approved",
+     "pieces": [
+      "At the same time he was reading the older Greek philosophers, Plato and Plotinus.",
+      "Finally turning to the New Testament, especially to the writings of St. Paul"
+     ]
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c18",
+   "section": 3,
+   "sentence": "Then a visitor named Pontitian spoke of the life of St. Antony, and Augustine saw his own hesitation plainly.",
+   "text": "A visitor named Pontitian spoke to Augustine of the life of St. Antony.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "One day an African Christian employed at court, one Pontitian, came to see Augustine and his friend Alipius. He took occasion to speak of the <Life of St. Antony",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c19",
+   "section": 3,
+   "sentence": "In the Confessions he tells us that he went into a garden and cried out to the Lord.",
+   "text": "In the Confessions Augustine writes that he went into a garden and cried out to the Lord.",
+   "kind": "attribution",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "He went out into the garden, Alipius following, and they sat down at some distance from the house. … Advancing farther into the garden alone, he threw himself under a fig-tree, crying out, \"How long, O Lord? Wilt Thou be angry forever?",
+     "match": "exact",
+     "tier": "approved",
+     "pieces": [
+      "He went out into the garden, Alipius following, and they sat down at some distance from the house.",
+      "Advancing farther into the garden alone, he threw himself under a fig-tree, crying out, \"How long, O Lord? Wilt Thou be angry forever?"
+     ]
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c20",
+   "section": 3,
+   "sentence": "He heard a child's voice repeating the words tolle lege, take and read.",
+   "text": "Augustine heard a child's voice repeating the words tolle lege, meaning take and read.",
+   "kind": "tradition",
+   "status": "traditional",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "suddenly he heard a childlike voice repeating, \"<Tolle lege! Tolle lege!>\" (Take, read! Take, read! )",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "checks": {
+    "missingNames": [
+     "take and read"
+    ]
+   },
+   "note": "name(s) not found in any fetched source: take and read",
+   "judge": "supports"
+  },
+  {
+   "cid": "c21",
+   "section": 3,
+   "sentence": "He opened St. Paul's letters at random, read the first passage he saw, and felt his long struggle end.",
+   "text": "Augustine opened St. Paul's letters at random and read the first passage he saw.",
+   "kind": "tradition",
+   "status": "traditional",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "Interpreting the voice as of divine origin, he returned to where Alipius was sitting, opened St. Paul's Epistles at random, and cast his eyes on the words",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c22",
+   "section": 3,
+   "sentence": "This was September 386.",
+   "text": "Augustine's conversion in the garden occurred in September 386.",
+   "kind": "date",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "prepared the way for the grand stroke of grace which, at the age of thirty-three, smote him to the ground in the garden at Milan (September, 386).",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c23",
+   "section": 4,
+   "sentence": "Augustine resigned his professorship and withdrew with Monica, Adeodatus, and friends to the country estate of Verecundus at Cassisiacum.",
+   "text": "Augustine withdrew with Monica, Adeodatus, and friends to the country estate of Verecundus at Cassisiacum.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "A few days later Augustine, being ill, took advantage of the autumn holidays and, resigning his professorship, went with Monica , Adeodatus , and his friends to Cassisiacum, the country estate of Verecundus",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c24",
+   "section": 4,
+   "sentence": "At Easter in 387 Ambrose baptized him at Milan, together with Adeodatus and Alypius.",
+   "text": "At Easter 387 Ambrose baptized Augustine at Milan, together with Adeodatus and Alypius.",
+   "kind": "date",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "Towards the beginning of Lent , 387, he went to Milan and, with Adeodatus and Alypius , took his place among the competentes , being baptized by Ambrose on Easter Day , or at least during Eastertide.",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c25",
+   "section": 4,
+   "sentence": "At Ostia, in the autumn of 387, Monica died, and Augustine gave some of the most moving pages of the Confessions to her memory.",
+   "text": "Monica died at Ostia in autumn 387.",
+   "kind": "date",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "In the autumn of 387, he was about to embark at Ostia , when Monica was summoned from this life.",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c26",
+   "section": 4,
+   "sentence": "At Ostia, in the autumn of 387, Monica died, and Augustine gave some of the most moving pages of the Confessions to her memory.",
+   "text": "Augustine devoted pages of the Confessions to Monica's memory.",
+   "kind": "attribution",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "In all literature there are no pages of more exquisite sentiment than the story of her saintly death and Augustine's grief ( Confessions IX ).",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c27",
+   "section": 4,
+   "sentence": "He later returned to Tagaste.",
+   "text": "Augustine returned to Tagaste after Monica's death.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "He sailed for Africa after the death of the tyrant Maximus (August 388) and after a short sojourn in Carthage , returned to his native Tagaste.",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c28",
+   "section": 4,
+   "sentence": "There he sold his goods for the poor and lived in common with friends in poverty, prayer, and study.",
+   "text": "At Tagaste Augustine sold his goods for the poor and lived in community with friends.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "Immediately upon arriving there, he wished to carry out his idea of a perfect life , and began by selling all his goods and giving the proceeds to the poor . … Then he and his friends withdrew to his estate, which had already been alienated, there to lead a common life in poverty , prayer , and the study of sacred letters .",
+     "match": "exact",
+     "tier": "approved",
+     "pieces": [
+      "Immediately upon arriving there, he wished to carry out his idea of a perfect life , and began by selling all his goods and giving the proceeds to the poor .",
+      "Then he and his friends withdrew to his estate, which had already been alienated, there to lead a common life in poverty , prayer , and the study of sacred letters ."
+     ]
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c29",
+   "section": 4,
+   "sentence": "Soon grief came again, for the gifted Adeodatus died at seventeen.",
+   "text": "Adeodatus, Augustine's son, died at age seventeen.",
+   "kind": "person",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "Soon his life was again made desolate by the death of Adeodatus, a brilliant boy of seventeen.",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c30",
+   "section": 5,
+   "sentence": "In 391, at Hippo, he was praying in church when the people crowded round him and begged Bishop Valerius to ordain him.",
+   "text": "In 391 at Hippo, Bishop Valerius ordained Augustine at the people's urging.",
+   "kind": "date",
+   "status": "unsourced",
+   "sources": [],
+   "note": "excerpt 1 is 62 words; the limit is 45"
+  },
+  {
+   "cid": "c31",
+   "section": 5,
+   "sentence": "Valerius set aside church property for a monastery and had him preach, though in Africa that task usually belonged to bishops.",
+   "text": "Valerius set aside church property for a monastery and had Augustine preach, unusual for a priest in Africa.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "Valerius had bidden him preach, in spite of the deplorable custom which in Africa reserved that ministry to bishops . … The new priest looked upon his ordination as an additional reason for resuming religious life at Tagaste, and so fully did Valerius approve that he put some church property at Augustine's disposal, thus enabling him to establish a monastery",
+     "match": "exact",
+     "tier": "approved",
+     "pieces": [
+      "Valerius had bidden him preach, in spite of the deplorable custom which in Africa reserved that ministry to bishops .",
+      "The new priest looked upon his ordination as an additional reason for resuming religious life at Tagaste, and so fully did Valerius approve that he put some church property at Augustine's disposal, thus enabling him to establish a monastery"
+     ]
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c32",
+   "section": 5,
+   "sentence": "In 396, at forty-two, he was consecrated to assist the aging Valerius, and he held the see for thirty-four years.",
+   "text": "In 396, at age forty-two, Augustine was consecrated to assist Valerius and held the see for thirty-four years.",
+   "kind": "date",
+   "status": "unsourced",
+   "sources": [],
+   "note": "the excerpt(s) do not contain the number(s) 396 from the claim"
+  },
+  {
+   "cid": "c33",
+   "section": 5,
+   "sentence": "His sister Perpetua led a community of religious women.",
+   "text": "Augustine's sister Perpetua led a community of religious women.",
+   "kind": "person",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "He also founded a community of religious women over whom his sister Perpetua was abbess.",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c34",
+   "section": 5,
+   "sentence": "A letter he wrote for them, with two sermons, makes up what is called the Rule of St. Augustine.",
+   "text": "The Rule of St. Augustine consists of a letter Augustine wrote plus two sermons.",
+   "kind": "doctrine",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "This letter, along with two sermons he preached on the subject, comprises the so-called Rule of St. Augustine",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c35",
+   "section": 5,
+   "sentence": "\"I do not wish to be saved without you,\" he told his people.",
+   "text": "\"I do not wish to be saved without you,\"",
+   "kind": "quote",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "\"I do not wish to be saved without you,\" he told them.",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c36",
+   "section": 6,
+   "sentence": "In 404 he met the Manichaean leader Felix in public conference, and Felix confessed the Catholic faith.",
+   "text": "In 404 Augustine met Manichaean leader Felix in public conference, and Felix confessed the Catholic faith.",
+   "kind": "event",
+   "status": "disputed",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "Among the most memorable events that occurred during this controversy was the great victory won in 404 over Felix, one of the \"elect\" of the Manich&aelig;ans and the great doctor of the sect . … Felix declared himself vanquished, embraced the Faith , and, together with Augustine, subscribed the acts of the conference.",
+     "match": "exact",
+     "tier": "approved",
+     "pieces": [
+      "Among the most memorable events that occurred during this controversy was the great victory won in 404 over Felix, one of the \"elect\" of the Manich&aelig;ans and the great doctor of the sect .",
+      "Felix declared himself vanquished, embraced the Faith , and, together with Augustine, subscribed the acts of the conference."
+     ]
+    }
+   ],
+   "judge": "partial",
+   "note": "It supports the 404 conference and Felix's conversion, but does not clearly establish that it was public or that Felix was a leader."
+  },
+  {
+   "cid": "c37",
+   "section": 6,
+   "sentence": "When Alaric took Rome in 410, pagans blamed the abandoned gods.",
+   "text": "Alaric took Rome in 410.",
+   "kind": "date",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "When Rome was taken and plundered in 410 by Alaric the Goth, there was a new outbreak against the Christian population",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c38",
+   "section": 6,
+   "sentence": "In answer Augustine began The City of God in 413, and he finished it in 426.",
+   "text": "Augustine began The City of God in 413 and finished it in 426.",
+   "kind": "date",
+   "status": "disputed",
+   "sources": [
+    {
+     "url": "https://www.catholic.com/encyclopedia/augustine-of-hippo-saint",
+     "excerpt": "In the “City of God ” (begun in 413, but the books XX-XXII are of 426) Augustine answers the pagans",
+     "match": "exact",
+     "tier": "reported"
+    }
+   ],
+   "judge": "partial",
+   "note": "It states that the work began in 413 and that books XX–XXII are from 426, but does not explicitly say it was finished in 426."
+  },
+  {
+   "cid": "c39",
+   "section": 6,
+   "sentence": "Against Pelagius, who denied original sin, a council at Carthage condemned the Pelagians in 412, and Pope Zosimus did so in 418.",
+   "text": "Pelagius denied original sin.",
+   "kind": "doctrine",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "Rejecting the doctrine of original sin, he taught that men had the power of choice",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c40",
+   "section": 6,
+   "sentence": "Against Pelagius, who denied original sin, a council at Carthage condemned the Pelagians in 412, and Pope Zosimus did so in 418.",
+   "text": "A council at Carthage condemned the Pelagians in 412.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "as early as 412 a council held at Carthage condemned Pelagians for their attacks upon the doctrine of original sin .",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c41",
+   "section": 6,
+   "sentence": "Against Pelagius, who denied original sin, a council at Carthage condemned the Pelagians in 412, and Pope Zosimus did so in 418.",
+   "text": "Pope Zosimus condemned the Pelagians in 418.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "Pope Zosimus , whom the stratagems of Celestius had for a moment deluded, being enlightened by Augustine, pronounced the solemn condemnation of these heretics in 418.",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c42",
+   "section": 6,
+   "sentence": "In his seventy-second year he reviewed his own writings in the Retractations, correcting errors with candor.",
+   "text": "Augustine reviewed his own writings in the Retractations in his seventy-second year.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "in his seventy-second year he did the same for past errors of judgment, and these are summarized in his <Retractations",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c43",
+   "section": 6,
+   "sentence": "In 426 he had the deacon Heraclius acclaimed as his successor.",
+   "text": "In 426 Augustine had the deacon Heraclius acclaimed as his successor.",
+   "kind": "event",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "In 426 the holy Bishop of Hippo , at the age of seventy-two, wishing to spare his episcopal city the turmoil of an election after his death, caused both clergy and people to acclaim the choice of the deacon Heraclius as his auxiliary and successor",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c44",
+   "section": 7,
+   "sentence": "The last years were darkened by the Vandals, who landed in Africa in May 428.",
+   "text": "The Vandals landed in Africa in May 428.",
+   "kind": "date",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "The Vandals landed in Africa in May, 428",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "checks": {
+    "missingNames": [
+     "May 428"
+    ]
+   },
+   "note": "name(s) not found in any fetched source: May 428",
+   "judge": "supports"
+  },
+  {
+   "cid": "c45",
+   "section": 7,
+   "sentence": "Towards the end of May 430 they appeared before Hippo.",
+   "text": "The Vandals appeared before Hippo towards the end of May 430.",
+   "kind": "date",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "Towards the end of May, 430, the Vandals appeared before Hippo",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "checks": {
+    "missingNames": [
+     "May 430"
+    ]
+   },
+   "note": "name(s) not found in any fetched source: May 430",
+   "judge": "supports"
+  },
+  {
+   "cid": "c46",
+   "section": 7,
+   "sentence": "He died on August 28, 430, with his mind clear to the end.",
+   "text": "Augustine died on August 28, 430.",
+   "kind": "date",
+   "status": "unsourced",
+   "sources": [],
+   "note": "the excerpt(s) contain none of the claim's names: August 28"
+  },
+  {
+   "cid": "c47",
+   "section": 7,
+   "sentence": "In the Confessions he cries: \"Too late have I loved Thee, O Beauty so old and so new! Too late have I loved Thee.\"",
+   "text": "\"Too late have I loved Thee, O Beauty so old and so new! Too late have I loved Thee.\"",
+   "kind": "quote",
+   "status": "unsourced",
+   "sources": [],
+   "note": "the excerpt must contain the whole quoted text of the claim exactly"
+  },
+  {
+   "cid": "c48",
+   "section": "facts",
+   "sentence": "Feast day: August 28",
+   "text": "Augustine's feast day is August 28.",
+   "kind": "date",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "Feast: August 28",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c49",
+   "section": "facts",
+   "sentence": "Born: November 13, 354, Tagaste (now Souk-Ahras), Numidia",
+   "text": "Augustine was born November 13, 354, at Tagaste, now Souk-Ahras, in Numidia.",
+   "kind": "date",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "Augustine was born at Tagaste on 13 November, 354. … Tagaste, now Souk-Ahras, about 60 miles from Bona (ancient Hippo-Regius ), was at that time a small free city of proconsular Numidia",
+     "match": "exact",
+     "tier": "approved",
+     "pieces": [
+      "Augustine was born at Tagaste on 13 November, 354.",
+      "Tagaste, now Souk-Ahras, about 60 miles from Bona (ancient Hippo-Regius ), was at that time a small free city of proconsular Numidia"
+     ]
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c50",
+   "section": "facts",
+   "sentence": "Died: August 28, 430, Hippo",
+   "text": "Augustine died August 28, 430, at Hippo.",
+   "kind": "date",
+   "status": "unsourced",
+   "sources": [],
+   "note": "the excerpt(s) contain none of the claim's names: August 28; Hippo"
+  },
+  {
+   "cid": "c51",
+   "section": "facts",
+   "sentence": "Title: Bishop, Doctor of the Church",
+   "text": "Augustine holds the titles Bishop and Doctor of the Church.",
+   "kind": "person",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "SAINT AUGUSTINE OF HIPPO BISHOP, DOCTOR OF THE CHURCH",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "judge": "supports"
+  },
+  {
+   "cid": "c52",
+   "section": "facts",
+   "sentence": "Major works: Confessions, The City of God, Retractations",
+   "text": "Augustine's major works are Confessions, The City of God, and Retractations.",
+   "kind": "attribution",
+   "status": "unsourced",
+   "sources": [],
+   "note": "prover found no supporting text: The exact list of these three major works does not appear together as a single enumeration in the provided text."
+  },
+  {
+   "cid": "c53",
+   "section": "quotes",
+   "sentence": "Too late have I loved Thee, O Beauty so old and so new! Too late have I loved Thee.",
+   "text": "Too late have I loved Thee, O Beauty so old and so new! Too late have I loved Thee.",
+   "kind": "quote",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "Too late have I loved Thee, O Beauty so old and so new! Too late have I loved Thee.",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "note": "quote block, source given in article: Augustine, Confessions X, 27 (as given in source 2)",
+   "judge": "supports"
+  },
+  {
+   "cid": "c54",
+   "section": "quotes",
+   "sentence": "I do not wish to be saved without you",
+   "text": "I do not wish to be saved without you",
+   "kind": "quote",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.ewtn.com/catholicism/library/saint-augustine-of-hippo-5207",
+     "excerpt": "\"I do not wish to be saved without you,\" he told them.",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "note": "quote block, source given in article: Augustine to his people (source 2)",
+   "judge": "supports"
+  },
+  {
+   "cid": "c55",
+   "section": "quotes",
+   "sentence": "the son of so many tears could not perish",
+   "text": "the son of so many tears could not perish",
+   "kind": "quote",
+   "status": "verified",
+   "sources": [
+    {
+     "url": "https://www.newadvent.org/cathen/02084a.htm",
+     "excerpt": "the son of so many tears could not perish",
+     "match": "exact",
+     "tier": "approved"
+    }
+   ],
+   "note": "quote block, source given in article: A bishop to Monica, reported in source 2",
+   "judge": "supports"
+  }
+ ],
+ "summary": {
+  "total": 55,
+  "verified": 37,
+  "reported": 0,
+  "disputed": 7,
+  "unsourced": 7,
+  "traditional": 4,
+  "missingNumbers": 0,
+  "missingNames": 4,
+  "uncoveredSentences": 1,
+  "extractorRejected": 0,
+  "suggestedSources": 0
+ },
+ "flags": [],
+ "humanReview": {
+  "status": "pending",
+  "date": null
+ },
+ "uncovered": [
+  {
+   "section": 3,
+   "sentence": "Three years of struggle followed."
+  }
+ ],
+ "pipeline": {
+  "file": "sources/st-augustine-430.json",
+  "jobId": "job-202610112146-st-augustine",
+  "builtAt": "2026-10-11T21:46:40.582Z",
+  "outcome": "ready",
+  "jeromePages": 4,
+  "linked": 4,
+  "notLinked": 0
+ },
+ "usage": [
+  {
+   "role": "extractor",
+   "provider": "anthropic",
+   "model": "claude-sonnet-4-6",
+   "calls": 1,
+   "inputTokens": 2125,
+   "outputTokens": 4939,
+   "cacheReadTokens": 0,
+   "cacheWriteTokens": 0
+  },
+  {
+   "role": "prover",
+   "provider": "google",
+   "model": "gemini-3.5-flash-lite",
+   "calls": 6,
+   "inputTokens": 92300,
+   "outputTokens": 10052,
+   "cacheReadTokens": 112317,
+   "cacheWriteTokens": 0
+  },
+  {
+   "role": "judge",
+   "provider": "openai",
+   "model": "gpt-5.6-luna",
+   "calls": 4,
+   "inputTokens": 4186,
+   "outputTokens": 2061,
+   "cacheReadTokens": 0,
+   "cacheWriteTokens": 0
+  }
+ ],
+ "seconds": 108
+}
