@@ -539,12 +539,14 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
     spokenItems.map(x => x.type === 'invocation' ? prayerSpeed : speed));
   const track = new Track();
   const cues = [];
-  let n = 0, titleEnd = 0;
+  let n = 0, titleEnd = 0, prayer = null;
   for(const step of plan){
     if(step.gap !== undefined){ track.addSilence(step.gap); continue; }
     const start = track.seconds;
     track.addSamples(audio[n++]);
     if(step.type === 'title'){ titleEnd = round2(track.seconds); continue; }
+    // The closing prayer's exact place, for the app's finale (2026-10-10)
+    if(step.type === 'invocation'){ prayer = { start: round2(start), end: round2(track.seconds), text: step.cueText || step.text || '' }; continue; }
     if(step.type !== 'invocation'){
       cues.push({ section: step.section, type: step.type, text: step.cueText, start: round2(start), end: round2(track.seconds) });
     }
@@ -552,7 +554,7 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
 
   const audioPath = path.join(dir, `${baseName}.${OUTPUT_EXT}`);
   await trackToMp3(track, audioPath);
-  return { audioPath, durationSec: round2(track.seconds), cues, replacements, titleEnd };
+  return { audioPath, durationSec: round2(track.seconds), cues, replacements, titleEnd, prayer };
 }
 
 export function nextVersion(entry){
@@ -715,7 +717,7 @@ export async function runAudioGenerate(task, dataJson){
   const version = await freeVersion(entry, dir);
   const baseName = entry.id + '-v' + version;
   const engine = kokoro ? 'kokoro:' + kokoroVoiceName(voiceId) : 'elevenlabs:' + voiceId;
-  const { audioPath, durationSec, cues, replacements, titleEnd } = kokoro
+  const { audioPath, durationSec, cues, replacements, titleEnd, prayer } = kokoro
     ? await narrateEntryKokoro(entry, dir, baseName, {
         voiceId, speed: kokoroSpeed(p), prayerSpeed: kokoroSpeed({ speed: p.prayerSpeed || 0.9 }), readHeadings, headingPauseSec, sectionPauseSec,
         sentencePauseSec, titlePauseSec
@@ -729,7 +731,7 @@ export async function runAudioGenerate(task, dataJson){
   const relAudio = path.join(AUDIO_ROOT, folder, path.basename(audioPath)).split(path.sep).join('/');
   const relTiming = relAudio.replace(new RegExp('\\.' + OUTPUT_EXT + '$'), '.json');
   const timingPath = audioPath.replace(new RegExp('\\.' + OUTPUT_EXT + '$'), '.json');
-  await fs.writeFile(timingPath, JSON.stringify({ id: entry.id, audio: relAudio, engine, durationSec, titleEnd: titleEnd || 0, cues }, null, 1));
+  await fs.writeFile(timingPath, JSON.stringify({ id: entry.id, audio: relAudio, engine, durationSec, titleEnd: titleEnd || 0, ...(prayer ? { prayer } : {}), cues }, null, 1));
 
   entry.audio = relAudio;
   entry.audioTiming = relTiming;
