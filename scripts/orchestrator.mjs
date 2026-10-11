@@ -150,6 +150,7 @@ import { runArbitrate } from './services/arbitrate.mjs';
 import { runFactResearch } from './services/fact-research.mjs';
 import { runAudioInvocation } from './services/audio-invocation.mjs';
 import { runLedgerBuild } from './services/ledger-build.mjs';
+import { runArticleWrite } from './services/article-writer.mjs';
 import { runJerome } from './services/source-finder.mjs';
 
 const WORKLOG_PATH = process.env.WORKLOG_PATH || 'workLog.json';
@@ -190,6 +191,7 @@ const SERVICE_HANDLERS = {
   'fact-research': runFactResearch,
   'audio-invocation': runAudioInvocation, // "Add closing prayer" to existing Saint recordings (2026-09-27)
   'source-find': runJerome, // Jerome: finds and ranks sources for an article job, logs to article-log.json (2026-10-08)
+  'article-write': runArticleWrite, // Augustine: drafts one article from Jerome's saved sources, writes drafts/<id>.json (2026-10-09)
   'ledger-build': runLedgerBuild, // source-proof ledger per entry, writes ledger/<id>.json (2026-10-06)
 };
 
