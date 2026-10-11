@@ -1,6 +1,6 @@
 <!--
-VERSION: 566
-DATE: 2026-10-10T12:00:00-05:00
+VERSION: 569
+DATE: 2026-10-10T21:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,55 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v569 — 2026-10-10
+
+**Ask (also):**
+- Play button a little bigger, and higher — it's close to the bottom gesture area.
+
+**Implementation (play button):**
+- 48 → 54px (icon 26 → 29px); bottom offset max(18px, safe area + 10px) → max(30px, safe area +
+  26px): about 60px above the bottom edge on an iPhone, clear of the home bar. The space under the
+  article grows 110 → 130px so the last lines still clear it.
+
+**Ask:**
+- When a saint's narration reaches the end, don't scroll up fast: fade out, reset to the start,
+  fade back in — before the closing prayer's name is spoken. Then glow across the name word by
+  word (Saint, then Andrew), and make "pray for us" appear and fade away.
+
+**Implementation:**
+- Finale (Saints with the closing prayer, while playing): when the last sentence ends, the article
+  body fades out (.3s), jumps to the top, fades in (.35s) — inside the 1.2s pause before the
+  prayer; follow-scroll is held off and the sentence highlight cleared.
+- As the name is spoken, a soft gold glow passes over it one word at a time (each word brightens
+  and settles back), then the header is restored exactly.
+- As "pray for us" is spoken, the words fade in one by one in gold italics — on the name's own
+  line after it (", pray for us") when there's room, otherwise underneath, clear of the header's
+  gold rule — hold, then drift up and fade away. Positioned over the header, so nothing moves.
+- Timing: the timing file's "prayer" {start, end, text} when present (recorder 2026-10-10 writes
+  it); otherwise estimated — start = last sentence's end + 1.2s, end = recording end, and where
+  "pray for us" begins from the share of characters. Scrubbing back into the story resets it; a
+  swipe or close cancels it. A custom [prayer] without "pray for us" gets the fade and the glow.
+- "pray for us" completes the name's line when it fits ("St. Joseph, pray for us"); otherwise it
+  sits just below the header on a soft navy panel, lined up with the name, clear of the gold rule.
+
+## v568 — 2026-10-10   (built on v566; v567 was skipped)
+
+**Ask:**
+- After listening to an article, the Listened button is dead; close and reopen the article and it
+  works. Consistent.
+
+**Implementation:**
+- Reproduced: it happens after SWIPING to the article. During the slide the outgoing article's copy
+  is still on the page with the same element ids, and the Review tools were wired with
+  document.getElementById — so Listened (and Proof, Audio, Image, Flag, Fix, Approve/Delete) got
+  their tap handlers on the copy, which is then removed. Same cause as v528/v537.
+- The wiring block, listenedPaint() and rtRefreshStates() now use liveArtEl() (looks in the live
+  #artBody first), so the live buttons and status lines are the ones wired and updated.
+- Press feedback on the Review buttons: darker gold and a slight shrink while the finger is down
+  (.rtDown), and a haptic tick on each tap — navigator.vibrate where supported (Android); on iPhone
+  Safari (iOS 18+), by toggling a hidden <input type="checkbox" switch>, which plays the system
+  haptic (no web vibration API there). Older iPhones simply get no tick.
+
 ## v566 — 2026-10-10
 
 **Ask:**
@@ -2140,7 +2189,7 @@ CHANGELOG:END
   .artShareRow ~ .reportIssueBtn{border-top:none;}   /* v562: the share row's rule is the divider */
   .artShareRow svg{width:25px; height:25px;}
   .artShareRow:active{opacity:.7;}
-  .audBarPlay svg{width:26px; height:26px;}   /* v552: smaller ▶ to match the smaller button */
+  .audBarPlay svg{width:29px; height:29px;}   /* v569 */   /* v552: smaller ▶ to match the smaller button */
   .artShareBtn{
     position:absolute; top:0; right:60px; z-index:22;
     width:48px; height:60px; display:flex; align-items:center; justify-content:center;
@@ -2287,6 +2336,20 @@ CHANGELOG:END
   .ahYearRow:has(.ahKind){align-items:baseline;}
   .review-on .ahYear{cursor:pointer;}
   .ahName{font-size:25px; font-weight:600; line-height:1.15;}
+  /* v569: closing-prayer finale */
+  #artBody{transition:opacity .3s ease;}
+  #artBody.finaleFade{opacity:0;}
+  .ahName .finaleWord{transition:color .45s ease, text-shadow .55s ease;}
+  .ahName .finaleWord.on{color:#FFF4CC; text-shadow:0 0 6px rgba(255,222,140,.95), 0 0 16px rgba(240,192,84,.7), 0 0 30px rgba(220,170,60,.45);}
+  .finalePray{position:absolute; z-index:2; pointer-events:none; white-space:nowrap;
+    font-family:'EB Garamond', Georgia, serif; font-style:italic; font-size:22px; letter-spacing:.05em;
+    color:var(--gold-bright); text-shadow:0 0 10px rgba(232,205,126,.45);
+    transition:opacity 1.3s ease, transform 1.3s ease;}
+  .finalePray span{opacity:0; display:inline-block; transform:translateY(4px); transition:opacity .5s ease, transform .5s ease;}
+  .finalePray span.in{opacity:1; transform:none;}
+  .finalePray.out{opacity:0; transform:translateY(-10px);}
+  .finalePray.inline{font-size:24px;}
+  .finalePray.below{z-index:160; padding:2px 12px 5px; border-radius:10px; background:rgba(16,26,58,.94); box-shadow:0 6px 18px rgba(0,0,0,.35);}
   /* v518: says the name, from the article's own recording */
   .ahSay{display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.22em; margin-left:.2em;
     font-size:inherit; width:1.4em; height:1.4em; padding:0; border:0; background:transparent; color:#E9CC7A; opacity:.9; cursor:pointer;
@@ -2882,7 +2945,10 @@ CHANGELOG:END
   }
   .rtBtn svg{width:22px; height:22px; flex:none;}
   .rtWide{width:100%; margin-top:8px;}
-  .rtRow2{margin-top:8px;}   /* v548: Fix / Listened, same size as the tools above */   /* v513: full-width "Fix a pronunciation" under the four tools */
+  .rtRow2{margin-top:8px;}
+  /* v568: pressed — darker gold, slight shrink */
+  .rtBtn{transition:transform .12s ease, filter .12s ease;}
+  .rtBtn.rtDown, .rtBtn.rtDown:active{transform:scale(.95); filter:brightness(.8) saturate(1.15);}   /* v548: Fix / Listened, same size as the tools above */   /* v513: full-width "Fix a pronunciation" under the four tools */
   .rtBtn span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .rtBtn:active{filter:brightness(.93);}
   .rtBtn:disabled{opacity:.45; cursor:default;}
@@ -2954,7 +3020,7 @@ CHANGELOG:END
      the About panel can carry audio too — 120 was only ever high enough to clear #article/
      #manage (both the base .overlay z-index:100). */
   .audioBottomBar{
-    position:fixed; left:50%; bottom:max(18px, env(safe-area-inset-bottom, 0px) + 10px);
+    position:fixed; left:50%; bottom:max(30px, env(safe-area-inset-bottom, 0px) + 26px);   /* v569: higher, clear of the home bar */
     transform:translate(-50%, 14px);
     display:flex; align-items:center; gap:4px;
     padding:6px; border-radius:999px; z-index:151;
@@ -2992,7 +3058,7 @@ CHANGELOG:END
      own existing shadow (.audioBottomBar already casts one), not a soft drop shadow — lower
      opacity + smaller spread reads as a real, subtle shadow instead of a second outline. */
   .audBarPlay{
-    width:48px; height:48px; border-radius:50%;   /* v552: was 56 */
+    width:54px; height:54px; border-radius:50%;   /* v552: was 56; v569: 48 -> 54 */
     /* v553: ring as thin as the X's lines (1.6px), drawn as an inset outline — a border this thin
        gets rounded down to 1px by some browsers; a box-shadow isn't. Plus a faint shadow, no glow. */
     background:var(--navy, #0B1630); border:none;
@@ -3003,7 +3069,7 @@ CHANGELOG:END
   .audioBottomBar.recorded .audBarPlay{box-shadow:inset 0 0 0 1.6px var(--gold), 0 3px 8px rgba(0,0,0,.4);}   /* v553: gold glow removed */
   /* Comfortable clearance so the fixed bar (above) never sits over the last lines of the story
      or Sources & Further Reading — see fillArticleBody's audioBottomSpacer. */
-  .audioBottomSpacer{height:110px;}
+  .audioBottomSpacer{height:130px;}   /* v569: the play button sits higher */
   /* position:fixed (not absolute) so it centres on the VISIBLE card rather than on the full
      scroll height of the article — #article carries a transform, which makes fixed children
      anchor to the card's own box. The old absolute/top:50% put it halfway down the entire
@@ -5210,7 +5276,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v566';
+const APP_VERSION = 'v569';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -11227,11 +11293,11 @@ async function rtPullNewAudio(){
   }else rtRefreshStates();
 }
 function rtRefreshStates(){
-  const tools = document.getElementById('reviewStatusSection');
+  const tools = liveArtEl('reviewStatusSection');   // v568
   if(!tools || !tools.dataset.entity) return;
   const id = tools.dataset.entity;
   Object.keys(RT_TOOLS).forEach(type => {
-    const el = document.getElementById(RT_TOOLS[type].btn + 'State'); if(!el) return;
+    const el = liveArtEl(RT_TOOLS[type].btn + 'State'); if(!el) return;   // v568
     const st = rtStateOf(id, type);
     el.textContent = st.text; el.className = 'rtState' + (st.cls ? ' ' + st.cls : '');
   });
@@ -12072,17 +12138,140 @@ function fitHeaderPlace(){
 }
 window.addEventListener('resize', () => requestAnimationFrame(fitHeaderPlace));
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitHeaderPlace());
+// ---- v568: press feedback for the Review buttons — darker while pressed, and a haptic tick ----
+function haptic(){
+  try{ if(navigator.vibrate && navigator.vibrate(12)) return; }catch(e){}
+  // iPhone Safari has no vibration API, but toggling a switch control plays the system haptic (iOS 18+)
+  try{
+    const lbl = document.createElement('label'), box = document.createElement('input');
+    box.type = 'checkbox'; box.setAttribute('switch', '');
+    lbl.appendChild(box); lbl.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none;';
+    document.body.appendChild(lbl); lbl.click(); setTimeout(() => lbl.remove(), 300);
+  }catch(e){}
+}
+(() => {
+  const body = document.getElementById('artBody');
+  const up = () => document.querySelectorAll('.rtBtn.rtDown').forEach(b => b.classList.remove('rtDown'));
+  body.addEventListener('pointerdown', (e) => { const b = e.target.closest('.rtBtn'); if(b) b.classList.add('rtDown'); }, true);
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => body.addEventListener(t, up, true));
+  body.addEventListener('click', (e) => { if(e.target.closest('.rtBtn')) haptic(); }, true);
+})();
+// ---- v569: the closing-prayer finale — fade back to the top, glow across the name, "pray for us" ----
+var finaleInfo = { prayer: null, duration: 0 };
+var finale = { stage: 0, timers: [], nameEl: null, nameHtml: "", prayEl: null };
+const FINALE_PAUSE = 1.2;   // the recorder's INVOCATION_PAUSE_SEC
+function finaleReset(){
+  finale.timers.forEach(clearTimeout);
+  if(finale.nameEl && finale.nameEl.isConnected) finale.nameEl.innerHTML = finale.nameHtml;
+  if(finale.prayEl) finale.prayEl.remove();
+  const body = document.getElementById('artBody');
+  if(body) body.classList.remove('finaleFade');
+  finale = { stage: 0, timers: [], nameEl: null, nameHtml: '', prayEl: null };
+}
+// What the recorder says at the end (mirrors its invocationFor(): "St." -> "Saint" ...)
+function finalePrayerText(d){
+  if(finaleInfo.prayer && finaleInfo.prayer.text) return String(finaleInfo.prayer.text);
+  const name = String(d.n || '').trim().replace(/\bSts\.\s+/g, 'Saints ').replace(/\bSt\.\s+/g, 'Saint ')
+    .replace(/\bBl\.\s+/g, 'Blessed ').replace(/\s*&\s*/g, ' and ').replace(/[.,;:\s]+$/, '');
+  return name ? name + ', pray for us.' : '';
+}
+function finaleTick(t){
+  if(audioHost !== 'article' || !currentEntry || !audioEl || !currentCues.length) return;
+  if(!(currentEntry.audioInvocation || finaleInfo.prayer)) return;
+  const lastEnd = currentCues.reduce((m, c) => Math.max(m, Number(c.end) || 0), 0);
+  if(t < lastEnd - 0.05){ if(finale.stage) finaleReset(); return; }   // scrubbed back into the story
+  if(finale.stage || audioEl.paused) return;
+  finale.stage = 1;
+  const rate = audioEl.playbackRate || 1;
+  const at = (sec, fn) => finale.timers.push(setTimeout(fn, Math.max(0, (sec - t) * 1000 / rate)));
+  const p = finaleInfo.prayer;
+  const start = p ? Number(p.start) : lastEnd + FINALE_PAUSE;
+  const end = p ? Number(p.end) : (finaleInfo.duration || audioEl.duration || start + 3);
+  const text = finalePrayerText(currentEntry);
+  const m = text.match(/^(.*?),?\s*pray for us\.?\s*$/i);
+  const prayStart = m ? start + (end - start) * Math.min(0.85, (m[1].length + 2) / text.length) : end;
+  // 1. fade out, back to the top, fade in — all inside the pause
+  const body = document.getElementById('artBody');
+  const art = document.getElementById('article');
+  audioFollowSuppressUntil = Date.now() + Math.max(4000, (end - t) * 1000 + 2000);
+  setActiveCue(-1);
+  body.classList.add('finaleFade');
+  finale.timers.push(setTimeout(() => {
+    art.scrollTop = 0;
+    art.dispatchEvent(new Event('scroll'));
+    body.classList.remove('finaleFade');
+  }, 320));
+  // 2. glow across the name, a word at a time, as it is spoken
+  at(start, () => {
+    const sticky = liveArtEl('artSticky');
+    const nameEl = sticky && sticky.querySelector('.ahName');
+    if(!nameEl) return;
+    finale.nameEl = nameEl; finale.nameHtml = nameEl.innerHTML;
+    const tn = [...nameEl.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+    if(!tn) return;
+    const words = tn.textContent.split(/(\s+)/);
+    const frag = document.createDocumentFragment(), spans = [];
+    words.forEach(w => { if(/^\s+$/.test(w) || !w){ frag.appendChild(document.createTextNode(w)); return; } const sp = document.createElement('span'); sp.className = 'finaleWord'; sp.textContent = w; spans.push(sp); frag.appendChild(sp); });
+    tn.replaceWith(frag);
+    const per = Math.max(0.35, (prayStart - start) / Math.max(1, spans.length));
+    spans.forEach((sp, i) => {
+      finale.timers.push(setTimeout(() => sp.classList.add('on'), i * per * 1000 / rate));
+      finale.timers.push(setTimeout(() => sp.classList.remove('on'), (i * per + per + 0.25) * 1000 / rate));
+    });
+    finale.timers.push(setTimeout(() => { if(finale.nameEl && finale.nameEl.isConnected) finale.nameEl.innerHTML = finale.nameHtml; },
+      (spans.length * per + 1.1) * 1000 / rate));
+  });
+  // 3. "pray for us" — the words appear one by one under the name, hold, rise and fade
+  if(m) at(prayStart, () => {
+    const sticky = liveArtEl('artSticky');
+    const nameEl = sticky && sticky.querySelector('.ahName');
+    if(!sticky || !nameEl) return;
+    const sr = sticky.getBoundingClientRect();
+    // the end of the name's own text (its last line), not the whole block
+    const r = document.createRange(); r.selectNodeContents(nameEl);
+    const rects = [...r.getClientRects()].filter(q => q.width > 0);
+    const lastLine = rects[rects.length - 1] || nameEl.getBoundingClientRect();
+    const line = document.createElement('div');
+    line.className = 'finalePray';
+    line.innerHTML = ['pray', 'for', 'us'].map(w => '<span>' + w + '</span>').join(' ');
+    sticky.appendChild(line);
+    // On the name's line, completing the invocation ("St. Joseph, pray for us") when it fits;
+    // otherwise underneath, clear of the header's gold rule.
+    const room = (sticky.classList.contains('hasPortrait') ? sr.right - 130 : sr.right - 70) - lastLine.right;
+    if(line.offsetWidth + 18 <= room){
+      line.classList.add('inline');
+      line.firstChild.textContent = ', pray';
+      line.style.left = (lastLine.right - sr.left) + 'px';
+      line.style.top = (lastLine.bottom - sr.top - line.offsetHeight - 1) + 'px';
+    }else{
+      // Below the header it would sit under the story's own heading, so it goes on the page itself,
+      // above the article, at the same spot on screen (the article isn't moving at this point).
+      line.classList.add('below');
+      document.body.appendChild(line);
+      line.style.position = 'fixed';
+      line.style.left = (nameEl.getBoundingClientRect().left - 12) + 'px';   // the name's left edge, less the panel's padding
+      line.style.top = (sr.bottom + 4) + 'px';                               // just below the header, clear of its gold rule
+    }
+    finale.prayEl = line;
+    const spans = [...line.querySelectorAll('span')];
+    const step = Math.max(0.18, (end - prayStart) / 3.2);
+    spans.forEach((sp, i) => finale.timers.push(setTimeout(() => sp.classList.add('in'), i * step * 1000 / rate)));
+    const hold = (3 * step + 0.9) * 1000 / rate;
+    finale.timers.push(setTimeout(() => line.classList.add('out'), hold));
+    finale.timers.push(setTimeout(() => { line.remove(); if(finale.prayEl === line) finale.prayEl = null; }, hold + 1500));
+  });
+}
 // ---- v543: paint the "Pronunciation checked" button ----
 // v549: gold with just the word; checked, green with a checkmark before it
 function listenedInner(on, when){   // v564: 'when' = short date (e.g. 'Oct 5'), shown on the button itself
   return (on ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>' : '') + '<span>Listened</span>' + (on && when ? '<small class="rtWhen">' + when + '</small>' : '');
 }
 function listenedPaint(on, at){
-  const b = document.getElementById('tkListenedBtn'); if(!b) return;
+  const b = liveArtEl('tkListenedBtn'); if(!b) return;   // v568: the live article's button, not a swipe copy
   b.classList.toggle('on', !!on);
   const when = on && at ? new Date(at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';   // v564: no 'Checked' text
   b.innerHTML = listenedInner(!!on, when);
-  const st = document.getElementById('tkListenedBtnState'); if(st) st.textContent = '';   // v564: date lives on the button now
+  const st = liveArtEl('tkListenedBtnState'); if(st) st.textContent = '';   // v564: date lives on the button now
 }
 // ---- v540: play a recording still in the repo when the article's link is blank ----
 // Playback only: never written into the entry, so saving can't restore an old link and the
@@ -12117,6 +12306,7 @@ function checkPlaybackFallback(d){
 }
 let landCardFacts = false;   // v551: the landscape card is showing Quick Facts (so the story leaves them out)
 function fillArticleBody(d, peek){
+  finaleReset();   // v569
   // v540: no link, but an older recording was found -> draw from a copy that has it
   if(d && !d.audio){
     const fb = audioPlayFallback.get(d.id);
@@ -12377,14 +12567,14 @@ function fillArticleBody(d, peek){
   // one searches against, so neither can hide matches from the other.
   applySearchHighlight();
   if(isReview(d) && manageUnlocked()){
-    const noteEl = document.getElementById('reviewActionNote');
-    document.getElementById('reviewApproveBtn').addEventListener('click', () => approveReviewEntry(d.id, noteEl));
-    document.getElementById('reviewDeleteBtn').addEventListener('click', () => deleteReviewEntry(d.id, noteEl));
+    const noteEl = liveArtEl('reviewActionNote');
+    liveArtEl('reviewApproveBtn').addEventListener('click', () => approveReviewEntry(d.id, noteEl));
+    liveArtEl('reviewDeleteBtn').addEventListener('click', () => deleteReviewEntry(d.id, noteEl));
   }
   if(reviewMode && manageUnlocked() && articleStats(d).wordCount > 0){
-    const quickNoteEl = document.getElementById('tkQuickNote');
-    const imgBtn = document.getElementById('tkQuickImageBtn');
-    const audioBtn = document.getElementById('tkQuickAudioBtn');
+    const quickNoteEl = liveArtEl('tkQuickNote');
+    const imgBtn = liveArtEl('tkQuickImageBtn');
+    const audioBtn = liveArtEl('tkQuickAudioBtn');
     if(imgBtn) imgBtn.addEventListener('click', () => rtTap('image-generate', d, imgBtn, quickNoteEl));
     if(audioBtn) audioBtn.addEventListener('click', () => {
       // v543: a new recording has to be listened to again — clear the check here at once (the
@@ -12393,7 +12583,7 @@ function fillArticleBody(d, peek){
       if(ex && ex.qc && ex.qc.pronChecked){ delete ex.qc.pronChecked; delete ex.qc.pronCheckedAt; listenedPaint(false); }
       rtTap('audio-generate', d, audioBtn, quickNoteEl);
     });
-    const listenedBtn = document.getElementById('tkListenedBtn');
+    const listenedBtn = liveArtEl('tkListenedBtn');
     if(listenedBtn) listenedBtn.addEventListener('click', async () => {
       const ex = getEntry(d.id);
       if(!ex) return;
@@ -12411,16 +12601,16 @@ function fillArticleBody(d, peek){
     if(!wlLoadedOnce) loadWorkLog().then(rtRefreshStates, () => {});   // statuses without a trip to Automation
   }
   if(reviewMode && manageUnlocked() && articleStats(d).wordCount > 0){
-    const statusNoteEl = document.getElementById('tkStatusNote') || document.getElementById('tkQuickNote'); // v489: one shared note
+    const statusNoteEl = liveArtEl('tkStatusNote') || liveArtEl('tkQuickNote'); // v489: one shared note
     // v489: tools sit right after Sources (as in the mockup), above "Report an issue".
-    const tools = document.getElementById('reviewStatusSection');
-    const anchor = document.querySelector('#artBody .audioBrokenNote') || document.getElementById('reportIssueBtn');
+    const tools = liveArtEl('reviewStatusSection');
+    const anchor = document.querySelector('#artBody .audioBrokenNote') || liveArtEl('reportIssueBtn');
     if(tools && anchor && anchor.parentNode === tools.parentNode) anchor.parentNode.insertBefore(tools, anchor);
-    const proofreadBtn = document.getElementById('tkSubmitProofreadBtn');
-    const flagBtn = document.getElementById('tkFlagIssueBtn');
+    const proofreadBtn = liveArtEl('tkSubmitProofreadBtn');
+    const flagBtn = liveArtEl('tkFlagIssueBtn');
     if(proofreadBtn) proofreadBtn.addEventListener('click', () => rtTap('arbitrate', d, proofreadBtn, statusNoteEl));
     if(flagBtn) flagBtn.addEventListener('click', () => openFlagModal(d));
-    const pronBtn = document.getElementById('tkPronFixBtn');
+    const pronBtn = liveArtEl('tkPronFixBtn');
     if(pronBtn) pronBtn.addEventListener('click', () => { location.href = 'pronounce.html?id=' + encodeURIComponent(d.id); });
   }
 
@@ -13294,6 +13484,7 @@ function initAudio(url, resumeTime){
     // listener was attached — cues typically finish their async fetch a moment after playback
     // could already have started, and this listener just starts seeing them once populated.
     updateActiveCue(a.currentTime);
+    finaleTick(a.currentTime);   // v569: the closing-prayer finale
   });
   a.addEventListener('ended', () => {
     apPlayBtn.innerHTML = ICON_PLAY; apPlayBtn.setAttribute('aria-label','Play');
@@ -14455,6 +14646,7 @@ async function wireSentenceCues(d, host){
     : (currentEntry && currentEntry.id === entryId);
   if(!stillCurrent) return; // article/About entry changed mid-fetch
   const cues = timing.cues || [];
+  finaleInfo = { prayer: timing.prayer || null, duration: Number(timing.durationSec) || 0 };   // v569
   if(!cues.length){ if(statusEl) statusEl.textContent = 'Sentence sync: timing file has no cues'; return; }
   currentCues = cues;
   cueEls = cues.map(() => []);
