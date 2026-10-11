@@ -19,6 +19,124 @@ the time.
 
 ---
 
+## v572 — 2026-10-11
+
+**Ask:**
+- After pressing Play, the move from the picture down to the first sentence is far too fast;
+  make it smooth like the rest of the site.
+
+**Implementation:**
+- animateFollowScroll used a decelerating curve (full speed at the start) over 1.1s: on the long
+  first move (~1000px) it covered about a third in the first 150ms, so the picture snapped into
+  the corner. It now uses the site's ease-in-out curve (morphEase — gentle start, glide, soft
+  landing), and the time grows with the distance: 650ms + 0.9ms per pixel, between 0.7s and 1.8s.
+  Short line-to-line hops stay brisk; the long first move takes about 1.6–1.8s.
+
+## v571 — 2026-10-10
+
+**Ask:**
+- Portrait: "pray for us" a bit larger, and to the right of the year when there's room.
+
+**Implementation:**
+- Portrait finale: "pray for us" goes on the year's line, right of the year, at 27px (was 22),
+  sitting on the year's baseline, no leading comma. Room is measured to the corner picture (or the
+  X); if it doesn't fit (a "Miracle" label, a long year), the v569 placements apply: after the
+  name, else below the header. Landscape unchanged.
+
+## v570 — 2026-10-10
+
+**Ask:**
+- Landscape: the close X is hard to hit. Make its target bigger than the X, and line the top of the
+  X up with the top of the picture; a tap in the padding around it should close the article too.
+
+**Implementation:**
+- Landscape X: top -8px → -7.5px, so its lines start exactly level with the picture's top edge.
+- Larger tap target: an invisible ::before on the button extends it 26px left and 22px down (about
+  86 × 82 instead of 60 × 60). Not to the right — that's the picture, which must still flip.
+  A tap anywhere in it is a tap on the button, so it closes the article.
+
+## v569 — 2026-10-10
+
+**Ask (also):**
+- Play button a little bigger, and higher — it's close to the bottom gesture area.
+
+**Implementation (play button):**
+- 48 → 54px (icon 26 → 29px); bottom offset max(18px, safe area + 10px) → max(30px, safe area +
+  26px): about 60px above the bottom edge on an iPhone, clear of the home bar. The space under the
+  article grows 110 → 130px so the last lines still clear it.
+
+**Ask:**
+- When a saint's narration reaches the end, don't scroll up fast: fade out, reset to the start,
+  fade back in — before the closing prayer's name is spoken. Then glow across the name word by
+  word (Saint, then Andrew), and make "pray for us" appear and fade away.
+
+**Implementation:**
+- Finale (Saints with the closing prayer, while playing): when the last sentence ends, the article
+  body fades out (.3s), jumps to the top, fades in (.35s) — inside the 1.2s pause before the
+  prayer; follow-scroll is held off and the sentence highlight cleared.
+- As the name is spoken, a soft gold glow passes over it one word at a time (each word brightens
+  and settles back), then the header is restored exactly.
+- As "pray for us" is spoken, the words fade in one by one in gold italics — on the name's own
+  line after it (", pray for us") when there's room, otherwise underneath, clear of the header's
+  gold rule — hold, then drift up and fade away. Positioned over the header, so nothing moves.
+- Timing: the timing file's "prayer" {start, end, text} when present (recorder 2026-10-10 writes
+  it); otherwise estimated — start = last sentence's end + 1.2s, end = recording end, and where
+  "pray for us" begins from the share of characters. Scrubbing back into the story resets it; a
+  swipe or close cancels it. A custom [prayer] without "pray for us" gets the fade and the glow.
+- "pray for us" completes the name's line when it fits ("St. Joseph, pray for us"); otherwise it
+  sits just below the header on a soft navy panel, lined up with the name, clear of the gold rule.
+
+## v568 — 2026-10-10   (built on v566; v567 was skipped)
+
+**Ask:**
+- After listening to an article, the Listened button is dead; close and reopen the article and it
+  works. Consistent.
+
+**Implementation:**
+- Reproduced: it happens after SWIPING to the article. During the slide the outgoing article's copy
+  is still on the page with the same element ids, and the Review tools were wired with
+  document.getElementById — so Listened (and Proof, Audio, Image, Flag, Fix, Approve/Delete) got
+  their tap handlers on the copy, which is then removed. Same cause as v528/v537.
+- The wiring block, listenedPaint() and rtRefreshStates() now use liveArtEl() (looks in the live
+  #artBody first), so the live buttons and status lines are the ones wired and updated.
+- Press feedback on the Review buttons: darker gold and a slight shrink while the finger is down
+  (.rtDown), and a haptic tick on each tap — navigator.vibrate where supported (Android); on iPhone
+  Safari (iOS 18+), by toggling a hidden <input type="checkbox" switch>, which plays the system
+  haptic (no web vibration API there). Older iPhones simply get no tick.
+
+## v566 — 2026-10-10
+
+**Ask:**
+- v565 was running but the timing-gap fix wasn't: two chats had each built v562–v564 from v561.
+  Bring this chat's three changes onto the running v565 without losing anything from it.
+
+**Implementation:**
+- Built on v565 (other chat: v562 Paste-JSON pronunciation + ledger task, v563 X spacing, v564
+  date on the Listened button, v565 image-path fix — all kept). Added this chat's:
+  - Share row: icon bottom on the text baseline; the section headings' rule under "Share this
+    article" (the "Report an issue" divider is dropped after it); "Miracle" in the year's gold.
+  - Press-and-hold works on section headings too (no "Link to an entry" there).
+  - Timing gaps: timings that don't match their sentence exactly are filled from the text between
+    matched neighbours — paired by ≥ 75% shared words, then by position. Sync line shows
+    "N/N sentences linked (x by word match, y by position)".
+
+## v565 — 2026-10-10
+
+**Ask:**
+- In the select-images workflow I pick a final image but it never shows in the card: the saved
+  path is Images/Saints/st-thomas-the-apostle-72.jpg and it overlaps the Images folder in Media
+  Base Paths.
+
+**Implementation:**
+- `resolveAsset()` (the one place every image and audio URL is joined from the base + the saved
+  path) now drops a leading folder from the saved path when the base already ends in that same
+  folder (base ".../Images" + "Images/Saints/x.jpg" -> ".../Images/Saints/x.jpg"; case-insensitive,
+  and only when the path has more after it), and collapses stray double slashes after the host
+  (the saved base was "https://catholictimeline.org//Images"). Older entries that store a bare
+  name ("Peter.jpg", "Saints/st-peter-claver-1654.jpg") resolve exactly as before, and the two
+  "Images/..." entries that were doubled now load too. Saving the base paths also collapses
+  accidental double slashes. No data was changed.
+
 ## v564 — 2026-10-06
 
 **Ask:**
