@@ -1,6 +1,6 @@
 <!--
-VERSION: 571
-DATE: 2026-10-10T22:30:00-05:00
+VERSION: 572
+DATE: 2026-10-11T08:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,19 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v572 — 2026-10-11
+
+**Ask:**
+- After pressing Play, the move from the picture down to the first sentence is far too fast;
+  make it smooth like the rest of the site.
+
+**Implementation:**
+- animateFollowScroll used a decelerating curve (full speed at the start) over 1.1s: on the long
+  first move (~1000px) it covered about a third in the first 150ms, so the picture snapped into
+  the corner. It now uses the site's ease-in-out curve (morphEase — gentle start, glide, soft
+  landing), and the time grows with the distance: 650ms + 0.9ms per pixel, between 0.7s and 1.8s.
+  Short line-to-line hops stay brisk; the long first move takes about 1.6–1.8s.
+
 ## v571 — 2026-10-10
 
 **Ask:**
@@ -5302,7 +5315,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v571';
+const APP_VERSION = 'v572';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14218,9 +14231,10 @@ function ensureActiveCueVisible(artEl, idx){
 // two features can't fight over which is allowed to be mid-animation.
 function animateFollowScroll(artEl, target){
   const token = ++audioFollowToken;
-  const DURATION = 1100;
   const start = artEl.scrollTop;
   if(Math.abs(target - start) < 4) return;
+  // v572: longer moves get more time, on a gentle start-glide-settle curve (was 1.1s, full speed at the start)
+  const DURATION = Math.max(700, Math.min(1800, 650 + Math.abs(target - start) * 0.9));
   let lastSet = start;
   const t0 = performance.now();
   const step = (now) => {
@@ -14228,7 +14242,7 @@ function animateFollowScroll(artEl, target){
     if(!artEl.classList.contains('open') || artEl.classList.contains('peek')) return;
     if(Math.abs(artEl.scrollTop - lastSet) > 2) return;              // reader took over — stop overriding
     const raw = Math.min(1, (now - t0) / DURATION);
-    artEl.scrollTop = start + (target - start) * easeOutDecel(raw);
+    artEl.scrollTop = start + (target - start) * morphEase(raw);   // v572: gentle start, soft landing
     lastSet = artEl.scrollTop;
     syncStickyBackdrops();
     updateFly();
