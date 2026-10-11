@@ -57,7 +57,8 @@ import { execSync } from 'node:child_process';
 import { stripHtml, splitSentences } from '../lib/text.mjs';
 import { isKokoroVoice, kokoroVoiceName, kokoroSpeed, Track, synthBatch, trackToMp3 } from './tts-kokoro.mjs';
 import { americanDates, americanizeEntryDates, spokenDateAt } from './american-dates.mjs';
-import { pronVote, COMMON, decideRomanI, iKey } from './pron-vote.mjs';   // 2026-10-05: own file, shared with fix-dates.mjs
+import { pronVote, COMMON, decideRomanI, iKey } from './pron-vote.mjs';
+import { usageSummary, flushUsage } from './ai-router.mjs';   // 2026-10-11: AI spend log   // 2026-10-05: own file, shared with fix-dates.mjs
 export { americanDates, americanizeEntryDates };
 
 export const AUDIO_ROOT = 'audio';
@@ -649,6 +650,10 @@ async function ensureNumeralEntries(){
   return [PRONUNCIATION_FILE];
 }
 
+// One line for the run summary: what this recording's AI calls cost (ai-router's log).
+let aiCostLine = '';
+function aiCostSummary(){ return aiCostLine; }
+
 // One line for the run summary about "I" after names.
 function romanISummary(r){
   if(!r || !r.asked) return r && r.error ? ' \u2014 "I" check skipped (' + r.error.slice(0, 80) + ')' : '';
@@ -750,13 +755,18 @@ export async function runAudioGenerate(task, dataJson){
   // Keep only this recording: delete the article's older versions (committed with the new files).
   const removed = await removeOldVersions(entry.id, [relAudio, relTiming]);
 
+  // AI spend for this recording (2026-10-11): logged to ai/usage/<month>.jsonl and committed with it
+  const u = usageSummary();
+  aiCostLine = u.calls ? ' \u2014 AI: ' + u.calls + ' call' + (u.calls === 1 ? '' : 's') + ', $' + u.cost.toFixed(4) + (u.unpriced ? ' (+' + u.unpriced + ' unpriced)' : '') : '';
+  const usageFile = await flushUsage().catch(() => null);
+
   return {
     result: { entityId: entry.id, name: entry.n, audio: relAudio, durationSec, cueCount: cues.length, link: SITE_BASE + '/' + relAudio },
     summary: 'recorded ' + durationSec + 's with ' + engine + ' (' + cues.length + ' cues' +
       (replacements ? ', ' + replacements + ' pronunciation fix' + (replacements === 1 ? '' : 'es') : '') +
       (datesFixed ? ', ' + datesFixed + ' date' + (datesFixed === 1 ? '' : 's') + ' put in American order' : '') + ') \u2014 ' + relAudio +
-      voteSummary(vote) + romanISummary(romanI) +
+      voteSummary(vote) + romanISummary(romanI) + aiCostSummary() +
       (removed.length ? ' (removed ' + removed.length + ' old file' + (removed.length === 1 ? '' : 's') + ')' : ''),
-    filesToCommit: [...new Set([relAudio, relTiming, 'data.json', ...removed, ...numeralFiles, ...((vote && vote.files) || [])])]
+    filesToCommit: [...new Set([relAudio, relTiming, 'data.json', ...removed, ...numeralFiles, ...((vote && vote.files) || []), ...(usageFile ? [usageFile] : [])])]
   };
 }

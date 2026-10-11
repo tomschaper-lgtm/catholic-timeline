@@ -20,16 +20,13 @@ import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { soundKey, kokoroKey, lpRespell } from './pron-compare.mjs';
+import { ask as aiAsk, jsonOf, modelsFor } from './ai-router.mjs';   // 2026-10-11: models chosen by job and price
 
 export const PRONUNCIATION_FILE = 'pronunciation/catholic-timeline-pronunciation.json';
 export const CHECKED_FILE = 'pronunciation/auto-checked.json';
 const WORDS_FILE = 'pronunciation/story/words.json';
 const NAMES = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini' };
-const MODELS = {
-  anthropic: process.env.PRON_MODEL_ANTHROPIC || 'claude-sonnet-5-5',
-  openai: process.env.PRON_MODEL_OPENAI || 'gpt-6-luna',
-  gemini: process.env.PRON_MODEL_GEMINI || 'gemini-flash-latest'
-};
+// Models: chosen per job by ai-router.mjs from ai/models.json (2026-10-11).
 const KEYS = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', gemini: 'GEMINI_API_KEY' };
 const PY = process.env.KOKORO_PYTHON || 'python3';
 const SYNTH_SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'kokoro_synth.py');
@@ -133,42 +130,7 @@ function parseAnswer(text){
 
 async function ask(svc, items){
   const user = items.map((it, i) => (i + 1) + '. ' + it.word + ' \u2014 "' + it.sentence + '"').join('\n');
-  return parseAnswer(await callModel(svc, PROMPT, user));
-}
-
-async function callModel(svc, system, user){
-  const key = process.env[KEYS[svc]];
-  if(!key) throw new Error('no ' + KEYS[svc] + ' secret');
-  const model = MODELS[svc];
-  const PROMPT = system;
-  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 120000);
-  try{
-    let r, j, text;
-    if(svc === 'anthropic'){
-      r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', signal: ctl.signal,
-        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model, max_tokens: 4000, system: PROMPT, messages: [{ role: 'user', content: user }] }) });
-      j = await r.json();
-      if(!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
-      text = (j.content || []).map(c => c.text || '').join('');
-    }else if(svc === 'openai'){
-      r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', signal: ctl.signal,
-        headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json' },
-        body: JSON.stringify({ model, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: PROMPT }, { role: 'user', content: user }] }) });
-      j = await r.json();
-      if(!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
-      text = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
-    }else{
-      r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', { method: 'POST', signal: ctl.signal,
-        headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: PROMPT }] }, contents: [{ role: 'user', parts: [{ text: user }] }],
-          generationConfig: { responseMimeType: 'application/json' } }) });
-      j = await r.json();
-      if(!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
-      text = (((j.candidates || [])[0] || {}).content || {}).parts ? j.candidates[0].content.parts.map(p => p.text || '').join('') : '';
-    }
-    return text;
-  }finally{ clearTimeout(timer); }
+  return parseAnswer((await aiAsk('pron-vote', PROMPT, user, svc)).text);   // that provider's cheapest suitable model
 }
 
 // Two answers out of three agreeing (by sound) decide; Kokoro is overridden only when they differ from it.
@@ -218,7 +180,8 @@ export async function pronVote(entry, rawRulesLoader){
   }
 
   const readings = await kokoroReadings(items.map(i => i.word));
-  const svcs = Object.keys(KEYS).filter(s => process.env[KEYS[s]]);
+  const svcs = [];   // providers with a model suitable for the vote (ai/models.json)
+  for(const p of Object.keys(KEYS)) if((await modelsFor('pron-vote', p)).length) svcs.push(p);
   const errors = [], answers = {};
   await Promise.all(svcs.map(async svc => {
     try{ answers[svc] = await ask(svc, items); }
@@ -271,15 +234,13 @@ const PRE_PROMPT = 'You help prepare a Catholic history article to be read aloud
   'Answer with JSON only: {"words":["<exactly as listed>", ...]} — an empty list if none.';
 async function preselect(entry, items){
   const user = 'Article: ' + plain(entry.n) + '\n\n' + items.map((it, i) => (i + 1) + '. ' + it.word).join('\n');
-  for(const svc of ['anthropic', 'openai', 'gemini'].filter(x => process.env[KEYS[x]])){
-    try{
-      const t = String(await callModel(svc, PRE_PROMPT, user)).replace(/```(?:json)?/g, '');
-      const j = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1));
-      const listed = new Set(items.map(i => i.word));
-      const words = (Array.isArray(j.words) ? j.words : []).map(w => String(w).trim()).filter(w => listed.has(w));
-      return { words, by: NAMES[svc] };
-    }catch(e){ console.log('[pron-vote] word picking: ' + NAMES[svc] + ' failed (' + String(e.message || e).slice(0, 100) + ')'); }
-  }
+  try{
+    const a = await aiAsk('pron-pick', PRE_PROMPT, user);   // the cheapest suitable model (a simple job)
+    const j = jsonOf(a.text);
+    const listed = new Set(items.map(i => i.word));
+    const words = (Array.isArray(j.words) ? j.words : []).map(w => String(w).trim()).filter(w => listed.has(w));
+    return { words, by: a.by + ' (' + a.model + ')' };
+  }catch(e){ console.log('[pron-vote] word picking failed (' + String(e.message || e).slice(0, 160) + ')'); }
   return null;
 }
 
@@ -320,19 +281,16 @@ export async function decideRomanI(entry, rules){
   const user = items.map((it, k) => (k + 1) + '. ' + it.marked).join('\n');
   const errors = [];
   let got = null, by = '';
-  for(const svc of ['anthropic', 'openai', 'gemini'].filter(x => process.env[KEYS[x]])){   // first one that answers
-    try{
-      const t = String(await callModel(svc, I_PROMPT, user)).replace(/```(?:json)?/g, '');
-      const j = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1));
-      got = {};
-      for(const x of (j.items || [])){
-        const say = String(x.say || '').trim().toLowerCase();
-        got[Number(x.n)] = say === 'the first' ? 'the first' : say === 'one' ? 'One' : say === 'i' ? 'I' : null;
-      }
-      by = NAMES[svc];
-      break;
-    }catch(e){ errors.push(NAMES[svc] + ': ' + String(e.message || e).slice(0, 120)); }
-  }
+  try{
+    const a = await aiAsk('roman-i', I_PROMPT, user);   // the cheapest suitable model (a simple job)
+    const j = jsonOf(a.text);
+    got = {};
+    for(const x of (j.items || [])){
+      const say = String(x.say || '').trim().toLowerCase();
+      got[Number(x.n)] = say === 'the first' ? 'the first' : say === 'one' ? 'One' : say === 'i' ? 'I' : null;
+    }
+    by = a.by + ' (' + a.model + ')';
+  }catch(e){ errors.push(String(e.message || e).slice(0, 160)); }
   const decided = [];
   items.forEach((it, k) => {
     const say = got && got[k + 1];
