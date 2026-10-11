@@ -38,7 +38,8 @@
 //            'source-find'). It runs runSourceFinder, adds Jerome's steps to article-log.json (scripts/services/article-log.mjs),
 //            returns filesToCommit so the orchestrator commits the log, and stores only a compact result on the task (the
 //            long per-page records stay out of workLog.json). Token use is counted by model for the cost column.
-//            v0.9.8: the registry reader moved to registry.mjs (shared with ledger-build); nothing else changed.
+//            v0.9.8: the registry reader moved to registry.mjs (shared with ledger-build), and realFetchPage is exported so the writer (Augustine) fetches
+//            Jerome's pages the very same way; nothing else changed.
 //            SOURCES FILE (v0.9.7): runJerome also writes sources/<entry-id>.json (scripts/services/sources-file.mjs): the four chosen pages with
 //            hashes (and full text only for registry sources Tom has set to storage "full"), the unsure pages and the verdict. This is what Augustine and
 //            Thomas read.
@@ -390,7 +391,7 @@ function htmlToText(html) {
 const plainWords = s => asciiFold(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 // ---- page fetch (real) ----
-async function realFetchPage(url) {
+export async function realFetchPage(url) {
   const cp = CACHE_DIR + '/' + createHash('sha1').update(url).digest('hex') + '.json';
   try { if (existsSync(cp)) { const c = JSON.parse(readFileSync(cp, 'utf8')); if (c && c.ok && c.text) return c; } } catch (_e) { /* refetch */ }
   const host = new URL(url).hostname.toLowerCase();

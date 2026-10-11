@@ -1,6 +1,6 @@
 # How Claude delivers files in this project
 
-**Last updated:** 2026-10-09 (Friday) · v3 (adds approval dates on the source registry and the Ignatius queue)
+**Last updated:** 2026-10-10 (Saturday) · v3.5 (adds the Documents rules and the catch-up-then-patch bundle order; v3.4 ages at death, v3.3 the writer, v3.2 Thomas and the registry, v3.1 Jerome's sources file)
 **For:** any Claude chat in the Church Timeline Website project. Read this before handing Tom any file.
 
 ## The situation
@@ -75,6 +75,20 @@ Each article job is recorded in `article-log.json` (repo root): numbered steps w
 ## Jerome's handoff file (v3.1)
 
 Each Jerome run saves `sources/<entry-id>.json` (see `scripts/services/sources-file.mjs`): the chosen pages with hashes, the verdict, the unsure pages. The writer and the verifier read it with `loadSources` and `getSourceTexts`; they never read Jerome's task result. Full page text is in the file only for registry sources Tom has set to `"storage": "full"`; everything else is fetched again at use, and a page that no longer matches its hash comes back marked `changed`. Scripture is never stored. The `sources/` folder is written by the services and the pilot workflow, never by a bundle.
+
+## Documents (v3.5)
+
+Read `DOCS-INDEX.md` first: it says which document is for what and where new information goes. After any build, in the same delivery: add an entry to `PIPELINE-BUILD-LOG.md`, change the item's row in `content-generation-workflow-state.md`, add a decisions file entry if Tom ruled on something, and update the `Last updated` line of each document touched. Every document starts with `Last updated`, `Status` and `Reflects`. Never delete or rewrite history; give a superseded document a banner. Documents are ordinary root `.md` files and can go in a bundle, but a PATCH to a document that may not be in the repo refuses the whole bundle, so replace whole files that Claude wrote and ask before patching one that Tom wrote.
+
+Deliveries are bundles in a fixed order (see the tracker in the state document): **a catch-up bundle first (the latest version of every new or changed file, safe to place even if earlier ones were), then patch bundles.** A patch bundle whose find-and-replace no longer matches is refused whole, which usually means it was already placed. Each patch bundle carries a guard test that fails if its change would be applied twice.
+
+## Ages at death (v3.4)
+
+Never ask a model for an age at death. `scripts/services/lifespan.mjs` computes it from the Born and Died facts (exact only from two full dates; otherwise estimated, and none when the dates are more than 6 years apart or there is no birth year). Augustine writes the marker `[[AGE]]`; code fills it. `lifespan-backfill.mjs` makes a patch for existing saints that show no age; it is applied by Tom in the app (Manage > Paste JSON > Apply), never by a service, because it edits entries that are live.
+
+## Augustine (article-writer) and the writing rules (v3.3)
+
+`scripts/writer-rules.md` is a verbatim EXCERPT of `content-authoring-skill.md`; it does not follow the skill automatically, so when the skill changes, regenerate or edit the excerpt in the same delivery. Words to ration (such as "quietly") live in `scripts/writer-style.json`, one line each with a regular expression, a per-article maximum and synonyms; add a line there, not code. Augustine writes ONLY drafts (`drafts/<id>.json`), never `data.json`; a draft reaches the live site only when Tom approves it. The recording is made from the draft before approval, because Tom reviews by listening. Never let a session approve a draft on Tom's behalf.
 
 ## Thomas (ledger-build) and the registry (v3.2)
 

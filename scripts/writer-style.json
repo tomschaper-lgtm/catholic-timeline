@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "updated": "2026-10-09",
+  "note": "Words Augustine may use only a limited number of times per article. Code counts them in the section text and short description (not in quotations taken from sources); an article over a limit is sent back to be rewritten, and if it is still over after the last try it goes to review with the count shown. Add a line when you notice another word that appears too often; no code change is needed. 'pattern' is a case-insensitive regular expression. 'instead' lists wording the writer may use in place of the extra uses; it is given to him before he writes and again if he goes over. A synonym can become the next overused word: if one does, add it here as its own limit.",
+  "limits": [
+    {
+      "id": "quietly",
+      "pattern": "\\bquietly\\b",
+      "maxPerArticle": 1,
+      "why": "Tom likes the word but it is overused. Measured 2026-10-09 across the 453 existing articles: 56 uses in 48 articles, up to 5 in one.",
+      "instead": [
+        "softly",
+        "gently",
+        "calmly",
+        "without fanfare",
+        "unobtrusively",
+        "in silence",
+        "without display",
+        "humbly"
+      ]
+    },
+    {
+      "id": "quiet-family",
+      "pattern": "\\bquiet(?:ly|ness|ed|er|est|ing)?\\b",
+      "maxPerArticle": 2,
+      "why": "The whole family (quiet, quietly, quietness...) was in 111 of the 453 existing articles, 13 of them three or more times, up to 6 in one.",
+      "instead": [
+        "calm",
+        "still",
+        "hushed",
+        "peaceful",
+        "unhurried",
+        "gentle",
+        "unassuming",
+        "restful"
+      ]
+    }
+  ]
+}

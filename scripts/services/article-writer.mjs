@@ -1,12 +1,12 @@
 // scripts/services/article-writer.mjs
-// MODULE DATE: 2026-10-09 (Friday) · v0.2 — "Augustine": writes ONE draft article from the pages Jerome saved, and nothing else.
+// MODULE DATE: 2026-10-10 (Saturday) · v0.3 — "Augustine": writes ONE draft article from the pages Jerome saved, and nothing else.
 //
 // Service "article-write". It never touches data.json. It writes drafts/<entry-id>.json, which Thomas (ledger-build) checks next, then the recorder
 // (Kokoro), and which Tom approves by listening and reading the review notes. Nothing goes live until he approves.
 //
 // TASK SHAPE:  { id, type: 'article-write', entityId: '<existing entry id>' }                          (a rewrite)
 //              { id, type: 'article-write', payload: { name, category, year } }                        (a new subject)
-//   payload: { model: 'claude-sonnet-5-5' (default), length: 'major'|'standard'|'lesser' (default: from the entry's tier, lowered if the sources are thin),
+//   payload: { model: 'claude-sonnet-5-5' (default: Tom's decision that the writer is Sonnet, the one role that does not swap models), length: 'major'|'standard'|'lesser' (default: from the entry's tier, lowered if the sources are thin),
 //              override: false (true = write even though Jerome's outcome was not "ready"; a person has decided), jobId }
 //
 // WHAT IT DOES
@@ -60,7 +60,7 @@ import { realFetchPage } from './source-finder.mjs';
 export const DRAFTS_DIR = process.env.DRAFTS_DIR || 'drafts';
 const RULES_PATH = process.env.WRITER_RULES_PATH || 'scripts/writer-rules.md';
 const STYLE_PATH = process.env.WRITER_STYLE_PATH || 'scripts/writer-style.json';
-const DEFAULT_MODEL = 'claude-sonnet-5-5';
+const DEFAULT_MODEL = 'claude-sonnet-5-5';        // Tom, 2026-10-10: Sonnet is Augustine's model (briefly set to Opus by mistake and corrected); the other roles may swap models
 const MAX_ATTEMPTS = 3;
 const TOKEN_BUDGETS = [9000, 14000, 16000];
 const MAX_SOURCE_CHARS = 120000;           // per page sent to the model; a longer page is cut with a note

@@ -1,5 +1,5 @@
 // scripts/services/article-log.mjs
-// MODULE DATE: 2026-10-09 (Friday) · v0.6 — the article log: a short, readable record of what happened on each article job.
+// MODULE DATE: 2026-10-09 (Friday) · v0.8 — the article log: a short, readable record of what happened on each article job.
 //
 // WHAT IT KEEPS (article-log.json, repo root, committed like workLog.json):
 //   { "version": 1, "jobs": [ { "id", "title", "kind": "rewrite" | "new", "startedAt", "requestedBy", "status", "totalSeconds",
@@ -324,6 +324,60 @@ export function recordLedger({ entry, ledger, task, multi = false, logPath = LOG
   const id = !p.jobId && multi ? base + ':' + entry.id : base;
   const job = openJob(log, { id, title: entry.n || entry.id, kind: 'check', requestedBy: p.requestedBy, at });
   for (const st of ledgerSteps(ledger, { at })) addStep(job, st);
+  prune(log, { now });
+  saveLog(log, logPath);
+  return job;
+}
+
+// ---- Augustine's steps (article-writer: the draft of one article) ----
+// draft: the draft object article-writer saves (sourcesFile, writer.attempts, attemptLog: [{ n, violations: [text], usage: { model, inputTokens, outputTokens } }],
+// checks, reviewNotes, entry, length, seconds). Tokens are on the attempt that spent them, so the dollars come from scripts/pricing.json at view time.
+export function writerSteps(draft, { at } = {}) {
+  const steps = [];
+  const sf = draft.sourcesFile || {};
+  let read = 'Read Jerome\'s file: ' + (sf.pages || 0) + ' source page(s), ' + (sf.words || 0) + ' words';
+  if (sf.dropped) read += '; ' + sf.dropped + ' could not be fetched again and were left out';
+  if (sf.changed) read += '; ' + sf.changed + ' changed since Jerome saw ' + (sf.changed === 1 ? 'it' : 'them');
+  steps.push({ who: 'Augustine', at, text: read });
+  for (const a of draft.attemptLog || []) {
+    const bad = (a.violations || []);
+    const max = (draft.writer && draft.writer.maxAttempts) || 3;
+    const text = 'Attempt ' + a.n + ' of ' + max + (bad.length
+      ? ': sent back for ' + bad.length + ' rule(s): ' + bad.slice(0, 3).join('; ').slice(0, 220) + (bad.length > 3 ? '; and ' + (bad.length - 3) + ' more' : '')
+      : ': passed the form checks');
+    steps.push({ who: 'Augustine', at, text, usage: a.usage ? usageOf(a.usage) : undefined });
+  }
+  const st = (draft.checks && draft.checks.stats) || {};
+  const ok = draft.checks && draft.checks.passed;
+  steps.push({ who: 'Augustine', at, text: (ok ? 'Draft ready: ' : 'Draft saved but STILL FAILING the form checks: ') + (st.words || 0) + ' words in ' + (st.sections || 0) + ' sections, ' + (st.quotes || 0) + ' quotation(s), longest sentence ' + (st.maxSentence || 0) + ' words'
+    + (draft.length ? ' (' + draft.length.tier + ' tier)' : '') });
+  const lf = draft.lifespan;
+  if (lf && (lf.age != null || lf.died)) steps.push({ who: 'Augustine', at, text: lf.age != null ? 'Age at death: ' + (lf.kind === 'exact' ? 'exactly ' : 'about ') + lf.age + ' (Born: ' + (lf.born || '?') + '; Died: ' + String(lf.died || '?').replace(/\s*\((?:at|estimated) age \d+\)\s*$/, '') + ')' : 'No age at death: ' + (lf.reason || 'unknown') });
+  const fb = draft.sourceFeedback;
+  if (fb) {
+    const stats = draft.sourceStats || [];
+    const unused = stats.filter(x => x.used === false);
+    steps.push({ who: 'Augustine', at, text: 'His view of the sources: ' + (fb.amount ? fb.amount.replace(/_/g, ' ') : 'no verdict') + '; used ' + (fb.used.length || '?') + ' of ' + stats.length
+      + (unused.length ? ' (unused: ' + unused.map(x => x.domain + ' ' + x.words + ' words').join(', ') + ')' : '') + (fb.gaps.length ? '; gaps: ' + fb.gaps.join('; ').slice(0, 160) : '') });
+  }
+  const notes = draft.reviewNotes || [];
+  if (notes.length) {
+    const by = {};
+    for (const n of notes) by[n.kind] = (by[n.kind] || 0) + 1;
+    steps.push({ who: 'Augustine', at, text: 'Review notes for Tom: ' + Object.entries(by).map(([k, v]) => v + ' ' + k).join(', '), seconds: draft.seconds });
+  } else steps[steps.length - 1].seconds = draft.seconds;
+  for (const s of steps) if (!s.usage) delete s.usage;
+  return steps;
+}
+
+export function recordWriter({ draft, task, logPath = LOG_PATH, now = new Date() }) {
+  const at = now.toISOString();
+  const p = (task && task.payload) || {};
+  const log = loadLog(logPath);
+  const title = (draft.subject && draft.subject.name) || draft.entryId;
+  const id = p.jobId || (task && task.id) || jobIdFor(title, at);
+  const job = openJob(log, { id, title, kind: draft.mode === 'rewrite' ? 'rewrite' : 'new', requestedBy: p.requestedBy, at });
+  for (const st of writerSteps(draft, { at })) addStep(job, st);
   prune(log, { now });
   saveLog(log, logPath);
   return job;

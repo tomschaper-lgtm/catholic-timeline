@@ -330,3 +330,67 @@ test('recordLedger: a check is its own job (kind check); a shared job id from th
   assert.equal(m.id, 't-4:st-x-1');
   assert.equal(_loadLogT(path).jobs.length, 3);
 });
+
+// ---- Augustine's steps (v0.7) ----
+import { writerSteps as _writerSteps, recordWriter as _recordWriter } from '../services/article-log.mjs';
+
+const DRAFT = {
+  entryId: 'st-x-1', mode: 'new', subject: { name: 'St. X' }, writer: { maxAttempts: 3, attempts: 2 }, length: { tier: 'standard' }, seconds: 71.2,
+  sourcesFile: { pages: 4, words: 18000, dropped: 1, changed: 2 },
+  attemptLog: [{ n: 1, violations: ['"quietly" appears 3 times; the limit is 1.', 'a', 'b', 'c'], usage: { model: 'claude-sonnet-5-5', inputTokens: 60000, outputTokens: 4000 } },
+    { n: 2, violations: [], usage: { model: 'claude-sonnet-5-5', inputTokens: 64000, outputTokens: 4200 } }],
+  checks: { passed: true, stats: { words: 712, sections: 6, quotes: 2, maxSentence: 33 } },
+  reviewNotes: [{ kind: 'conflict' }, { kind: 'conflict' }, { kind: 'tradition' }, { kind: 'approval' }]
+};
+
+test('writerSteps: what was read, each attempt with its tokens and why it was sent back, the result, and the review notes by kind', () => {
+  const st = _writerSteps(DRAFT, { at: AT });
+  assert.deepEqual(st.map(s => s.who), ['Augustine', 'Augustine', 'Augustine', 'Augustine', 'Augustine']);
+  assert.equal(st[0].text, 'Read Jerome\'s file: 4 source page(s), 18000 words; 1 could not be fetched again and were left out; 2 changed since Jerome saw them');
+  assert.equal(st[1].text, 'Attempt 1 of 3: sent back for 4 rule(s): "quietly" appears 3 times; the limit is 1.; a; b; and 1 more');
+  assert.equal(st[2].text, 'Attempt 2 of 3: passed the form checks');
+  assert.equal(st[3].text, 'Draft ready: 712 words in 6 sections, 2 quotation(s), longest sentence 33 words (standard tier)');
+  assert.equal(st[4].text, 'Review notes for Tom: 2 conflict, 1 tradition, 1 approval');
+  assert.deepEqual(st.map(s => s.usage), [undefined, { model: 'claude-sonnet-5-5', inputTokens: 60000, outputTokens: 4000 }, { model: 'claude-sonnet-5-5', inputTokens: 64000, outputTokens: 4200 }, undefined, undefined]);
+  assert.equal(st[4].seconds, 71.2);
+});
+
+test('writerSteps: a draft that still fails says so plainly, with no review-notes step when there are none (the time goes on the last step)', () => {
+  const st = _writerSteps({ ...DRAFT, sourcesFile: { pages: 2, words: 5000 }, checks: { passed: false, stats: { words: 800, sections: 6, quotes: 0, maxSentence: 41 } }, reviewNotes: [] }, { at: AT });
+  assert.equal(st[0].text, 'Read Jerome\'s file: 2 source page(s), 5000 words');
+  assert.match(st[3].text, /^Draft saved but STILL FAILING the form checks: 800 words/);
+  assert.equal(st.length, 4);
+  assert.equal(st[3].seconds, 71.2);
+});
+
+test('recordWriter: a new subject is a "new" job and a rewrite is a "rewrite" job; a shared pipeline job id joins the stages', () => {
+  const path = _joinT(_mkT(_joinT(_tmpT(), 'rw-')), 'article-log.json');
+  const a = _recordWriter({ draft: DRAFT, task: { id: 't-1', payload: {} }, logPath: path, now: new Date('2026-10-09T18:00:00Z') });
+  assert.deepEqual([a.id, a.kind, a.title, a.steps.length], ['t-1', 'new', 'St. X', 5]);
+  const b = _recordWriter({ draft: { ...DRAFT, mode: 'rewrite' }, task: { id: 't-2', payload: { jobId: 'pipeline-1' } }, logPath: path });
+  assert.deepEqual([b.id, b.kind], ['pipeline-1', 'rewrite']);
+  const c = _recordWriter({ draft: DRAFT, task: { id: 't-3', payload: { jobId: 'pipeline-1' } }, logPath: path });
+  assert.equal(c.steps.length, 10);
+});
+
+// ---- Augustine's age and source-view lines (v0.8) ----
+test('writerSteps: the age at death (exact or about) and Augustine\'s view of the sources, with the unused ones and the gaps', () => {
+  const d = { ...DRAFT, reviewNotes: [], lifespan: { age: 62, kind: 'estimated', born: 'c. 1020/1025, Tuscany', died: 'May 25, 1085, Salerno (estimated age 62)' },
+    sourceFeedback: { amount: 'too_much', used: [1, 2], unused: [3], gaps: ['No source gives the date of his baptism', 'Nothing on his later years'], wouldHelp: [] },
+    sourceStats: [{ n: 1, domain: 'newadvent.org', words: 6000, used: true }, { n: 2, domain: 'ewtn.com', words: 6500, used: true }, { n: 3, domain: 'ncregister.com', words: 2100, used: false }] };
+  const st = _writerSteps(d, { at: AT });
+  const texts = st.map(s => s.text);
+  assert.ok(texts.includes('Age at death: about 62 (Born: c. 1020/1025, Tuscany; Died: May 25, 1085, Salerno)'));
+  assert.ok(texts.includes('His view of the sources: too much; used 2 of 3 (unused: ncregister.com 2100 words); gaps: No source gives the date of his baptism; Nothing on his later years'));
+  const exact = _writerSteps({ ...d, lifespan: { age: 75, kind: 'exact', born: 'November 13, 354', died: 'August 28, 430' }, sourceFeedback: null }, { at: AT }).map(s => s.text);
+  assert.ok(exact.includes('Age at death: exactly 75 (Born: November 13, 354; Died: August 28, 430)'));
+  assert.ok(!exact.some(t => t.startsWith('His view')));
+});
+
+test('writerSteps: "no age" is shown when there is a death fact but no age can be worked out, and left out when there is no death fact or no person', () => {
+  const base = { ...DRAFT, reviewNotes: [], sourceFeedback: null };
+  const no = _writerSteps({ ...base, lifespan: { age: null, reason: 'no birth year', born: 'Galilee', died: 'c. 64\u201367, Rome' } }, { at: AT }).map(s => s.text);
+  assert.ok(no.includes('No age at death: no birth year'));
+  assert.ok(!_writerSteps({ ...base, lifespan: { age: null, reason: 'no Died fact', born: null, died: null } }, { at: AT }).some(s => /age at death/i.test(s.text)));
+  assert.ok(!_writerSteps({ ...base, lifespan: null }, { at: AT }).some(s => /age at death/i.test(s.text)));
+});
