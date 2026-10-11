@@ -1,0 +1,86 @@
+# .github/workflows/augustine-fix-pilot.yml
+# MODULE DATE: 2026-10-11 (Sunday) · v1.0 — run form for Augustine's FIX PASS (article-fix). UNTESTED LIVE.
+# Augustine (scripts/services/article-fix.mjs) repairs the claims Thomas could not verify in a draft: it reads drafts/<entry-id>.json,
+# ledger-drafts/<entry-id>.json (Thomas's check of that draft) and sources/<entry-id>.json, and rewrites ONLY the problem sentences.
+# Run Thomas on the draft FIRST. After this run, run Thomas again to see the new result.
+# Manual only. It makes REAL model calls (Anthropic, Claude Sonnet 5.5, up to 3 attempts) using the ANTHROPIC_API_KEY secret.
+# It overwrites drafts/<entry-id>.json (the earlier version stays in the repo's history). It never touches data.json or the ledger.
+# If the fix cannot be made cleanly after 3 attempts, nothing is overwritten and the run says why.
+# Run it: GitHub app or github.com > repo > Actions > "Augustine fix pass" > Run workflow, then type the entry id (for example st-augustine-430).
+# Same concurrency group as the other pilots, so they never write at the same moment.
+
+name: Augustine fix pass
+
+on:
+  workflow_dispatch:
+    inputs:
+      entry_id:
+        description: 'Entry id of the draft to fix, e.g. st-augustine-430 (all lowercase)'
+        required: true
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: orchestrator
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            scripts
+            sources
+            drafts
+            ledger-drafts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run the fix pass
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ENTRY_ID: ${{ inputs.entry_id }}
+        run: |
+          set +e
+          node --input-type=module > fix-result.txt 2> fix-log.txt <<'JS'
+          import { pathToFileURL } from 'node:url';
+          const id = (process.env.ENTRY_ID || '').trim();
+          if (!id) { console.log('error: type an entry id'); process.exit(1); }
+          const mod = await import(pathToFileURL(process.cwd() + '/scripts/services/article-fix.mjs').href);
+          const task = { id: 'augustine-fix-' + Date.now(), type: 'article-fix', entityId: id, payload: {} };
+          const out = await mod.runArticleFix(task, { entries: [] }, null, {});
+          console.log(out.summary);
+          console.log(JSON.stringify(out.result, null, 1));
+          process.exit(out.result && out.result.outcome === 'fixed' ? 0 : 1);
+          JS
+          CODE=$?
+          cat fix-result.txt
+          cat fix-log.txt
+          { echo '### Augustine fix pass'; head -n 1 fix-result.txt; echo; echo '```'; cat fix-result.txt; cat fix-log.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $CODE
+      - name: Commit the revised draft
+        run: |
+          git config user.name "augustine-bot"
+          git config user.email "actions@users.noreply.github.com"
+          [ -d drafts ] && git add drafts
+          if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
+          git commit -m "Draft: Augustine fix pass $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for i in 1 2 3 4; do
+            if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin "HEAD:$GITHUB_REF_NAME"; then exit 0; fi
+            sleep $((i * 2))
+          done
+          echo "push failed after retries"; exit 1
+      - name: Keep the result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fix-result
+          path: |
+            fix-result.txt
+            fix-log.txt
+          if-no-files-found: ignore
