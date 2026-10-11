@@ -1,6 +1,6 @@
 <!--
-VERSION: 569
-DATE: 2026-10-10T21:00:00-05:00
+VERSION: 571
+DATE: 2026-10-10T22:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,29 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v571 — 2026-10-10
+
+**Ask:**
+- Portrait: "pray for us" a bit larger, and to the right of the year when there's room.
+
+**Implementation:**
+- Portrait finale: "pray for us" goes on the year's line, right of the year, at 27px (was 22),
+  sitting on the year's baseline, no leading comma. Room is measured to the corner picture (or the
+  X); if it doesn't fit (a "Miracle" label, a long year), the v569 placements apply: after the
+  name, else below the header. Landscape unchanged.
+
+## v570 — 2026-10-10
+
+**Ask:**
+- Landscape: the close X is hard to hit. Make its target bigger than the X, and line the top of the
+  X up with the top of the picture; a tap in the padding around it should close the article too.
+
+**Implementation:**
+- Landscape X: top -8px → -7.5px, so its lines start exactly level with the picture's top edge.
+- Larger tap target: an invisible ::before on the button extends it 26px left and 22px down (about
+  86 × 82 instead of 60 × 60). Not to the right — that's the picture, which must still flip.
+  A tap anywhere in it is a tap on the button, so it closes the article.
+
 ## v569 — 2026-10-10
 
 **Ask (also):**
@@ -2094,7 +2117,9 @@ CHANGELOG:END
          sits. !important beats setArtXShift()'s inline style, which keeps running in the
          background (measureFly/placePeekFly aren't landscape-aware) and would otherwise fight
          this every scroll tick. */
-      #article.overlay.hasLandImg .artX{ right: calc(var(--landCardW) + 16px + 2px) !important; top:-8px; }   /* v552: nearer the picture, a bit higher */
+      #article.overlay.hasLandImg .artX{ right: calc(var(--landCardW) + 16px + 2px) !important; top:-7.5px; }   /* v570: X's lines level with the picture's top */
+      /* v570: a bigger target than the X — left and down, not right (the picture is there) */
+      #article.overlay.hasLandImg .artX::before{content:''; position:absolute; top:0; right:0; bottom:-22px; left:-26px;}   /* v552: nearer the picture, a bit higher */
       #article.overlay.landFactsCol .artX{ right: calc(50vw + 8px + 14px) !important; }
       /* v478: share stays just left of the X in landscape too. */
       #article.overlay.hasLandImg .artShareBtn{ right: calc(var(--landCardW) + 16px + 14px + 54px) !important; }
@@ -2349,6 +2374,7 @@ CHANGELOG:END
   .finalePray span.in{opacity:1; transform:none;}
   .finalePray.out{opacity:0; transform:translateY(-10px);}
   .finalePray.inline{font-size:24px;}
+  .finalePray.yr{font-size:27px;}   /* v571: beside the year, portrait */
   .finalePray.below{z-index:160; padding:2px 12px 5px; border-radius:10px; background:rgba(16,26,58,.94); box-shadow:0 6px 18px rgba(0,0,0,.35);}
   /* v518: says the name, from the article's own recording */
   .ahSay{display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.22em; margin-left:.2em;
@@ -5276,7 +5302,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v569';
+const APP_VERSION = 'v571';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -12238,7 +12264,22 @@ function finaleTick(t){
     // On the name's line, completing the invocation ("St. Joseph, pray for us") when it fits;
     // otherwise underneath, clear of the header's gold rule.
     const room = (sticky.classList.contains('hasPortrait') ? sr.right - 130 : sr.right - 70) - lastLine.right;
-    if(line.offsetWidth + 18 <= room){
+    // v571: portrait — to the right of the year, a little larger, when it fits
+    const yearRow = sticky.querySelector('.ahYearRow'), yearEl = sticky.querySelector('.ahYear');
+    let placed = false;
+    if(isPortrait() && yearRow && yearEl){
+      line.classList.add('yr');
+      const yrR = yearRow.getBoundingClientRect(), yR = yearEl.getBoundingClientRect();
+      const roomY = (sticky.classList.contains('hasPortrait') ? sr.right - 130 : sr.right - 70) - yrR.right;
+      if(line.offsetWidth + 16 <= roomY){
+        line.style.left = (yrR.right - sr.left + 16) + 'px';
+        // sit on the year's baseline: the year's bottom, less the line's own descent
+        line.style.top = (yR.bottom - sr.top - line.offsetHeight + Math.round(line.offsetHeight * 0.18)) + 'px';
+        placed = true;
+      }else line.classList.remove('yr');
+    }
+    if(placed){ /* on the year's line */ }
+    else if(line.offsetWidth + 18 <= room){
       line.classList.add('inline');
       line.firstChild.textContent = ', pray';
       line.style.left = (lastLine.right - sr.left) + 'px';
