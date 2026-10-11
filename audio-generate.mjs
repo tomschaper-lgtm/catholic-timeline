@@ -56,6 +56,9 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { stripHtml, splitSentences } from '../lib/text.mjs';
 import { isKokoroVoice, kokoroVoiceName, kokoroSpeed, Track, synthBatch, trackToMp3 } from './tts-kokoro.mjs';
+import { americanDates, americanizeEntryDates, spokenDateAt } from './american-dates.mjs';
+import { pronVote, COMMON, decideRomanI, iKey } from './pron-vote.mjs';   // 2026-10-05: own file, shared with fix-dates.mjs
+export { americanDates, americanizeEntryDates };
 
 export const AUDIO_ROOT = 'audio';
 // 2026-09-27: was the github.io address; the site is served by Cloudflare at this domain, and
@@ -85,11 +88,18 @@ export async function loadPronunciationRules(){
   if(pronunciationRules) return pronunciationRules;
   try{
     const raw = JSON.parse(await fs.readFile(PRONUNCIATION_FILE, 'utf8'));
-    pronunciationRules = (raw.rules || [])
+    // Pause rules (2026-10-04): { type: "pause", string_to_replace: "the faith Mary",
+    // pause_after: "the faith" } — a comma is spoken after "the faith" wherever the whole phrase
+    // appears. They go first and never consume the phrase, so sound fixes inside it still apply.
+    const pauses = (raw.rules || [])
+      .filter(r => r && r.type === 'pause' && r.string_to_replace && typeof r.pause_after === 'string'
+        && r.pause_after.trim() && r.string_to_replace.startsWith(r.pause_after) && r.pause_after.length < r.string_to_replace.length)
+      .map(r => ({ from: r.string_to_replace, pauseAt: r.pause_after.length, pause: true }));
+    pronunciationRules = pauses.concat((raw.rules || [])
       .filter(r => r && r.type === 'alias' && r.string_to_replace && typeof r.alias === 'string')
       // kokoro_ipa (optional): exact sounds for the Kokoro voice, used instead of the alias
       // respelling when Kokoro is recording. ElevenLabs and the browser voice ignore it.
-      .map(r => ({ from: r.string_to_replace, to: r.alias, ipa: typeof r.kokoro_ipa === 'string' && r.kokoro_ipa.trim() ? r.kokoro_ipa.trim() : '' }));
+      .map(r => ({ from: r.string_to_replace, to: r.alias, ipa: typeof r.kokoro_ipa === 'string' && r.kokoro_ipa.trim() ? r.kokoro_ipa.trim() : '' })));
   }catch(e){
     pronunciationRules = []; // no file (or unreadable): narrate the text as written
   }
@@ -103,6 +113,64 @@ const isWordChar = (ch) => !!ch && /[A-Za-z0-9\u00C0-\u024F]/.test(ch);
 // "[God's](/ɡˈɑdz/) [will](/wˈɪl/)". The fix still applies only where the whole phrase appears.
 // When the sounds can't be split word for word (a phrase fix saved as one run of sounds), the
 // phrase is left to Kokoro's own reading rather than sent as a multi-word override. (2026-10-01)
+// A lone "I" right after a capitalized name is a numeral, said "the first": "Leo I",
+// "Constantinople I", "Pope Leo I convened". The dictionary's other numerals (II, III, XXVIII...) are
+// ordinary rules; "I" can't be one, since it is also the word "I". So it is NOT changed:
+// after a word that only starts a sentence ("Then I", "So I"), inside quotation marks
+// ("Lord, I am not worthy"), as "I'm"/"I'll", or after counted things ("Book I", "Part I").
+// "Vatican I" is said "Vatican One", matching the dictionary's "Vatican Two". A dictionary entry
+// that covers the phrase ("John Paul I") wins, since it matches first. (2026-10-07)
+const COUNTED = new Set(['Book', 'Part', 'Chapter', 'Volume', 'Vol', 'Section', 'Article', 'Canon', 'Session',
+  'Act', 'Phase', 'Stage', 'Level', 'Class', 'Type', 'Grade', 'Appendix', 'Table', 'Figure', 'Question', 'Lesson', 'Psalm', 'Step',
+  'Sermon', 'Homily', 'Letter', 'Epistle', 'Canto', 'Hymn', 'Treatise', 'Discourse', 'Oration', 'Tract']);
+// After these "I" is always the word "I" (prayers): no one is "Jesus the first". Not Mary — Mary I of England.
+const NEVER_NUMBERED = new Set(['God', 'Lord', 'Jesus', 'Christ', 'Father', 'Savior', 'Saviour', 'Spirit']);
+// A verb only the speaker could use after "I" means it's the word "I": "Lord I am", "Christ I live".
+// ("Leo I has", "Leo I sent" still read as "the first".)
+const FIRST_PERSON = new Set(('am have believe know love pray beg ask trust adore praise thank give offer confess hope want ' +
+  'desire seek beseech implore live say tell promise swear intend wish fear need feel think see hear come go will shall ' +
+  'cannot can must may might would could should do').split(' '));
+// Decisions from the models for this recording (decideRomanI): key -> "the first" | "One" | "I".
+let romanIDecisions = new Map();
+export function setRomanIDecisions(m){ romanIDecisions = m instanceof Map ? m : new Map(); }
+export function regnalFirstAt(text, i){
+  if(text[i] !== 'I') return null;
+  // the models' vote for this spot wins; the rules below are the fallback (2026-10-07)
+  if(text[i - 1] === ' ' && romanIDecisions.size){
+    const d = romanIDecisions.get(iKey(text, i));
+    if(d) return d === 'I' ? null : d;
+  }
+  const next = text[i + 1];
+  if(isWordChar(next)) return null;
+  // "Leo I's letter" -> "the first's"; "I'm", "I'll" are the word "I"
+  const apos = next === "'" || next === '\u2019';
+  const possessive = apos && text[i + 2] === 's' && !isWordChar(text[i + 3]);
+  if(apos && isWordChar(text[i + 2]) && !possessive) return null;
+  if(text[i - 1] !== ' ') return null;
+  const m = text.slice(0, i - 1).match(/(\p{Lu}[\p{L}\p{M}]*)$/u);
+  if(!m) return null;
+  const prev = m[1];
+  if(COMMON.has(prev.toLowerCase()) || COUNTED.has(prev) || NEVER_NUMBERED.has(prev)) return null;
+  const nextWord = (text.slice(i + 1).match(/^\s+([a-z]+)/) || [])[1];
+  if(nextWord && FIRST_PERSON.has(nextWord)) return null;
+  // inside quotation marks? (curly pairs, or an odd number of straight quotes before it)
+  const before = text.slice(0, i);
+  const open = (before.match(/\u201c/g) || []).length - (before.match(/\u201d/g) || []).length;
+  if(open > 0 || (before.match(/"/g) || []).length % 2 === 1) return null;
+  return prev === 'Vatican' ? 'One' : 'the first';
+}
+// "I Corinthians", "II Kings", "3 John" -> "First/Second/Third ..." — the number comes before these books.
+const BOOKS = /^(I{1,3}|[123]) (Samuel|Kings|Chronicles|Maccabees|Corinthians|Thessalonians|Timothy|Peter|John|Esdras)(?![\p{L}\p{M}])/u;
+export function bookOrdinalAt(text, i){
+  const m = BOOKS.exec(text.slice(i, i + 20));
+  if(!m) return null;
+  // "And I John saw the holy city" (Apoc. 21:2): with John/Peter, "I" followed by a word is the
+  // speaker — only a verse number or punctuation after the name makes it the book ("I John 4:8").
+  if(m[1] === 'I' && /^(John|Peter)$/.test(m[2]) && /^\s+[a-z]/.test(text.slice(i + m[0].length))) return null;
+  const n = /\d/.test(m[1]) ? Number(m[1]) : m[1].length;
+  return { len: m[1].length, say: ['First', 'Second', 'Third'][n - 1] };
+}
+
 export function kokoroMarkup(from, ipa){
   const words = String(from).split(/\s+/).filter(Boolean);
   if(words.length <= 1) return '[' + from + '](/' + ipa + '/)';
@@ -113,12 +181,53 @@ export function kokoroMarkup(from, ipa){
 export function applyPronunciation(text, rules, useIpa){
   const map = new Array(text.length + 1);
   let out = '', count = 0, i = 0;
+  const pauseAt = new Set();          // positions in the original text where a comma is spoken first
+  const flushPause = (upto) => {      // speak any pause due at or before this position (once)
+    for(const p of [...pauseAt]) if(p <= upto){
+      pauseAt.delete(p);
+      if(!/[,;:.!?\u2014]\s*$/.test(out)) out += ',';
+    }
+  };
   while(i < text.length){
+    flushPause(i);
+    // "II Kings" -> "Second Kings" before the dictionary's bare "II" -> "the second" can apply (2026-10-07)
+    const bo = !isWordChar(text[i - 1]) ? bookOrdinalAt(text, i) : null;
+    if(bo){
+      for(let k = 0; k < bo.len; k++) map[i + k] = out.length;
+      out += bo.say;
+      i += bo.len;
+      count++;
+      continue;
+    }
     let hit = null;
     if(!isWordChar(text[i - 1])){
       for(const r of rules){
-        if(text.startsWith(r.from, i) && !isWordChar(text[i + r.from.length])){ hit = r; break; }
+        if(!(text.startsWith(r.from, i) && !isWordChar(text[i + r.from.length]))) continue;
+        // A bare roman numeral ("X" -> "the tenth") never applies to a letter hyphenated onto a word:
+        // "X-shaped", "X-ray", "V-neck" stay as written; "Pius X" is still "Pius the tenth". (2026-10-11)
+        if(/^[IVXLCDM]+$/.test(r.from) && ((text[i + r.from.length] === '-' && isWordChar(text[i + r.from.length + 1])) || (text[i - 1] === '-' && isWordChar(text[i - 2])))) continue;
+        if(r.pause){ pauseAt.add(i + r.pauseAt); count++; continue; }   // mark it; keep looking for a sound/spelling rule here
+        hit = r; break;
       }
+    }
+    // A date is spoken with an ordinal day: "October 3, 1952" -> "October third, 1952" (2026-10-05).
+    // Checked before the rules so a month name never gets a rule of its own in between.
+    const sd = !hit && !isWordChar(text[i - 1]) ? spokenDateAt(text, i) : null;
+    if(sd){
+      for(let k = 0; k < sd.len; k++) map[i + k] = out.length;
+      out += sd.say;
+      i += sd.len;
+      count++;
+      continue;
+    }
+    // "Leo I", "Constantinople I" -> "the first" (2026-10-07); see regnalFirstAt().
+    const rf = !hit && !isWordChar(text[i - 1]) ? regnalFirstAt(text, i) : null;
+    if(rf){
+      map[i] = out.length;
+      out += rf;
+      i += 1;
+      count++;
+      continue;
     }
     if(hit){
       for(let k = 0; k < hit.from.length; k++) map[i + k] = out.length;
@@ -127,11 +236,13 @@ export function applyPronunciation(text, rules, useIpa){
       i += hit.from.length;
       count++;
     }else{
+      flushPause(i);
       map[i] = out.length;
       out += text[i];
       i++;
     }
   }
+  flushPause(text.length);
   map[text.length] = out.length;
   return { spoken: out, map, count };
 }
@@ -431,12 +542,14 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
     spokenItems.map(x => x.type === 'invocation' ? prayerSpeed : speed));
   const track = new Track();
   const cues = [];
-  let n = 0, titleEnd = 0;
+  let n = 0, titleEnd = 0, prayer = null;
   for(const step of plan){
     if(step.gap !== undefined){ track.addSilence(step.gap); continue; }
     const start = track.seconds;
     track.addSamples(audio[n++]);
     if(step.type === 'title'){ titleEnd = round2(track.seconds); continue; }
+    // The closing prayer's exact place, for the app's finale (2026-10-10)
+    if(step.type === 'invocation'){ prayer = { start: round2(start), end: round2(track.seconds), text: step.cueText || step.text || '' }; continue; }
     if(step.type !== 'invocation'){
       cues.push({ section: step.section, type: step.type, text: step.cueText, start: round2(start), end: round2(track.seconds) });
     }
@@ -444,7 +557,7 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
 
   const audioPath = path.join(dir, `${baseName}.${OUTPUT_EXT}`);
   await trackToMp3(track, audioPath);
-  return { audioPath, durationSec: round2(track.seconds), cues, replacements, titleEnd };
+  return { audioPath, durationSec: round2(track.seconds), cues, replacements, titleEnd, prayer };
 }
 
 export function nextVersion(entry){
@@ -517,6 +630,43 @@ export function voiceFromPayload(p){
 /**
  * Handler signature expected by scripts/orchestrator.mjs: (task, dataJson) => outcome
  */
+
+// Numbered names the dictionary should always have (2026-10-07): councils are said "One", like
+// its "Constantinople Two"; "World War I" is "World War One". Added once if missing — never
+// overwriting an entry Tom has saved for the same words — and committed with the recording.
+const NUMERAL_ENTRIES = [['Nicaea I', 'Nicaea One'], ['Constantinople I', 'Constantinople One'], ['Lateran I', 'Lateran One'],
+  ['Lyon I', 'Lyon One'], ['Lyons I', 'Lyons One'], ['Vatican I', 'Vatican One'], ['World War I', 'World War One']];
+async function ensureNumeralEntries(){
+  let raw;
+  try{ raw = JSON.parse(await fs.readFile(PRONUNCIATION_FILE, 'utf8')); }catch(e){ return []; }
+  raw.rules = Array.isArray(raw.rules) ? raw.rules : [];
+  const have = new Set(raw.rules.map(r => r && r.string_to_replace));
+  const add = NUMERAL_ENTRIES.filter(([from]) => !have.has(from));
+  if(!add.length) return [];
+  for(const [from, alias] of add) raw.rules.push({ string_to_replace: from, type: 'alias', alias, case_sensitive: true, word_boundaries: true, source: 'numerals' });
+  await fs.writeFile(PRONUNCIATION_FILE, JSON.stringify(raw, null, 2));
+  pronunciationRules = null;
+  return [PRONUNCIATION_FILE];
+}
+
+// One line for the run summary about "I" after names.
+function romanISummary(r){
+  if(!r || !r.asked) return r && r.error ? ' \u2014 "I" check skipped (' + r.error.slice(0, 80) + ')' : '';
+  return ' \u2014 "I" after a name: ' + r.decided.length + ' of ' + r.asked + ' decided by ' + ((r.decided[0] && r.decided[0].votes[0]) || 'the model') +
+    (r.decided.length ? ' (' + r.decided.map(d => d.context + ' \u2192 ' + d.say).join('; ').slice(0, 200) + ')' : '') +
+    (r.decided.length < r.asked ? ', the rest by the recorder\'s rules' : '');
+}
+
+// One line for the run summary about the pronunciation check.
+function voteSummary(v){
+  if(!v || v.skipped) return '';
+  if(v.error) return ' \u2014 pronunciation check skipped (' + v.error.slice(0, 100) + ')';
+  if(!v.checked) return v.errors && v.errors.length ? ' \u2014 pronunciation check: no answers (' + v.errors.join('; ').slice(0, 160) + ')' : '';
+  return ' \u2014 pronunciation check: ' + v.checked + ' name' + (v.checked === 1 ? '' : 's') + ' compared' +
+    (v.corrected.length ? ', ' + v.corrected.length + ' added to the dictionary: ' + v.corrected.map(c => c.word + ' \u2192 ' + c.respell + ' (' + c.votes.join(' + ') + ')').join('; ') : ', all as Kokoro says them') +
+    (v.errors && v.errors.length ? ' [' + v.errors.join('; ').slice(0, 120) + ']' : '');
+}
+
 export async function runAudioGenerate(task, dataJson){
   const kokoro = isKokoroVoice((task.payload || {}).voiceId);
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -529,8 +679,30 @@ export async function runAudioGenerate(task, dataJson){
   if(!hasNarratableText(entry)){
     return { result: { entityId: entry.id, name: entry.n }, summary: 'skipped \u2014 no article text to narrate' };
   }
+  // American date order first ("28 December 1065" -> "December 28, 1065"), so the saved text,
+  // the recording and its sentence timing all match. Quotes from sources are left alone.
+  const datesFixed = americanizeEntryDates(entry);
+  // A new recording has to be listened to again before it counts as checked (2026-10-05).
+  if(entry.qc){ delete entry.qc.pronChecked; delete entry.qc.pronCheckedAt; }
 
   const p = task.payload || {};
+  const numeralFiles = await ensureNumeralEntries();   // councils "One", "World War One" (2026-10-07)
+  // Pronunciation check (2026-10-07): capitalized words not in the dictionary — Kokoro vs Claude,
+  // OpenAI and Gemini; two agreeing against Kokoro add a dictionary fix, used in this recording.
+  let vote = null, romanI = null;
+  if(kokoro && p.pronVote !== false){
+    try{ vote = await pronVote(entry); }catch(e){ vote = { error: String(e.message || e) }; }
+    pronunciationRules = null;   // reload, so a fix added just now is used below
+  }
+  // "I" after a name: one model decides "the first" / "One" / the word "I" (2026-10-07)
+  setRomanIDecisions(new Map());
+  if(p.pronVote !== false && process.env.PRON_VOTE !== '0'){
+    try{
+      const raw = JSON.parse(await fs.readFile(PRONUNCIATION_FILE, 'utf8').catch(() => '{"rules":[]}'));
+      romanI = await decideRomanI(entry, raw.rules || []);
+      setRomanIDecisions(romanI.decisions);
+    }catch(e){ romanI = { error: String(e.message || e) }; }
+  }
   const { voiceId, modelId, voiceSettings } = voiceFromPayload(p);
   const readHeadings = p.readHeadings !== false;
   // Pauses in milliseconds from the app's Voice & pacing settings (2026-10-01: all four adjustable;
@@ -548,7 +720,7 @@ export async function runAudioGenerate(task, dataJson){
   const version = await freeVersion(entry, dir);
   const baseName = entry.id + '-v' + version;
   const engine = kokoro ? 'kokoro:' + kokoroVoiceName(voiceId) : 'elevenlabs:' + voiceId;
-  const { audioPath, durationSec, cues, replacements, titleEnd } = kokoro
+  const { audioPath, durationSec, cues, replacements, titleEnd, prayer } = kokoro
     ? await narrateEntryKokoro(entry, dir, baseName, {
         voiceId, speed: kokoroSpeed(p), prayerSpeed: kokoroSpeed({ speed: p.prayerSpeed || 0.9 }), readHeadings, headingPauseSec, sectionPauseSec,
         sentencePauseSec, titlePauseSec
@@ -562,7 +734,7 @@ export async function runAudioGenerate(task, dataJson){
   const relAudio = path.join(AUDIO_ROOT, folder, path.basename(audioPath)).split(path.sep).join('/');
   const relTiming = relAudio.replace(new RegExp('\\.' + OUTPUT_EXT + '$'), '.json');
   const timingPath = audioPath.replace(new RegExp('\\.' + OUTPUT_EXT + '$'), '.json');
-  await fs.writeFile(timingPath, JSON.stringify({ id: entry.id, audio: relAudio, engine, durationSec, titleEnd: titleEnd || 0, cues }, null, 1));
+  await fs.writeFile(timingPath, JSON.stringify({ id: entry.id, audio: relAudio, engine, durationSec, titleEnd: titleEnd || 0, ...(prayer ? { prayer } : {}), cues }, null, 1));
 
   entry.audio = relAudio;
   entry.audioTiming = relTiming;
@@ -580,8 +752,10 @@ export async function runAudioGenerate(task, dataJson){
   return {
     result: { entityId: entry.id, name: entry.n, audio: relAudio, durationSec, cueCount: cues.length, link: SITE_BASE + '/' + relAudio },
     summary: 'recorded ' + durationSec + 's with ' + engine + ' (' + cues.length + ' cues' +
-      (replacements ? ', ' + replacements + ' pronunciation fix' + (replacements === 1 ? '' : 'es') : '') + ') \u2014 ' + relAudio +
+      (replacements ? ', ' + replacements + ' pronunciation fix' + (replacements === 1 ? '' : 'es') : '') +
+      (datesFixed ? ', ' + datesFixed + ' date' + (datesFixed === 1 ? '' : 's') + ' put in American order' : '') + ') \u2014 ' + relAudio +
+      voteSummary(vote) + romanISummary(romanI) +
       (removed.length ? ' (removed ' + removed.length + ' old file' + (removed.length === 1 ? '' : 's') + ')' : ''),
-    filesToCommit: [relAudio, relTiming, 'data.json', ...removed]
+    filesToCommit: [...new Set([relAudio, relTiming, 'data.json', ...removed, ...numeralFiles, ...((vote && vote.files) || [])])]
   };
 }
