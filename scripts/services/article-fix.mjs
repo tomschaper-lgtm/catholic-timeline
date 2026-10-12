@@ -1,5 +1,7 @@
 // scripts/services/article-fix.mjs
-// MODULE DATE: 2026-10-11 (Sunday) · v0.1 — "Augustine, fix pass" (stage 4): repairs the claims Thomas could not verify in a draft. UNTESTED LIVE.
+// MODULE DATE: 2026-10-11 (Sunday) · v0.3 — "Augustine, fix pass" (stage 4): repairs the claims Thomas could not verify in a draft. First live run 2026-10-11 found two faults, fixed here (see v0.2 below).
+// v0.3: the source pages go in a CACHED block (same bytes on every attempt), so attempts 2 and 3 read them from cache at about a tenth of the price.
+// v0.2: (1) action words are read loosely (rewrite, soften, trim, remove, cut... are accepted); (2) once a "keep" has been refused for a sentence, keep is no longer allowed for it, so the model must reword or delete; (3) reply budget raised so a first reply is not cut off.
 //
 // Service "article-fix". It reads THREE files and changes ONE:
 //   reads   drafts/<entry-id>.json          (Augustine's draft)
@@ -43,18 +45,18 @@ const RULES_PATH = process.env.WRITER_RULES_PATH || 'scripts/writer-rules.md';
 const STYLE_PATH = process.env.WRITER_STYLE_PATH || 'scripts/writer-style.json';
 const DEFAULT_MODEL = 'claude-sonnet-5-5';            // the writer's model (Tom, 2026-10-10); the fix pass is the writer's second stage
 const MAX_ATTEMPTS = 3;
-const TOKEN_BUDGETS = [4000, 8000, 12000];            // replies are short lists of edits, not whole articles
+const TOKEN_BUDGETS = [8000, 12000, 16000];           // live run: 4000 cut the first reply off and cost a whole extra call
 const MAX_SOURCE_CHARS = 120000;
 const AGE_TOKEN = '[[AGE]]';
 let tokensUsed = 0;
 
 // ---------- the model call (same as the writer's; deps.callModel replaces it in tests) ----------
-async function callAnthropic({ system, user, maxTokens, model }) {
+async function callAnthropic({ system, user, cached, maxTokens, model }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('Missing ANTHROPIC_API_KEY secret (needed for the fix pass).');
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] })
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: cached ? [{ type: 'text', text: cached, cache_control: { type: 'ephemeral' } }, { type: 'text', text: user }] : user }] })
   });
   if (!res.ok) {
     const err = new Error('Anthropic messages ' + res.status + ': ' + String(await res.text().catch(() => '')).slice(0, 300));
@@ -154,8 +156,9 @@ Every problem id must appear exactly once.`;
 }
 
 // ---------- applying the edits (all in code) ----------
-export function applyEdits(edits, problems, sections, facts, sources) {
-  const problemsOut = [], changes = [], kept = [];
+const ACTION_WORDS = { replace: 'replace', rewrite: 'replace', reword: 'replace', revise: 'replace', soften: 'replace', trim: 'replace', edit: 'replace', correct: 'replace', change: 'replace', modify: 'replace', narrow: 'replace', delete: 'delete', remove: 'delete', cut: 'delete', drop: 'delete', omit: 'delete', keep: 'keep', retain: 'keep', unchanged: 'keep', leave: 'keep', supported: 'keep' };
+export function applyEdits(edits, problems, sections, facts, sources, keepForbidden = new Set()) {
+  const problemsOut = [], changes = [], kept = [], keepRefused = [];
   const secs = sections.map(s => ({ h: s.h, b: s.b })), fs = facts.map(f => ({ label: f.label, value: f.value }));
   const allText = sources.map(s => norm(s.text)).join(' || ');
   const byId = new Map();
@@ -163,15 +166,16 @@ export function applyEdits(edits, problems, sections, facts, sources) {
   for (const p of problems) {
     const e = byId.get(p.id);
     if (!e) { problemsOut.push('problem ' + p.id + ' has no edit'); continue; }
-    const action = String(e.action || '').toLowerCase();
+    const action = ACTION_WORDS[String(e.action || '').toLowerCase().trim()] || '';
     const why = String(e.why || '').trim().slice(0, 300);
     if (!['replace', 'delete', 'keep'].includes(action)) { problemsOut.push('problem ' + p.id + ': action must be replace, delete or keep'); continue; }
+    if (action === 'keep' && keepForbidden.has(p.id)) { problemsOut.push('problem ' + p.id + ': keep was already refused for this sentence; you must now use replace (say only what a source states) or delete'); continue; }
     if (action === 'keep') {
       const src = sources.find(s => s.num === Number(e.support && e.support.source));
       const passage = norm(e.support && e.support.passage);
       if (!src || passage.length < 12 || !norm(src.text).includes(passage)) { problemsOut.push('problem ' + p.id + ': keep needs a passage copied exactly from the source named; that passage was not found on that page'); continue; }
       const yearsNeeded = (String(p.thomasSentence || '').match(/\b\d{3,4}\b/g) || []).filter(y => !passage.includes(y));
-      if (yearsNeeded.length) { problemsOut.push('problem ' + p.id + ': the passage must contain the year ' + yearsNeeded[0] + ' the sentence states; otherwise reword the sentence'); continue; }
+      if (yearsNeeded.length) { problemsOut.push('problem ' + p.id + ': the passage must contain the year ' + yearsNeeded[0] + ' the sentence states; otherwise reword the sentence'); keepRefused.push(p.id); continue; }
       kept.push({ id: p.id, cids: p.claims.map(c => c.cid), source: src.num, passage: String(e.support.passage).slice(0, 300), why });
       continue;
     }
@@ -194,7 +198,7 @@ export function applyEdits(edits, problems, sections, facts, sources) {
       changes.push({ id: p.id, cids: p.claims.map(c => c.cid), where: 'section ' + (p.section || '?'), action, before: old, after: next, why });
     }
   }
-  return { sections: secs.filter(s => s.b), facts: fs, changes, kept, problems: problemsOut };
+  return { sections: secs.filter(s => s.b), facts: fs, changes, kept, problems: problemsOut, keepRefused };
 }
 
 // ---------- the run ----------
@@ -229,18 +233,20 @@ export async function fixDraft(entryId, { task, now = new Date(), deps = {} } = 
   const plainSources = sources.map(s => ({ n: s.num, text: s.text }));
   const base = {
     subject: draft.subject, article: { description: draft.entry.d, sections: restored.sections.map((s, i) => ({ n: i + 1, h: s.h, b: s.b })), quotes: draft.entry.art.quotes, facts: restored.facts },
-    problems,
-    sources: sources.map(s => ({ n: s.num, tier: s.tier, url: s.url, catholicEncyclopedia: /newadvent\.org\/cathen\//i.test(s.url || ''), text: s.send }))
+    problems
   };
+  // The pages are the big part and never change between attempts, so they travel as their own block marked for caching (identical bytes every time).
+  const cached = 'SOURCES (numbered; the pages every edit must rest on):\n' + JSON.stringify(sources.map(s => ({ n: s.num, tier: s.tier, url: s.url, catholicEncyclopedia: /newadvent\.org\/cathen\//i.test(s.url || ''), text: s.send })));
 
   const usageTotal = { role: 'writer-fix', provider: 'anthropic', model, calls: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
   const attemptLog = [];
+  const keepForbidden = new Set();
   let failure = null, previous = null, final = null, finalCheck = null, modelNotes = [];
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const user = JSON.stringify({ ...base, ...(failure ? { revise: { instruction: 'Your previous edits had these problems. Return the COMPLETE list of edits again, one per problem id, with these fixed.', problems: failure, previousEdits: previous } } : {}) });
+    const user = JSON.stringify({ ...base, ...(failure ? { revise: { instruction: 'Your previous edits had these problems. Return the COMPLETE list of edits again, one per problem id, with these fixed. Allowed actions are exactly: replace, delete, keep.', problems: failure, previousEdits: previous, ...(keepForbidden.size ? { keepNotAllowedForProblemIds: [...keepForbidden] } : {}) } } : {}) });
     let reply, parsed = null, parseErr = '';
     for (let b = 0; b < TOKEN_BUDGETS.length; b++) {
-      reply = await call({ system, user, maxTokens: TOKEN_BUDGETS[b], model });
+      reply = await call({ system, user, cached, maxTokens: TOKEN_BUDGETS[b], model });
       usageTotal.calls++; usageTotal.inputTokens += reply.usage.input || 0; usageTotal.outputTokens += reply.usage.output || 0;
       usageTotal.cacheReadTokens += reply.usage.cacheRead || 0; usageTotal.cacheWriteTokens += reply.usage.cacheWrite || 0;
       tokensUsed += (reply.usage.input || 0) + (reply.usage.output || 0);
@@ -249,7 +255,8 @@ export async function fixDraft(entryId, { task, now = new Date(), deps = {} } = 
       break;
     }
     if (!parsed) { failure = [parseErr || 'no usable reply']; attemptLog.push({ n: attempt, problems: failure }); continue; }
-    const applied = applyEdits(parsed.edits, problems, restored.sections, restored.facts, sources);
+    const applied = applyEdits(parsed.edits, problems, restored.sections, restored.facts, sources, keepForbidden);
+    for (const id of applied.keepRefused) keepForbidden.add(id);
     let vs = applied.problems.slice();
     let candidate = null;
     if (!vs.length) {
@@ -304,4 +311,4 @@ export async function runArticleFix(task, dataJson, _workLog, deps = {}) {
   };
 }
 
-export const __test = { restoreAgeMarkers, collectProblems, applyEdits, buildFixSystem, sentencesOf, norm };
+export const __test = { ACTION_WORDS, restoreAgeMarkers, collectProblems, applyEdits, buildFixSystem, sentencesOf, norm };
