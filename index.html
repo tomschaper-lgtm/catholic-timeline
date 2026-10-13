@@ -1,6 +1,6 @@
 <!--
-VERSION: 572
-DATE: 2026-10-11T08:00:00-05:00
+VERSION: 573
+DATE: 2026-10-12T12:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,22 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v573 — 2026-10-12
+
+**Ask:**
+- At the end of a story, drop the words "pray for us" (they distract). Instead, when it says "pray
+  for us", the whole saint's name glows bright blue all at once, big, then slowly fades out.
+
+**Implementation:**
+- finaleTick step 3: the one-by-one "pray for us" words, their placement (beside the year, after
+  the name, below the header) and their fade-out are gone. At the moment "pray for us" is spoken
+  the name element gets the class finaleBlue: a four-layer blue text-shadow (up to 84px) that
+  starts at full strength and eases to nothing over 3.4s (keyframes finaleBlueGlow). The name's
+  own colour is not touched, so it simply returns to its usual white. The word-by-word gold glow
+  as the name is spoken is unchanged. finaleReset (scrub back, swipe, close) removes the class.
+- A custom [prayer] without "pray for us" behaves as before (no blue glow). The old .finalePray
+  CSS rules are left in place, unused.
+
 ## v572 — 2026-10-11
 
 **Ask:**
@@ -58,6 +74,138 @@ CHANGELOG:BEGIN
 - Larger tap target: an invisible ::before on the button extends it 26px left and 22px down (about
   86 × 82 instead of 60 × 60). Not to the right — that's the picture, which must still flip.
   A tap anywhere in it is a tap on the button, so it closes the article.
+
+## v569 — 2026-10-10
+
+**Ask (also):**
+- Play button a little bigger, and higher — it's close to the bottom gesture area.
+
+**Implementation (play button):**
+- 48 → 54px (icon 26 → 29px); bottom offset max(18px, safe area + 10px) → max(30px, safe area +
+  26px): about 60px above the bottom edge on an iPhone, clear of the home bar. The space under the
+  article grows 110 → 130px so the last lines still clear it.
+
+**Ask:**
+- When a saint's narration reaches the end, don't scroll up fast: fade out, reset to the start,
+  fade back in — before the closing prayer's name is spoken. Then glow across the name word by
+  word (Saint, then Andrew), and make "pray for us" appear and fade away.
+
+**Implementation:**
+- Finale (Saints with the closing prayer, while playing): when the last sentence ends, the article
+  body fades out (.3s), jumps to the top, fades in (.35s) — inside the 1.2s pause before the
+  prayer; follow-scroll is held off and the sentence highlight cleared.
+- As the name is spoken, a soft gold glow passes over it one word at a time (each word brightens
+  and settles back), then the header is restored exactly.
+- As "pray for us" is spoken, the words fade in one by one in gold italics — on the name's own
+  line after it (", pray for us") when there's room, otherwise underneath, clear of the header's
+  gold rule — hold, then drift up and fade away. Positioned over the header, so nothing moves.
+- Timing: the timing file's "prayer" {start, end, text} when present (recorder 2026-10-10 writes
+  it); otherwise estimated — start = last sentence's end + 1.2s, end = recording end, and where
+  "pray for us" begins from the share of characters. Scrubbing back into the story resets it; a
+  swipe or close cancels it. A custom [prayer] without "pray for us" gets the fade and the glow.
+- "pray for us" completes the name's line when it fits ("St. Joseph, pray for us"); otherwise it
+  sits just below the header on a soft navy panel, lined up with the name, clear of the gold rule.
+
+## v568 — 2026-10-10   (built on v566; v567 was skipped)
+
+**Ask:**
+- After listening to an article, the Listened button is dead; close and reopen the article and it
+  works. Consistent.
+
+**Implementation:**
+- Reproduced: it happens after SWIPING to the article. During the slide the outgoing article's copy
+  is still on the page with the same element ids, and the Review tools were wired with
+  document.getElementById — so Listened (and Proof, Audio, Image, Flag, Fix, Approve/Delete) got
+  their tap handlers on the copy, which is then removed. Same cause as v528/v537.
+- The wiring block, listenedPaint() and rtRefreshStates() now use liveArtEl() (looks in the live
+  #artBody first), so the live buttons and status lines are the ones wired and updated.
+- Press feedback on the Review buttons: darker gold and a slight shrink while the finger is down
+  (.rtDown), and a haptic tick on each tap — navigator.vibrate where supported (Android); on iPhone
+  Safari (iOS 18+), by toggling a hidden <input type="checkbox" switch>, which plays the system
+  haptic (no web vibration API there). Older iPhones simply get no tick.
+
+## v566 — 2026-10-10
+
+**Ask:**
+- v565 was running but the timing-gap fix wasn't: two chats had each built v562–v564 from v561.
+  Bring this chat's three changes onto the running v565 without losing anything from it.
+
+**Implementation:**
+- Built on v565 (other chat: v562 Paste-JSON pronunciation + ledger task, v563 X spacing, v564
+  date on the Listened button, v565 image-path fix — all kept). Added this chat's:
+  - Share row: icon bottom on the text baseline; the section headings' rule under "Share this
+    article" (the "Report an issue" divider is dropped after it); "Miracle" in the year's gold.
+  - Press-and-hold works on section headings too (no "Link to an entry" there).
+  - Timing gaps: timings that don't match their sentence exactly are filled from the text between
+    matched neighbours — paired by ≥ 75% shared words, then by position. Sync line shows
+    "N/N sentences linked (x by word match, y by position)".
+
+## v565 — 2026-10-10
+
+**Ask:**
+- In the select-images workflow I pick a final image but it never shows in the card: the saved
+  path is Images/Saints/st-thomas-the-apostle-72.jpg and it overlaps the Images folder in Media
+  Base Paths.
+
+**Implementation:**
+- `resolveAsset()` (the one place every image and audio URL is joined from the base + the saved
+  path) now drops a leading folder from the saved path when the base already ends in that same
+  folder (base ".../Images" + "Images/Saints/x.jpg" -> ".../Images/Saints/x.jpg"; case-insensitive,
+  and only when the path has more after it), and collapses stray double slashes after the host
+  (the saved base was "https://catholictimeline.org//Images"). Older entries that store a bare
+  name ("Peter.jpg", "Saints/st-peter-claver-1654.jpg") resolve exactly as before, and the two
+  "Images/..." entries that were doubled now load too. Saving the base paths also collapses
+  accidental double slashes. No data was changed.
+
+## v564 — 2026-10-06
+
+**Ask:**
+- The "Checked ✓ Oct 5" line under the green Listened button was too much and wrapped onto two
+  lines. Put just the date on the green button itself.
+
+**Implementation:**
+- `listenedInner(on, when)` now adds a small `.rtWhen` date line under "Listened" inside the button;
+  `listenedPaint()` and the initial render both pass the date; the line under the button is left
+  empty (kept so the row's height doesn't change). `.rtListened.on` stacks its content in a column.
+
+## v563 — 2026-10-06
+
+**Ask:**
+- With a picture docked in the article's corner, the close X was too close to the picture and
+  often missed when tapped. Move it over some and down just a tad.
+
+**Implementation:**
+- FLY_ARTX_SHIFTED 104 → 114: the X's lines now end about 22px from the picture's left edge (v553 was
+  30px, v554 was 12px — this is roughly halfway). FLY_ARTX_RISE 12 → 6: it sits about 18px below the
+  sheet's top edge (v553 was 24px, v554 12px) — also halfway. Both constants only apply while the
+  picture is docked; undocked/landscape positions are untouched. The tap box (60x60) is unchanged;
+  the top-right share button rides along with the X as before.
+
+## v562 — 2026-10-06
+
+**Ask:**
+- Send pronunciation fixes through the same Paste JSON box as everything else; it should see
+  which table and which entries to change.
+- Queue "Build source ledger" from Add Task, like the other per-entry services.
+
+**Implementation:**
+- Paste JSON now detects a top-level "pronunciation" array (like "patches"/"carloLinks").
+  Ops: add / update / delete on a rule's exact string_to_replace, and "title" — which takes an
+  entry id and the full announcement and writes the rule SpokenTitle:<id> (id must exist; add
+  "delete": true to remove one). Defaults match the in-app editor: alias rule, case-sensitive,
+  whole words; phrases go to the top, single words to the end; pause rules checked the same way
+  the recorder checks them; single-character keys and the SpokenTitle: prefix on add/update are
+  refused. Everything in one paste is one read-change-write of the rules file on GitHub (one
+  commit, retried if the file changed). Each op gets its own result line. Needs the GitHub
+  token; entries in the same paste stay staged as before, but the pronunciation commit is
+  immediate (same as the in-app editor).
+- lpUpdateRules(): a mutate function may return false to mean "nothing changed, don't write".
+  Existing callers return nothing, so they behave as before.
+- New service in Add Task: "Build source ledger" (ledger-build, scripts/services/ledger-build.mjs).
+  One task per entry like the other batch services; payload {force} only — it does NOT write
+  qc.ledger into data.json (writeQc stays off), so "already built" is read from finished
+  ledger-build tasks, and the service itself skips an unchanged article cheaply.
+  The checkbox is "Rebuild ledgers already built".
 CHANGELOG:END
 -->
 <!DOCTYPE html>
@@ -2245,6 +2393,13 @@ CHANGELOG:END
   /* v569: closing-prayer finale */
   #artBody{transition:opacity .3s ease;}
   #artBody.finaleFade{opacity:0;}
+  /* v573: "pray for us" -> the whole name glows bright blue at once, big, then fades slowly */
+  .ahName.finaleBlue{animation:finaleBlueGlow 3.4s ease-out forwards;}
+  @keyframes finaleBlueGlow{
+    0%{text-shadow:0 0 8px rgba(150,210,255,1), 0 0 22px rgba(70,160,255,.95), 0 0 48px rgba(30,120,255,.85), 0 0 84px rgba(20,100,255,.7);}
+    30%{text-shadow:0 0 8px rgba(150,210,255,1), 0 0 22px rgba(70,160,255,.95), 0 0 48px rgba(30,120,255,.85), 0 0 84px rgba(20,100,255,.7);}
+    100%{text-shadow:0 0 8px rgba(150,210,255,0), 0 0 22px rgba(70,160,255,0), 0 0 48px rgba(30,120,255,0), 0 0 84px rgba(20,100,255,0);}
+  }
   .ahName .finaleWord{transition:color .45s ease, text-shadow .55s ease;}
   .ahName .finaleWord.on{color:#FFF4CC; text-shadow:0 0 6px rgba(255,222,140,.95), 0 0 16px rgba(240,192,84,.7), 0 0 30px rgba(220,170,60,.45);}
   .finalePray{position:absolute; z-index:2; pointer-events:none; white-space:nowrap;
@@ -5183,7 +5338,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v572';
+const APP_VERSION = 'v573';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -12065,15 +12220,16 @@ function haptic(){
 })();
 // ---- v569: the closing-prayer finale — fade back to the top, glow across the name, "pray for us" ----
 var finaleInfo = { prayer: null, duration: 0 };
-var finale = { stage: 0, timers: [], nameEl: null, nameHtml: "", prayEl: null };
+var finale = { stage: 0, timers: [], nameEl: null, nameHtml: "", prayEl: null, blueEl: null };
 const FINALE_PAUSE = 1.2;   // the recorder's INVOCATION_PAUSE_SEC
 function finaleReset(){
   finale.timers.forEach(clearTimeout);
   if(finale.nameEl && finale.nameEl.isConnected) finale.nameEl.innerHTML = finale.nameHtml;
   if(finale.prayEl) finale.prayEl.remove();
+  if(finale.blueEl) finale.blueEl.classList.remove('finaleBlue');   // v573
   const body = document.getElementById('artBody');
   if(body) body.classList.remove('finaleFade');
-  finale = { stage: 0, timers: [], nameEl: null, nameHtml: '', prayEl: null };
+  finale = { stage: 0, timers: [], nameEl: null, nameHtml: '', prayEl: null, blueEl: null };
 }
 // What the recorder says at the end (mirrors its invocationFor(): "St." -> "Saint" ...)
 function finalePrayerText(d){
@@ -12128,59 +12284,15 @@ function finaleTick(t){
     finale.timers.push(setTimeout(() => { if(finale.nameEl && finale.nameEl.isConnected) finale.nameEl.innerHTML = finale.nameHtml; },
       (spans.length * per + 1.1) * 1000 / rate));
   });
-  // 3. "pray for us" — the words appear one by one under the name, hold, rise and fade
+  // 3. v573: "pray for us" — no words; the whole name glows bright blue at once, then slowly fades
   if(m) at(prayStart, () => {
     const sticky = liveArtEl('artSticky');
     const nameEl = sticky && sticky.querySelector('.ahName');
-    if(!sticky || !nameEl) return;
-    const sr = sticky.getBoundingClientRect();
-    // the end of the name's own text (its last line), not the whole block
-    const r = document.createRange(); r.selectNodeContents(nameEl);
-    const rects = [...r.getClientRects()].filter(q => q.width > 0);
-    const lastLine = rects[rects.length - 1] || nameEl.getBoundingClientRect();
-    const line = document.createElement('div');
-    line.className = 'finalePray';
-    line.innerHTML = ['pray', 'for', 'us'].map(w => '<span>' + w + '</span>').join(' ');
-    sticky.appendChild(line);
-    // On the name's line, completing the invocation ("St. Joseph, pray for us") when it fits;
-    // otherwise underneath, clear of the header's gold rule.
-    const room = (sticky.classList.contains('hasPortrait') ? sr.right - 130 : sr.right - 70) - lastLine.right;
-    // v571: portrait — to the right of the year, a little larger, when it fits
-    const yearRow = sticky.querySelector('.ahYearRow'), yearEl = sticky.querySelector('.ahYear');
-    let placed = false;
-    if(isPortrait() && yearRow && yearEl){
-      line.classList.add('yr');
-      const yrR = yearRow.getBoundingClientRect(), yR = yearEl.getBoundingClientRect();
-      const roomY = (sticky.classList.contains('hasPortrait') ? sr.right - 130 : sr.right - 70) - yrR.right;
-      if(line.offsetWidth + 16 <= roomY){
-        line.style.left = (yrR.right - sr.left + 16) + 'px';
-        // sit on the year's baseline: the year's bottom, less the line's own descent
-        line.style.top = (yR.bottom - sr.top - line.offsetHeight + Math.round(line.offsetHeight * 0.18)) + 'px';
-        placed = true;
-      }else line.classList.remove('yr');
-    }
-    if(placed){ /* on the year's line */ }
-    else if(line.offsetWidth + 18 <= room){
-      line.classList.add('inline');
-      line.firstChild.textContent = ', pray';
-      line.style.left = (lastLine.right - sr.left) + 'px';
-      line.style.top = (lastLine.bottom - sr.top - line.offsetHeight - 1) + 'px';
-    }else{
-      // Below the header it would sit under the story's own heading, so it goes on the page itself,
-      // above the article, at the same spot on screen (the article isn't moving at this point).
-      line.classList.add('below');
-      document.body.appendChild(line);
-      line.style.position = 'fixed';
-      line.style.left = (nameEl.getBoundingClientRect().left - 12) + 'px';   // the name's left edge, less the panel's padding
-      line.style.top = (sr.bottom + 4) + 'px';                               // just below the header, clear of its gold rule
-    }
-    finale.prayEl = line;
-    const spans = [...line.querySelectorAll('span')];
-    const step = Math.max(0.18, (end - prayStart) / 3.2);
-    spans.forEach((sp, i) => finale.timers.push(setTimeout(() => sp.classList.add('in'), i * step * 1000 / rate)));
-    const hold = (3 * step + 0.9) * 1000 / rate;
-    finale.timers.push(setTimeout(() => line.classList.add('out'), hold));
-    finale.timers.push(setTimeout(() => { line.remove(); if(finale.prayEl === line) finale.prayEl = null; }, hold + 1500));
+    if(!nameEl) return;
+    finale.blueEl = nameEl;
+    nameEl.classList.remove('finaleBlue'); void nameEl.offsetWidth;   // restart the animation if it was on
+    nameEl.classList.add('finaleBlue');
+    finale.timers.push(setTimeout(() => nameEl.classList.remove('finaleBlue'), 3600));
   });
 }
 // ---- v543: paint the "Pronunciation checked" button ----
