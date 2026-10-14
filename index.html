@@ -1,6 +1,6 @@
 <!--
-VERSION: 575
-DATE: 2026-10-14T18:00:00-05:00
+VERSION: 576
+DATE: 2026-10-14T21:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,23 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v576 — 2026-10-14
+
+**Ask:**
+- If the white marker is off screen when Play is pressed (e.g. it sits at the top and the reader scrolled to the
+  bottom), the audio started and the page crawled back to the marker, jittery, slowing and speeding with the
+  audio. Instead: quickly move to the marker's spot first, then start playing.
+
+**Implementation:**
+- startAudioPlayback finds the cursor's line (cursorCueIdx: the active cue, else the cue at the current time,
+  else the first line when before it) and the spot the Play-triggered follow would glide to (its section heading
+  at the top). If the page is more than 60px from that spot (or, for a cue with no heading, the cursor is off
+  screen), quickScrollTo glides there in 240-480ms (ease-out) and only then plays; the follow that Play triggers
+  next finds nothing left to move. The button shows "pause" at once; pressing it again during the glide cancels
+  the start; a drag or scroll by the reader skips the glide and starts. Measured in a real browser, cursor at the
+  top and the reader at the bottom: before, the page had crawled 110px in 3s while the audio ran; now it arrives in
+  0.35s, the audio starts at 0.4s, and nothing moves afterwards.
+
 ## v575 — 2026-10-14
 
 **Ask:**
@@ -5384,7 +5401,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v575';
+const APP_VERSION = 'v576';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -13519,17 +13536,94 @@ function updateAudioBarPresence(){
 // Starts (or resumes) playback. Called from the bottom bar's own play/pause button (see
 // toggleAudioPlayback) and from the double-tap-to-play gesture on the story text (see the
 // dblclick listener near wireSentenceCues below).
+// v576: if the cursor (the white marker's sentence) is off screen when Play is pressed, the page first moves
+// quickly to the spot where playback follows it, and only then does the audio start. Before, the audio started at
+// once and the long glide to the cursor ran under it (slow, and it sped up and slowed down with the audio).
+let audioStartToken = 0, audioStartPending = false;
+function cursorCueIdx(){        // the line the cursor points at, or -1
+  if(!audioEl) return -1;
+  if(activeCueIdx >= 0) return activeCueIdx;
+  const i = cueIndexForTime(audioEl.currentTime || 0);
+  if(i >= 0) return i;
+  if(currentCues.length && (audioEl.currentTime || 0) < Number(currentCues[0].start)) return 0;   // before the first line: the cursor rests on it
+  return -1;
+}
+// Where the page must be for the cursor to be in view, the same place the playback follow settles on (the cue's
+// section heading at the top), so the follow that Play triggers next finds nothing left to move. null = already in view.
+function cursorScrollTarget(artEl, idx){
+  const els = cueEls[idx];
+  if(!els || !els.length) return null;
+  const sticky = audioStickyEl();
+  const occludedH = sticky ? sticky.offsetHeight : 0;
+  const artRect = artEl.getBoundingClientRect();
+  let top = Infinity, bottom = -Infinity;
+  els.forEach(el => { const r = el.getBoundingClientRect(); top = Math.min(top, r.top - artRect.top); bottom = Math.max(bottom, r.bottom - artRect.top); });
+  if(!isFinite(top) || !isFinite(bottom)) return null;
+  const visTop = snapSafeTop(artEl), visBottom = artEl.clientHeight;
+  const inView = top >= visTop - 2 && bottom <= visBottom + 2;
+  const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
+  const heading = cueSectionHeading[idx];
+  if(heading){
+    // The forced follow that Play triggers glides the page to this heading (slowly, under the audio) whenever it is
+    // not already there, even with the cursor on screen. Do that move first and quickly when it is more than a little one.
+    const hr = heading.getBoundingClientRect();
+    const target = predictSnapTarget(artEl, Math.min(max, Math.max(0, hr.top - artRect.top + artEl.scrollTop - occludedH - SECTION_BREATH)));
+    return Math.abs(target - artEl.scrollTop) > 60 ? target : null;
+  }
+  // No heading to follow: nothing moves the page on Play, so only bring an off-screen cursor into view.
+  if(inView) return null;
+  const target = predictSnapTarget(artEl, Math.min(max, Math.max(0, artEl.scrollTop + top - (Math.max(occludedH, visTop) + SENTENCE_VISIBLE_MARGIN))));
+  return Math.abs(target - artEl.scrollTop) < 4 ? null : target;
+}
+function quickScrollTo(artEl, target, done){
+  const token = ++audioFollowToken, start = artEl.scrollTop, dist = Math.abs(target - start);
+  const DURATION = Math.max(240, Math.min(480, 180 + dist * 0.1));        // quick: a quarter to half a second
+  let lastSet = start;
+  const t0 = performance.now();
+  const step = (now) => {
+    if(token !== audioFollowToken || Math.abs(artEl.scrollTop - lastSet) > 2){ done(false); return; }   // the reader took over
+    const raw = Math.min(1, (now - t0) / DURATION), f = 1 - Math.pow(1 - raw, 3);
+    artEl.scrollTop = start + (target - start) * f;
+    lastSet = artEl.scrollTop;
+    syncStickyBackdrops();
+    updateFly();
+    if(raw < 1){ requestAnimationFrame(step); return; }
+    measureFly();
+    done(true);
+  };
+  requestAnimationFrame(step);
+}
+function cancelPendingStart(){
+  audioStartToken++; audioStartPending = false; audioFollowToken++;
+  if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PLAY; apPlayBtn.setAttribute('aria-label','Play'); }
+}
 function startAudioPlayback(){
   if(!audioEl) return;
-  audioEl.play();
-  if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PAUSE; apPlayBtn.setAttribute('aria-label','Stop'); }
-  document.getElementById('article').classList.add('audio-playing'); // v461: makes .arth sticky — see its CSS comment
-  // Force a follow-check right now, regardless of whether the highlighted sentence is about to
-  // change: this is exactly the moment a reader who scrolled elsewhere (e.g. down to the very
-  // bottom, then started the story over) needs the view brought back to wherever playback is
-  // actually starting from.
-  audioFollowLastHeading = null;
-  driveAudioFollow(cueIndexForTime(audioEl.currentTime), true);
+  const el = audioEl;
+  const begin = () => {
+    audioStartPending = false;
+    if(audioEl !== el) return;                 // the story changed while the page was moving
+    audioEl.play();
+    if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PAUSE; apPlayBtn.setAttribute('aria-label','Stop'); }
+    document.getElementById('article').classList.add('audio-playing'); // v461: makes .arth sticky — see its CSS comment
+    // Force a follow-check right now, regardless of whether the highlighted sentence is about to
+    // change: this is exactly the moment a reader who scrolled elsewhere (e.g. down to the very
+    // bottom, then started the story over) needs the view brought back to wherever playback is
+    // actually starting from.
+    audioFollowLastHeading = null;
+    driveAudioFollow(cueIndexForTime(audioEl.currentTime), true);
+  };
+  let artEl = null, target = null;
+  try{
+    artEl = audioScrollEl();
+    const idx = cursorCueIdx();
+    if(artEl && idx >= 0 && artEl.classList.contains('open') && !artEl.classList.contains('peek')) target = cursorScrollTarget(artEl, idx);
+  }catch(e){ target = null; }
+  if(target === null){ begin(); return; }
+  audioStartPending = true;
+  const my = ++audioStartToken;
+  if(apPlayBtn){ apPlayBtn.innerHTML = ICON_PAUSE; apPlayBtn.setAttribute('aria-label','Stop'); }   // pressed: show it at once
+  quickScrollTo(artEl, target, () => { if(my === audioStartToken && audioStartPending) begin(); });
 }
 // Pauses IN PLACE (position retained, so a later Play resumes rather than restarts). Called from
 // the bottom bar's button and from the single-tap-anywhere-in-the-story gesture — deliberately
@@ -13543,6 +13637,7 @@ function stopAudioPlaybackInPlace(){
 }
 function toggleAudioPlayback(){
   if(!audioEl) return;
+  if(audioStartPending){ cancelPendingStart(); return; }   // v576: pressed again while the page is still moving
   if(audioEl.paused) startAudioPlayback(); else stopAudioPlaybackInPlace();
 }
 // One entry per distinct section present in currentCues, each {section, start} — start is that
