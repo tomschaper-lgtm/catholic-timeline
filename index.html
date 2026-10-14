@@ -26,6 +26,8 @@ CHANGELOG:BEGIN
 ## v575 — 2026-10-14
 
 **Ask:**
+- The blue glow and its background are too much: go back to the soft blue shadow, more subtle, a little
+  bigger as it fades out.
 - The rise at the end of a story goes too slow. Move the white marker to the top line the way it moves
   elsewhere, then leave it lit there as the cursor. Remember that spot so pressing Play starts from the
   very beginning.
@@ -34,6 +36,8 @@ CHANGELOG:BEGIN
 - finaleRise now uses animateFollowScroll's own timing (700-1800ms by distance) and its morphEase curve instead
   of the slower constant-speed-then-slow-down curve (about 4-5s on a long story). The old finaleRiseEase and
   its speed constants are gone.
+- Blue glow: v574's solid halo behind the name is gone. The glow is the soft four-layer text-shadow again, and
+  finaleBlueGlow now grows a little (outer layer 84px to 128px) while it fades over 3.4s.
 - On arrival the marker no longer fades out. The playback position is set to 0, the very beginning (the recording
   opens with the saint's name; an earlier draft of this entry started at the first line), setActiveCue(0) keeps the
   marker and line lit, and saveCurrentCardPosition() stores it (a position of 0 saves nothing, so reopening also
@@ -73,11 +77,11 @@ CHANGELOG:BEGIN
 **Implementation:**
 - finaleTick step 3: the one-by-one "pray for us" words, their placement (beside the year, after
   the name, below the header) and their fade-out are gone. At the moment "pray for us" is spoken
-  the name element gets the class finaleBlue: an eight-layer bright blue text-shadow (up to 140px) that
+  the name element gets the class finaleBlue: a four-layer blue text-shadow (up to 84px) that
   starts at full strength and eases to nothing over 3.4s (keyframes finaleBlueGlow). The name's
   own colour is not touched, so it simply returns to its usual white. The word-by-word gold glow
   as the name is spoken is unchanged. finaleReset (scrub back, swipe, close) removes the class.
-- (v574 note: the first v573 glow was too faint on the dark header; strengthened.) A custom [prayer] without "pray for us" behaves as before (no blue glow). The old .finalePray
+- A custom [prayer] without "pray for us" behaves as before (no blue glow). The old .finalePray
   CSS rules are left in place, unused.
 
 ## v572 — 2026-10-11
@@ -2435,17 +2439,12 @@ CHANGELOG:END
   #artBody{transition:opacity .3s ease;}
   #artBody.finaleFade{opacity:0;}
   /* v573: "pray for us" -> the whole name glows bright blue at once, big, then fades slowly */
-  .ahName.finaleBlue{position:relative; z-index:1; animation:finaleBlueGlow 3.4s ease-out forwards;}
-  /* v574: the solid bright-blue light behind the name (text-shadow alone is too thin to see on the dark header) */
-  .finaleHalo{position:absolute; z-index:0; pointer-events:none; border-radius:50%; opacity:0; filter:blur(7px);
-    background:radial-gradient(ellipse at center, rgba(130,205,255,.98) 0%, rgba(65,165,255,.85) 36%, rgba(30,120,255,.45) 68%, rgba(30,120,255,0) 100%);
-    animation:finaleHaloGlow 3.4s ease-out forwards;}
-  @keyframes finaleHaloGlow{0%{opacity:1;} 30%{opacity:1;} 100%{opacity:0;}}
-  .artSticky:has(.finaleHalo) .ahYearRow{position:relative; z-index:1;}   /* the year stays in front of the light */
+  .ahName.finaleBlue{animation:finaleBlueGlow 3.4s ease-out forwards;}
+  /* v575: a soft blue shadow behind the name that grows a little as it fades away */
   @keyframes finaleBlueGlow{
-    0%{text-shadow:0 0 4px rgba(255,255,255,1), 0 0 10px rgba(150,215,255,1), 0 0 20px rgba(90,185,255,1), 0 0 34px rgba(55,155,255,1), 0 0 52px rgba(45,145,255,1), 0 0 76px rgba(35,130,255,1), 0 0 104px rgba(30,125,255,0.9), 0 0 140px rgba(25,115,255,0.8);}
-    30%{text-shadow:0 0 4px rgba(255,255,255,1), 0 0 10px rgba(150,215,255,1), 0 0 20px rgba(90,185,255,1), 0 0 34px rgba(55,155,255,1), 0 0 52px rgba(45,145,255,1), 0 0 76px rgba(35,130,255,1), 0 0 104px rgba(30,125,255,0.9), 0 0 140px rgba(25,115,255,0.8);}
-    100%{text-shadow:0 0 4px rgba(255,255,255,0), 0 0 10px rgba(150,215,255,0), 0 0 20px rgba(90,185,255,0), 0 0 34px rgba(55,155,255,0), 0 0 52px rgba(45,145,255,0), 0 0 76px rgba(35,130,255,0), 0 0 104px rgba(30,125,255,0.0), 0 0 140px rgba(25,115,255,0.0);}
+    0%{text-shadow:0 0 8px rgba(150,210,255,1), 0 0 22px rgba(70,160,255,.95), 0 0 48px rgba(30,120,255,.85), 0 0 84px rgba(20,100,255,.7);}
+    35%{text-shadow:0 0 10px rgba(150,210,255,.95), 0 0 28px rgba(70,160,255,.9), 0 0 60px rgba(30,120,255,.8), 0 0 104px rgba(20,100,255,.65);}
+    100%{text-shadow:0 0 14px rgba(150,210,255,0), 0 0 36px rgba(70,160,255,0), 0 0 76px rgba(30,120,255,0), 0 0 128px rgba(20,100,255,0);}
   }
   .ahName .finaleWord{transition:color .45s ease, text-shadow .55s ease;}
   .ahName .finaleWord.on{color:#FFF4CC; text-shadow:0 0 6px rgba(255,222,140,.95), 0 0 16px rgba(240,192,84,.7), 0 0 30px rgba(220,170,60,.45);}
@@ -12267,7 +12266,7 @@ function haptic(){
 })();
 // ---- v569: the closing-prayer finale — fade back to the top, glow across the name, "pray for us" ----
 var finaleInfo = { prayer: null, duration: 0 };
-var finale = { stage: 0, timers: [], nameEl: null, nameHtml: "", prayEl: null, blueEl: null, haloEl: null, hold: false, rising: false };
+var finale = { stage: 0, timers: [], nameEl: null, nameHtml: "", prayEl: null, blueEl: null, hold: false, rising: false };
 const FINALE_PAUSE = 1.2;   // the recorder's INVOCATION_PAUSE_SEC
 const FINALE_RISE_DELAY = 1.5;    // v575: seconds after the prayer ends before the marker starts to rise
 let finaleParkedAtTop = false;    // v575: the marker is resting on the first line, waiting for Play (ignores "no sentence" updates while paused)
@@ -12345,11 +12344,10 @@ function finaleReset(){
   if(finale.nameEl && finale.nameEl.isConnected) finale.nameEl.innerHTML = finale.nameHtml;
   if(finale.prayEl) finale.prayEl.remove();
   if(finale.blueEl) finale.blueEl.classList.remove('finaleBlue');   // v573
-  if(finale.haloEl){ finale.haloEl.remove(); finale.haloEl = null; }   // v574
   if(finale.rising){ const bar = audioActiveBarEl(); if(bar){ bar.classList.remove('on'); bar.style.transition = ''; } }   // v574: a rise was cut short
   const body = document.getElementById('artBody');
   if(body) body.classList.remove('finaleFade');
-  finale = { stage: 0, timers: [], nameEl: null, nameHtml: '', prayEl: null, blueEl: null, haloEl: null, hold: false, rising: false };
+  finale = { stage: 0, timers: [], nameEl: null, nameHtml: '', prayEl: null, blueEl: null, hold: false, rising: false };
 }
 // What the recorder says at the end (mirrors its invocationFor(): "St." -> "Saint" ...)
 function finalePrayerText(d){
@@ -12408,24 +12406,6 @@ function finaleTick(t){
     finale.blueEl = nameEl;
     nameEl.classList.remove('finaleBlue'); void nameEl.offsetWidth;   // restart the animation if it was on
     nameEl.classList.add('finaleBlue');
-    // the light behind the name: one soft blue oval around the name's text (all its lines), sized from where the text really is
-    try{
-      const sr = sticky.getBoundingClientRect(), rg = document.createRange();
-      rg.selectNodeContents(nameEl);
-      const rects = [...rg.getClientRects()].filter(q => q.width > 0 && q.height > 0);
-      if(rects.length){
-        const l = Math.min(...rects.map(q => q.left)), r = Math.max(...rects.map(q => q.right));
-        const tp = Math.min(...rects.map(q => q.top)), bt = Math.max(...rects.map(q => q.bottom));
-        const PX = 44, PY = 30, halo = document.createElement('div');
-        halo.className = 'finaleHalo';
-        halo.style.left = (l - sr.left - PX) + 'px'; halo.style.top = (tp - sr.top - PY) + 'px';
-        halo.style.width = (r - l + 2 * PX) + 'px'; halo.style.height = (bt - tp + 2 * PY) + 'px';
-        if(finale.haloEl) finale.haloEl.remove();
-        sticky.insertBefore(halo, sticky.firstChild);
-        finale.haloEl = halo;
-        finale.timers.push(setTimeout(() => { halo.remove(); if(finale.haloEl === halo) finale.haloEl = null; }, 3700));
-      }
-    }catch(e){}
     finale.timers.push(setTimeout(() => nameEl.classList.remove('finaleBlue'), 3600));
   });
 }
