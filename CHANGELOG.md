@@ -19,6 +19,22 @@ the time.
 
 ---
 
+## v573 — 2026-10-12
+
+**Ask:**
+- At the end of a story, drop the words "pray for us" (they distract). Instead, when it says "pray
+  for us", the whole saint's name glows bright blue all at once, big, then slowly fades out.
+
+**Implementation:**
+- finaleTick step 3: the one-by-one "pray for us" words, their placement (beside the year, after
+  the name, below the header) and their fade-out are gone. At the moment "pray for us" is spoken
+  the name element gets the class finaleBlue: a four-layer blue text-shadow (up to 84px) that
+  starts at full strength and eases to nothing over 3.4s (keyframes finaleBlueGlow). The name's
+  own colour is not touched, so it simply returns to its usual white. The word-by-word gold glow
+  as the name is spoken is unchanged. finaleReset (scrub back, swipe, close) removes the class.
+- A custom [prayer] without "pray for us" behaves as before (no blue glow). The old .finalePray
+  CSS rules are left in place, unused.
+
 ## v572 — 2026-10-11
 
 **Ask:**
