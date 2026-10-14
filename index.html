@@ -1,6 +1,6 @@
 <!--
-VERSION: 573
-DATE: 2026-10-12T12:00:00-05:00
+VERSION: 574
+DATE: 2026-10-12T18:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,28 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v574 — 2026-10-12
+
+**Ask:**
+- The end of a story fades out, jumps to the top and fades back in; the flash is not wanted. Just
+  reset it: the prayer and the saint's name glow as they do now, 1.5 seconds pass, then the white
+  marker line on the left moves at medium speed up to the top of the article and slows gradually
+  to a gentle stop at the first section header.
+
+**Implementation:**
+- finaleTick step 1 no longer fades #artBody, jumps scrollTop to 0 or clears the marker (the
+  setActiveCue(-1) call is gone). The sentence's own highlight is cleared but #audioActiveBar stays
+  on the last sentence while the name glows and the prayer is spoken. finale.hold makes setActiveCue
+  ignore cue changes in that time (the audio 'ended' event also calls setActiveCue(-1)).
+- New finaleRise(), started FINALE_RISE_DELAY (1.5s) after the prayer ends: one animation drives the
+  scroll position and the marker's top and height together, from the last sentence to the first
+  section heading (the same resting spot followAudioSection uses). Medium constant speed (about
+  1100 px/s) for the first 45% of the way, then a smooth slow-down to a stop (finaleRiseEase). A
+  manual drag or scroll, scrubbing back, a swipe or closing the article cancels it. After landing
+  the marker rests briefly and fades out gently.
+- Rising marker and scroll share one progress value, so the marker never goes under the sticky
+  header. The marker's own top/height CSS transition is switched off while it is driven.
+
 ## v573 — 2026-10-12
 
 **Ask:**
@@ -62,6 +84,150 @@ CHANGELOG:BEGIN
   sitting on the year's baseline, no leading comma. Room is measured to the corner picture (or the
   X); if it doesn't fit (a "Miracle" label, a long year), the v569 placements apply: after the
   name, else below the header. Landscape unchanged.
+
+## v570 — 2026-10-10
+
+**Ask:**
+- Landscape: the close X is hard to hit. Make its target bigger than the X, and line the top of the
+  X up with the top of the picture; a tap in the padding around it should close the article too.
+
+**Implementation:**
+- Landscape X: top -8px → -7.5px, so its lines start exactly level with the picture's top edge.
+- Larger tap target: an invisible ::before on the button extends it 26px left and 22px down (about
+  86 × 82 instead of 60 × 60). Not to the right — that's the picture, which must still flip.
+  A tap anywhere in it is a tap on the button, so it closes the article.
+
+## v569 — 2026-10-10
+
+**Ask (also):**
+- Play button a little bigger, and higher — it's close to the bottom gesture area.
+
+**Implementation (play button):**
+- 48 → 54px (icon 26 → 29px); bottom offset max(18px, safe area + 10px) → max(30px, safe area +
+  26px): about 60px above the bottom edge on an iPhone, clear of the home bar. The space under the
+  article grows 110 → 130px so the last lines still clear it.
+
+**Ask:**
+- When a saint's narration reaches the end, don't scroll up fast: fade out, reset to the start,
+  fade back in — before the closing prayer's name is spoken. Then glow across the name word by
+  word (Saint, then Andrew), and make "pray for us" appear and fade away.
+
+**Implementation:**
+- Finale (Saints with the closing prayer, while playing): when the last sentence ends, the article
+  body fades out (.3s), jumps to the top, fades in (.35s) — inside the 1.2s pause before the
+  prayer; follow-scroll is held off and the sentence highlight cleared.
+- As the name is spoken, a soft gold glow passes over it one word at a time (each word brightens
+  and settles back), then the header is restored exactly.
+- As "pray for us" is spoken, the words fade in one by one in gold italics — on the name's own
+  line after it (", pray for us") when there's room, otherwise underneath, clear of the header's
+  gold rule — hold, then drift up and fade away. Positioned over the header, so nothing moves.
+- Timing: the timing file's "prayer" {start, end, text} when present (recorder 2026-10-10 writes
+  it); otherwise estimated — start = last sentence's end + 1.2s, end = recording end, and where
+  "pray for us" begins from the share of characters. Scrubbing back into the story resets it; a
+  swipe or close cancels it. A custom [prayer] without "pray for us" gets the fade and the glow.
+- "pray for us" completes the name's line when it fits ("St. Joseph, pray for us"); otherwise it
+  sits just below the header on a soft navy panel, lined up with the name, clear of the gold rule.
+
+## v568 — 2026-10-10   (built on v566; v567 was skipped)
+
+**Ask:**
+- After listening to an article, the Listened button is dead; close and reopen the article and it
+  works. Consistent.
+
+**Implementation:**
+- Reproduced: it happens after SWIPING to the article. During the slide the outgoing article's copy
+  is still on the page with the same element ids, and the Review tools were wired with
+  document.getElementById — so Listened (and Proof, Audio, Image, Flag, Fix, Approve/Delete) got
+  their tap handlers on the copy, which is then removed. Same cause as v528/v537.
+- The wiring block, listenedPaint() and rtRefreshStates() now use liveArtEl() (looks in the live
+  #artBody first), so the live buttons and status lines are the ones wired and updated.
+- Press feedback on the Review buttons: darker gold and a slight shrink while the finger is down
+  (.rtDown), and a haptic tick on each tap — navigator.vibrate where supported (Android); on iPhone
+  Safari (iOS 18+), by toggling a hidden <input type="checkbox" switch>, which plays the system
+  haptic (no web vibration API there). Older iPhones simply get no tick.
+
+## v566 — 2026-10-10
+
+**Ask:**
+- v565 was running but the timing-gap fix wasn't: two chats had each built v562–v564 from v561.
+  Bring this chat's three changes onto the running v565 without losing anything from it.
+
+**Implementation:**
+- Built on v565 (other chat: v562 Paste-JSON pronunciation + ledger task, v563 X spacing, v564
+  date on the Listened button, v565 image-path fix — all kept). Added this chat's:
+  - Share row: icon bottom on the text baseline; the section headings' rule under "Share this
+    article" (the "Report an issue" divider is dropped after it); "Miracle" in the year's gold.
+  - Press-and-hold works on section headings too (no "Link to an entry" there).
+  - Timing gaps: timings that don't match their sentence exactly are filled from the text between
+    matched neighbours — paired by ≥ 75% shared words, then by position. Sync line shows
+    "N/N sentences linked (x by word match, y by position)".
+
+## v565 — 2026-10-10
+
+**Ask:**
+- In the select-images workflow I pick a final image but it never shows in the card: the saved
+  path is Images/Saints/st-thomas-the-apostle-72.jpg and it overlaps the Images folder in Media
+  Base Paths.
+
+**Implementation:**
+- `resolveAsset()` (the one place every image and audio URL is joined from the base + the saved
+  path) now drops a leading folder from the saved path when the base already ends in that same
+  folder (base ".../Images" + "Images/Saints/x.jpg" -> ".../Images/Saints/x.jpg"; case-insensitive,
+  and only when the path has more after it), and collapses stray double slashes after the host
+  (the saved base was "https://catholictimeline.org//Images"). Older entries that store a bare
+  name ("Peter.jpg", "Saints/st-peter-claver-1654.jpg") resolve exactly as before, and the two
+  "Images/..." entries that were doubled now load too. Saving the base paths also collapses
+  accidental double slashes. No data was changed.
+
+## v564 — 2026-10-06
+
+**Ask:**
+- The "Checked ✓ Oct 5" line under the green Listened button was too much and wrapped onto two
+  lines. Put just the date on the green button itself.
+
+**Implementation:**
+- `listenedInner(on, when)` now adds a small `.rtWhen` date line under "Listened" inside the button;
+  `listenedPaint()` and the initial render both pass the date; the line under the button is left
+  empty (kept so the row's height doesn't change). `.rtListened.on` stacks its content in a column.
+
+## v563 — 2026-10-06
+
+**Ask:**
+- With a picture docked in the article's corner, the close X was too close to the picture and
+  often missed when tapped. Move it over some and down just a tad.
+
+**Implementation:**
+- FLY_ARTX_SHIFTED 104 → 114: the X's lines now end about 22px from the picture's left edge (v553 was
+  30px, v554 was 12px — this is roughly halfway). FLY_ARTX_RISE 12 → 6: it sits about 18px below the
+  sheet's top edge (v553 was 24px, v554 12px) — also halfway. Both constants only apply while the
+  picture is docked; undocked/landscape positions are untouched. The tap box (60x60) is unchanged;
+  the top-right share button rides along with the X as before.
+
+## v562 — 2026-10-06
+
+**Ask:**
+- Send pronunciation fixes through the same Paste JSON box as everything else; it should see
+  which table and which entries to change.
+- Queue "Build source ledger" from Add Task, like the other per-entry services.
+
+**Implementation:**
+- Paste JSON now detects a top-level "pronunciation" array (like "patches"/"carloLinks").
+  Ops: add / update / delete on a rule's exact string_to_replace, and "title" — which takes an
+  entry id and the full announcement and writes the rule SpokenTitle:<id> (id must exist; add
+  "delete": true to remove one). Defaults match the in-app editor: alias rule, case-sensitive,
+  whole words; phrases go to the top, single words to the end; pause rules checked the same way
+  the recorder checks them; single-character keys and the SpokenTitle: prefix on add/update are
+  refused. Everything in one paste is one read-change-write of the rules file on GitHub (one
+  commit, retried if the file changed). Each op gets its own result line. Needs the GitHub
+  token; entries in the same paste stay staged as before, but the pronunciation commit is
+  immediate (same as the in-app editor).
+- lpUpdateRules(): a mutate function may return false to mean "nothing changed, don't write".
+  Existing callers return nothing, so they behave as before.
+- New service in Add Task: "Build source ledger" (ledger-build, scripts/services/ledger-build.mjs).
+  One task per entry like the other batch services; payload {force} only — it does NOT write
+  qc.ledger into data.json (writeQc stays off), so "already built" is read from finished
+  ledger-build tasks, and the service itself skips an unchanged article cheaply.
+  The checkbox is "Rebuild ledgers already built".
 CHANGELOG:END
 -->
 <!DOCTYPE html>
@@ -5194,7 +5360,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v573';
+const APP_VERSION = 'v574';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -12076,16 +12242,86 @@ function haptic(){
 })();
 // ---- v569: the closing-prayer finale — fade back to the top, glow across the name, "pray for us" ----
 var finaleInfo = { prayer: null, duration: 0 };
-var finale = { stage: 0, timers: [], nameEl: null, nameHtml: "", prayEl: null, blueEl: null };
+var finale = { stage: 0, timers: [], nameEl: null, nameHtml: "", prayEl: null, blueEl: null, hold: false, rising: false };
 const FINALE_PAUSE = 1.2;   // the recorder's INVOCATION_PAUSE_SEC
+const FINALE_RISE_DELAY = 1.5;    // v574: seconds after the prayer ends before the marker starts to rise
+const FINALE_RISE_SPEED = 1100;   // v574: px per second while it is moving at full pace
+const FINALE_RISE_HOLD = 0.45;    // v574: the share of the way travelled at constant speed; the rest slows to a stop
+// Constant speed for the first part, then a steady slow-down to a gentle stop at exactly 1.
+function finaleRiseEase(x){
+  const A = FINALE_RISE_HOLD, V0 = 1 / (A + (1 - A) / 2);
+  x = Math.min(1, Math.max(0, x));
+  if(x <= A) return V0 * x;
+  const d = x - A;
+  return V0 * (A + d - d * d / (2 * (1 - A)));
+}
+// v574: the end-of-story reset. The white marker line travels from the last sentence up to the first
+// section heading while the article scrolls with it (one progress value drives both).
+function finaleRise(){
+  const F = finale;
+  const artEl = audioScrollEl(), bar = audioActiveBarEl();
+  const done = (fadeBar) => {
+    if(finale !== F) return;
+    F.rising = false; F.hold = false;
+    if(!bar) return;
+    if(fadeBar){
+      bar.style.transition = 'opacity 1.2s ease';
+      bar.classList.remove('on');
+      setTimeout(() => { if(!F.hold && !bar.classList.contains('on')) bar.style.transition = ''; }, 1300);
+    }else{ bar.classList.remove('on'); bar.style.transition = ''; }
+  };
+  if(!artEl || !bar || !artEl.classList.contains('open') || artEl.classList.contains('peek')){ done(false); return; }
+  const barOn = bar.classList.contains('on');   // the last sentence may have no marker (never matched, or under the header): then only the page glides
+  const heading = (cueSectionHeading || []).find(h => h && h.isConnected) || null;
+  const sticky = audioStickyEl();
+  const occludedH = sticky ? sticky.offsetHeight : 0;
+  const artRect = artEl.getBoundingClientRect();
+  const max = Math.max(0, artEl.scrollHeight - artEl.clientHeight);
+  const scrollStart = artEl.scrollTop;
+  const barStartTop = parseFloat(bar.style.top) || 0, barStartH = parseFloat(bar.style.height) || 24;
+  let target = 0, barEndTop = occludedH + SECTION_BREATH, barEndH = barStartH;
+  if(heading){
+    const hr = heading.getBoundingClientRect();
+    const headingAbs = hr.top - artRect.top + artEl.scrollTop;
+    target = predictSnapTarget(artEl, Math.min(max, Math.max(0, headingAbs - occludedH - SECTION_BREATH)));   // where followAudioSection would rest it
+    barEndTop = headingAbs - 3; barEndH = hr.height + 6;
+  }
+  const dist = barOn ? Math.max(Math.abs(scrollStart - target), Math.abs(barStartTop - barEndTop)) : Math.abs(scrollStart - target);
+  if(dist < 4){ done(barOn); return; }
+  const V0 = 1 / (FINALE_RISE_HOLD + (1 - FINALE_RISE_HOLD) / 2);
+  const DURATION = Math.max(1400, Math.min(5200, V0 * dist / FINALE_RISE_SPEED * 1000));
+  const token = ++audioFollowToken;
+  F.rising = true; activeCueIdx = -1;          // the scroll listener must not snap the marker back to a cue
+  if(barOn) bar.style.transition = 'none';     // driven by hand, frame by frame
+  let lastSet = scrollStart;
+  const t0 = performance.now();
+  const step = (now) => {
+    if(finale !== F || !F.rising) return;                       // scrubbed back, swiped or closed: finaleReset tidied up
+    if(token !== audioFollowToken || Math.abs(artEl.scrollTop - lastSet) > 2){ done(false); return; }   // the reader took over
+    const raw = Math.min(1, (now - t0) / DURATION), f = finaleRiseEase(raw);
+    artEl.scrollTop = scrollStart + (target - scrollStart) * f;
+    lastSet = artEl.scrollTop;
+    if(barOn){
+      bar.style.top = (barStartTop + (barEndTop - barStartTop) * f) + 'px';
+      bar.style.height = (barStartH + (barEndH - barStartH) * f) + 'px';
+    }
+    syncStickyBackdrops();
+    updateFly();
+    if(raw < 1){ requestAnimationFrame(step); return; }
+    measureFly();
+    setTimeout(() => done(barOn), 700);                          // rests on the heading a moment, then fades out
+  };
+  requestAnimationFrame(step);
+}
 function finaleReset(){
   finale.timers.forEach(clearTimeout);
   if(finale.nameEl && finale.nameEl.isConnected) finale.nameEl.innerHTML = finale.nameHtml;
   if(finale.prayEl) finale.prayEl.remove();
   if(finale.blueEl) finale.blueEl.classList.remove('finaleBlue');   // v573
+  if(finale.rising){ const bar = audioActiveBarEl(); if(bar){ bar.classList.remove('on'); bar.style.transition = ''; } }   // v574: a rise was cut short
   const body = document.getElementById('artBody');
   if(body) body.classList.remove('finaleFade');
-  finale = { stage: 0, timers: [], nameEl: null, nameHtml: '', prayEl: null, blueEl: null };
+  finale = { stage: 0, timers: [], nameEl: null, nameHtml: '', prayEl: null, blueEl: null, hold: false, rising: false };
 }
 // What the recorder says at the end (mirrors its invocationFor(): "St." -> "Saint" ...)
 function finalePrayerText(d){
@@ -12109,17 +12345,13 @@ function finaleTick(t){
   const text = finalePrayerText(currentEntry);
   const m = text.match(/^(.*?),?\s*pray for us\.?\s*$/i);
   const prayStart = m ? start + (end - start) * Math.min(0.85, (m[1].length + 2) / text.length) : end;
-  // 1. fade out, back to the top, fade in — all inside the pause
-  const body = document.getElementById('artBody');
-  const art = document.getElementById('article');
-  audioFollowSuppressUntil = Date.now() + Math.max(4000, (end - t) * 1000 + 2000);
-  setActiveCue(-1);
-  body.classList.add('finaleFade');
-  finale.timers.push(setTimeout(() => {
-    art.scrollTop = 0;
-    art.dispatchEvent(new Event('scroll'));
-    body.classList.remove('finaleFade');
-  }, 320));
+  // 1. v574: no fade and no jump. The sentence highlight is cleared but the white marker stays on the last
+  //    sentence (finale.hold stops setActiveCue from hiding it) while the name glows and the prayer is spoken;
+  //    FINALE_RISE_DELAY seconds after the prayer ends the marker rises to the first section heading.
+  finale.hold = true;
+  (cueEls[activeCueIdx] || []).forEach(el => el.classList.remove('cuePlaying'));
+  audioFollowSuppressUntil = Date.now() + Math.max(4000, (end - t + FINALE_RISE_DELAY) * 1000 + 9000);
+  at(end + FINALE_RISE_DELAY, () => finaleRise());
   // 2. glow across the name, a word at a time, as it is spoken
   at(start, () => {
     const sticky = liveArtEl('artSticky');
@@ -13949,6 +14181,7 @@ document.getElementById('article').addEventListener('scroll', () => {
   if(activeCueIdx >= 0) updateAudioActiveBar(activeCueIdx);
 }, {passive:true});
 function setActiveCue(idx){
+  if(finale && finale.hold) return;   // v574: the end-of-story finale owns the marker
   if(idx !== activeCueIdx){
     (cueEls[activeCueIdx] || []).forEach(el => el.classList.remove('cuePlaying'));
     activeCueIdx = idx;
