@@ -1,6 +1,6 @@
 <!--
-VERSION: 574
-DATE: 2026-10-14T12:00:00-05:00
+VERSION: 575
+DATE: 2026-10-14T18:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,23 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v575 — 2026-10-14
+
+**Ask:**
+- The rise at the end of a story goes too slow. Move the white marker to the top line the way it moves
+  elsewhere, then leave it lit there as the cursor. Remember that spot so pressing Play starts from the
+  very beginning.
+
+**Implementation:**
+- finaleRise now uses animateFollowScroll's own timing (700-1800ms by distance) and its morphEase curve instead
+  of the slower constant-speed-then-slow-down curve (about 4-5s on a long story). The old finaleRiseEase and
+  its speed constants are gone.
+- On arrival the marker no longer fades out. The playback position is set to 0, the very beginning (the recording
+  opens with the saint's name; an earlier draft of this entry started at the first line), setActiveCue(0) keeps the
+  marker and line lit, and saveCurrentCardPosition() stores it (a position of 0 saves nothing, so reopening also
+  starts from the top). finaleParkedAtTop makes setActiveCue ignore "no sentence" updates until playback reaches the
+  first line, so the marker stays lit while the name is spoken. The finale's own state resets as usual.
+
 ## v574 — 2026-10-14
 
 **Ask:**
@@ -5368,7 +5385,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v574';
+const APP_VERSION = 'v575';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -12252,33 +12269,36 @@ function haptic(){
 var finaleInfo = { prayer: null, duration: 0 };
 var finale = { stage: 0, timers: [], nameEl: null, nameHtml: "", prayEl: null, blueEl: null, haloEl: null, hold: false, rising: false };
 const FINALE_PAUSE = 1.2;   // the recorder's INVOCATION_PAUSE_SEC
-const FINALE_RISE_DELAY = 1.5;    // v574: seconds after the prayer ends before the marker starts to rise
-const FINALE_RISE_SPEED = 1100;   // v574: px per second while it is moving at full pace
-const FINALE_RISE_HOLD = 0.45;    // v574: the share of the way travelled at constant speed; the rest slows to a stop
-// Constant speed for the first part, then a steady slow-down to a gentle stop at exactly 1.
-function finaleRiseEase(x){
-  const A = FINALE_RISE_HOLD, V0 = 1 / (A + (1 - A) / 2);
-  x = Math.min(1, Math.max(0, x));
-  if(x <= A) return V0 * x;
-  const d = x - A;
-  return V0 * (A + d - d * d / (2 * (1 - A)));
-}
-// v574: the end-of-story reset. The white marker line travels from the last sentence up to the first
-// section heading while the article scrolls with it (one progress value drives both).
+const FINALE_RISE_DELAY = 1.5;    // v575: seconds after the prayer ends before the marker starts to rise
+let finaleParkedAtTop = false;    // v575: the marker is resting on the first line, waiting for Play (ignores "no sentence" updates while paused)
+// v575: the end-of-story reset. The white marker line travels from the last sentence up to the first line while
+// the article scrolls with it (one progress value drives both), with the same glide the site uses everywhere else
+// (animateFollowScroll: its duration and morphEase curve). It then STAYS LIT on the first line, and the playback
+// position is set to the very beginning, so pressing Play starts the story from the top (the name, then the first line).
 function finaleRise(){
   const F = finale;
   const artEl = audioScrollEl(), bar = audioActiveBarEl();
-  const done = (fadeBar) => {
+  const cancel = () => {                       // the reader took over, or there is nothing to move
     if(finale !== F) return;
     F.rising = false; F.hold = false;
-    if(!bar) return;
-    if(fadeBar){
-      bar.style.transition = 'opacity 1.2s ease';
-      bar.classList.remove('on');
-      setTimeout(() => { if(!F.hold && !bar.classList.contains('on')) bar.style.transition = ''; }, 1300);
-    }else{ bar.classList.remove('on'); bar.style.transition = ''; }
+    if(bar){ bar.classList.remove('on'); bar.style.transition = ''; }
   };
-  if(!artEl || !bar || !artEl.classList.contains('open') || artEl.classList.contains('peek')){ done(false); return; }
+  const land = () => {                         // arrived: park the cursor on the first line
+    if(finale !== F) return;
+    F.rising = false; F.hold = false;
+    if(bar) bar.style.transition = '';
+    const cue0 = currentCues[0];
+    if(cue0 && audioEl && isFinite(Number(cue0.start))){
+      audioEl.currentTime = 0;                  // the very beginning: the saint's name, then the first line
+      activeCueIdx = -1;                       // so setActiveCue(0) redraws the marker where the first line really is
+      setActiveCue(0);
+      finaleParkedAtTop = true;                // after the call: setActiveCue(0) itself clears the flag
+      audioFollowLastHeading = cueSectionHeading[0] || null;   // the first Play finds the page already there
+      audioFollowSuppressUntil = 0;
+    }else if(bar){ bar.classList.remove('on'); }
+    saveCurrentCardPosition();                 // remembered: reopening the story also starts from the top
+  };
+  if(!artEl || !bar || !artEl.classList.contains('open') || artEl.classList.contains('peek')){ cancel(); return; }
   const barOn = bar.classList.contains('on');   // the last sentence may have no marker (never matched, or under the header): then only the page glides
   const heading = (cueSectionHeading || []).find(h => h && h.isConnected) || null;
   const sticky = audioStickyEl();
@@ -12295,9 +12315,8 @@ function finaleRise(){
     barEndTop = headingAbs - 3; barEndH = hr.height + 6;
   }
   const dist = barOn ? Math.max(Math.abs(scrollStart - target), Math.abs(barStartTop - barEndTop)) : Math.abs(scrollStart - target);
-  if(dist < 4){ done(barOn); return; }
-  const V0 = 1 / (FINALE_RISE_HOLD + (1 - FINALE_RISE_HOLD) / 2);
-  const DURATION = Math.max(1400, Math.min(5200, V0 * dist / FINALE_RISE_SPEED * 1000));
+  if(dist < 4){ land(); return; }
+  const DURATION = Math.max(700, Math.min(1800, 650 + dist * 0.9));   // animateFollowScroll's own timing
   const token = ++audioFollowToken;
   F.rising = true; activeCueIdx = -1;          // the scroll listener must not snap the marker back to a cue
   if(barOn) bar.style.transition = 'none';     // driven by hand, frame by frame
@@ -12305,8 +12324,8 @@ function finaleRise(){
   const t0 = performance.now();
   const step = (now) => {
     if(finale !== F || !F.rising) return;                       // scrubbed back, swiped or closed: finaleReset tidied up
-    if(token !== audioFollowToken || Math.abs(artEl.scrollTop - lastSet) > 2){ done(false); return; }   // the reader took over
-    const raw = Math.min(1, (now - t0) / DURATION), f = finaleRiseEase(raw);
+    if(token !== audioFollowToken || Math.abs(artEl.scrollTop - lastSet) > 2){ cancel(); return; }   // the reader took over
+    const raw = Math.min(1, (now - t0) / DURATION), f = morphEase(raw);
     artEl.scrollTop = scrollStart + (target - scrollStart) * f;
     lastSet = artEl.scrollTop;
     if(barOn){
@@ -12317,7 +12336,7 @@ function finaleRise(){
     updateFly();
     if(raw < 1){ requestAnimationFrame(step); return; }
     measureFly();
-    setTimeout(() => done(barOn), 700);                          // rests on the heading a moment, then fades out
+    land();
   };
   requestAnimationFrame(step);
 }
@@ -14218,6 +14237,8 @@ function finaleOwnsEnd(){
 function setActiveCue(idx){
   if(finale && finale.hold) return;   // v574: the end-of-story finale owns the marker
   if(idx === -1 && finaleOwnsEnd()) return;   // v574: ...and so does the moment right after the last sentence
+  if(idx >= 0) finaleParkedAtTop = false;
+  else if(finaleParkedAtTop && audioEl && currentCues[0] && audioEl.currentTime < Number(currentCues[0].start)) return;   // v575: the cursor stays on the first line until the first line itself is read (paused, or while the name is spoken)
   if(idx !== activeCueIdx){
     (cueEls[activeCueIdx] || []).forEach(el => el.classList.remove('cuePlaying'));
     activeCueIdx = idx;
