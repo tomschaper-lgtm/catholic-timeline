@@ -19,6 +19,99 @@ the time.
 
 ---
 
+## v578 — 2026-10-14
+
+**Ask:**
+- When a new word is added to the pronunciation guide, automatically queue every article that has the word for
+  re-recording, and say how many were queued. Leave out any article already marked Listened.
+
+**Implementation:**
+- After the pronunciation picker saves a spelling (or a pause) to the rules file, pronQueueRerecords(phrase)
+  queues an audio-generate task, with the saved Voice & pacing settings, for each entry that reads the phrase
+  (entryReadsPhrase: same text and matching as the recorder: the saint's name, headings and bodies, case-sensitive,
+  whole words) AND already has a recording. Left out and counted separately: entries marked Listened
+  (entryIsListened), entries with a recording task already waiting, and entries held for rewording (a long
+  sentence). Entries with no recording yet are not queued; they will use the new sound when first recorded.
+  The toast reads, e.g. "Saved ✓ “Cyriacus” — 7 articles queued for re-recording (2 left out: Listened)". If the
+  queue cannot be saved (no GitHub token or voice chosen) the pronunciation is still saved and the toast says why.
+  Pronunciations added elsewhere (pronounce.html) do not queue anything.
+
+## v577 — 2026-10-14
+
+**Ask:**
+- Be able to select the items that are not marked as listened to, to re-record everything except what has
+  been marked Listened.
+
+**Implementation:**
+- Manage → Task Automation → Add Task → Record audio: when "Regenerate even entries that already have audio"
+  (or the recorded-before-the-fix list) is on, a new checkbox "Leave out entries marked Listened (N)" appears,
+  ON by default, N = how many entries in the chosen category it protects. entryIsListened(e) = has audio and
+  qc.pronChecked (the green Listened button). audioGeneratePool drops those entries, so the list, the count and
+  the queued task all leave them out. The choice is remembered with the other Add Task settings (tkBatchSkipListened).
+  Untick it to re-record everything, listened or not.
+
+## v576 — 2026-10-14
+
+**Ask:**
+- If the white marker is off screen when Play is pressed (e.g. it sits at the top and the reader scrolled to the
+  bottom), the audio started and the page crawled back to the marker, jittery, slowing and speeding with the
+  audio. Instead: quickly move to the marker's spot first, then start playing.
+
+**Implementation:**
+- startAudioPlayback finds the cursor's line (cursorCueIdx: the active cue, else the cue at the current time,
+  else the first line when before it) and the spot the Play-triggered follow would glide to (its section heading
+  at the top). If the page is more than 60px from that spot (or, for a cue with no heading, the cursor is off
+  screen), quickScrollTo glides there in 240-480ms (ease-out) and only then plays; the follow that Play triggers
+  next finds nothing left to move. The button shows "pause" at once; pressing it again during the glide cancels
+  the start; a drag or scroll by the reader skips the glide and starts. Measured in a real browser, cursor at the
+  top and the reader at the bottom: before, the page had crawled 110px in 3s while the audio ran; now it arrives in
+  0.35s, the audio starts at 0.4s, and nothing moves afterwards.
+
+## v575 — 2026-10-14
+
+**Ask:**
+- The blue glow and its background are too much: go back to the soft blue shadow, more subtle, a little
+  bigger as it fades out.
+- The rise at the end of a story goes too slow. Move the white marker to the top line the way it moves
+  elsewhere, then leave it lit there as the cursor. Remember that spot so pressing Play starts from the
+  very beginning.
+
+**Implementation:**
+- finaleRise now uses animateFollowScroll's own timing (700-1800ms by distance) and its morphEase curve instead
+  of the slower constant-speed-then-slow-down curve (about 4-5s on a long story). The old finaleRiseEase and
+  its speed constants are gone.
+- Blue glow: v574's solid halo behind the name is gone. The glow is the soft four-layer text-shadow again, and
+  finaleBlueGlow now grows a little (outer layer 84px to 128px) while it fades over 3.4s.
+- On arrival the marker no longer fades out. The playback position is set to 0, the very beginning (the recording
+  opens with the saint's name; an earlier draft of this entry started at the first line), setActiveCue(0) keeps the
+  marker and line lit, and saveCurrentCardPosition() stores it (a position of 0 saves nothing, so reopening also
+  starts from the top). finaleParkedAtTop makes setActiveCue ignore "no sentence" updates until playback reaches the
+  first line, so the marker stays lit while the name is spoken. The finale's own state resets as usual.
+
+## v574 — 2026-10-14
+
+**Ask:**
+- The end of a story fades out, jumps to the top and fades back in; the flash is not wanted. Just
+  reset it: the prayer and the saint's name glow as they do now, 1.5 seconds pass, then the white
+  marker line on the left moves at medium speed up to the top of the article and slows gradually
+  to a gentle stop at the first section header.
+
+**Implementation:**
+- finaleTick step 1 no longer fades #artBody, jumps scrollTop to 0 or clears the marker (the
+  setActiveCue(-1) call is gone). The sentence's own highlight is cleared but #audioActiveBar stays
+  on the last sentence while the name glows and the prayer is spoken. finale.hold makes setActiveCue
+  ignore cue changes in that time (the audio 'ended' event also calls setActiveCue(-1)). Found by a real-browser
+  test: the marker was already hidden the instant the last sentence ended, before the finale started, so
+  finaleOwnsEnd() also keeps it lit from the end of the last sentence on.
+- New finaleRise(), started FINALE_RISE_DELAY (1.5s) after the prayer ends: one animation drives the
+  scroll position and the marker's top and height together, from the last sentence to the first
+  section heading (the same resting spot followAudioSection uses). Medium constant speed (about
+  1100 px/s) for the first 45% of the way, then a smooth slow-down to a stop (finaleRiseEase). A
+  manual drag or scroll, scrubbing back, a swipe or closing the article cancels it. After landing
+  the marker rests briefly and fades out gently.
+- Rising marker and scroll share one progress value, so the marker never goes under the sticky
+  header. The marker's own top/height CSS transition is switched off while it is driven.
+
 ## v573 — 2026-10-12
 
 **Ask:**
