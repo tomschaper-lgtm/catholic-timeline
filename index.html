@@ -1,6 +1,6 @@
 <!--
-VERSION: 576
-DATE: 2026-10-14T21:00:00-05:00
+VERSION: 578
+DATE: 2026-10-14T23:55:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,37 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v578 — 2026-10-14
+
+**Ask:**
+- When a new word is added to the pronunciation guide, automatically queue every article that has the word for
+  re-recording, and say how many were queued. Leave out any article already marked Listened.
+
+**Implementation:**
+- After the pronunciation picker saves a spelling (or a pause) to the rules file, pronQueueRerecords(phrase)
+  queues an audio-generate task, with the saved Voice & pacing settings, for each entry that reads the phrase
+  (entryReadsPhrase: same text and matching as the recorder: the saint's name, headings and bodies, case-sensitive,
+  whole words) AND already has a recording. Left out and counted separately: entries marked Listened
+  (entryIsListened), entries with a recording task already waiting, and entries held for rewording (a long
+  sentence). Entries with no recording yet are not queued; they will use the new sound when first recorded.
+  The toast reads, e.g. "Saved ✓ “Cyriacus” — 7 articles queued for re-recording (2 left out: Listened)". If the
+  queue cannot be saved (no GitHub token or voice chosen) the pronunciation is still saved and the toast says why.
+  Pronunciations added elsewhere (pronounce.html) do not queue anything.
+
+## v577 — 2026-10-14
+
+**Ask:**
+- Be able to select the items that are not marked as listened to, to re-record everything except what has
+  been marked Listened.
+
+**Implementation:**
+- Manage → Task Automation → Add Task → Record audio: when "Regenerate even entries that already have audio"
+  (or the recorded-before-the-fix list) is on, a new checkbox "Leave out entries marked Listened (N)" appears,
+  ON by default, N = how many entries in the chosen category it protects. entryIsListened(e) = has audio and
+  qc.pronChecked (the green Listened button). audioGeneratePool drops those entries, so the list, the count and
+  the queued task all leave them out. The choice is remembered with the other Add Task settings (tkBatchSkipListened).
+  Untick it to re-record everything, listened or not.
+
 ## v576 — 2026-10-14
 
 **Ask:**
@@ -1108,7 +1139,7 @@ CHANGELOG:END
   .tkBatchNote{color:#8A6D1C; font-style:italic;}
   #tkBatchFields.hidden, #tkPlainFields.hidden{display:none;}
   #tkBatchOrder.hidden, #tkBatchOrderLabel.hidden{display:none;}
-  #tkBatchOverwriteRow.hidden, #tkRewordProviderRow.hidden{display:none;}
+  #tkBatchOverwriteRow.hidden, #tkRewordProviderRow.hidden, #tkBatchSkipListenedRow.hidden{display:none;}
   /* Review view: scrolling entry above, locked options below.
      `color` is set explicitly here and NOT left to inherit: the panel sits inside the app's
      dark theme, whose body colour is parchment, so any element that didn't name its own colour
@@ -4194,6 +4225,8 @@ CHANGELOG:END
           <label class="tkLabel" for="tkBatchCount">Quantity</label>
           <input type="number" id="tkBatchCount" inputmode="numeric" value="5">
           <label class="tkCheck" id="tkBatchOverwriteRow"><input type="checkbox" id="tkBatchOverwrite"><span id="tkBatchOverwriteLabel">Regenerate even entries that already have one</span></label>
+          <!-- v577: re-record everything EXCEPT what has been marked Listened (Pronunciation checked). On by default. -->
+          <label class="tkCheck hidden" id="tkBatchSkipListenedRow"><input type="checkbox" id="tkBatchSkipListened" checked><span id="tkBatchSkipListenedLabel">Leave out entries marked Listened</span></label>
           <!-- v495: Record audio only — limits the list to recordings made before the pronunciation
                fix whose text contains something the fix changes (Roman numerals etc.). -->
           <label class="tkCheck hidden" id="tkPronFixRow"><input type="checkbox" id="tkPronFix"><span>Only re-record entries recorded before the pronunciation fix that contain Roman numerals</span></label>
@@ -5401,7 +5434,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v576';
+const APP_VERSION = 'v578';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8180,7 +8213,7 @@ function tkIsFeastMode(){
 // year/feast value itself): pool composition shifts as tasks get approved and reword/recording
 // pools fill in, so a remembered position would go stale fast — this always resets to "start at
 // the earliest eligible" instead, which stays correct no matter how the pool has changed.
-const TK_ADD_FORM_FIELDS = { tkNewType: 'select', tkBatchCategory: 'select', tkBatchOrder: 'select', tkBatchCount: 'text', tkBatchOverwrite: 'checkbox', tkRewordProvider: 'select' };
+const TK_ADD_FORM_FIELDS = { tkNewType: 'select', tkBatchCategory: 'select', tkBatchOrder: 'select', tkBatchCount: 'text', tkBatchOverwrite: 'checkbox', tkBatchSkipListened: 'checkbox', tkRewordProvider: 'select' };
 function prefillTkAddForm(){
   let c = {};
   try{ c = JSON.parse(localStorage.getItem('tk-add-form-settings') || '{}'); }catch(e){}
@@ -8195,6 +8228,9 @@ function prefillTkAddForm(){
   const ow = document.getElementById('tkBatchOverwrite');
   if(ow && ('tkBatchOverwrite' in c) && !ow.disabled){
     ow.checked = !!c.tkBatchOverwrite;
+    const sk = document.getElementById('tkBatchSkipListened');
+    if(sk && ('tkBatchSkipListened' in c)) sk.checked = !!c.tkBatchSkipListened;   // v577
+    tkUpdateSkipListenedRow();
     tkRefreshBatchPreview(); // overwrite changed after tkUpdateAddFormMode's own refresh — redo it to match
   }
 }
@@ -8357,15 +8393,89 @@ function entryPronHits(e){
   }
   return found;
 }
+// v577: has the whole recording been listened to and signed off? ("Listened" button; a new recording clears it)
+function entryIsListened(e){ return !!(e && e.audio && e.qc && e.qc.pronChecked); }
+// v578: does the narration of this entry read the phrase? Same text and same matching the recorder uses for a rule
+// (the saint's name, section headings and bodies; case-sensitive, whole words).
+function entryReadsPhrase(e, phrase){
+  if(!phrase) return false;
+  const plain = (h) => String(h || '').replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ');
+  const parts = [e.t === 's' ? e.n : ''];
+  ((e.art && e.art.sections) || []).forEach(sec => { parts.push(plain(sec.h)); parts.push(plain(sec.b)); });
+  const text = parts.join(' \n ');
+  const isW = (ch) => !!ch && /[A-Za-z0-9\u00C0-\u024F]/.test(ch);
+  for(let i = text.indexOf(phrase); i !== -1; i = text.indexOf(phrase, i + 1)){
+    if(!isW(text[i - 1]) && !isW(text[i + phrase.length])) return true;
+  }
+  return false;
+}
+// v578: a pronunciation (or pause) was just saved for `phrase`: queue a re-recording for every article that reads it
+// and already has a recording, except those marked Listened. Never throws; returns the counts for the message.
+async function pronQueueRerecords(phrase){
+  const out = { queued: 0, listened: 0, pending: 0, held: 0, error: '' };
+  try{
+    if(!phrase) return out;
+    const g = wlGh();
+    if(!(g.owner && g.repo && g.token)){ out.error = 'GitHub isn\u2019t set up on this device'; return out; }
+    if(!wlData) await loadWorkLog();
+    if(!wlData) wlData = { v: 1, tasks: [] };
+    if(!Array.isArray(wlData.tasks)) wlData.tasks = [];
+    const payload = tkAudioPayload();
+    if(!payload.voiceId){ out.error = 'no voice is chosen (Manage \u2192 Import \u2192 Voice & pacing settings)'; return out; }
+    saveAudioGenSettings();
+    const label = (TK_SERVICES.find(x => x.id === 'audio-generate') || {}).label || 'audio-generate';
+    const nowIso = new Date().toISOString();
+    const tasks = [];
+    db.entries.forEach(e => {
+      if(!e.audio || !entryReadsPhrase(e, phrase)) return;          // not recorded yet: it will use the new sound when it is
+      if(entryIsListened(e)){ out.listened++; return; }
+      if(tkHasPendingTask(e.id, ['audio-generate'])){ out.pending++; return; }
+      if(entryHasLongSentence(e)){ out.held++; return; }
+      tasks.push({
+        id: 'task-audio-generate-' + e.id + '-' + Date.now() + '-' + Math.floor(Math.random() * 1000), type: 'audio-generate', entityId: e.id, batchId: null, status: 'queued',
+        description: label + ' \u2014 ' + e.n, payload: Object.assign({}, payload), result: null, createdAt: nowIso, updatedAt: nowIso, error: null
+      });
+    });
+    if(!tasks.length) return out;
+    wlData.tasks.push(...tasks);
+    const saved = await saveWorkLog('Queue ' + tasks.length + ' audio-generate task(s) for new pronunciation: ' + phrase, tasks.map(t => t.id));
+    if(saved.ok) out.queued = tasks.length; else out.error = saved.error || 'could not save the queue';
+  }catch(err){ out.error = (err && err.message) || String(err); }
+  return out;
+}
+function pronQueueMessage(base, r){
+  if(r.error) return base + ' \u2014 but the re-recordings could not be queued: ' + r.error;
+  let m = base + ' \u2014 ' + r.queued + ' article' + (r.queued === 1 ? '' : 's') + ' queued for re-recording';
+  const bits = [];
+  if(r.listened) bits.push(r.listened + ' left out: Listened');
+  if(r.pending) bits.push(r.pending + ' already queued');
+  if(r.held) bits.push(r.held + ' waiting on rewording');
+  return m + (bits.length ? ' (' + bits.join(', ') + ')' : '');
+}
+// v577: shows "Leave out entries marked Listened (N)" for Record audio when it can matter (regenerating recorded
+// entries, or the recorded-before-the-fix list), with N = how many in the chosen category it would protect.
+function tkUpdateSkipListenedRow(){
+  const row = document.getElementById('tkBatchSkipListenedRow');
+  if(!row) return;
+  const type = document.getElementById('tkNewType').value;
+  const regen = document.getElementById('tkBatchOverwrite').checked || !!(document.getElementById('tkPronFix') && document.getElementById('tkPronFix').checked);
+  row.classList.toggle('hidden', !(type === 'audio-generate' && regen));
+  const category = document.getElementById('tkBatchCategory').value;
+  const n = db.entries.filter(e => entryIsListened(e) && (!category || e.t === category)).length;
+  document.getElementById('tkBatchSkipListenedLabel').textContent = 'Leave out entries marked Listened (' + n + ')';
+}
 function audioGeneratePool(){
   const category = document.getElementById('tkBatchCategory').value;
   const includeRecorded = document.getElementById('tkBatchOverwrite').checked;
   const pronFix = !!(document.getElementById('tkPronFix') && document.getElementById('tkPronFix').checked);
+  const skipEl = document.getElementById('tkBatchSkipListened');
+  const skipListened = !!(skipEl && skipEl.checked && (includeRecorded || pronFix));   // v577
   const pool = db.entries
     .filter(e => articleStats(e).wordCount > 0)
     .filter(e => !category || e.t === category)
     .filter(e => !tkHasPendingTask(e.id, ['audio-generate']))
     .filter(e => !entryHasLongSentence(e))
+    .filter(e => !(skipListened && entryIsListened(e)))   // v577: keep what has been listened to
     // v495: "recorded before the fix, with numerals" — recorded, not stamped audioPron by the
     // audio service, and containing something the rules change.
     .filter(e => pronFix ? (e.audio && !e.audioPron && entryPronHits(e).length > 0) : (includeRecorded || !e.audio))
@@ -8536,6 +8646,7 @@ function tkUpdateAddFormMode(){
     document.getElementById('tkRewordProviderRow').classList.toggle('hidden', type !== 'sentence-reword');
     document.getElementById('tkPronFixRow').classList.toggle('hidden', type !== 'audio-generate'); // v495
     document.getElementById('tkPronFix').checked = false;
+    tkUpdateSkipListenedRow();   // v577
     tkUpdateOrderVisibility();
     tkUpdateBatchStartMode();
     tkRefreshBatchPreview();
@@ -8543,11 +8654,13 @@ function tkUpdateAddFormMode(){
 }
 document.getElementById('tkNewType').addEventListener('change', tkUpdateAddFormMode);
 document.getElementById('tkPronFix').addEventListener('change', async () => {
+  tkUpdateSkipListenedRow();   // v577
   await tkLoadPronRules();
   tkBatchStartIdx = -1;
   tkRefreshBatchPreview();
 });
 document.getElementById('tkBatchCategory').addEventListener('change', () => {
+  tkUpdateSkipListenedRow();   // v577: the count follows the category
   tkBatchStartIdx = -1;
   document.getElementById('tkBatchStart').value = '';
   document.getElementById('tkBatchOrder').value = 'feast';
@@ -8601,9 +8714,11 @@ document.getElementById('tkNewType').addEventListener('change', saveTkAddFormSet
 document.getElementById('tkBatchCategory').addEventListener('change', saveTkAddFormSettings);
 document.getElementById('tkBatchOrder').addEventListener('change', saveTkAddFormSettings);
 document.getElementById('tkBatchOverwrite').addEventListener('change', saveTkAddFormSettings);
+document.getElementById('tkBatchSkipListened').addEventListener('change', saveTkAddFormSettings);   // v577
+document.getElementById('tkBatchSkipListened').addEventListener('change', () => { tkBatchStartIdx = -1; tkRefreshBatchPreview(); });
 document.getElementById('tkBatchCount').addEventListener('input', saveTkAddFormSettings);
 document.getElementById('tkRewordProvider').addEventListener('change', saveTkAddFormSettings);
-document.getElementById('tkBatchOverwrite').addEventListener('change', tkRefreshBatchPreview);
+document.getElementById('tkBatchOverwrite').addEventListener('change', () => { tkUpdateSkipListenedRow(); tkRefreshBatchPreview(); });   // v577: also shows/hides the Listened row
 document.getElementById('tkBatchCount').addEventListener('input', tkRenderBatchList);
 // One glyph per state, no label. Green check = settled, amber ring = waiting to run, half-ring
 // = running, blue dot = waiting on you, red cross = broken, grey cross = you said no.
@@ -16472,6 +16587,7 @@ document.getElementById('lpToolOk').addEventListener('click', async () => {
   if(ok.dataset.done){ closeLinkPicker(); return; }
   if(ok.disabled || !lpTool) return;
   ok.disabled = true; lpToolSay('Saving\u2026');
+  let queuePhrase = '';
   try{
     if(lpTool === 'spell'){
       const key = lpSpellKey(), ph = lpSpellUpdate();
@@ -16483,7 +16599,7 @@ document.getElementById('lpToolOk').addEventListener('click', async () => {
         if(/\s/.test(key)) list.unshift(rule); else list.push(rule);   // same placement as pronounce.html
       }, 'Pronunciation: ' + key + ' (typed in the app)');
       if(lpFixes) lpFixes.set(key, { ipa: ph, alias: key });
-      lpSavedMsg = 'Saved \u2713 \u201c' + key + '\u201d \u2014 tap Audio to re-record';
+      lpSavedMsg = 'Saved \u2713 \u201c' + key + '\u201d'; queuePhrase = key;
     }else{
       const plan = lpPausePlanNow;
       if(!plan || plan.err) throw new Error('Nothing to save.');
@@ -16492,9 +16608,11 @@ document.getElementById('lpToolOk').addEventListener('click', async () => {
         const rule = { string_to_replace: plan.phrase, type: 'pause', pause_after: plan.after, case_sensitive: true, word_boundaries: true };
         if(i >= 0) list[i] = rule; else list.push(rule);   // at the end: never shadows a sound fix for the same words
       }, 'Pause: ' + plan.spoken + ' (added in the app)');
-      lpSavedMsg = 'Pause saved \u2713 \u2014 tap Audio to re-record';
+      lpSavedMsg = 'Pause saved \u2713'; queuePhrase = plan.phrase;
     }
     tkPronRules = null;   // re-read for the re-record list
+    lpToolSay('Saved \u2713 \u2014 queuing re-recordings\u2026');
+    lpSavedMsg = pronQueueMessage(lpSavedMsg, await pronQueueRerecords(queuePhrase));   // v578
     ok.disabled = false;
     closeLinkPicker();                                                     // v533: OK commits and closes
     try{ showShareToast(lpSavedMsg); }catch(e){}
