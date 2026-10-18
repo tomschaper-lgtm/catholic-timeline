@@ -1,11 +1,11 @@
 // scripts/services/audio-generate.mjs
 //
-// MODULE DATE: 2026-10-06 (Tuesday). Based on the audio-generate.mjs upload of 2026-10-06; the only changes
-// are the SPOKEN TITLE block (spokenTitleFor + SpokenTitle: override lookup, below titleFor), the loader
-// keeping those override rules out of the normal rule list, and the one call site in narrateEntryKokoro.
-// titleFor() itself is unchanged. Override key prefix is plain "SpokenTitle:" (no EM_), for every category.
+// MODULE DATE: 2026-10-15T23:30:00-05:00 (Thursday). Based on the audio-generate.mjs upload of 2026-10-06
+// (audio-generate_4.mjs). The only change: CLOSING PRAYERS FOR MORE THAN SAINTS. invocationFor() now also
+// gives a default closing prayer to Marian apparitions ("Our Lady of Fatima, pray for us."), Councils,
+// Persecutions and Eucharistic Miracles (fixed lines, PRAYER_BY_TYPE below); Events get none. Two Marian
+// entries have their own wording (MARIAN_PRAYER_BY_NAME). An article's own [prayer] still wins, as before.
 // If this file has changed since, ask for a refresh before relying on it.
-//
 // Service: "audio-generate"
 //
 // Ported from the standalone scripts/generate-audio.mjs (triggered directly via the "Generate
@@ -301,8 +301,24 @@ function hasNarratableText(entry){ return sectionParts(entry).length > 0; }
 // "St. John Paul II" → "Saint John Paul II, pray for us." (the pronunciation rules then turn
 // II into "the second"). Abbreviations are spelled out so the voice doesn't say "Street":
 // St. → Saint, Sts. → Saints, Bl. → Blessed; "&" → "and". Saint entries only.
+// Default closing prayers by category (2026-10-15). Saints and Marian apparitions pray with their own name;
+// Councils, Persecutions and Eucharistic Miracles use one fixed line; Events (e) have none.
+const PRAYER_BY_TYPE = {
+  c: 'Holy Spirit, protector of the Church, guide us into all truth.',
+  p: 'Holy martyrs of the Church, pray for us.',
+  u: 'O Sacrament most holy, O Sacrament divine, all praise and all thanksgiving be every moment thine.'
+};
+// Marian entries whose name does not read as an invocation (matched on the entry name).
+const MARIAN_PRAYER_BY_NAME = {
+  'Miraculous Medal (Rue du Bac)': 'O Mary, conceived without sin, pray for us who have recourse to thee.',
+  'Beauraing & Banneux': 'Our Lady of Beauraing and Banneux, pray for us.'
+};
 export function invocationFor(entry){
-  if(!entry || entry.t !== 's' || !entry.n) return '';
+  if(!entry || !entry.t) return '';
+  if(PRAYER_BY_TYPE[entry.t]) return PRAYER_BY_TYPE[entry.t];
+  if(entry.t !== 's' && entry.t !== 'm') return '';
+  if(!entry.n) return '';
+  if(entry.t === 'm' && MARIAN_PRAYER_BY_NAME[String(entry.n).trim()]) return MARIAN_PRAYER_BY_NAME[String(entry.n).trim()];
   const name = String(entry.n).trim()
     .replace(/\bSts\.\s+/g, 'Saints ')
     .replace(/\bSt\.\s+/g, 'Saint ')
@@ -440,7 +456,7 @@ async function narrateEntry(entry, dir, baseName, opts, apiKey){
     cumulative += dur;
   }
 
-  // Closing invocation for saints: a pause, then "<name>, pray for us." Spoken only.
+  // Closing invocation (default for the category, see invocationFor): a pause, then the prayer. Spoken only.
   const invocation = prayerFor(entry);   // the article's own [prayer], else the default for saints
   if(invocation){
     const gap = tmp();
