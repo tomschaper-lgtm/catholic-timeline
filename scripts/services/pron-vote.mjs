@@ -1,5 +1,11 @@
 // pron-vote.mjs (2026-10-07) — automatic pronunciation check before a Kokoro recording.
 //
+// MODULE DATE: 2026-10-15T23:55:00-05:00 (Thursday). Based on the pron-vote.mjs upload of 2026-10-15 (pron-vote_2.mjs).
+// The only change: the judges' PROMPT now spells out the long-i trap. The app reads "ih", a bare "i" and a bare
+// "y" as the SHORT i (or, ending a syllable, "ee"), so judges that wrote KRIHST / JEHN-tihlz / MY-kul got "Chrissed",
+// "Gentiles" rhyming with "spills" and "Meekul" even though their notes said "rhymes with priced / tiles".
+// Long i must be written "eye" (or "ye" after a consonant). If this file has changed since, ask for a refresh.
+//
 // Tom's rule: for capitalized words (names, places, councils...) that the pronunciation
 // dictionary doesn't already cover, compare how Kokoro will say them with what Claude, OpenAI and
 // Gemini say. If at least two of the three agree with each other and differ from Kokoro, add
@@ -115,7 +121,10 @@ const PROMPT = 'You advise on pronunciation for an English-language Catholic his
   'For each numbered word below (shown with the sentence it appears in), say how a careful, well-informed American Catholic lector would say it IN THAT SENTENCE: ' +
   'for saints, popes, places and councils, the established English (anglicized) pronunciation used in American Catholic usage when one exists, otherwise the native pronunciation as an English speaker would naturally say it; ' +
   'for ordinary words, the pronunciation that fits the sentence. Answer with JSON only: {"words":[{"word":"<exactly as given>","respell":"..."}]}, one object per word. ' +
-  '"respell": a simple respelling, syllables joined by hyphens, the stressed syllable in CAPITALS, using these sounds: uh, ay, ee, eye, oh, oo, uu, ah, aw, ih, eh, er, ow, oy, a (as in cat), th, sh, zh, ch, j, ng (e.g. KRAH-koof, nye-SEE-uh).';
+  '"respell": a simple respelling, syllables joined by hyphens, the stressed syllable in CAPITALS, using these sounds: uh, ay, ee, eye, oh, oo, uu, ah, aw, ih, eh, er, ow, oy, a (as in cat), th, sh, zh, ch, j, ng (e.g. KRAH-koof, nye-SEE-uh). ' +
+  'VOWEL TRAPS, read carefully: "ih" is ONLY the short i of "sit" and "spills". Never write the long i (the vowel of "tiles", "priced", "Christ", "Michael") as "ih", "i", "ie" or "y"; write it "eye" (or "ye" after a consonant), e.g. Christ = KREYEST, Gentiles = JEHN-teyelz, Michael = MEYE-kul. ' +
+  'Never use a bare "y" or "i" as a vowel, because a "y" ending a syllable is read as "ee" (MY-kul would be said "MEE-kul"). ' +
+  'Before answering, say each respelling back to yourself and check it rhymes the way the real word does.';
 
 function parseAnswer(text){
   const t = String(text || '').replace(/```(?:json)?/g, '');
