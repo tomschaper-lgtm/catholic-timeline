@@ -1,5 +1,15 @@
 // scripts/services/audio-generate.mjs
 //
+// MODULE DATE: 2026-10-19T06:20:00-05:00 (Monday). Based on the audio-generate.mjs upload of 2026-10-06
+// (audio-generate_4.mjs). Two changes. (1) 2026-10-19, WORDS WITH TWO SOUNDS: before a Kokoro recording,
+// heteronyms.mjs asks a cheap AI model, per sentence, whether "records", "read", "lead", "live"... is
+// the noun or the verb (etc.), and that one use is spoken accordingly (applyPronunciation's 4th
+// argument). A phrase rule in the dictionary ("Scripture records") still wins; the dictionary itself is
+// never changed. (2) 2026-10-15, CLOSING PRAYERS FOR MORE THAN SAINTS. invocationFor() now also
+// gives a default closing prayer to Marian apparitions ("Our Lady of Fatima, pray for us."), Councils,
+// Persecutions and Eucharistic Miracles (fixed lines, PRAYER_BY_TYPE below); Events get none. Two Marian
+// entries have their own wording (MARIAN_PRAYER_BY_NAME). An article's own [prayer] still wins, as before.
+// If this file has changed since, ask for a refresh before relying on it.
 // Service: "audio-generate"
 //
 // Ported from the standalone scripts/generate-audio.mjs (triggered directly via the "Generate
@@ -56,9 +66,7 @@ import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { stripHtml, splitSentences } from '../lib/text.mjs';
 import { isKokoroVoice, kokoroVoiceName, kokoroSpeed, Track, synthBatch, trackToMp3 } from './tts-kokoro.mjs';
-import { americanDates, americanizeEntryDates, spokenDateAt } from './american-dates.mjs';
-import { pronVote, COMMON, decideRomanI, iKey } from './pron-vote.mjs';
-import { usageSummary, flushUsage } from './ai-router.mjs';   // 2026-10-11: AI spend log   // 2026-10-05: own file, shared with fix-dates.mjs
+import { americanDates, americanizeEntryDates, spokenDateAt } from './american-dates.mjs';   // 2026-10-05: own file, shared with fix-dates.mjs
 export { americanDates, americanizeEntryDates };
 
 export const AUDIO_ROOT = 'audio';
@@ -85,6 +93,14 @@ export function clamp(n, lo, hi){ return Math.min(hi, Math.max(lo, n)); }
 
 // ---- Pronunciation (see PRONUNCIATION at the top) -------------------------------------------
 let pronunciationRules = null;
+// Spoken-title overrides (2026-10-06): alias rules whose string_to_replace starts with this prefix are
+// NOT pronunciation fixes. They are looked up by spokenTitleFor() only, and are kept out of the rule
+// list applyPronunciation() walks, so a short name like "Rome" can never collide with ordinary words
+// in an article. Key: SpokenTitle:<entry id>  or  SpokenTitle:<entry name>  (id wins; use the id
+// when two entries share a name, e.g. the two "St. Peter Damian" entries). The alias is the FULL
+// announcement, e.g. "The Eucharistic Miracle at Meerssen, Netherlands."
+export const SPOKEN_TITLE_PREFIX = 'SpokenTitle:';
+let titleOverrides = new Map();
 export async function loadPronunciationRules(){
   if(pronunciationRules) return pronunciationRules;
   try{
@@ -97,15 +113,21 @@ export async function loadPronunciationRules(){
         && r.pause_after.trim() && r.string_to_replace.startsWith(r.pause_after) && r.pause_after.length < r.string_to_replace.length)
       .map(r => ({ from: r.string_to_replace, pauseAt: r.pause_after.length, pause: true }));
     pronunciationRules = pauses.concat((raw.rules || [])
-      .filter(r => r && r.type === 'alias' && r.string_to_replace && typeof r.alias === 'string')
+      .filter(r => r && r.type === 'alias' && r.string_to_replace && typeof r.alias === 'string' && !String(r.string_to_replace).startsWith(SPOKEN_TITLE_PREFIX))
       // kokoro_ipa (optional): exact sounds for the Kokoro voice, used instead of the alias
       // respelling when Kokoro is recording. ElevenLabs and the browser voice ignore it.
       .map(r => ({ from: r.string_to_replace, to: r.alias, ipa: typeof r.kokoro_ipa === 'string' && r.kokoro_ipa.trim() ? r.kokoro_ipa.trim() : '' })));
+    titleOverrides = new Map((raw.rules || [])
+      .filter(r => r && r.type === 'alias' && typeof r.string_to_replace === 'string' && r.string_to_replace.startsWith(SPOKEN_TITLE_PREFIX)
+        && typeof r.alias === 'string' && r.alias.trim())
+      .map(r => [r.string_to_replace.slice(SPOKEN_TITLE_PREFIX.length).trim(), r.alias.trim()]));
   }catch(e){
     pronunciationRules = []; // no file (or unreadable): narrate the text as written
+    titleOverrides = new Map();
   }
   return pronunciationRules;
 }
+export async function loadSpokenTitleOverrides(){ await loadPronunciationRules(); return titleOverrides; }
 const isWordChar = (ch) => !!ch && /[A-Za-z0-9\u00C0-\u024F]/.test(ch);
 // Returns the text to speak, a position map (map[i] = where original character i starts in the
 // spoken text; map[text.length] = spoken length), and how many replacements were made.
@@ -114,64 +136,6 @@ const isWordChar = (ch) => !!ch && /[A-Za-z0-9\u00C0-\u024F]/.test(ch);
 // "[God's](/ɡˈɑdz/) [will](/wˈɪl/)". The fix still applies only where the whole phrase appears.
 // When the sounds can't be split word for word (a phrase fix saved as one run of sounds), the
 // phrase is left to Kokoro's own reading rather than sent as a multi-word override. (2026-10-01)
-// A lone "I" right after a capitalized name is a numeral, said "the first": "Leo I",
-// "Constantinople I", "Pope Leo I convened". The dictionary's other numerals (II, III, XXVIII...) are
-// ordinary rules; "I" can't be one, since it is also the word "I". So it is NOT changed:
-// after a word that only starts a sentence ("Then I", "So I"), inside quotation marks
-// ("Lord, I am not worthy"), as "I'm"/"I'll", or after counted things ("Book I", "Part I").
-// "Vatican I" is said "Vatican One", matching the dictionary's "Vatican Two". A dictionary entry
-// that covers the phrase ("John Paul I") wins, since it matches first. (2026-10-07)
-const COUNTED = new Set(['Book', 'Part', 'Chapter', 'Volume', 'Vol', 'Section', 'Article', 'Canon', 'Session',
-  'Act', 'Phase', 'Stage', 'Level', 'Class', 'Type', 'Grade', 'Appendix', 'Table', 'Figure', 'Question', 'Lesson', 'Psalm', 'Step',
-  'Sermon', 'Homily', 'Letter', 'Epistle', 'Canto', 'Hymn', 'Treatise', 'Discourse', 'Oration', 'Tract']);
-// After these "I" is always the word "I" (prayers): no one is "Jesus the first". Not Mary — Mary I of England.
-const NEVER_NUMBERED = new Set(['God', 'Lord', 'Jesus', 'Christ', 'Father', 'Savior', 'Saviour', 'Spirit']);
-// A verb only the speaker could use after "I" means it's the word "I": "Lord I am", "Christ I live".
-// ("Leo I has", "Leo I sent" still read as "the first".)
-const FIRST_PERSON = new Set(('am have believe know love pray beg ask trust adore praise thank give offer confess hope want ' +
-  'desire seek beseech implore live say tell promise swear intend wish fear need feel think see hear come go will shall ' +
-  'cannot can must may might would could should do').split(' '));
-// Decisions from the models for this recording (decideRomanI): key -> "the first" | "One" | "I".
-let romanIDecisions = new Map();
-export function setRomanIDecisions(m){ romanIDecisions = m instanceof Map ? m : new Map(); }
-export function regnalFirstAt(text, i){
-  if(text[i] !== 'I') return null;
-  // the models' vote for this spot wins; the rules below are the fallback (2026-10-07)
-  if(text[i - 1] === ' ' && romanIDecisions.size){
-    const d = romanIDecisions.get(iKey(text, i));
-    if(d) return d === 'I' ? null : d;
-  }
-  const next = text[i + 1];
-  if(isWordChar(next)) return null;
-  // "Leo I's letter" -> "the first's"; "I'm", "I'll" are the word "I"
-  const apos = next === "'" || next === '\u2019';
-  const possessive = apos && text[i + 2] === 's' && !isWordChar(text[i + 3]);
-  if(apos && isWordChar(text[i + 2]) && !possessive) return null;
-  if(text[i - 1] !== ' ') return null;
-  const m = text.slice(0, i - 1).match(/(\p{Lu}[\p{L}\p{M}]*)$/u);
-  if(!m) return null;
-  const prev = m[1];
-  if(COMMON.has(prev.toLowerCase()) || COUNTED.has(prev) || NEVER_NUMBERED.has(prev)) return null;
-  const nextWord = (text.slice(i + 1).match(/^\s+([a-z]+)/) || [])[1];
-  if(nextWord && FIRST_PERSON.has(nextWord)) return null;
-  // inside quotation marks? (curly pairs, or an odd number of straight quotes before it)
-  const before = text.slice(0, i);
-  const open = (before.match(/\u201c/g) || []).length - (before.match(/\u201d/g) || []).length;
-  if(open > 0 || (before.match(/"/g) || []).length % 2 === 1) return null;
-  return prev === 'Vatican' ? 'One' : 'the first';
-}
-// "I Corinthians", "II Kings", "3 John" -> "First/Second/Third ..." — the number comes before these books.
-const BOOKS = /^(I{1,3}|[123]) (Samuel|Kings|Chronicles|Maccabees|Corinthians|Thessalonians|Timothy|Peter|John|Esdras)(?![\p{L}\p{M}])/u;
-export function bookOrdinalAt(text, i){
-  const m = BOOKS.exec(text.slice(i, i + 20));
-  if(!m) return null;
-  // "And I John saw the holy city" (Apoc. 21:2): with John/Peter, "I" followed by a word is the
-  // speaker — only a verse number or punctuation after the name makes it the book ("I John 4:8").
-  if(m[1] === 'I' && /^(John|Peter)$/.test(m[2]) && /^\s+[a-z]/.test(text.slice(i + m[0].length))) return null;
-  const n = /\d/.test(m[1]) ? Number(m[1]) : m[1].length;
-  return { len: m[1].length, say: ['First', 'Second', 'Third'][n - 1] };
-}
-
 export function kokoroMarkup(from, ipa){
   const words = String(from).split(/\s+/).filter(Boolean);
   if(words.length <= 1) return '[' + from + '](/' + ipa + '/)';
@@ -179,7 +143,7 @@ export function kokoroMarkup(from, ipa){
   if(sounds.length !== words.length) return from;
   return words.map((w, k) => '[' + w + '](/' + sounds[k] + '/)').join(' ');
 }
-export function applyPronunciation(text, rules, useIpa){
+export function applyPronunciation(text, rules, useIpa, extras){   // extras (2026-10-19): [{at, len, ipa}] one use of a two-sound word, Kokoro only
   const map = new Array(text.length + 1);
   let out = '', count = 0, i = 0;
   const pauseAt = new Set();          // positions in the original text where a comma is spoken first
@@ -191,25 +155,17 @@ export function applyPronunciation(text, rules, useIpa){
   };
   while(i < text.length){
     flushPause(i);
-    // "II Kings" -> "Second Kings" before the dictionary's bare "II" -> "the second" can apply (2026-10-07)
-    const bo = !isWordChar(text[i - 1]) ? bookOrdinalAt(text, i) : null;
-    if(bo){
-      for(let k = 0; k < bo.len; k++) map[i + k] = out.length;
-      out += bo.say;
-      i += bo.len;
-      count++;
-      continue;
-    }
     let hit = null;
     if(!isWordChar(text[i - 1])){
       for(const r of rules){
         if(!(text.startsWith(r.from, i) && !isWordChar(text[i + r.from.length]))) continue;
-        // A bare roman numeral ("X" -> "the tenth") never applies to a letter hyphenated onto a word:
-        // "X-shaped", "X-ray", "V-neck" stay as written; "Pius X" is still "Pius the tenth". (2026-10-11)
-        if(/^[IVXLCDM]+$/.test(r.from) && ((text[i + r.from.length] === '-' && isWordChar(text[i + r.from.length + 1])) || (text[i - 1] === '-' && isWordChar(text[i - 2])))) continue;
         if(r.pause){ pauseAt.add(i + r.pauseAt); count++; continue; }   // mark it; keep looking for a sound/spelling rule here
         hit = r; break;
       }
+      // A two-sound word judged for THIS sentence (heteronyms.mjs). A phrase rule that starts here still
+      // wins (it was chosen for exactly this wording); a single-word rule does not.
+      const x = (useIpa && extras && extras.length) ? extras.find(o => o.at === i) : null;
+      if(x && !(hit && /\s/.test(hit.from))) hit = { from: text.slice(i, i + x.len), ipa: x.ipa, to: text.slice(i, i + x.len) };
     }
     // A date is spoken with an ordinal day: "October 3, 1952" -> "October third, 1952" (2026-10-05).
     // Checked before the rules so a month name never gets a rule of its own in between.
@@ -218,15 +174,6 @@ export function applyPronunciation(text, rules, useIpa){
       for(let k = 0; k < sd.len; k++) map[i + k] = out.length;
       out += sd.say;
       i += sd.len;
-      count++;
-      continue;
-    }
-    // "Leo I", "Constantinople I" -> "the first" (2026-10-07); see regnalFirstAt().
-    const rf = !hit && !isWordChar(text[i - 1]) ? regnalFirstAt(text, i) : null;
-    if(rf){
-      map[i] = out.length;
-      out += rf;
-      i += 1;
       count++;
       continue;
     }
@@ -283,6 +230,69 @@ export function titleFor(entry){
   return name ? name + '.' : '';
 }
 
+// ---- Spoken title (2026-10-06) ----------------------------------------------------------------
+// What a recording announces first. Order: (1) a SpokenTitle: override from the pronunciation
+// table (id, then name) is used exactly as written; (2) otherwise a rule for the entry's category
+// builds it; (3) otherwise the plain name, as before (titleFor). The result still goes through the
+// normal pronunciation rules afterwards, so "Pius XII" etc. are still fixed inside it.
+//   Eucharistic Miracle  "The Eucharistic Miracle at Meerssen, Netherlands."  (Turin I -> "The First ... at Turin, Italy.")
+//                        saint-named ones: "The Eucharistic Miracle of Saint Peter Damian."  (no country)
+//   Council              "Nicaea I" -> "The First Council of Nicaea."; "Ephesus" -> "The Council of Ephesus."; others get "The"
+//   Marian apparition    "The Apparition of Our Lady of Lourdes, France."
+//   Persecution          "The" + name (not before a possessive such as "Trajan's Rescript")
+//   Saint (t: 's')       as titleFor; "(Edith Stein)" -> ", also known as Edith Stein"
+//   everything else      as titleFor. Roman numerals on popes/events are left to the pronunciation table.
+const ORDINALS = ['First','Second','Third','Fourth','Fifth','Sixth','Seventh','Eighth','Ninth','Tenth','Eleventh','Twelfth','Thirteenth','Fourteenth','Fifteenth','Sixteenth','Seventeenth','Eighteenth','Nineteenth','Twentieth'];
+const RE_ROMAN = /^(X{0,2})(IX|IV|V?I{0,3})$/;
+function ordinalFromRoman(r){
+  const m = RE_ROMAN.exec(r || '');
+  if(!m || !r) return '';
+  const v = {I:1,V:5,X:10}, d = { IX:9, IV:4 };
+  const n = (m[1].length * 10) + (d[m[2]] || ([...m[2]].reduce((a, c) => a + v[c], 0)));
+  return n >= 1 && n <= ORDINALS.length ? ORDINALS[n - 1] : '';
+}
+const RE_TRAIL_ROMAN = /^(.*\S)\s+([IVX]{1,5})$/;
+const withThe = (s) => /^the\s/i.test(s) ? s : 'The ' + s;
+export function spokenTitleFor(entry, overrides){
+  const base = titleFor(entry);
+  if(!entry || !entry.n || !base) return base;
+  const ov = overrides && (overrides.get(String(entry.id)) || overrides.get(String(entry.n).trim()));
+  if(ov) return /[.!?]$/.test(ov) ? ov : ov + '.';
+
+  let name = base.replace(/\.$/, '');
+  let paren = '';
+  const pm = /\s*\(([^)]*)\)\s*$/.exec(name);
+  if(pm){ paren = pm[1].trim(); name = name.slice(0, pm.index).trim(); }
+  const country = (entry.country && !/^none$/i.test(String(entry.country).trim())) ? String(entry.country).trim() : '';
+  const rm = RE_TRAIL_ROMAN.exec(name);
+  const ord = rm ? ordinalFromRoman(rm[2]) : '';
+
+  switch(entry.t){
+    case 's':
+      return name + (paren ? ', also known as ' + paren : '') + '.';
+    case 'u': {
+      const place = ord ? rm[1] : name;
+      const head = ord ? 'The ' + ord + ' Eucharistic Miracle' : 'The Eucharistic Miracle';
+      if(/^(Saint|Saints|Blessed)\b/.test(place)) return head + ' of ' + place + '.';
+      // A parenthetical with a year or century in it is kept (", 1610") so the two Romes differ;
+      // any other parenthetical (a church, a region) is dropped. Both still deserve a look.
+      return head + ' at ' + place + (/\d/.test(paren) ? ', ' + paren : '') + (country ? ', ' + country : '') + '.';
+    }
+    case 'c':
+      if(ord) return 'The ' + ord + ' Council of ' + rm[1] + '.';
+      if(/\b(Council|Synod)\b/.test(name)) return withThe(name) + '.';
+      return 'The Council of ' + name + '.';
+    case 'm': {
+      const pre = /^Our Lady\b/i.test(name) ? 'The Apparition of ' : (/ and /.test(name) ? 'The Apparitions at ' : 'The Apparition at ');
+      return pre + name + (country ? ', ' + country : '') + '.';
+    }
+    case 'p':
+      return (/^[A-Za-z]+'s\b/.test(name) ? name : withThe(name)) + '.';
+    default:
+      return base;
+  }
+}
+
 // One {heading, body} pair per section, whitespace-collapsed. Sections with no body text are
 // dropped (nothing to narrate). The prayer (see above) is not part of the body.
 function sectionParts(entry){
@@ -299,8 +309,24 @@ function hasNarratableText(entry){ return sectionParts(entry).length > 0; }
 // "St. John Paul II" → "Saint John Paul II, pray for us." (the pronunciation rules then turn
 // II into "the second"). Abbreviations are spelled out so the voice doesn't say "Street":
 // St. → Saint, Sts. → Saints, Bl. → Blessed; "&" → "and". Saint entries only.
+// Default closing prayers by category (2026-10-15). Saints and Marian apparitions pray with their own name;
+// Councils, Persecutions and Eucharistic Miracles use one fixed line; Events (e) have none.
+const PRAYER_BY_TYPE = {
+  c: 'Holy Spirit, protector of the Church, guide us into all truth.',
+  p: 'Holy martyrs of the Church, pray for us.',
+  u: 'O Sacrament most holy, O Sacrament divine, all praise and all thanksgiving be every moment thine.'
+};
+// Marian entries whose name does not read as an invocation (matched on the entry name).
+const MARIAN_PRAYER_BY_NAME = {
+  'Miraculous Medal (Rue du Bac)': 'O Mary, conceived without sin, pray for us who have recourse to thee.',
+  'Beauraing & Banneux': 'Our Lady of Beauraing and Banneux, pray for us.'
+};
 export function invocationFor(entry){
-  if(!entry || entry.t !== 's' || !entry.n) return '';
+  if(!entry || !entry.t) return '';
+  if(PRAYER_BY_TYPE[entry.t]) return PRAYER_BY_TYPE[entry.t];
+  if(entry.t !== 's' && entry.t !== 'm') return '';
+  if(!entry.n) return '';
+  if(entry.t === 'm' && MARIAN_PRAYER_BY_NAME[String(entry.n).trim()]) return MARIAN_PRAYER_BY_NAME[String(entry.n).trim()];
   const name = String(entry.n).trim()
     .replace(/\bSts\.\s+/g, 'Saints ')
     .replace(/\bSt\.\s+/g, 'Saint ')
@@ -438,7 +464,7 @@ async function narrateEntry(entry, dir, baseName, opts, apiKey){
     cumulative += dur;
   }
 
-  // Closing invocation for saints: a pause, then "<name>, pray for us." Spoken only.
+  // Closing invocation (default for the category, see invocationFor): a pause, then the prayer. Spoken only.
   const invocation = prayerFor(entry);   // the article's own [prayer], else the default for saints
   if(invocation){
     const gap = tmp();
@@ -503,13 +529,9 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
   // Nothing is synthesized yet, so every piece can be sent to Kokoro in ONE batch (the model loads
   // once per entry, not once per sentence).
   const plan = [];   // {gap:sec} | {type, section, cueText, spoken}
-  const speak = (type, section, cueText) => {
-    const r = applyPronunciation(cueText, rules, true);
-    replacements += r.count;
-    plan.push({ type, section, cueText, spoken: r.spoken });
-  };
+  const speak = (type, section, cueText) => { plan.push({ type, section, cueText }); };   // spoken text is made below
   // The name first ("Blessed Virgin Mary."), then a pause. No cue: it isn't article text.
-  const title = titleFor(entry);
+  const title = spokenTitleFor(entry, await loadSpokenTitleOverrides());   // 2026-10-06: was titleFor(entry)
   if(title){
     speak('title', -1, title);
     plan.push({ gap: titlePauseSec });
@@ -535,6 +557,20 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
     speak('invocation', -1, invocation);
   }
 
+  // Words with two sounds (2026-10-19): one AI call for the whole article decides each use, then every
+  // piece gets its pronunciation rules plus those per-use sounds.
+  const toSay = plan.filter(x => x.gap === undefined);
+  let hetero = null;
+  try{
+    const mod = await import('./heteronyms.mjs');
+    hetero = await mod.heteronymPicks(toSay.map(x => x.cueText));
+  }catch(e){ hetero = { extras: [], found: 0, asked: 0, fromMemory: 0, error: 'heteronyms.mjs: ' + String((e && e.message) || e).slice(0, 120), filesToCommit: [] }; }
+  toSay.forEach((x, k) => {
+    const r = applyPronunciation(x.cueText, rules, true, (hetero.extras || [])[k]);
+    replacements += r.count;
+    x.spoken = r.spoken;
+  });
+
   // PASS 2 \u2014 synthesize everything, then lay it down in order. Each cue's start/end is simply the
   // running length of the audio so far, so the highlighting timings are exact by construction.
   const spokenItems = plan.filter(x => x.gap === undefined);
@@ -543,14 +579,12 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
     spokenItems.map(x => x.type === 'invocation' ? prayerSpeed : speed));
   const track = new Track();
   const cues = [];
-  let n = 0, titleEnd = 0, prayer = null;
+  let n = 0, titleEnd = 0;
   for(const step of plan){
     if(step.gap !== undefined){ track.addSilence(step.gap); continue; }
     const start = track.seconds;
     track.addSamples(audio[n++]);
     if(step.type === 'title'){ titleEnd = round2(track.seconds); continue; }
-    // The closing prayer's exact place, for the app's finale (2026-10-10)
-    if(step.type === 'invocation'){ prayer = { start: round2(start), end: round2(track.seconds), text: step.cueText || step.text || '' }; continue; }
     if(step.type !== 'invocation'){
       cues.push({ section: step.section, type: step.type, text: step.cueText, start: round2(start), end: round2(track.seconds) });
     }
@@ -558,7 +592,7 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
 
   const audioPath = path.join(dir, `${baseName}.${OUTPUT_EXT}`);
   await trackToMp3(track, audioPath);
-  return { audioPath, durationSec: round2(track.seconds), cues, replacements, titleEnd, prayer };
+  return { audioPath, durationSec: round2(track.seconds), cues, replacements, titleEnd, hetero };
 }
 
 export function nextVersion(entry){
@@ -632,47 +666,6 @@ export function voiceFromPayload(p){
  * Handler signature expected by scripts/orchestrator.mjs: (task, dataJson) => outcome
  */
 
-// Numbered names the dictionary should always have (2026-10-07): councils are said "One", like
-// its "Constantinople Two"; "World War I" is "World War One". Added once if missing — never
-// overwriting an entry Tom has saved for the same words — and committed with the recording.
-const NUMERAL_ENTRIES = [['Nicaea I', 'Nicaea One'], ['Constantinople I', 'Constantinople One'], ['Lateran I', 'Lateran One'],
-  ['Lyon I', 'Lyon One'], ['Lyons I', 'Lyons One'], ['Vatican I', 'Vatican One'], ['World War I', 'World War One']];
-async function ensureNumeralEntries(){
-  let raw;
-  try{ raw = JSON.parse(await fs.readFile(PRONUNCIATION_FILE, 'utf8')); }catch(e){ return []; }
-  raw.rules = Array.isArray(raw.rules) ? raw.rules : [];
-  const have = new Set(raw.rules.map(r => r && r.string_to_replace));
-  const add = NUMERAL_ENTRIES.filter(([from]) => !have.has(from));
-  if(!add.length) return [];
-  for(const [from, alias] of add) raw.rules.push({ string_to_replace: from, type: 'alias', alias, case_sensitive: true, word_boundaries: true, source: 'numerals' });
-  await fs.writeFile(PRONUNCIATION_FILE, JSON.stringify(raw, null, 2));
-  pronunciationRules = null;
-  return [PRONUNCIATION_FILE];
-}
-
-// One line for the run summary: what this recording's AI calls cost (ai-router's log).
-let aiCostLine = '';
-function aiCostSummary(){ return aiCostLine; }
-
-// One line for the run summary about "I" after names.
-function romanISummary(r){
-  if(!r || !r.asked) return r && r.error ? ' \u2014 "I" check skipped (' + r.error.slice(0, 80) + ')' : '';
-  return ' \u2014 "I" after a name: ' + r.decided.length + ' of ' + r.asked + ' decided by ' + ((r.decided[0] && r.decided[0].votes[0]) || 'the model') +
-    (r.decided.length ? ' (' + r.decided.map(d => d.context + ' \u2192 ' + d.say).join('; ').slice(0, 200) + ')' : '') +
-    (r.decided.length < r.asked ? ', the rest by the recorder\'s rules' : '');
-}
-
-// One line for the run summary about the pronunciation check.
-function voteSummary(v){
-  if(!v || v.skipped) return '';
-  if(v.error) return ' \u2014 pronunciation check skipped (' + v.error.slice(0, 100) + ')';
-  if(!v.checked && v.pickedBy && v.skipped) return ' \u2014 pronunciation check: ' + v.pickedBy + ' found nothing unusual (' + v.skipped + ' ordinary word' + (v.skipped === 1 ? '' : 's') + ' skipped)';
-  if(!v.checked) return v.errors && v.errors.length ? ' \u2014 pronunciation check: no answers (' + v.errors.join('; ').slice(0, 160) + ')' : '';
-  return ' \u2014 pronunciation check: ' + (v.pickedBy ? v.pickedBy + ' picked ' + v.picked + ' word' + (v.picked === 1 ? '' : 's') + ' to check (' + v.skipped + ' ordinary skipped), ' : '') + v.checked + ' compared' +
-    (v.corrected.length ? ', ' + v.corrected.length + ' added to the dictionary: ' + v.corrected.map(c => c.word + ' \u2192 ' + c.respell + ' (' + c.votes.join(' + ') + ')').join('; ') : ', all as Kokoro says them') +
-    (v.errors && v.errors.length ? ' [' + v.errors.join('; ').slice(0, 120) + ']' : '');
-}
-
 export async function runAudioGenerate(task, dataJson){
   const kokoro = isKokoroVoice((task.payload || {}).voiceId);
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -692,23 +685,6 @@ export async function runAudioGenerate(task, dataJson){
   if(entry.qc){ delete entry.qc.pronChecked; delete entry.qc.pronCheckedAt; }
 
   const p = task.payload || {};
-  const numeralFiles = await ensureNumeralEntries();   // councils "One", "World War One" (2026-10-07)
-  // Pronunciation check (2026-10-07): capitalized words not in the dictionary — Kokoro vs Claude,
-  // OpenAI and Gemini; two agreeing against Kokoro add a dictionary fix, used in this recording.
-  let vote = null, romanI = null;
-  if(kokoro && p.pronVote !== false){
-    try{ vote = await pronVote(entry); }catch(e){ vote = { error: String(e.message || e) }; }
-    pronunciationRules = null;   // reload, so a fix added just now is used below
-  }
-  // "I" after a name: one model decides "the first" / "One" / the word "I" (2026-10-07)
-  setRomanIDecisions(new Map());
-  if(p.pronVote !== false && process.env.PRON_VOTE !== '0'){
-    try{
-      const raw = JSON.parse(await fs.readFile(PRONUNCIATION_FILE, 'utf8').catch(() => '{"rules":[]}'));
-      romanI = await decideRomanI(entry, raw.rules || []);
-      setRomanIDecisions(romanI.decisions);
-    }catch(e){ romanI = { error: String(e.message || e) }; }
-  }
   const { voiceId, modelId, voiceSettings } = voiceFromPayload(p);
   const readHeadings = p.readHeadings !== false;
   // Pauses in milliseconds from the app's Voice & pacing settings (2026-10-01: all four adjustable;
@@ -726,7 +702,7 @@ export async function runAudioGenerate(task, dataJson){
   const version = await freeVersion(entry, dir);
   const baseName = entry.id + '-v' + version;
   const engine = kokoro ? 'kokoro:' + kokoroVoiceName(voiceId) : 'elevenlabs:' + voiceId;
-  const { audioPath, durationSec, cues, replacements, titleEnd, prayer } = kokoro
+  const { audioPath, durationSec, cues, replacements, titleEnd, hetero } = kokoro
     ? await narrateEntryKokoro(entry, dir, baseName, {
         voiceId, speed: kokoroSpeed(p), prayerSpeed: kokoroSpeed({ speed: p.prayerSpeed || 0.9 }), readHeadings, headingPauseSec, sectionPauseSec,
         sentencePauseSec, titlePauseSec
@@ -740,7 +716,7 @@ export async function runAudioGenerate(task, dataJson){
   const relAudio = path.join(AUDIO_ROOT, folder, path.basename(audioPath)).split(path.sep).join('/');
   const relTiming = relAudio.replace(new RegExp('\\.' + OUTPUT_EXT + '$'), '.json');
   const timingPath = audioPath.replace(new RegExp('\\.' + OUTPUT_EXT + '$'), '.json');
-  await fs.writeFile(timingPath, JSON.stringify({ id: entry.id, audio: relAudio, engine, durationSec, titleEnd: titleEnd || 0, ...(prayer ? { prayer } : {}), cues }, null, 1));
+  await fs.writeFile(timingPath, JSON.stringify({ id: entry.id, audio: relAudio, engine, durationSec, titleEnd: titleEnd || 0, cues }, null, 1));
 
   entry.audio = relAudio;
   entry.audioTiming = relTiming;
@@ -755,18 +731,14 @@ export async function runAudioGenerate(task, dataJson){
   // Keep only this recording: delete the article's older versions (committed with the new files).
   const removed = await removeOldVersions(entry.id, [relAudio, relTiming]);
 
-  // AI spend for this recording (2026-10-11): logged to ai/usage/<month>.jsonl and committed with it
-  const u = usageSummary();
-  aiCostLine = u.calls ? ' \u2014 AI: ' + u.calls + ' call' + (u.calls === 1 ? '' : 's') + ', $' + u.cost.toFixed(4) + (u.unpriced ? ' (+' + u.unpriced + ' unpriced)' : '') : '';
-  const usageFile = await flushUsage().catch(() => null);
-
   return {
     result: { entityId: entry.id, name: entry.n, audio: relAudio, durationSec, cueCount: cues.length, link: SITE_BASE + '/' + relAudio },
     summary: 'recorded ' + durationSec + 's with ' + engine + ' (' + cues.length + ' cues' +
       (replacements ? ', ' + replacements + ' pronunciation fix' + (replacements === 1 ? '' : 'es') : '') +
-      (datesFixed ? ', ' + datesFixed + ' date' + (datesFixed === 1 ? '' : 's') + ' put in American order' : '') + ') \u2014 ' + relAudio +
-      voteSummary(vote) + romanISummary(romanI) + aiCostSummary() +
+      (datesFixed ? ', ' + datesFixed + ' date' + (datesFixed === 1 ? '' : 's') + ' put in American order' : '') +
+      (hetero && hetero.found ? ', ' + hetero.found + ' two-sound word' + (hetero.found === 1 ? '' : 's') + ' (' + hetero.asked + ' asked' + (hetero.model ? ' ' + hetero.model : '') + ', ' + hetero.fromMemory + ' remembered)' : '') +
+      (hetero && hetero.error ? ' [two-sound words: ' + hetero.error + ']' : '') + ') \u2014 ' + relAudio +
       (removed.length ? ' (removed ' + removed.length + ' old file' + (removed.length === 1 ? '' : 's') + ')' : ''),
-    filesToCommit: [...new Set([relAudio, relTiming, 'data.json', ...removed, ...numeralFiles, ...((vote && vote.files) || []), ...(usageFile ? [usageFile] : [])])]
+    filesToCommit: [relAudio, relTiming, 'data.json', ...removed, ...((hetero && hetero.filesToCommit) || [])]
   };
 }
