@@ -19,6 +19,36 @@ the time.
 
 ---
 
+## v580 — 2026-10-16
+
+**Ask:**
+- In Review mode, show the timeline icon in white once an entry is marked Listened (the green button), for every type
+  (saints, councils, persecutions, Marian, Eucharistic, events), so the coloured icons are the ones still to check.
+
+**Implementation:**
+- render() adds class "listened" to an icon when entryShowsListened(d) (recording exists, Listened checked, not a
+  fallback recording: the same test the green button uses). CSS "body.review-on .ev.listened" makes the icon, its ring
+  and its glow white, overriding the type colour and the gold council glow; outside Review mode nothing changes.
+- Pressing Listened (or Record, which clears it) updates that one icon at once via paintListenedIcon(); no redraw.
+
+## v579 — 2026-10-15
+
+**Asks:**
+- Closing prayers for more than saints. Marian apparitions: "Our Lady of Fatima, pray for us." Councils: "Holy Spirit,
+  protector of the Church, guide us into all truth." Persecutions: "Holy martyrs of the Church, pray for us."
+  Eucharistic Miracles: "O Sacrament most holy, O Sacrament divine, all praise and all thanksgiving be every moment
+  thine." Events: none. Miraculous Medal and Beauraing & Banneux have their own wording.
+- Pressing Play with the marker off screen still crept slowly on the iPhone.
+
+**Implementation:**
+- otherPrayerOf(d) (with PRAYER_BY_TYPE / MARIAN_PRAYER_BY_NAME) mirrors invocationFor() in audio-generate.mjs; used by
+  finalePrayerText and the browser-voice path. New recordings carry the prayer and set audioInvocation, which is what
+  turns the blue-glow finale on; recordings made before this change get it only when re-recorded.
+- quickScrollTo no longer compares scrollTop to its last value to guess that the reader took over (iPhone momentum
+  and rounding tripped it, the audio then started at once and the slow follow-glide ran under it). Touch and wheel
+  already cancel through audioFollowToken. begin() now catches a refused play() so the Pause icon never sticks.
+- The "Add closing prayer to recorded saints" backfill is unchanged (saints only) until audio-invocation.mjs is seen.
+
 ## v578 — 2026-10-14
 
 **Ask:**
