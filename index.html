@@ -1,6 +1,6 @@
 <!--
-VERSION: 581
-DATE: 2026-10-19T06:45:00-05:00
+VERSION: 582
+DATE: 2026-10-19T07:05:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,16 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v582 — 2026-10-19
+
+**Ask:**
+- Entries whose recording has the prayer but lost the flag should drop off the "Add closing prayer" list.
+
+**Implementation:**
+- When an article's timing shows a prayer (finaleInfo.prayerByTail) but the entry has no audioInvocation, the
+  app sets it and saves it (dirtyEntryIds + publishReviewAction, quietly), on the owner's phone only (Manage
+  unlocked and a GitHub token set). Opening the article is enough; it doesn't have to be played to the end.
+
 ## v581 — 2026-10-19
 
 **Ask:**
@@ -5481,7 +5491,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v581';
+const APP_VERSION = 'v582';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -15108,6 +15118,18 @@ async function wireSentenceCues(d, host){
   // recording ends with the last sentence.
   finaleInfo.prayerByTail = finaleInfo.duration > 0 && cues.length > 0 &&
     finaleInfo.duration - cues.reduce((m, c) => Math.max(m, Number(c.end) || 0), 0) >= 2.0;
+  // v582: and put the lost flag back (owner's phone only, with a GitHub token), so the entry leaves the
+  // "Add closing prayer" list. Saved quietly in the background, the same way the Listened button saves.
+  if(finaleInfo.prayerByTail && audioHost !== 'about' && currentEntry && currentEntry.id === entryId &&
+     !currentEntry.audioInvocation && manageUnlocked() && ghConfigured()){
+    const ex = getEntry(entryId);
+    if(ex && !ex.audioInvocation){
+      ex.audioInvocation = true;
+      if(currentEntry !== ex) currentEntry.audioInvocation = true;
+      dirtyEntryIds.add(ex.id);
+      publishReviewAction(null, '').catch(() => {});
+    }
+  }
   if(!cues.length){ if(statusEl) statusEl.textContent = 'Sentence sync: timing file has no cues'; return; }
   currentCues = cues;
   cueEls = cues.map(() => []);
