@@ -1,6 +1,6 @@
 <!--
-VERSION: 579
-DATE: 2026-10-15T23:35:00-05:00
+VERSION: 580
+DATE: 2026-10-16T00:20:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,18 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v580 — 2026-10-16
+
+**Ask:**
+- In Review mode, show the timeline icon in white once an entry is marked Listened (the green button), for every type
+  (saints, councils, persecutions, Marian, Eucharistic, events), so the coloured icons are the ones still to check.
+
+**Implementation:**
+- render() adds class "listened" to an icon when entryShowsListened(d) (recording exists, Listened checked, not a
+  fallback recording: the same test the green button uses). CSS "body.review-on .ev.listened" makes the icon, its ring
+  and its glow white, overriding the type colour and the gold council glow; outside Review mode nothing changes.
+- Pressing Listened (or Record, which clears it) updates that one icon at once via paintListenedIcon(); no redraw.
+
 ## v579 — 2026-10-15
 
 **Asks:**
@@ -1924,6 +1936,10 @@ CHANGELOG:END
   .t-s{color:var(--saint);} .t-c{color:var(--council);} .t-p{color:var(--persec);}
   .t-e{color:var(--event);} .t-m{color:var(--marian);} .t-u{color:var(--euch);}
   .ev.ecu{color:var(--council-ecu);}
+  /* v580: Review mode only: an entry marked Listened (green button) shows its icon in white, so the coloured ones
+     are the ones still to check. Applies to every type; the class is set in render() and by paintListenedIcon(). */
+  body.review-on .ev.listened{color:#fff;}
+  body.review-on .ev.listened .ic{box-shadow:0 0 7px rgba(255,255,255,.4);}
   .ev.ecu .ic{box-shadow:0 0 8px rgba(242,201,76,.7), 0 0 2px rgba(242,201,76,.9); border-width:2px;}
   .ev.ecu:hover .ic{box-shadow:0 0 12px var(--council-ecu);}
   /* Timeline search */
@@ -5452,7 +5468,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v579';
+const APP_VERSION = 'v580';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -6241,7 +6257,7 @@ function render(){
     placed.forEach(pl => {
       const d = pl.d;
       const el = document.createElement('div');
-      el.className = 'ev t-' + d.t + (isEcumenical(d) ? ' ecu' : '') + (searchHits.has(d.id) ? ' hit' : '') + (searchFocusId === d.id ? ' focus' : '') + (previousFocusId === d.id ? ' recentFocus' : '') + (isReview(d) ? ' review' : '');
+      el.className = 'ev t-' + d.t + (isEcumenical(d) ? ' ecu' : '') + (searchHits.has(d.id) ? ' hit' : '') + (searchFocusId === d.id ? ' focus' : '') + (previousFocusId === d.id ? ' recentFocus' : '') + (isReview(d) ? ' review' : '') + (entryShowsListened(d) ? ' listened' : '');
       el.style.left = pl.x + 'px';
       el.style.top = (yCursor + bandPad + 16 + pl.lane*rowH) + 'px';
       el.title = d.n + ' (AD ' + d.y + ')';
@@ -8433,6 +8449,14 @@ function entryPronHits(e){
 }
 // v577: has the whole recording been listened to and signed off? ("Listened" button; a new recording clears it)
 function entryIsListened(e){ return !!(e && e.audio && e.qc && e.qc.pronChecked); }
+// v580: same test the green Listened button uses to show itself as on (a recording that is only a fallback does not count)
+function entryShowsListened(e){ return entryIsListened(e) && !e.audioFallback; }
+function paintListenedIcon(id){
+  try{
+    const el = document.querySelector('.ev[data-id="' + String(id).replace(/"/g, '\\"') + '"]');
+    if(el) el.classList.toggle('listened', entryShowsListened(getEntry(id)));
+  }catch(err){}
+}
 // v578: does the narration of this entry read the phrase? Same text and same matching the recorder uses for a rule
 // (the saint's name, section headings and bodies; case-sensitive, whole words).
 function entryReadsPhrase(e, phrase){
@@ -12899,7 +12923,7 @@ function fillArticleBody(d, peek){
       // v543: a new recording has to be listened to again — clear the check here at once (the
       // recorder clears it in data.json too, whichever way the recording is started)
       const ex = getEntry(d.id);
-      if(ex && ex.qc && ex.qc.pronChecked){ delete ex.qc.pronChecked; delete ex.qc.pronCheckedAt; listenedPaint(false); }
+      if(ex && ex.qc && ex.qc.pronChecked){ delete ex.qc.pronChecked; delete ex.qc.pronCheckedAt; listenedPaint(false); paintListenedIcon(ex.id); }
       rtTap('audio-generate', d, audioBtn, quickNoteEl);
     });
     const listenedBtn = liveArtEl('tkListenedBtn');
@@ -12913,6 +12937,7 @@ function fillArticleBody(d, peek){
       if(on){ delete ex.qc.pronChecked; delete ex.qc.pronCheckedAt; }
       else { ex.qc.pronChecked = true; ex.qc.pronCheckedAt = new Date().toISOString(); }
       listenedPaint(!on, ex.qc.pronCheckedAt);
+      paintListenedIcon(ex.id);   // v580
       dirtyEntryIds.add(ex.id);
       await publishReviewAction(quickNoteEl, on ? 'Unchecked \u2014 saved.' : 'Pronunciation checked \u2713 \u2014 saved.');
     });
