@@ -1,6 +1,6 @@
 <!--
-VERSION: 583
-DATE: 2026-10-19T07:40:00-05:00
+VERSION: 584
+DATE: 2026-10-19T08:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,20 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v584 — 2026-10-19
+
+**Asks:**
+- Find highlighted the headings but not the matching words in the story (iPhone).
+- A tiny arrow button next to Clear: each press goes to the next highlighted word, round and round.
+
+**Implementation:**
+- Story matches are now yellow boxes in #artFindLayer (absolute, over the text, pointer-events:none,
+  mix-blend-mode:difference), placed from Range.getClientRects(); repainted on ResizeObserver. iPhone Safari
+  does not paint ::highlight on the Review-mode story (user-select:none), which is why only headings lit up.
+  The title still uses ::highlight. A finger passes through the boxes, so press-and-hold still opens the picker.
+- "›" button: artFindNext() cycles 1, 2, 3, then 1 again; scrolls the word to a third of the way down below the
+  sticky header and marks it orange; the count shows "2/3".
+
 ## v583 — 2026-10-19
 
 **Ask:**
@@ -2561,6 +2575,12 @@ CHANGELOG:END
     color:#111; font-family:system-ui, -apple-system, sans-serif; font-weight:600; line-height:1.1; cursor:pointer;}
   .artFind .artFindN{font-size:13px; color:var(--gold-bright); font-family:system-ui, -apple-system, sans-serif; min-width:1ch;}
   ::highlight(artFind){ background-color:#ffe14d; color:#111; }
+  ::highlight(artFindCur){ background-color:#ff9a3c; color:#111; }
+  .artFind .artFindGo{padding:3px 9px; font-size:19px; line-height:1;}
+  /* v584: yellow boxes over matching story words; difference blending turns the light text dark on yellow */
+  #artFindLayer{position:absolute; left:0; top:0; width:0; height:0; z-index:4; pointer-events:none; mix-blend-mode:difference;}
+  #artFindLayer .artFindBox{position:absolute; background:#fff5a0; border-radius:3px; pointer-events:none;}
+  #artFindLayer .artFindBox.cur{background:#ffb070;}
   .ahName{font-size:25px; font-weight:600; line-height:1.15;}
   /* v569: closing-prayer finale */
   #artBody{transition:opacity .3s ease;}
@@ -5513,7 +5533,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v583';
+const APP_VERSION = 'v584';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -15200,44 +15220,97 @@ document.getElementById('artBody').addEventListener('click', (e) => {
   if(target) target.scrollIntoView({behavior: 'smooth', block: 'start'});
 });
 
-// ---- v583: Review mode find. Hold the year: a small box opens beside it. Every whole word (title, headings,
-// story) that contains the typed letters is highlighted yellow; "Clear" removes the highlights and the box.
-// Uses CSS.highlights, which colours text ranges without changing the page, so the sentence markup and
-// press-and-hold-for-pronunciation keep working on a highlighted word.
+// ---- v583/v584: Review mode find. Hold the year: a small box opens beside it. Every whole word (title,
+// headings, story) that contains the typed letters is highlighted yellow; the arrow jumps to the next one
+// (round and round); "Clear" removes the highlights and the box.
+// v584: story words are lit by yellow boxes drawn in a layer over the text (pointer-events:none, colour by
+// mix-blend-mode:difference, so the light text reads dark on yellow), NOT by CSS ::highlight: iPhone Safari
+// does not paint ::highlight on the story, which is user-select:none in Review mode so press-and-hold opens
+// the pronunciation picker. The text itself is never changed, so cue markup and press-and-hold keep working
+// (a finger goes straight through the boxes). The title in the sticky header still uses ::highlight.
 const ART_FIND_HOLD_MS = 450;
-let artFindHold = null, artFindQuery = '';
+let artFindHold = null, artFindQuery = '', artFindHits = [], artFindCur = -1, artFindRO = null;
 function artFindSupported(){ return !!(window.CSS && CSS.highlights && window.Highlight); }
-function artFindRun(){
-  if(!artFindSupported()) return 0;
-  CSS.highlights.delete('artFind');
-  if(!document.querySelector('#article .artFind')){ artFindQuery = ''; return 0; }   // another article opened: the search ended with its box
-  const q = artFindQuery.trim().toLowerCase();
-  const n = document.querySelector('#article .artFindN');
-  if(q.length < 2){ if(n) n.textContent = ''; return 0; }
-  const roots = [document.querySelector('#article .ahName'), liveArtEl('artStoryText')].filter(Boolean);
-  const ranges = [];
-  const WORD = /[\p{L}\p{N}\u2019'-]+/gu;
-  roots.forEach(root => {
-    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    for(let node = walk.nextNode(); node; node = walk.nextNode()){
-      if(node.parentElement && node.parentElement.closest('button, .artFind')) continue;
-      const text = node.textContent;
-      for(const m of text.matchAll(WORD)){
-        if(!m[0].toLowerCase().includes(q)) continue;
-        const word = m[0].replace(/^['\u2019-]+|['\u2019-]+$/g, '');   // the whole word, not its quotes
-        const at = m.index + m[0].indexOf(word);
-        const r = new Range(); r.setStart(node, at); r.setEnd(node, at + word.length);
-        ranges.push(r);
-      }
+function artFindLayer(){
+  const art = document.getElementById('article');
+  let layer = document.getElementById('artFindLayer');
+  if(!layer){ layer = document.createElement('div'); layer.id = 'artFindLayer'; art.appendChild(layer); }
+  return layer;
+}
+function artFindPaint(){
+  const art = document.getElementById('article');
+  const layer = artFindLayer();
+  layer.textContent = '';
+  try{ if(artFindSupported()){ CSS.highlights.delete('artFind'); CSS.highlights.delete('artFindCur'); } }catch(e){}
+  const top0 = art.getBoundingClientRect().top - art.scrollTop, left0 = art.getBoundingClientRect().left - art.scrollLeft;
+  const titleAll = [], titleCur = [];
+  artFindHits.forEach((h, k) => {
+    if(h.inTitle){ (k === artFindCur ? titleCur : titleAll).push(h.range); return; }
+    for(const rc of h.range.getClientRects()){
+      if(rc.width < 1 || rc.height < 1) continue;
+      const box = document.createElement('div');
+      box.className = 'artFindBox' + (k === artFindCur ? ' cur' : '');
+      box.style.cssText = 'top:' + (rc.top - top0 - 1) + 'px;left:' + (rc.left - left0 - 1) + 'px;width:' + (rc.width + 2) + 'px;height:' + (rc.height + 2) + 'px;';
+      layer.appendChild(box);
     }
   });
-  if(ranges.length) CSS.highlights.set('artFind', new Highlight(...ranges));
-  if(n) n.textContent = String(ranges.length);
-  return ranges.length;
+  try{
+    if(artFindSupported()){
+      if(titleAll.length) CSS.highlights.set('artFind', new Highlight(...titleAll));
+      if(titleCur.length) CSS.highlights.set('artFindCur', new Highlight(...titleCur));
+    }
+  }catch(e){}
+  const n = document.querySelector('#article .artFindN');
+  if(n) n.textContent = artFindHits.length ? (artFindCur >= 0 ? (artFindCur + 1) + '/' : '') + artFindHits.length : (artFindQuery.trim().length >= 2 ? '0' : '');
+}
+function artFindRun(){
+  artFindHits = []; artFindCur = -1;
+  if(!document.querySelector('#article .artFind')){ artFindQuery = ''; artFindPaint(); return 0; }   // another article opened: the search ended with its box
+  const q = artFindQuery.trim().toLowerCase();
+  if(q.length >= 2){
+    const title = document.querySelector('#article .ahName');
+    const story = liveArtEl('artStoryText');
+    const WORD = /[\p{L}\p{N}\u2019'-]+/gu;
+    [title, story].filter(Boolean).forEach(root => {
+      const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      for(let node = walk.nextNode(); node; node = walk.nextNode()){
+        if(node.parentElement && node.parentElement.closest('button, .artFind')) continue;
+        const text = node.textContent;
+        for(const m of text.matchAll(WORD)){
+          if(!m[0].toLowerCase().includes(q)) continue;
+          const word = m[0].replace(/^['\u2019-]+|['\u2019-]+$/g, '');   // the whole word, not its quotes
+          const at = m.index + m[0].indexOf(word);
+          const r = new Range(); r.setStart(node, at); r.setEnd(node, at + word.length);
+          artFindHits.push({ range: r, inTitle: root === title });
+        }
+      }
+    });
+    if(story && window.ResizeObserver && !artFindRO){
+      artFindRO = new ResizeObserver(() => { if(artFindHits.length) requestAnimationFrame(artFindPaint); });
+      artFindRO.observe(story);
+    }
+  }
+  artFindPaint();
+  return artFindHits.length;
+}
+function artFindNext(){
+  if(!artFindHits.length) return;
+  artFindCur = (artFindCur + 1) % artFindHits.length;   // 1, 2, 3, then back to 1
+  artFindPaint();
+  const h = artFindHits[artFindCur];
+  const art = document.getElementById('article');
+  if(h.inTitle){ art.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  const rc = h.range.getBoundingClientRect();
+  const sticky = liveArtEl('artSticky');
+  const below = sticky ? sticky.getBoundingClientRect().bottom : art.getBoundingClientRect().top;
+  const room = art.getBoundingClientRect().bottom - below;
+  const target = art.scrollTop + (rc.top - below) - Math.max(40, room * 0.3);   // the word a third of the way down the open space
+  art.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
 }
 function artFindClose(){
-  artFindQuery = '';
-  try{ if(artFindSupported()) CSS.highlights.delete('artFind'); }catch(e){}
+  artFindQuery = ''; artFindHits = []; artFindCur = -1;
+  if(artFindRO){ artFindRO.disconnect(); artFindRO = null; }
+  artFindPaint();
   document.querySelectorAll('#article .artFind').forEach(el => el.remove());
 }
 function artFindOpen(yearEl){
@@ -15249,15 +15322,16 @@ function artFindOpen(yearEl){
     box = document.createElement('span');
     box.className = 'artFind';
     box.innerHTML = '<input type="search" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Find in this article" placeholder="find">' +
-      '<button type="button">Clear</button><span class="artFindN"></span>';
+      '<button type="button" class="artFindGo" aria-label="Go to the next match">\u203A</button>' +
+      '<button type="button" class="artFindClear">Clear</button><span class="artFindN"></span>';
     yearEl.insertAdjacentElement('afterend', box);
     const input = box.querySelector('input');
     let t = null;
     input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { artFindQuery = input.value; artFindRun(); }, 150); });
     input.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); input.blur(); } });
-    box.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); artFindClose(); });
+    box.querySelector('.artFindGo').addEventListener('click', (e) => { e.stopPropagation(); input.blur(); artFindNext(); });
+    box.querySelector('.artFindClear').addEventListener('click', (e) => { e.stopPropagation(); artFindClose(); });
     box.addEventListener('click', (e) => e.stopPropagation());   // typing in the box isn't a tap on the story
-    if(!artFindSupported()) box.querySelector('.artFindN').textContent = 'needs a newer iOS';
   }
   const input = box.querySelector('input');
   input.value = artFindQuery;
