@@ -1,6 +1,6 @@
 <!--
-VERSION: 589
-DATE: 2026-10-19T10:05:00-05:00
+VERSION: 590
+DATE: 2026-10-19T11:00:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,23 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v590 — 2026-10-19
+
+**Asks:**
+- Keep the screen from timing out while an article is being listened to (articles run about five minutes).
+- The white marker disappears after each sentence and reappears at the next. It should never disappear: stretch
+  down and slide into place; when it has to go up (a tap), slide up and rubber-band into place.
+
+**Implementation:**
+- Screen Wake Lock: syncScreenWake() holds navigator.wakeLock('screen') while the audio plays (play/playing/pause/
+  ended/emptied listeners on the audio element, visibilitychange to retake it, stopAudio to release). No-op where
+  unsupported.
+- updateActiveCue: in the gap between two cues the previous cue stays active (cueIndexForTime gave -1 there,
+  which hid the bar). Before the first cue it is still -1; 'ended' and stop still hide it.
+- updateAudioActiveBar: on a new sentence below, the bottom stretches first (200ms), then the top slides (260ms);
+  above, one 520ms move with an overshooting curve. Same-sentence updates (scroll) unchanged; the finale's own
+  frame-by-frame drive is left alone (barMoveBusy).
+
 ## v589 — 2026-10-19
 
 **Ask:**
@@ -5588,7 +5605,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v589';
+const APP_VERSION = 'v590';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14007,12 +14024,33 @@ const apPlayBtn = document.getElementById('audPlayBtn');
 // v488: true once the current narration file has failed to load (missing file, broken link).
 // While set, the play bar stays hidden, and Review Mode shows a note at the end of the article.
 let audioBroken = false;
+// v590: keep the screen on while narration plays (Screen Wake Lock; iPhone home-screen apps from iOS 18.4),
+// let go on pause, end, or closing the article, so the phone's own timeout applies again. Never throws.
+let screenWake = null;
+async function syncScreenWake(){
+  const want = !!(audioEl && audioEl.paused === false && !audioEl.ended) && document.visibilityState === 'visible';
+  try{
+    if(want){
+      if(!('wakeLock' in navigator) || (screenWake && !screenWake.released)) return;
+      screenWake = await navigator.wakeLock.request('screen');
+      screenWake.addEventListener('release', () => { screenWake = null; });
+    }else if(screenWake){
+      const w = screenWake; screenWake = null; await w.release();
+    }
+  }catch(err){ screenWake = null; }
+}
+function wireScreenWake(a){
+  if(!a || typeof a.addEventListener !== 'function') return;
+  ['play', 'playing', 'pause', 'ended', 'emptied'].forEach(t => a.addEventListener(t, syncScreenWake));
+}
+document.addEventListener('visibilitychange', syncScreenWake);   // the phone drops the lock when the app is hidden; take it back on return
 function initAudio(url, resumeTime){
   stopAudio();
   audioBroken = false;
   document.querySelectorAll('.audioBrokenNote').forEach(n => { n.classList.remove('on'); n.textContent = ''; });
   audioEl = new Audio(url);
   audioEl.preload = 'metadata';
+  wireScreenWake(audioEl);   // v590
   apPlayBtn.innerHTML = ICON_PLAY; apPlayBtn.setAttribute('aria-label','Play'); // reset — a previous entry may have left this on Stop
   // Capture this entry's audio element locally. Listeners must not read the shared
   // `audioEl`, because a late event from the *previous* entry's audio can arrive after
@@ -14078,10 +14116,12 @@ function initAudio(url, resumeTime){
 }
 function stopAudio(){
   if(audioEl){ audioEl.pause(); audioEl.src = ''; audioEl = null; }
+  syncScreenWake();   // v590: nothing playing now, so let the screen sleep again
   currentCues = []; cueEls = []; activeCueIdx = -1;
   cueSectionHeading = []; audioFollowLastHeading = null; audioFollowSuppressUntil = 0; audioFollowToken++;
   const bar = document.getElementById('audioActiveBar');
   if(bar) bar.classList.remove('on');
+  clearTimeout(barMove.timer); barMove.idx = -1;   // v590
   const aboutBar = document.getElementById('aboutActiveBar');
   if(aboutBar) aboutBar.classList.remove('on');
 }
@@ -14542,6 +14582,7 @@ function initTts(d, host){
     return;
   }
   audioEl = makeTtsPlayer(cues.length);
+  wireScreenWake(audioEl);   // v590
   ttsErrStreak = 0;
   ttsResetPlayIcon();
   updateAudioBarPresence();
@@ -14567,7 +14608,13 @@ if(TTS_API){
 // panel, no per-frame syncing needed — see the comment on the coordinate math elsewhere in this
 // file for why content-space, not viewport-space, is what stays valid across a scroll). Hidden
 // whenever there's no active cue or that cue's sentence never matched into the DOM.
-function updateAudioActiveBar(idx){
+// v590: how the marker moves to a new sentence. Down (the next sentence): its bottom stretches down to the
+// new sentence first, then its top slides down after it. Up (a tap or a seek back): it slides up and settles
+// with a little rubber-band overshoot. Same-sentence updates (scrolling) just follow, as before.
+const BAR_STRETCH_MS = 200, BAR_SLIDE_MS = 260, BAR_RUBBER_MS = 520;
+let barMove = { idx: -1, top: 0, bottom: 0, timer: null };
+function barMoveBusy(){ return !!(finale && (finale.hold || finale.rising)); }
+function updateAudioActiveBar(idx, settle){
   const bar = audioActiveBarEl();
   if(!bar) return;
   const els = idx >= 0 ? cueEls[idx] : null;
@@ -14602,6 +14649,36 @@ function updateAudioActiveBar(idx){
   const barTop = Math.max(headerBottom, top - PAD);
   const barBottom = bottom + PAD;
   if(barBottom <= barTop){ bar.classList.remove('on'); return; } // sentence fully under the header
+  const wasOn = bar.classList.contains('on');
+  const newSentence = idx !== barMove.idx;
+  if(newSentence && wasOn && !settle && !barMoveBusy() && barMove.idx >= 0){
+    clearTimeout(barMove.timer);
+    const fromTop = barMove.top;
+    barMove.idx = idx; barMove.top = barTop; barMove.bottom = barBottom;
+    if(barTop > fromTop + 1){
+      // moving down: stretch the bottom first, keeping the top where it was...
+      bar.style.transition = 'top ' + BAR_STRETCH_MS + 'ms ease-out, height ' + BAR_STRETCH_MS + 'ms ease-out, opacity .2s ease';
+      bar.style.top = fromTop + 'px';
+      bar.style.height = Math.max(1, barBottom - fromTop) + 'px';
+      // ...then slide the top down into place
+      barMove.timer = setTimeout(() => {
+        if(barMoveBusy() || barMove.idx !== idx) return;
+        bar.style.transition = 'top ' + BAR_SLIDE_MS + 'ms cubic-bezier(.25,.8,.35,1), height ' + BAR_SLIDE_MS + 'ms cubic-bezier(.25,.8,.35,1), opacity .2s ease';
+        updateAudioActiveBar(idx, true);
+        barMove.timer = setTimeout(() => { if(!barMoveBusy()) bar.style.transition = ''; }, BAR_SLIDE_MS + 40);
+      }, BAR_STRETCH_MS);
+      return;
+    }
+    if(barTop < fromTop - 1){
+      // moving up: slide, overshoot a touch, settle (rubber band)
+      bar.style.transition = 'top ' + BAR_RUBBER_MS + 'ms cubic-bezier(.34,1.5,.6,1), height ' + BAR_RUBBER_MS + 'ms cubic-bezier(.34,1.5,.6,1), opacity .2s ease';
+      bar.style.top = barTop + 'px';
+      bar.style.height = (barBottom - barTop) + 'px';
+      barMove.timer = setTimeout(() => { if(!barMoveBusy()) bar.style.transition = ''; }, BAR_RUBBER_MS + 40);
+      return;
+    }
+  }
+  if(newSentence || settle){ barMove.idx = idx; barMove.top = barTop; barMove.bottom = barBottom; }
   bar.style.top = barTop + 'px';
   bar.style.height = (barBottom - barTop) + 'px';
   bar.classList.add('on');
@@ -14650,7 +14727,13 @@ function updateActiveCue(t){
     if(t < cueSeekHold.until && t >= cueSeekHold.until - CUE_LEAD_SEC - 0.05){ setActiveCue(cueSeekHold.idx); return; }
     cueSeekHold = null;
   }
-  setActiveCue(cueIndexForTime(t));
+  let idx = cueIndexForTime(t);
+  // v590: in the short silence between two sentences, stay on the one just read (the marker used to vanish
+  // there and come back at the next sentence). Before the first sentence it is still -1.
+  if(idx === -1 && t >= Number(currentCues[0].start)){
+    for(let i = currentCues.length - 1; i >= 0; i--){ if(t >= Number(currentCues[i].start)){ idx = i; break; } }
+  }
+  setActiveCue(idx);
 }
 const SENTENCE_VISIBLE_MARGIN = 16;
 // Orchestrates the two follow behaviors, in priority order. A section change always wins and
