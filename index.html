@@ -1,6 +1,6 @@
 <!--
-VERSION: 588
-DATE: 2026-10-19T09:50:00-05:00
+VERSION: 589
+DATE: 2026-10-19T10:05:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,15 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v589 — 2026-10-19
+
+**Ask:**
+- The selected (Next) match should be the same yellow, just a bit thicker with a brighter glow, not orange.
+
+**Implementation:**
+- .artFindBox.cur: 5px, #fff07a, four-layer yellow glow (up to 44px); the title's current-match highlight is
+  the same lighter yellow.
+
 ## v588 — 2026-10-19
 
 **Ask:**
@@ -2614,7 +2623,7 @@ CHANGELOG:END
     color:#111; font-family:system-ui, -apple-system, sans-serif; font-weight:600; line-height:1.1; cursor:pointer;}
   .artFind .artFindN{font-size:13px; color:var(--gold-bright); font-family:system-ui, -apple-system, sans-serif; min-width:1ch;}
   ::highlight(artFind){ background-color:#ffe14d; color:#111; }
-  ::highlight(artFindCur){ background-color:#ff9a3c; color:#111; }
+  ::highlight(artFindCur){ background-color:#fff07a; color:#111; }
   .artFind .artFindGo{-webkit-touch-callout:none; -webkit-user-select:none; user-select:none; touch-action:manipulation;
     transition:background-color .12s ease, color .12s ease, border-color .12s ease;}
   /* v587: pressed look, in the site's gold */
@@ -2625,8 +2634,8 @@ CHANGELOG:END
      is untouched. The current match (Next) glows orange. */
   #artFindLayer .artFindBox{position:absolute; height:3px; border-radius:2px; background:#ffe14d; pointer-events:none;
     box-shadow:0 0 5px rgba(255,225,77,.9), 0 0 12px rgba(255,225,77,.6), 0 0 22px rgba(255,225,77,.35);}
-  #artFindLayer .artFindBox.cur{height:4px; background:#ffad4d;
-    box-shadow:0 0 6px rgba(255,173,77,.95), 0 0 14px rgba(255,173,77,.7), 0 0 26px rgba(255,173,77,.4);}
+  #artFindLayer .artFindBox.cur{height:5px; background:#fff07a;   /* v589: same yellow, thicker, brighter glow */
+    box-shadow:0 0 6px rgba(255,235,110,1), 0 0 14px rgba(255,225,77,.85), 0 0 28px rgba(255,225,77,.6), 0 0 44px rgba(255,225,77,.35);}
   .ahName{font-size:25px; font-weight:600; line-height:1.15;}
   /* v569: closing-prayer finale */
   #artBody{transition:opacity .3s ease;}
@@ -5579,7 +5588,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v588';
+const APP_VERSION = 'v589';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
