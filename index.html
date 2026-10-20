@@ -1,6 +1,6 @@
 <!--
-VERSION: 590
-DATE: 2026-10-19T11:00:00-05:00
+VERSION: 591
+DATE: 2026-10-19T11:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,17 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v591 — 2026-10-19
+
+**Ask:**
+- In the end-of-article animation, the line below the saint's name should get thicker, grow wider to the right,
+  glow bright, then shrink back to its original size and shape.
+
+**Implementation:**
+- At "pray for us" (with the name's blue glow) .ahTaper gets .finaleRule: keyframes finaleRuleGlow over 3.4s,
+  scaled from its left end to 1.6x wide and 2.6x thick with a bright gold drop-shadow glow, held, then back to
+  normal. Removed after 3.6s and on finale reset.
+
 ## v590 — 2026-10-19
 
 **Asks:**
@@ -2664,6 +2675,15 @@ CHANGELOG:END
     0%{text-shadow:0 0 8px rgba(150,210,255,1), 0 0 22px rgba(70,160,255,.95), 0 0 48px rgba(30,120,255,.85), 0 0 84px rgba(20,100,255,.7);}
     35%{text-shadow:0 0 10px rgba(150,210,255,.95), 0 0 28px rgba(70,160,255,.9), 0 0 60px rgba(30,120,255,.8), 0 0 104px rgba(20,100,255,.65);}
     100%{text-shadow:0 0 14px rgba(150,210,255,0), 0 0 36px rgba(70,160,255,0), 0 0 76px rgba(30,120,255,0), 0 0 128px rgba(20,100,255,0);}
+  }
+  /* v591: at "pray for us" the gold line under the name thickens, grows to the right, glows bright, then
+     shrinks back to its own size and shape (same 3.4s as the name's glow). Scaled from its left end. */
+  .ahTaper.finaleRule{transform-origin:left center; animation:finaleRuleGlow 3.4s ease-in-out forwards;}
+  @keyframes finaleRuleGlow{
+    0%{transform:none; filter:none;}
+    30%{transform:scaleX(1.6) scaleY(2.6); filter:brightness(1.45) drop-shadow(0 0 3px rgba(255,240,190,1)) drop-shadow(0 0 9px rgba(232,205,126,.95)) drop-shadow(0 0 18px rgba(232,205,126,.6));}
+    55%{transform:scaleX(1.6) scaleY(2.6); filter:brightness(1.45) drop-shadow(0 0 3px rgba(255,240,190,1)) drop-shadow(0 0 9px rgba(232,205,126,.95)) drop-shadow(0 0 18px rgba(232,205,126,.6));}
+    100%{transform:none; filter:none;}
   }
   .ahName .finaleWord{transition:color .45s ease, text-shadow .55s ease;}
   .ahName .finaleWord.on{color:#FFF4CC; text-shadow:0 0 6px rgba(255,222,140,.95), 0 0 16px rgba(240,192,84,.7), 0 0 30px rgba(220,170,60,.45);}
@@ -5605,7 +5625,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v590';
+const APP_VERSION = 'v591';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -12682,6 +12702,7 @@ function finaleReset(){
   if(finale.nameEl && finale.nameEl.isConnected) finale.nameEl.innerHTML = finale.nameHtml;
   if(finale.prayEl) finale.prayEl.remove();
   if(finale.blueEl) finale.blueEl.classList.remove('finaleBlue');   // v573
+  if(finale.ruleEl) finale.ruleEl.classList.remove('finaleRule');   // v591
   if(finale.rising){ const bar = audioActiveBarEl(); if(bar){ bar.classList.remove('on'); bar.style.transition = ''; } }   // v574: a rise was cut short
   const body = document.getElementById('artBody');
   if(body) body.classList.remove('finaleFade');
@@ -12746,6 +12767,13 @@ function finaleTick(t){
     nameEl.classList.remove('finaleBlue'); void nameEl.offsetWidth;   // restart the animation if it was on
     nameEl.classList.add('finaleBlue');
     finale.timers.push(setTimeout(() => nameEl.classList.remove('finaleBlue'), 3600));
+    const rule = sticky.querySelector('.ahTaper');   // v591: the gold line under the name joins in
+    if(rule){
+      finale.ruleEl = rule;
+      rule.classList.remove('finaleRule'); void rule.offsetWidth;
+      rule.classList.add('finaleRule');
+      finale.timers.push(setTimeout(() => rule.classList.remove('finaleRule'), 3600));
+    }
   });
 }
 // ---- v543: paint the "Pronunciation checked" button ----
