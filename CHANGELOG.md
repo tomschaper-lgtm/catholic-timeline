@@ -19,6 +19,141 @@ the time.
 
 ---
 
+## v592 — 2026-10-19
+
+**Ask:**
+- Dial the gold line's finale back a bit, and have it happen while the name glows.
+
+**Implementation:**
+- finaleRuleGlow: 1.35x wide (was 1.6), 2x thick (was 2.6), softer glow; reaches full size at 10% (0.34s) instead
+  of 30%, holds to 40%, then eases back with the name's fade (ease-out), all within the same 3.4s.
+
+## v591 — 2026-10-19
+
+**Ask:**
+- In the end-of-article animation, the line below the saint's name should get thicker, grow wider to the right,
+  glow bright, then shrink back to its original size and shape.
+
+**Implementation:**
+- At "pray for us" (with the name's blue glow) .ahTaper gets .finaleRule: keyframes finaleRuleGlow over 3.4s,
+  scaled from its left end to 1.6x wide and 2.6x thick with a bright gold drop-shadow glow, held, then back to
+  normal. Removed after 3.6s and on finale reset.
+
+## v590 — 2026-10-19
+
+**Asks:**
+- Keep the screen from timing out while an article is being listened to (articles run about five minutes).
+- The white marker disappears after each sentence and reappears at the next. It should never disappear: stretch
+  down and slide into place; when it has to go up (a tap), slide up and rubber-band into place.
+
+**Implementation:**
+- Screen Wake Lock: syncScreenWake() holds navigator.wakeLock('screen') while the audio plays (play/playing/pause/
+  ended/emptied listeners on the audio element, visibilitychange to retake it, stopAudio to release). No-op where
+  unsupported.
+- updateActiveCue: in the gap between two cues the previous cue stays active (cueIndexForTime gave -1 there,
+  which hid the bar). Before the first cue it is still -1; 'ended' and stop still hide it.
+- updateAudioActiveBar: on a new sentence below, the bottom stretches first (200ms), then the top slides (260ms);
+  above, one 520ms move with an overshooting curve. Same-sentence updates (scroll) unchanged; the finale's own
+  frame-by-frame drive is left alone (barMoveBusy).
+
+## v589 — 2026-10-19
+
+**Ask:**
+- The selected (Next) match should be the same yellow, just a bit thicker with a brighter glow, not orange.
+
+**Implementation:**
+- .artFindBox.cur: 5px, #fff07a, four-layer yellow glow (up to 44px); the title's current-match highlight is
+  the same lighter yellow.
+
+## v588 — 2026-10-19
+
+**Ask:**
+- Instead of a box, a bright yellow underline under each found word that glows, like the white reading bar.
+
+**Implementation:**
+- .artFindBox is now a 3px glowing yellow bar at the bottom of the word's rect (orange, 4px, for the Next/current
+  match); the redrawn dark word from v585 is gone, so the story text shows as-is. The title keeps its yellow
+  ::highlight.
+
+## v587 — 2026-10-19
+
+**Ask:**
+- The Next button should change colour while pressed, in the site's colours.
+
+**Implementation:**
+- .artFindGo.pressing (added on pointerdown, removed on up/cancel/leave): gold background (--gold-bright),
+  dark navy text, short fade.
+
+## v586 — 2026-10-19
+
+**Ask:**
+- Make the arrow and Clear one button that says "Next": a press goes to the next match; holding it about a second clears.
+
+**Implementation:**
+- .artFindGo labelled "Next"; the Clear button is gone. pointerdown starts an 800ms timer that runs artFindClose()
+  while the finger is still down (so the clearing is visible), and the following click is then ignored; a shorter
+  press is a normal click (artFindNext).
+
+## v585 — 2026-10-19
+
+**Ask:**
+- On the iPhone the find boxes covered the word (solid orange/yellow, word invisible).
+
+**Implementation:**
+- iPhone Safari didn't blend #artFindLayer with the text under it. Blending removed: each box is solid yellow
+  (orange for the current one) and draws its word in dark letters with the story's own font, size, spacing and
+  capitals (copied from the word's element), so it reads the same everywhere.
+
+## v584 — 2026-10-19
+
+**Asks:**
+- Find highlighted the headings but not the matching words in the story (iPhone).
+- A tiny arrow button next to Clear: each press goes to the next highlighted word, round and round.
+
+**Implementation:**
+- Story matches are now yellow boxes in #artFindLayer (absolute, over the text, pointer-events:none,
+  mix-blend-mode:difference), placed from Range.getClientRects(); repainted on ResizeObserver. iPhone Safari
+  does not paint ::highlight on the Review-mode story (user-select:none), which is why only headings lit up.
+  The title still uses ::highlight. A finger passes through the boxes, so press-and-hold still opens the picker.
+- "›" button: artFindNext() cycles 1, 2, 3, then 1 again; scrolls the word to a third of the way down below the
+  sticky header and marks it orange; the count shows "2/3".
+
+## v583 — 2026-10-19
+
+**Ask:**
+- Review mode: press and hold the year for a small search box beside it. Highlight in yellow every place a word
+  with those letters appears (title or anywhere in the story), the WHOLE word, so it can then be held for
+  pronunciation fixing. A "Clear" button next to the box clears it.
+
+**Implementation:**
+- Hold the year 450ms and lift: box + Clear (+ a match count) open after the year, keyboard up. A short tap still
+  jumps to Article Status. Words matching (case-insensitive, 2+ letters) in .ahName and #artStoryText are lit with
+  CSS.highlights ('artFind', ::highlight yellow), which changes no DOM, so cue spans and press-and-hold keep working.
+  Re-run after applyCueMarkup. Clear removes highlights and box. Needs iOS 17.2+ (says so if unsupported).
+
+## v582 — 2026-10-19
+
+**Ask:**
+- Entries whose recording has the prayer but lost the flag should drop off the "Add closing prayer" list.
+
+**Implementation:**
+- When an article's timing shows a prayer (finaleInfo.prayerByTail) but the entry has no audioInvocation, the
+  app sets it and saves it (dirtyEntryIds + publishReviewAction, quietly), on the owner's phone only (Manage
+  unlocked and a GitHub token set). Opening the article is enough; it doesn't have to be played to the end.
+
+## v581 — 2026-10-19
+
+**Ask:**
+- Blessed Virgin Mary and others have the closing prayer in their recording but no glow and no reset at the end.
+
+**Implementation:**
+- Root cause: syncAudioStatusFromGitHub() copied only audio/audioTitleEnd/audioTiming after a recording, so the
+  phone kept the entry without audioInvocation; any later save from the phone (Listened, an edit) wrote that copy
+  back to GitHub and the flag was gone. It now also copies audioInvocation, audioPron and audioEngine.
+- The finale also runs when the recording itself shows a prayer: 2s or more of audio after the last sentence
+  (finaleInfo.prayerByTail), so entries that already lost the flag work without any data repair.
+- "Add closing prayer to recorded saints" now honours the Category picker (Saints only, so another category lists none).
+
 ## v580 — 2026-10-16
 
 **Ask:**
