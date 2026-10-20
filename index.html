@@ -1,6 +1,6 @@
 <!--
-VERSION: 584
-DATE: 2026-10-19T08:30:00-05:00
+VERSION: 588
+DATE: 2026-10-19T09:50:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,45 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v588 — 2026-10-19
+
+**Ask:**
+- Instead of a box, a bright yellow underline under each found word that glows, like the white reading bar.
+
+**Implementation:**
+- .artFindBox is now a 3px glowing yellow bar at the bottom of the word's rect (orange, 4px, for the Next/current
+  match); the redrawn dark word from v585 is gone, so the story text shows as-is. The title keeps its yellow
+  ::highlight.
+
+## v587 — 2026-10-19
+
+**Ask:**
+- The Next button should change colour while pressed, in the site's colours.
+
+**Implementation:**
+- .artFindGo.pressing (added on pointerdown, removed on up/cancel/leave): gold background (--gold-bright),
+  dark navy text, short fade.
+
+## v586 — 2026-10-19
+
+**Ask:**
+- Make the arrow and Clear one button that says "Next": a press goes to the next match; holding it about a second clears.
+
+**Implementation:**
+- .artFindGo labelled "Next"; the Clear button is gone. pointerdown starts an 800ms timer that runs artFindClose()
+  while the finger is still down (so the clearing is visible), and the following click is then ignored; a shorter
+  press is a normal click (artFindNext).
+
+## v585 — 2026-10-19
+
+**Ask:**
+- On the iPhone the find boxes covered the word (solid orange/yellow, word invisible).
+
+**Implementation:**
+- iPhone Safari didn't blend #artFindLayer with the text under it. Blending removed: each box is solid yellow
+  (orange for the current one) and draws its word in dark letters with the story's own font, size, spacing and
+  capitals (copied from the word's element), so it reads the same everywhere.
+
 ## v584 — 2026-10-19
 
 **Asks:**
@@ -2576,11 +2615,18 @@ CHANGELOG:END
   .artFind .artFindN{font-size:13px; color:var(--gold-bright); font-family:system-ui, -apple-system, sans-serif; min-width:1ch;}
   ::highlight(artFind){ background-color:#ffe14d; color:#111; }
   ::highlight(artFindCur){ background-color:#ff9a3c; color:#111; }
-  .artFind .artFindGo{padding:3px 9px; font-size:19px; line-height:1;}
+  .artFind .artFindGo{-webkit-touch-callout:none; -webkit-user-select:none; user-select:none; touch-action:manipulation;
+    transition:background-color .12s ease, color .12s ease, border-color .12s ease;}
+  /* v587: pressed look, in the site's gold */
+  .artFind .artFindGo.pressing{background:var(--gold-bright); border-color:var(--gold-bright); color:var(--navy);}
   /* v584: yellow boxes over matching story words; difference blending turns the light text dark on yellow */
-  #artFindLayer{position:absolute; left:0; top:0; width:0; height:0; z-index:4; pointer-events:none; mix-blend-mode:difference;}
-  #artFindLayer .artFindBox{position:absolute; background:#fff5a0; border-radius:3px; pointer-events:none;}
-  #artFindLayer .artFindBox.cur{background:#ffb070;}
+  #artFindLayer{position:absolute; left:0; top:0; width:0; height:0; z-index:4; pointer-events:none;}
+  /* v588: a glowing yellow underline under each match (like the white reading bar), not a box; the word itself
+     is untouched. The current match (Next) glows orange. */
+  #artFindLayer .artFindBox{position:absolute; height:3px; border-radius:2px; background:#ffe14d; pointer-events:none;
+    box-shadow:0 0 5px rgba(255,225,77,.9), 0 0 12px rgba(255,225,77,.6), 0 0 22px rgba(255,225,77,.35);}
+  #artFindLayer .artFindBox.cur{height:4px; background:#ffad4d;
+    box-shadow:0 0 6px rgba(255,173,77,.95), 0 0 14px rgba(255,173,77,.7), 0 0 26px rgba(255,173,77,.4);}
   .ahName{font-size:25px; font-weight:600; line-height:1.15;}
   /* v569: closing-prayer finale */
   #artBody{transition:opacity .3s ease;}
@@ -5533,7 +5579,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v584';
+const APP_VERSION = 'v588';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -15229,6 +15275,7 @@ document.getElementById('artBody').addEventListener('click', (e) => {
 // the pronunciation picker. The text itself is never changed, so cue markup and press-and-hold keep working
 // (a finger goes straight through the boxes). The title in the sticky header still uses ::highlight.
 const ART_FIND_HOLD_MS = 450;
+const ART_FIND_CLEAR_MS = 800;   // v586: hold Next this long to clear
 let artFindHold = null, artFindQuery = '', artFindHits = [], artFindCur = -1, artFindRO = null;
 function artFindSupported(){ return !!(window.CSS && CSS.highlights && window.Highlight); }
 function artFindLayer(){
@@ -15246,13 +15293,17 @@ function artFindPaint(){
   const titleAll = [], titleCur = [];
   artFindHits.forEach((h, k) => {
     if(h.inTitle){ (k === artFindCur ? titleCur : titleAll).push(h.range); return; }
-    for(const rc of h.range.getClientRects()){
-      if(rc.width < 1 || rc.height < 1) continue;
+    const rects = [...h.range.getClientRects()].filter(rc => rc.width >= 1 && rc.height >= 1);
+    const el = h.range.startContainer.parentElement;
+    const cs = el ? getComputedStyle(el) : null;
+    rects.forEach(rc => {
       const box = document.createElement('div');
       box.className = 'artFindBox' + (k === artFindCur ? ' cur' : '');
-      box.style.cssText = 'top:' + (rc.top - top0 - 1) + 'px;left:' + (rc.left - left0 - 1) + 'px;width:' + (rc.width + 2) + 'px;height:' + (rc.height + 2) + 'px;';
+      // v588: an underline just below the letters: the word's line box bottom, nudged up into the descender space
+      const fs = cs ? parseFloat(cs.fontSize) || 16 : 16;
+      box.style.cssText = 'top:' + (rc.bottom - top0 - Math.max(1, Math.round(fs * 0.06))) + 'px;left:' + (rc.left - left0) + 'px;width:' + rc.width + 'px;';
       layer.appendChild(box);
-    }
+    });
   });
   try{
     if(artFindSupported()){
@@ -15322,15 +15373,24 @@ function artFindOpen(yearEl){
     box = document.createElement('span');
     box.className = 'artFind';
     box.innerHTML = '<input type="search" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Find in this article" placeholder="find">' +
-      '<button type="button" class="artFindGo" aria-label="Go to the next match">\u203A</button>' +
-      '<button type="button" class="artFindClear">Clear</button><span class="artFindN"></span>';
+      '<button type="button" class="artFindGo" aria-label="Next match; hold to clear">Next</button><span class="artFindN"></span>';
     yearEl.insertAdjacentElement('afterend', box);
     const input = box.querySelector('input');
     let t = null;
     input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { artFindQuery = input.value; artFindRun(); }, 150); });
     input.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); input.blur(); } });
-    box.querySelector('.artFindGo').addEventListener('click', (e) => { e.stopPropagation(); input.blur(); artFindNext(); });
-    box.querySelector('.artFindClear').addEventListener('click', (e) => { e.stopPropagation(); artFindClose(); });
+    // v586: one button. Tap = next match (round and round); hold about a second = Clear (fires while still held).
+    const go = box.querySelector('.artFindGo');
+    let goHold = null, goCleared = false;
+    go.addEventListener('pointerdown', (e) => {
+      go.classList.add('pressing');   // v587
+      goCleared = false;
+      clearTimeout(goHold);
+      goHold = setTimeout(() => { goHold = null; goCleared = true; artFindClose(); }, ART_FIND_CLEAR_MS);
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => go.addEventListener(t, () => { clearTimeout(goHold); goHold = null; go.classList.remove('pressing'); }));
+    go.addEventListener('contextmenu', (e) => e.preventDefault());
+    go.addEventListener('click', (e) => { e.stopPropagation(); if(goCleared){ goCleared = false; return; } input.blur(); artFindNext(); });
     box.addEventListener('click', (e) => e.stopPropagation());   // typing in the box isn't a tap on the story
   }
   const input = box.querySelector('input');
