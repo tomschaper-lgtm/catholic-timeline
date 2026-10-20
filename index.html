@@ -1,6 +1,6 @@
 <!--
-VERSION: 582
-DATE: 2026-10-19T07:05:00-05:00
+VERSION: 583
+DATE: 2026-10-19T07:40:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,19 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v583 — 2026-10-19
+
+**Ask:**
+- Review mode: press and hold the year for a small search box beside it. Highlight in yellow every place a word
+  with those letters appears (title or anywhere in the story), the WHOLE word, so it can then be held for
+  pronunciation fixing. A "Clear" button next to the box clears it.
+
+**Implementation:**
+- Hold the year 450ms and lift: box + Clear (+ a match count) open after the year, keyboard up. A short tap still
+  jumps to Article Status. Words matching (case-insensitive, 2+ letters) in .ahName and #artStoryText are lit with
+  CSS.highlights ('artFind', ::highlight yellow), which changes no DOM, so cue spans and press-and-hold keep working.
+  Re-run after applyCueMarkup. Clear removes highlights and box. Needs iOS 17.2+ (says so if unsupported).
+
 ## v582 — 2026-10-19
 
 **Ask:**
@@ -2539,6 +2552,15 @@ CHANGELOG:END
   .ahYearRow:not(:has(.ahYear)) .ahKind{margin-left:0; font-size:27px;}
   .ahYearRow:has(.ahKind){align-items:baseline;}
   .review-on .ahYear{cursor:pointer;}
+  /* v583: Review mode find: hold the year for a small box; matching whole words light up yellow (CSS Custom
+     Highlight API, so the text itself is untouched and press-and-hold on a word still works). */
+  .artFind{display:inline-flex; align-items:center; gap:6px; flex:none; margin-left:4px;}
+  .artFind input{width:92px; font-size:16px; padding:4px 7px; border-radius:7px; border:1px solid #c9b878;
+    background:#fff; color:#111; font-family:system-ui, -apple-system, sans-serif; line-height:1.2;}
+  .artFind button{font-size:14px; padding:5px 9px; border-radius:7px; border:1px solid #c9b878; background:#fff;
+    color:#111; font-family:system-ui, -apple-system, sans-serif; font-weight:600; line-height:1.1; cursor:pointer;}
+  .artFind .artFindN{font-size:13px; color:var(--gold-bright); font-family:system-ui, -apple-system, sans-serif; min-width:1ch;}
+  ::highlight(artFind){ background-color:#ffe14d; color:#111; }
   .ahName{font-size:25px; font-weight:600; line-height:1.15;}
   /* v569: closing-prayer finale */
   #artBody{transition:opacity .3s ease;}
@@ -5491,7 +5513,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v582';
+const APP_VERSION = 'v583';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -14439,6 +14461,7 @@ function initTts(d, host){
   try{
     applyCueMarkup(cues);
     computeCueSectionHeadings();
+    if(artFindQuery) artFindRun();   // v583: the markup replaced the text pieces the highlights pointed at
   }catch(err){
     currentCues = []; cueEls = []; cueSectionHeading = [];
     return;
@@ -15136,6 +15159,7 @@ async function wireSentenceCues(d, host){
   try{
     applyCueMarkup(cues);
     computeCueSectionHeadings();
+    if(artFindQuery) artFindRun();   // v583: the markup replaced the text pieces the highlights pointed at
   }catch(err){
     // Surface a real bug in the matching code as visible text rather than letting it vanish
     // into a silently-rejected promise — the whole point of this status line is to make
@@ -15174,6 +15198,87 @@ document.getElementById('artBody').addEventListener('click', (e) => {
   if(!e.target.closest('.ahYear')) return;
   const target = document.getElementById('reviewStatusSection');
   if(target) target.scrollIntoView({behavior: 'smooth', block: 'start'});
+});
+
+// ---- v583: Review mode find. Hold the year: a small box opens beside it. Every whole word (title, headings,
+// story) that contains the typed letters is highlighted yellow; "Clear" removes the highlights and the box.
+// Uses CSS.highlights, which colours text ranges without changing the page, so the sentence markup and
+// press-and-hold-for-pronunciation keep working on a highlighted word.
+const ART_FIND_HOLD_MS = 450;
+let artFindHold = null, artFindQuery = '';
+function artFindSupported(){ return !!(window.CSS && CSS.highlights && window.Highlight); }
+function artFindRun(){
+  if(!artFindSupported()) return 0;
+  CSS.highlights.delete('artFind');
+  if(!document.querySelector('#article .artFind')){ artFindQuery = ''; return 0; }   // another article opened: the search ended with its box
+  const q = artFindQuery.trim().toLowerCase();
+  const n = document.querySelector('#article .artFindN');
+  if(q.length < 2){ if(n) n.textContent = ''; return 0; }
+  const roots = [document.querySelector('#article .ahName'), liveArtEl('artStoryText')].filter(Boolean);
+  const ranges = [];
+  const WORD = /[\p{L}\p{N}\u2019'-]+/gu;
+  roots.forEach(root => {
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for(let node = walk.nextNode(); node; node = walk.nextNode()){
+      if(node.parentElement && node.parentElement.closest('button, .artFind')) continue;
+      const text = node.textContent;
+      for(const m of text.matchAll(WORD)){
+        if(!m[0].toLowerCase().includes(q)) continue;
+        const word = m[0].replace(/^['\u2019-]+|['\u2019-]+$/g, '');   // the whole word, not its quotes
+        const at = m.index + m[0].indexOf(word);
+        const r = new Range(); r.setStart(node, at); r.setEnd(node, at + word.length);
+        ranges.push(r);
+      }
+    }
+  });
+  if(ranges.length) CSS.highlights.set('artFind', new Highlight(...ranges));
+  if(n) n.textContent = String(ranges.length);
+  return ranges.length;
+}
+function artFindClose(){
+  artFindQuery = '';
+  try{ if(artFindSupported()) CSS.highlights.delete('artFind'); }catch(e){}
+  document.querySelectorAll('#article .artFind').forEach(el => el.remove());
+}
+function artFindOpen(yearEl){
+  if(!yearEl) return;
+  const row = yearEl.closest('.ahYearRow');
+  if(!row) return;
+  let box = row.querySelector('.artFind');
+  if(!box){
+    box = document.createElement('span');
+    box.className = 'artFind';
+    box.innerHTML = '<input type="search" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Find in this article" placeholder="find">' +
+      '<button type="button">Clear</button><span class="artFindN"></span>';
+    yearEl.insertAdjacentElement('afterend', box);
+    const input = box.querySelector('input');
+    let t = null;
+    input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { artFindQuery = input.value; artFindRun(); }, 150); });
+    input.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); input.blur(); } });
+    box.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); artFindClose(); });
+    box.addEventListener('click', (e) => e.stopPropagation());   // typing in the box isn't a tap on the story
+    if(!artFindSupported()) box.querySelector('.artFindN').textContent = 'needs a newer iOS';
+  }
+  const input = box.querySelector('input');
+  input.value = artFindQuery;
+  input.focus();   // runs inside the finger-lift, so iPhone opens the keyboard
+}
+document.getElementById('artBody').addEventListener('pointerdown', (e) => {
+  artFindHold = null;
+  if(!reviewMode || !e.target.closest('.ahYear')) return;
+  artFindHold = { id: e.pointerId, x: e.clientX, y: e.clientY, at: performance.now() };
+});
+document.getElementById('artBody').addEventListener('pointermove', (e) => {
+  if(artFindHold && e.pointerId === artFindHold.id && Math.hypot(e.clientX - artFindHold.x, e.clientY - artFindHold.y) > 10) artFindHold = null;
+});
+document.getElementById('artBody').addEventListener('pointerup', (e) => {
+  const h = artFindHold; artFindHold = null;
+  if(!h || e.pointerId !== h.id || performance.now() - h.at < ART_FIND_HOLD_MS) return;
+  lpSuppressClickUntil = performance.now() + 900;   // the lift is not also a tap (which jumps to Article Status)
+  artFindOpen(e.target.closest('.ahYear') || document.querySelector('#article .ahYear'));
+});
+document.getElementById('artBody').addEventListener('contextmenu', (e) => {
+  if(reviewMode && e.target.closest('.ahYear')) e.preventDefault();
 });
 
 // ---- Sticky header / player backdrops ----
