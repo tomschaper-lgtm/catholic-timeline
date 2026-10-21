@@ -1,7 +1,8 @@
 // scripts/services/heteronyms.mjs
 //
-// MODULE DATE: 2026-10-19T06:15:00-05:00 (Monday). New file. Lives beside audio-generate.mjs,
-// pron-vote.mjs and ai-router.mjs (same folder).
+// MODULE DATE: 2026-10-21T16:55:00-05:00 (Wednesday). Lives beside audio-generate.mjs, pron-vote.mjs and
+// ai-router.mjs (same folder). 2026-10-21: also reads pronunciation/heteronyms.json, the words added in the app
+// (pronunciation picker → "Two sounds"); a word there replaces the same word in the built-in WORDS list.
 //
 // WORDS WITH TWO SOUNDS (Tom's idea): "records" is REH-kerdz as a noun ("parish records") but
 // ri-KORDZ as a verb ("Eusebius records that..."). The pronunciation dictionary can't tell them
@@ -26,6 +27,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 
 export const PICKS_FILE = 'pronunciation/heteronym-picks.json';
+export const ADDED_FILE = 'pronunciation/heteronyms.json';   // 2026-10-21: words added from the app
 const MAX_ITEMS = parseInt(process.env.HETERONYM_MAX, 10) || 80;   // per article, per call
 
 export const WORDS = {
@@ -72,7 +74,22 @@ export const WORDS = {
 };
 
 const WORD_CH = "A-Za-z0-9\\u00C0-\\u024F'\\u2019";
-const FIND = new RegExp('(?<![' + WORD_CH + '])(' + Object.keys(WORDS).join('|') + ')(?![' + WORD_CH + '])', 'gi');
+// 2026-10-21: the built-in words plus the app's file. A file entry counts only if it has exactly two sounds,
+// each with an ipa string; anything malformed is skipped, never fatal.
+async function loadWords(){
+  const words = Object.assign({}, WORDS);
+  try{
+    const j = JSON.parse(await fs.readFile(ADDED_FILE, 'utf8'));
+    for(const [w, senses] of Object.entries((j && j.words) || {})){
+      const key = String(w).trim().toLowerCase();
+      const ok = key && /^[a-z\u00C0-\u024F'\u2019-]+$/.test(key) && senses && typeof senses === 'object' &&
+        Object.keys(senses).length === 2 && Object.values(senses).every(s => s && typeof s.ipa === 'string' && s.ipa);
+      if(ok) words[key] = Object.fromEntries(Object.entries(senses).map(([n, s]) => [String(n).toLowerCase(), { say: String(s.say || n), ipa: s.ipa }]));
+    }
+  }catch(e){ /* no file yet, or unreadable: built-in words only */ }
+  return words;
+}
+const escRe = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const keyOf = (word, text, nth) =>
   crypto.createHash('sha1').update(word + '\u0000' + nth + '\u0000' + text).digest('hex').slice(0, 16);
@@ -97,6 +114,8 @@ export async function heteronymPicks(texts){
   if(process.env.HETERONYM === '0') return out;
   try{
     const book = await loadPicks();
+    const WORDS = await loadWords();   // 2026-10-21: shadows the built-in list for this run
+    const FIND = new RegExp('(?<![' + WORD_CH + '])(' + Object.keys(WORDS).map(escRe).join('|') + ')(?![' + WORD_CH + '])', 'gi');
     const todo = [];   // occurrences not remembered yet
     texts.forEach((t, ti) => {
       if(!t) return;
@@ -107,7 +126,7 @@ export async function heteronymPicks(texts){
         const occ = { ti, at: m.index, len: m[1].length, word, nth, key: keyOf(word, t, nth) };
         out.found++;
         const known = book.picks[occ.key];
-        if(known && WORDS[word][known.sense]){ place(out, occ, known.sense); out.fromMemory++; }
+        if(known && WORDS[word][known.sense]){ place(out, occ, known.sense, WORDS[word][known.sense].ipa); out.fromMemory++; }
         else todo.push(occ);
       }
     });
@@ -133,7 +152,7 @@ export async function heteronymPicks(texts){
       const o = batch[(parseInt(ans && ans.n, 10) || 0) - 1];
       const sense = ans && String(ans.sense || '').trim().toLowerCase();
       if(!o || !WORDS[o.word][sense]) continue;
-      place(out, o, sense);
+      place(out, o, sense, WORDS[o.word][sense].ipa);
       out.asked++;
       book.picks[o.key] = { word: o.word, sense, sentence: texts[o.ti], by: out.model, at: now };
       saved++;
@@ -151,6 +170,6 @@ export async function heteronymPicks(texts){
   return out;
 }
 
-function place(out, o, sense){
-  out.extras[o.ti].push({ at: o.at, len: o.len, ipa: WORDS[o.word][sense].ipa, sense, word: o.word });
+function place(out, o, sense, ipa){
+  out.extras[o.ti].push({ at: o.at, len: o.len, ipa, sense, word: o.word });
 }
