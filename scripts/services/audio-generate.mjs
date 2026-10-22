@@ -1,7 +1,8 @@
 // scripts/services/audio-generate.mjs
 //
-// MODULE DATE: 2026-10-19T06:20:00-05:00 (Monday). Based on the audio-generate.mjs upload of 2026-10-06
-// (audio-generate_4.mjs). Two changes. (1) 2026-10-19, WORDS WITH TWO SOUNDS: before a Kokoro recording,
+// MODULE DATE: 2026-10-21T17:45:00-05:00 (Wednesday). Based on the audio-generate.mjs upload of 2026-10-06
+// (audio-generate_4.mjs). Three changes. (0) 2026-10-21, POSSESSIVES: "Callistus I's" after a rule keeps its "'s"
+// inside the Kokoro markup with the right s/z/iz sound (possessiveAt / possessiveIpa). (1) 2026-10-19, WORDS WITH TWO SOUNDS: before a Kokoro recording,
 // heteronyms.mjs asks a cheap AI model, per sentence, whether "records", "read", "lead", "live"... is
 // the noun or the verb (etc.), and that one use is spoken accordingly (applyPronunciation's 4th
 // argument). A phrase rule in the dictionary ("Scripture records") still wins; the dictionary itself is
@@ -143,6 +144,23 @@ export function kokoroMarkup(from, ipa){
   if(sounds.length !== words.length) return from;
   return words.map((w, k) => '[' + w + '](/' + sounds[k] + '/)').join(' ');
 }
+// 2026-10-21: possessives after a pronunciation rule. possessiveAt -> how many characters of "'s" / "\u2019s" (2)
+// or a bare trailing apostrophe on a word ending in s ("Gentiles'", 1) follow position p; 0 if none.
+function possessiveAt(text, p){
+  const a = text[p];
+  if(a !== "'" && a !== '\u2019') return 0;
+  if((text[p + 1] === 's' || text[p + 1] === 'S') && !isWordChar(text[p + 2])) return 2;
+  if(!isWordChar(text[p + 1]) && /s$/i.test(text.slice(Math.max(0, p - 1), p))) return 1;   // plural possessive: no new sound
+  return 0;
+}
+// The sound of the possessive on the LAST word's sounds: after s, z, sh, zh, ch, j -> "ɪz"; after p, t, k, f, th -> "s";
+// otherwise "z". A bare apostrophe (len 1) adds nothing.
+function possessiveIpa(ipa, len){
+  if(len !== 2) return ipa;
+  const t = String(ipa).trim(), last = t.replace(/[ˈˌː.]+$/, '').slice(-1);
+  const add = /[szʃʒʧʤ]/.test(last) ? 'ɪz' : /[ptkfθ]/.test(last) ? 's' : 'z';
+  return t + add;
+}
 export function applyPronunciation(text, rules, useIpa, extras){   // extras (2026-10-19): [{at, len, ipa}] one use of a two-sound word, Kokoro only
   const map = new Array(text.length + 1);
   let out = '', count = 0, i = 0;
@@ -178,10 +196,16 @@ export function applyPronunciation(text, rules, useIpa, extras){   // extras (20
       continue;
     }
     if(hit){
-      for(let k = 0; k < hit.from.length; k++) map[i + k] = out.length;
+      // 2026-10-21: a possessive right after a rule ("Pope Callistus I's", "Gentiles'") goes INSIDE the Kokoro
+      // markup, with its own sound on the last word. Left outside, Kokoro got "[...](/.../)'s" and mangled it.
+      const poss = (useIpa && hit.ipa) ? possessiveAt(text, i + hit.from.length) : 0;
+      for(let k = 0; k < hit.from.length + poss; k++) map[i + k] = out.length;
       // Kokoro: [word](/sounds/) markup when the rule has kokoro_ipa; otherwise the alias text.
-      out += (useIpa && hit.ipa) ? kokoroMarkup(hit.from, hit.ipa) : hit.to;
-      i += hit.from.length;
+      out += (useIpa && hit.ipa)
+        ? (poss ? kokoroMarkup(hit.from + text.slice(i + hit.from.length, i + hit.from.length + poss), possessiveIpa(hit.ipa, poss))
+                : kokoroMarkup(hit.from, hit.ipa))
+        : hit.to;
+      i += hit.from.length + poss;
       count++;
     }else{
       flushPause(i);
