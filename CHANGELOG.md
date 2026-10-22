@@ -19,6 +19,29 @@ the time.
 
 ---
 
+## v594 — 2026-10-21
+
+**Ask:**
+- In Two sounds, call an AI model to fill in the two sounds and their meanings.
+
+**Implementation:**
+- "Fill in with AI" button: one aiAsk() call (first key saved on the device: Claude, then OpenAI, then Gemini) with
+  AI_TWO_PROMPT (the app's respelling sounds and the long-i / bare-y traps) and the word's sentence; fills the two
+  sound and meaning boxes and the Will say lines. Nothing is saved until OK. aiAsk() takes an optional system prompt.
+
+## v593 — 2026-10-21
+
+**Ask:**
+- From the press-and-hold pronunciation picker, a link to add a word with two sounds (a heteronym) to the list,
+  then re-queue the articles with that word that are not marked Listened.
+
+**Implementation:**
+- "Two sounds" link in the picker: two sound boxes (typed like Type it, with a Will say line) and two "when it means"
+  boxes. OK writes pronunciation/heteronyms.json ({v, words: {word: {name: {say, ipa}}}}; names from the meanings'
+  first words, else sound1/sound2) via lpUpdateJsonFile, then pronQueueRerecords(word, {anyCase:true}) queues every
+  recorded, non-Listened article containing the word in any capitalization; the toast gives the count.
+- Needs heteronyms.mjs 2026-10-21, which reads that file alongside its built-in list.
+
 ## v592 — 2026-10-19
 
 **Ask:**
