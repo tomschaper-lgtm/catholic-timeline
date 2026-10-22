@@ -1,6 +1,7 @@
 // scripts/services/audio-generate.mjs
 //
-// MODULE DATE: 2026-10-22T13:55:00-05:00 (Thursday). REBUILT on the GitHub copy of 2026-10-10 (the last
+// MODULE DATE: 2026-10-22T15:10:00-05:00 (Thursday). 15:10 change: "Callistus I's" goes to Kokoro as
+// "the firsts" (no apostrophe) — Kokoro read "the first's" as "the,, firstizz". REBUILT on the GitHub copy of 2026-10-10 (the last
 // recorder before 2026-10-19), because the 10-19 and 10-22 uploads were built on an older 10-06 copy and
 // silently dropped the 10-07..10-11 work. This file = 10-10 recorder (pron-vote check, "Name I" decisions
 // and regnalFirstAt, II Kings -> Second Kings, X-ray guard, NUMERAL_ENTRIES, the closing prayer's place in
@@ -270,9 +271,13 @@ export function applyPronunciation(text, rules, useIpa, extras){   // extras (20
     // "Leo I", "Constantinople I" -> "the first" (2026-10-07); see regnalFirstAt().
     const rf = !hit && !isWordChar(text[i - 1]) ? regnalFirstAt(text, i) : null;
     if(rf){
-      map[i] = out.length;
-      out += rf;
-      i += 1;
+      // 2026-10-22: a possessive ("Callistus I's") is sent to Kokoro as "the firsts" with no apostrophe.
+      // Kokoro's own reader turned "the first's" into "the,, firstizz". ElevenLabs keeps "the first's".
+      const pz = useIpa ? possessiveAt(text, i + 1) : 0;
+      const take = pz === 2 ? 3 : 1;
+      for(let k = 0; k < take; k++) map[i + k] = out.length;
+      out += pz === 2 ? rf + 's' : rf;
+      i += take;
       count++;
       continue;
     }
