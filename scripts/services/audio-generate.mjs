@@ -1,7 +1,9 @@
 // scripts/services/audio-generate.mjs
 //
-// MODULE DATE: 2026-10-22T16:40:00-05:00 (Thursday). 16:40 change: "Callistus I's" goes to Kokoro as
-// "the [firsts](/fˈɜɹsts/)" — Kokoro read plain "the first's" / "the firsts" as "the,, firstizz" / "the... first is".
+// MODULE DATE: 2026-10-23T08:45:00-05:00 (Friday). 10-23 change: an AI "Name I" answer of "I" no longer
+// overrides the recorder's own rule (it said "Justinian eye" for "Justinian I later restored"); the rule's
+// quote and first-person checks decide the pronoun. 10-22 16:40: "Callistus I's" goes to Kokoro as
+// "the [firsts](/fˈɜɹsts/)".
 // REBUILT on the GitHub copy of 2026-10-10 (the last
 // recorder before 2026-10-19), because the 10-19 and 10-22 uploads were built on an older 10-06 copy and
 // silently dropped the 10-07..10-11 work. This file = 10-10 recorder (pron-vote check, "Name I" decisions
@@ -166,7 +168,9 @@ export function regnalFirstAt(text, i){
   // the models' vote for this spot wins; the rules below are the fallback (2026-10-07)
   if(text[i - 1] === ' ' && romanIDecisions.size){
     const d = romanIDecisions.get(iKey(text, i));
-    if(d) return d === 'I' ? null : d;
+    // 2026-10-23: an AI answer of "I" no longer wins on its own — the cheap model read "Justinian I later
+    // restored" as the pronoun. The quote / first-person checks below decide those; "the first"/"One" still win.
+    if(d && d !== 'I') return d;
   }
   const next = text[i + 1];
   if(isWordChar(next)) return null;
