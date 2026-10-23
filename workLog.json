@@ -169,7 +169,7 @@
       "type": "audio-generate",
       "entityId": "sts-cosmas-damian-287",
       "batchId": null,
-      "status": "in_progress",
+      "status": "error",
       "description": "Record audio narration — Sts. Cosmas & Damian",
       "payload": {
         "voiceId": "kokoro:af_heart",
@@ -188,9 +188,8 @@
       },
       "result": null,
       "createdAt": "2026-10-23T19:01:52.509Z",
-      "updatedAt": "2026-10-23T19:04:32.839Z",
-      "error": null,
-      "runNow": true
+      "updatedAt": "2026-10-23T19:05:53.355Z",
+      "error": "Error: Command failed: ffmpeg -y -i \"audio/Saints/sts-cosmas-damian-287-v5.tmp.wav\" -ac 1 -ar 44100 -c:a libmp3lame -b:a 64k \"audio/Saints/sts-cosmas-damian-287-v5.mp3\"\n    at genericNodeError (node:internal/errors:984:15)\n    at wrappedFn (node:internal/errors:538:14)\n    at checkExecSyncError (node:child_process:891:11)\n    at execSync (node:child_process:963:15)\n    at trackToMp3 (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/tts-kokoro.mjs:151:5)\n    at async narrateEntryKokoro (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/audio-generate.mjs:742:3)\n    at async runAudioGenerate (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/audio-generate.mjs:930:7)\n    at async runOne (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/orchestrator.mjs:538:20)\n    at async main (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/orchestrator.mjs:606:49)"
     }
   ]
 }
