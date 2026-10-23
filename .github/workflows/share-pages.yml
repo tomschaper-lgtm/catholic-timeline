@@ -1,4 +1,7 @@
 # .github/workflows/share-pages.yml — rebuilds s/<entry-id>.html share preview pages.
+# MODULE DATE: 2026-10-22T22:20:00-05:00 (Thursday). Only change: the checkout is SPARSE — it fetches
+# the top-level files (data.json), scripts/ and s/, not the audio and images, which this job never reads.
+# The build script already rewrites only pages whose name/description/picture changed.
 # Runs whenever data.json changes on main, once a day (catches data.json commits made by other
 # workflows, which don't trigger this one), and on demand from the Actions tab.
 name: Build share pages
@@ -26,6 +29,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Top-level files (data.json) are always included in cone mode; audio/ and Images/ are skipped.
+          sparse-checkout: |
+            scripts
+            s
       - uses: actions/setup-node@v4
         with:
           node-version: 20
