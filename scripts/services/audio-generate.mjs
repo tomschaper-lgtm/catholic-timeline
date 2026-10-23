@@ -1,9 +1,11 @@
 // scripts/services/audio-generate.mjs
 //
-// MODULE DATE: 2026-10-23T08:45:00-05:00 (Friday). 10-23 change: an AI "Name I" answer of "I" no longer
-// overrides the recorder's own rule (it said "Justinian eye" for "Justinian I later restored"); the rule's
-// quote and first-person checks decide the pronoun. 10-22 16:40: "Callistus I's" goes to Kokoro as
-// "the [firsts](/fˈɜɹsts/)".
+// MODULE DATE: 2026-10-23T14:30:00-05:00 (Friday). 14:30 change: PRONUNCIATION DECISIONS — the finished
+// task's result now carries a numbered list (result.pronunciationDecisions) of every change made to what
+// was said and why: dictionary word/phrase rule, pause rule, two-sound word, date, Bible book, "Name I"
+// (rule or AI), names the vote added, and where the spoken title came from.
+// 08:45 change: an AI "Name I" answer of "I" no longer overrides the recorder's own rule (it said
+// "Justinian eye"). 10-22 16:40: "Callistus I's" goes to Kokoro as "the [firsts](/fˈɜɹsts/)".
 // REBUILT on the GitHub copy of 2026-10-10 (the last
 // recorder before 2026-10-19), because the 10-19 and 10-22 uploads were built on an older 10-06 copy and
 // silently dropped the 10-07..10-11 work. This file = 10-10 recorder (pron-vote check, "Name I" decisions
@@ -162,12 +164,25 @@ const FIRST_PERSON = new Set(('am have believe know love pray beg ask trust ador
   'cannot can must may might would could should do').split(' '));
 // Decisions from the models for this recording (decideRomanI): key -> "the first" | "One" | "I".
 let romanIDecisions = new Map();
+// 2026-10-23: "Pronunciation decisions" — while a recording is spoken, applyPronunciation notes every
+// change it makes here (text -> what was said, and why). runAudioGenerate numbers them into the result.
+let decisionLog = null;
+let regnalSource = '';
+function noteDecision(from, said, why){
+  if(!decisionLog) return;
+  const key = from + '\u0000' + said + '\u0000' + why;
+  const d = decisionLog.get(key);
+  if(d) d.n++; else decisionLog.set(key, { from, said, why, n: 1 });
+}
 export function setRomanIDecisions(m){ romanIDecisions = m instanceof Map ? m : new Map(); }
 export function regnalFirstAt(text, i){
   if(text[i] !== 'I') return null;
+  regnalSource = 'the recorder\'s rule';
   // the models' vote for this spot wins; the rules below are the fallback (2026-10-07)
   if(text[i - 1] === ' ' && romanIDecisions.size){
     const d = romanIDecisions.get(iKey(text, i));
+    regnalSource = d === 'I' ? 'the recorder\'s rule (the AI said the word "I"; ignored)' : 'the recorder\'s rule';
+    if(d && d !== 'I') regnalSource = 'the AI decision';
     // 2026-10-23: an AI answer of "I" no longer wins on its own — the cheap model read "Justinian I later
     // restored" as the pronoun. The quote / first-person checks below decide those; "the first"/"One" still win.
     if(d && d !== 'I') return d;
@@ -251,6 +266,7 @@ export function applyPronunciation(text, rules, useIpa, extras){   // extras (20
     const bo = !isWordChar(text[i - 1]) ? bookOrdinalAt(text, i) : null;
     if(bo){
       for(let k = 0; k < bo.len; k++) map[i + k] = out.length;
+      noteDecision(text.slice(i, i + bo.len) + text.slice(i + bo.len).match(/^ \S+/)[0], bo.say + text.slice(i + bo.len).match(/^ \S+/)[0], 'Bible book number');
       out += bo.say;
       i += bo.len;
       count++;
@@ -263,19 +279,20 @@ export function applyPronunciation(text, rules, useIpa, extras){   // extras (20
         // A bare roman numeral ("X" -> "the tenth") never applies to a letter hyphenated onto a word:
         // "X-shaped", "X-ray", "V-neck" stay as written; "Pius X" is still "Pius the tenth". (2026-10-11)
         if(/^[IVXLCDM]+$/.test(r.from) && ((text[i + r.from.length] === '-' && isWordChar(text[i + r.from.length + 1])) || (text[i - 1] === '-' && isWordChar(text[i - 2])))) continue;
-        if(r.pause){ pauseAt.add(i + r.pauseAt); count++; continue; }   // mark it; keep looking for a sound/spelling rule here
+        if(r.pause){ pauseAt.add(i + r.pauseAt); count++; noteDecision(r.from, 'short pause after \u201c' + r.from.slice(0, r.pauseAt) + '\u201d', 'dictionary pause rule'); continue; }   // mark it; keep looking for a sound/spelling rule here
         hit = r; break;
       }
       // A two-sound word judged for THIS sentence (heteronyms.mjs). A phrase rule that starts here still
       // wins (it was chosen for exactly this wording); a single-word rule does not.
       const x = (useIpa && extras && extras.length) ? extras.find(o => o.at === i) : null;
-      if(x && !(hit && /\s/.test(hit.from))) hit = { from: text.slice(i, i + x.len), ipa: x.ipa, to: text.slice(i, i + x.len) };
+      if(x && !(hit && /\s/.test(hit.from))) hit = { from: text.slice(i, i + x.len), ipa: x.ipa, to: text.slice(i, i + x.len), hetero: true };
     }
     // A date is spoken with an ordinal day: "October 3, 1952" -> "October third, 1952" (2026-10-05).
     // Checked before the rules so a month name never gets a rule of its own in between.
     const sd = !hit && !isWordChar(text[i - 1]) ? spokenDateAt(text, i) : null;
     if(sd){
       for(let k = 0; k < sd.len; k++) map[i + k] = out.length;
+      noteDecision(text.slice(i, i + sd.len), sd.say, 'date read aloud');
       out += sd.say;
       i += sd.len;
       count++;
@@ -290,6 +307,7 @@ export function applyPronunciation(text, rules, useIpa, extras){   // extras (20
       const pz = useIpa ? possessiveAt(text, i + 1) : 0;
       const take = pz === 2 ? 3 : 1;
       for(let k = 0; k < take; k++) map[i + k] = out.length;
+      noteDecision(((text.slice(0, i).match(/(\S+)\s+$/) || [])[1] || '') + ' ' + text.slice(i, i + take), (pz === 2 ? rf + 's' : rf), '\u201cI\u201d after a name, decided by ' + regnalSource);
       out += pz === 2 ? possessiveSpoken(rf) : rf;
       i += take;
       count++;
@@ -305,6 +323,9 @@ export function applyPronunciation(text, rules, useIpa, extras){   // extras (20
         ? (poss ? kokoroMarkup(hit.from + text.slice(i + hit.from.length, i + hit.from.length + poss), possessiveIpa(hit.ipa, poss))
                 : kokoroMarkup(hit.from, hit.ipa))
         : hit.to;
+      noteDecision(hit.from + text.slice(i + hit.from.length, i + hit.from.length + poss),
+        (useIpa && hit.ipa) ? 'sounds /' + (poss ? possessiveIpa(hit.ipa, poss) : hit.ipa) + '/' : '\u201c' + hit.to + '\u201d',
+        hit.hetero ? 'two-sound word, chosen by AI for this sentence' : (/\s/.test(hit.from) ? 'dictionary phrase rule' : 'dictionary word rule'));
       i += hit.from.length + poss;
       count++;
     }else{
@@ -689,6 +710,7 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
     const mod = await import('./heteronyms.mjs');
     hetero = await mod.heteronymPicks(toSay.map(x => x.cueText));
   }catch(e){ hetero = { extras: [], found: 0, asked: 0, fromMemory: 0, error: 'heteronyms.mjs: ' + String((e && e.message) || e).slice(0, 120), filesToCommit: [] }; }
+  decisionLog = new Map();
   toSay.forEach((x, k) => {
     const r = applyPronunciation(x.cueText, rules, true, (hetero.extras || [])[k]);
     replacements += r.count;
@@ -718,7 +740,11 @@ async function narrateEntryKokoro(entry, dir, baseName, opts){
 
   const audioPath = path.join(dir, `${baseName}.${OUTPUT_EXT}`);
   await trackToMp3(track, audioPath);
-  return { audioPath, durationSec: round2(track.seconds), cues, replacements, titleEnd, prayer, hetero };
+  const decisions = [...decisionLog.values()];
+  decisionLog = null;
+  const ov = await loadSpokenTitleOverrides();
+  const titleWhy = (ov.has(entry.id) || ov.has(entry.n)) ? 'your SpokenTitle override' : (title !== titleFor(entry) ? 'the rule for its category' : 'the entry name as written');
+  return { audioPath, durationSec: round2(track.seconds), cues, replacements, titleEnd, prayer, hetero, decisions, titleNote: title ? { title, why: titleWhy } : null };
 }
 
 export function nextVersion(entry){
@@ -833,6 +859,20 @@ function voteSummary(v){
     (v.errors && v.errors.length ? ' [' + v.errors.join('; ').slice(0, 120) + ']' : '');
 }
 
+// 2026-10-23: "Pronunciation decisions" — one numbered line per change made to what was said, with the
+// reason, shown on the finished task in the app. Title first, then names the vote added, then every
+// change in reading order (repeats counted, not listed again).
+function pronunciationDecisionList(titleNote, vote, decisions){
+  const out = [];
+  if(titleNote) out.push('Spoken title: \u201c' + titleNote.title + '\u201d \u2014 from ' + titleNote.why);
+  for(const c of ((vote && vote.corrected) || []))
+    out.push('Added to the dictionary by vote: ' + c.word + ' \u2192 ' + c.respell + ' (' + (c.votes || []).join(' + ') + ' agreed)');
+  for(const d of (decisions || []))
+    out.push(d.from + ' \u2192 ' + d.said + ' \u2014 ' + d.why + (d.n > 1 ? ' (\u00d7' + d.n + ')' : ''));
+  if(!out.length) out.push('No changes \u2014 every word was read as written.');
+  return out.map((line, k) => (k + 1) + '. ' + line);
+}
+
 export async function runAudioGenerate(task, dataJson){
   const kokoro = isKokoroVoice((task.payload || {}).voiceId);
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -886,7 +926,7 @@ export async function runAudioGenerate(task, dataJson){
   const version = await freeVersion(entry, dir);
   const baseName = entry.id + '-v' + version;
   const engine = kokoro ? 'kokoro:' + kokoroVoiceName(voiceId) : 'elevenlabs:' + voiceId;
-  const { audioPath, durationSec, cues, replacements, titleEnd, prayer, hetero } = kokoro
+  const { audioPath, durationSec, cues, replacements, titleEnd, prayer, hetero, decisions, titleNote } = kokoro
     ? await narrateEntryKokoro(entry, dir, baseName, {
         voiceId, speed: kokoroSpeed(p), prayerSpeed: kokoroSpeed({ speed: p.prayerSpeed || 0.9 }), readHeadings, headingPauseSec, sectionPauseSec,
         sentencePauseSec, titlePauseSec
@@ -921,7 +961,8 @@ export async function runAudioGenerate(task, dataJson){
   const usageFile = await flushUsage().catch(() => null);
 
   return {
-    result: { entityId: entry.id, name: entry.n, audio: relAudio, durationSec, cueCount: cues.length, link: SITE_BASE + '/' + relAudio },
+    result: { entityId: entry.id, name: entry.n, audio: relAudio, durationSec, cueCount: cues.length, link: SITE_BASE + '/' + relAudio,
+      pronunciationDecisions: pronunciationDecisionList(titleNote, vote, decisions) },
     summary: 'recorded ' + durationSec + 's with ' + engine + ' (' + cues.length + ' cues' +
       (replacements ? ', ' + replacements + ' pronunciation fix' + (replacements === 1 ? '' : 'es') : '') +
       (datesFixed ? ', ' + datesFixed + ' date' + (datesFixed === 1 ? '' : 's') + ' put in American order' : '') +
