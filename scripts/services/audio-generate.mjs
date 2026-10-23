@@ -1,7 +1,8 @@
 // scripts/services/audio-generate.mjs
 //
-// MODULE DATE: 2026-10-22T15:10:00-05:00 (Thursday). 15:10 change: "Callistus I's" goes to Kokoro as
-// "the firsts" (no apostrophe) — Kokoro read "the first's" as "the,, firstizz". REBUILT on the GitHub copy of 2026-10-10 (the last
+// MODULE DATE: 2026-10-22T16:40:00-05:00 (Thursday). 16:40 change: "Callistus I's" goes to Kokoro as
+// "the [firsts](/fˈɜɹsts/)" — Kokoro read plain "the first's" / "the firsts" as "the,, firstizz" / "the... first is".
+// REBUILT on the GitHub copy of 2026-10-10 (the last
 // recorder before 2026-10-19), because the 10-19 and 10-22 uploads were built on an older 10-06 copy and
 // silently dropped the 10-07..10-11 work. This file = 10-10 recorder (pron-vote check, "Name I" decisions
 // and regnalFirstAt, II Kings -> Second Kings, X-ray guard, NUMERAL_ENTRIES, the closing prayer's place in
@@ -222,6 +223,14 @@ function possessiveIpa(ipa, len){
   const add = /[szʃʒʧʤ]/.test(last) ? 'ɪz' : /[ptkfθ]/.test(last) ? 's' : 'z';
   return t + add;
 }
+// 2026-10-22: the spoken possessive of a regnal "I" for Kokoro: the last word gets an explicit sound,
+// so Kokoro never guesses at "firsts" / "Ones".
+const REGNAL_POSSESSIVE_IPA = { first: 'fˈɜɹsts', One: 'wˈʌnz', one: 'wˈʌnz' };
+function possessiveSpoken(rf){
+  const m = /^(.*?)(\S+)$/.exec(rf);
+  const ipa = m && REGNAL_POSSESSIVE_IPA[m[2]];
+  return ipa ? m[1] + '[' + m[2] + 's](/' + ipa + '/)' : rf + 's';
+}
 export function applyPronunciation(text, rules, useIpa, extras){   // extras (2026-10-19): [{at, len, ipa}] one use of a two-sound word, Kokoro only
   const map = new Array(text.length + 1);
   let out = '', count = 0, i = 0;
@@ -271,12 +280,13 @@ export function applyPronunciation(text, rules, useIpa, extras){   // extras (20
     // "Leo I", "Constantinople I" -> "the first" (2026-10-07); see regnalFirstAt().
     const rf = !hit && !isWordChar(text[i - 1]) ? regnalFirstAt(text, i) : null;
     if(rf){
-      // 2026-10-22: a possessive ("Callistus I's") is sent to Kokoro as "the firsts" with no apostrophe.
-      // Kokoro's own reader turned "the first's" into "the,, firstizz". ElevenLabs keeps "the first's".
+      // 2026-10-22 (16:40): a possessive ("Callistus I's") goes to Kokoro with its sounds spelled out,
+      // "the [firsts](/fˈɜɹsts/)" — plain "the first's" and "the firsts" both fell to Kokoro's fallback reader
+      // ("the,, firstizz", "the... first is"). ElevenLabs keeps "the first's".
       const pz = useIpa ? possessiveAt(text, i + 1) : 0;
       const take = pz === 2 ? 3 : 1;
       for(let k = 0; k < take; k++) map[i + k] = out.length;
-      out += pz === 2 ? rf + 's' : rf;
+      out += pz === 2 ? possessiveSpoken(rf) : rf;
       i += take;
       count++;
       continue;
