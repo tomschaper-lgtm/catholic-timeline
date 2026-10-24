@@ -19,6 +19,16 @@ the time.
 
 ---
 
+## v595 — 2026-10-23
+
+**Ask:**
+- Show the recorder's pronunciation decisions on a finished recording as an easy-to-read numbered list, so I don't have to dig in logs.
+- A button to browse every pronunciation rule, see how many there are, and tap one to delete it.
+
+**Implementation:**
+- New tkRenderPronDecisions(t) reads t.result.pronunciationDecisions (written by audio-generate.mjs 2026-10-23T14:30) and renders a "Pronunciation decisions" section: number, bold word, arrow, what was said, reason tag (red-tinted for dictionary rules). Shown in both the Audio Review and the already-published audio-generate views. CSS .tkPd*.
+- Manage → Import: "Browse all pronunciation rules" (#mPronBrowseBtn) opens #prbPanel: count by kind, search, filter chips (Words/Phrases/Pauses/Spoken titles/Check these), tap a rule for details and Delete (confirm). Reads/writes via lpUpdateRules (read = mutate returning false); delete matches exact text + pause/alias type. "Check these" flags one-letter rules and "the" saved as θʌ/θɛ.
+
 ## v594 — 2026-10-21
 
 **Ask:**
