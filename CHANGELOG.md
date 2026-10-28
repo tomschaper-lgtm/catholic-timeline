@@ -19,6 +19,17 @@ the time.
 
 ---
 
+## v596 — 2026-10-27
+
+**Ask:**
+- Stop a save from the phone from silently writing the phone's whole (older) copy of data.json over GitHub's, which put old audio links and old flags back.
+
+**Implementation:**
+- publishToGitHubAttempt: GitHub's default file read sends no body for files over 1 MB (data.json is about 2.2 MB), so the read-merge step threw, was caught, and the save went out as the phone's own copy. Now: the sha is read first, then the body is read with the raw media type (as fetchDataJsonFromGitHubAPI already does), then the merge runs.
+- Fail closed: if the body can't be read or has no entries list, the save is refused with "Publish failed: ... nothing was saved"; dirtyEntryIds / deletedEntryIds are kept so the next try still has them. Before, it fell through and published this session's copy as-is.
+- Order matters: sha first, body second. A commit landing between the two reads makes the PUT fail 409 and retry, so the merge is never built from a body older than the sha it overwrites.
+- Not changed (known gaps): a publish with nothing marked dirty still writes this session's entry list; the workLog.json reads (loadWorkLog / saveWorkLogAttempt) use the same content-field read and will break the same way once that file passes 1 MB.
+
 ## v595 — 2026-10-23
 
 **Ask:**
