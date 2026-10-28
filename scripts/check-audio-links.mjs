@@ -1,21 +1,31 @@
 // scripts/check-audio-links.mjs
 //
-// MODULE DATE: 2026-10-27T21:55:00-05:00 (Tuesday) · v1 — ONE-TIME broken-audio-link scanner. READ-ONLY:
-// it never writes data.json or anything else in the repo. It only reads and prints a report.
+// MODULE DATE: 2026-10-27T22:25:00-05:00 (Tuesday) · v2 — broken-audio-link scanner, now with an optional REPAIR step.
+// v1 (21:55) was read-only. The scan is still read-only unless you pass --fix N.
 //
-// For every story in data.json that has an audio link it checks:
+// SCAN (default): for every story in data.json that has an audio link it checks
 //   REPO  — the mp3 and its timing .json exist in the repo (git tree), at exactly the linked path
 //   SITE  — the mp3 and timing .json load from the LIVE site (what the app and visitors really get)
 //           and the timing file belongs to this story and this recording
-// and it also looks for the mess a lost link leaves behind: a link older than the files
-// (the Anthony bug), a story with files but no link, leftover older versions, files no story uses.
+// and it looks for the mess a lost link leaves behind: a link older than the files (the Anthony bug), a
+// story with files but no link, leftover older versions, files no story uses.
+//
+// REPAIR (--fix N, GitHub mode only): takes up to N stories whose link points at a file that is NOT in the repo
+// while a NEWER complete recording (mp3 + timing) IS, and points them at that newest recording:
+//   audio, audioTiming, and the fields the recorder derives from that recording (audioEngine, audioTitleEnd,
+//   audioInvocation, all read from its own timing file). Nothing else in data.json is touched.
+// Safety: --fix 0 only lists what it would do. It refuses to run while any other GitHub Actions run is going
+// (a recording would collide with it). It re-reads data.json right before writing, changes only those stories'
+// fields, writes ONE commit, and retries from a fresh read if another commit lands first. A story whose link
+// changed since the scan is skipped, never overwritten. Then it reads data.json back to confirm.
 //
 // Where the data comes from:
 //   --github owner/repo[@branch]   read the file list and data.json through GitHub's API (nothing is
 //                                  cloned; this is what the workflow uses). Uses GITHUB_TOKEN if set.
-//   (default)                      read ./data.json and the repo files in the current folder (--root).
+//   (default)                      read ./data.json and the repo files in the current folder (--root). Scan only.
 // Other options:  --site https://example.org   check this site (default: settings.audioBase in data.json)
 //                 --no-site                    skip the live-site checks (repo checks only)
+//                 --fix N                      repair up to N stories (0 = list only)
 //                 --concurrency 8   --strict (exit 1 if any ERROR)   --api-base URL (testing)
 //
 // Needs Node 18+ (built-in fetch). No packages.
@@ -29,7 +39,7 @@ import { execFileSync } from 'node:child_process';
 // ---------------------------------------------------------------------------------------------
 function parseArgs(argv){
   const o = { concurrency: 8, strict: false, site: null, noSite: false, github: null, root: '.', data: null,
-              apiBase: 'https://api.github.com', out: null };
+              apiBase: 'https://api.github.com', out: null, fix: null };
   for(let i = 0; i < argv.length; i++){
     const a = argv[i], next = () => argv[++i];
     if(a === '--github') o.github = next();
@@ -41,6 +51,7 @@ function parseArgs(argv){
     else if(a === '--data') o.data = next();
     else if(a === '--api-base') o.apiBase = next();
     else if(a === '--out') o.out = next();
+    else if(a === '--fix'){ const v = next(); if(!/^\d+$/.test(String(v))){ console.error('--fix needs a whole number (0 = list only)'); process.exit(2); } o.fix = parseInt(v, 10); }
     else { console.error('Unknown option: ' + a); process.exit(2); }
   }
   return o;
@@ -61,13 +72,14 @@ async function fromGitHub(o){
   if(!treeRes.ok) throw new Error('GitHub file list failed: HTTP ' + treeRes.status);
   const tree = await treeRes.json();
   const files = new Set((tree.tree || []).filter(t => t.type === 'blob').map(t => t.path));
+  const sizes = new Map((tree.tree || []).filter(t => t.type === 'blob').map(t => [t.path, t.size]));
   const notes = [];
   if(tree.truncated) notes.push('GitHub says the file list was truncated, so "missing in repo" results may be wrong.');
   // raw media type: data.json is over 1 MB, and the default read sends no body for files that big
   const dRes = await fetch(o.apiBase + '/repos/' + repo + '/contents/data.json?ref=' + encodeURIComponent(branch),
     { headers: hdr('application/vnd.github.raw+json') });
   if(!dRes.ok) throw new Error('GitHub data.json read failed: HTTP ' + dRes.status);
-  return { data: JSON.parse(await dRes.text()), files, notes, source: 'GitHub ' + repo + '@' + branch };
+  return { data: JSON.parse(await dRes.text()), files, sizes, notes, source: 'GitHub ' + repo + '@' + branch, gh: { repo, branch, hdr, apiBase: o.apiBase } };
 }
 
 async function walk(dir, base, out){
@@ -145,18 +157,8 @@ async function pool(items, n, fn){
   let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while(i < items.length){ const k = i++; await fn(items[k], k); } }));
 }
 
-// ---------------------------------------------------------------------------------------------
-// the scan
-// ---------------------------------------------------------------------------------------------
-export async function scan(o, src){
-  const { data, files, notes } = src;
-  const entries = Array.isArray(data.entries) ? data.entries : [];
-  const base = o.site || (data.settings && data.settings.audioBase) || '';
-  const doSite = !o.noSite && !!base;
-  const findings = [];   // { sev: 'ERROR'|'WARN', kind, e, msg, fix? }
-  const add = (sev, kind, e, msg, fix) => findings.push({ sev, kind, id: e.id, name: e.n || e.name || e.id, msg, fix });
-
-  // what files exist, grouped by story id and version (audio/ only)
+// what recordings exist, grouped by story id and version (audio/ only)
+function buildIndex(files){
   const byId = new Map();
   for(const f of files){
     if(!f.startsWith('audio/')) continue;
@@ -171,6 +173,21 @@ export async function scan(o, src){
     const ok = [...vs.entries()].filter(([, x]) => x.mp3 && x.json).sort((a, b) => b[0] - a[0]);
     return ok.length ? { v: ok[0][0], mp3: ok[0][1].mp3, json: ok[0][1].json } : null;
   };
+  return { byId, newestComplete };
+}
+
+// ---------------------------------------------------------------------------------------------
+// the scan
+// ---------------------------------------------------------------------------------------------
+export async function scan(o, src){
+  const { data, files, notes } = src;
+  const entries = Array.isArray(data.entries) ? data.entries : [];
+  const base = o.site || (data.settings && data.settings.audioBase) || '';
+  const doSite = !o.noSite && !!base;
+  const findings = [];   // { sev: 'ERROR'|'WARN', kind, e, msg, fix? }
+  const add = (sev, kind, e, msg, fix) => findings.push({ sev, kind, id: e.id, name: e.n || e.name || e.id, msg, fix });
+
+  const { byId, newestComplete } = buildIndex(files);
   // suggest the newest complete recording, but only when it differs from what the story already points at
   const fixFor = (id, link, timing) => {
     const n = newestComplete(id); if(!n) return null;
@@ -282,9 +299,167 @@ export function render(result, cap = 150){
 }
 
 // ---------------------------------------------------------------------------------------------
+// repair (--fix N)
+// ---------------------------------------------------------------------------------------------
+const enc = pth => pth.split('/').map(encodeURIComponent).join('/');
+function ghCall(g, pth, accept, init){
+  const headers = Object.assign({}, g.hdr(accept), (init && init.headers) || {});
+  return fetch(g.apiBase + '/repos/' + g.repo + pth, { method: (init && init.method) || 'GET', headers, body: init && init.body });
+}
+async function otherRunsInProgress(g){
+  const me = String(process.env.GITHUB_RUN_ID || '');
+  const busy = [];
+  for(const st of ['in_progress', 'queued']){
+    const r = await ghCall(g, '/actions/runs?status=' + st + '&per_page=50', 'application/vnd.github+json');
+    if(!r.ok) throw new Error('could not check for other running workflows (HTTP ' + r.status + '); nothing was changed');
+    const j = await r.json();
+    for(const run of (j.workflow_runs || [])) if(String(run.id) !== me) busy.push((run.name || 'workflow') + ' #' + run.run_number + ' (' + run.status + ')');
+  }
+  return busy;
+}
+const applyTo = (e, to) => {
+  e.audio = to.audio; e.audioTiming = to.audioTiming;
+  if(to.audioEngine) e.audioEngine = to.audioEngine;
+  if(to.audioTitleEnd) e.audioTitleEnd = to.audioTitleEnd; else delete e.audioTitleEnd;
+  if(to.audioInvocation) e.audioInvocation = true; else delete e.audioInvocation;
+};
+
+// Which broken stories can be repaired, and what each one would change. Reads nothing but the repo.
+export async function planFixes(src, want){
+  const { data, files, sizes, gh: g } = src;
+  const { newestComplete } = buildIndex(files);
+  const broken = [];
+  for(const e of (data.entries || [])){
+    if(typeof e.audio !== 'string' || !e.audio.trim()) continue;
+    const link = e.audio.trim(); if(isAbs(link)) continue;
+    const timing = (typeof e.audioTiming === 'string' && e.audioTiming.trim()) ? e.audioTiming.trim() : deriveTiming(link);
+    const missing = !files.has(norm(link)) || (timing && !isAbs(timing) && !files.has(norm(timing)));
+    if(missing) broken.push({ e, link, timing });
+  }
+  broken.sort((a, b) => String(a.e.id).localeCompare(String(b.e.id)));
+  const plans = [], skipped = [], noFix = [];
+  let fixable = 0;
+  for(const b of broken){
+    const pv = parseVersioned(b.link), n = newestComplete(b.e.id);
+    const name = b.e.n || b.e.name || b.e.id;
+    if(!pv || !n || n.v <= pv.v){ noFix.push({ id: b.e.id, name, link: b.link, why: !n ? 'no complete recording in the repo' : 'no newer recording than the link' }); continue; }
+    const sz = sizes && sizes.get(n.mp3);
+    if(sz != null && sz < 10000){ skipped.push({ id: b.e.id, name, why: 'newest recording ' + n.mp3 + ' is only ' + sz + ' bytes' }); continue; }
+    if(plans.length >= want){ fixable++; continue; }          // fixable, but not part of this run
+    // the newest recording's own timing file must belong to this story and this mp3 and carry cues
+    const r = await ghCall(g, '/contents/' + enc(n.json) + '?ref=' + encodeURIComponent(g.branch), 'application/vnd.github.raw+json');
+    if(!r.ok){ skipped.push({ id: b.e.id, name, why: 'could not read ' + n.json + ' (HTTP ' + r.status + ')' }); continue; }
+    let tj; try{ tj = JSON.parse(await r.text()); }catch(e){ skipped.push({ id: b.e.id, name, why: n.json + ' is not valid JSON' }); continue; }
+    const bad = (tj.id && tj.id !== b.e.id) ? 'timing file belongs to "' + tj.id + '"'
+      : (tj.audio && norm(tj.audio) !== n.mp3) ? 'timing file is for ' + tj.audio
+      : (!Array.isArray(tj.cues) || !tj.cues.length) ? 'timing file has no sentence cues' : null;
+    if(bad){ skipped.push({ id: b.e.id, name, why: bad }); continue; }
+    fixable++;
+    plans.push({ id: b.e.id, name, oldLink: b.e.audio, ver: [pv.v, n.v],
+      to: { audio: n.mp3, audioTiming: n.json,
+            audioEngine: (typeof tj.engine === 'string' && tj.engine) ? tj.engine : undefined,
+            audioTitleEnd: Number(tj.titleEnd) > 0 ? tj.titleEnd : undefined,
+            audioInvocation: tj.prayer ? true : undefined } });
+  }
+  return { broken: broken.length, plans, skipped, noFix, fixable };
+}
+
+// ONE commit to data.json: fresh read, change only the planned stories' fields, write, read back.
+export async function commitPlans(g, plans, sleepMs = 1500){
+  const msg = 'Repair audio links: ' + plans.length + ' stor' + (plans.length === 1 ? 'y' : 'ies') + ' (check-audio-links --fix)';
+  for(let attempt = 1; attempt <= 4; attempt++){
+    const q = '?ref=' + encodeURIComponent(g.branch);
+    const mRes = await ghCall(g, '/contents/data.json' + q, 'application/vnd.github+json');
+    if(!mRes.ok) throw new Error('could not read data.json from GitHub (HTTP ' + mRes.status + ')');
+    const sha = (await mRes.json()).sha;                    // sha FIRST, body second: a commit in between just fails the write below
+    const rRes = await ghCall(g, '/contents/data.json' + q, 'application/vnd.github.raw+json');
+    if(!rRes.ok) throw new Error('could not read data.json body from GitHub (HTTP ' + rRes.status + ')');
+    const raw = await rRes.text(); const data = JSON.parse(raw);
+    if(!Array.isArray(data.entries)) throw new Error('data.json has no entries list; refusing to write');
+    const endsNl = raw.endsWith('\n');
+    const sameFormat = (JSON.stringify(data, null, 1) + (endsNl ? '\n' : '')) === raw;
+    const applied = [], conflicts = [];
+    for(const p of plans){
+      const e = data.entries.find(x => x.id === p.id);
+      if(!e){ conflicts.push({ p, why: 'story is no longer in data.json' }); continue; }
+      if(e.audio !== p.oldLink){ conflicts.push({ p, why: 'its link changed since the scan (now ' + e.audio + ')' }); continue; }
+      applyTo(e, p.to); applied.push(p);
+    }
+    if(!applied.length) return { applied, conflicts, committed: false, verified: false, sameFormat };
+    const body = JSON.stringify(data, null, 1) + (endsNl ? '\n' : '');
+    const put = await ghCall(g, '/contents/data.json', 'application/vnd.github+json', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, content: Buffer.from(body, 'utf8').toString('base64'), sha, branch: g.branch }) });
+    if(put.status === 200 || put.status === 201){
+      let verified = false;                                 // read it back and confirm
+      try{
+        const v = await ghCall(g, '/contents/data.json' + q, 'application/vnd.github.raw+json');
+        const vd = JSON.parse(await v.text());
+        verified = applied.every(p => { const e = vd.entries.find(x => x.id === p.id); return e && e.audio === p.to.audio && e.audioTiming === p.to.audioTiming; });
+      }catch(e){ verified = false; }
+      return { applied, conflicts, committed: true, verified, sameFormat, attempts: attempt };
+    }
+    if(put.status === 409 || put.status === 422){ await sleep(sleepMs * attempt); continue; }   // someone committed first: start over from a fresh read
+    throw new Error('GitHub refused the write: HTTP ' + put.status + ' ' + (await put.text()).slice(0, 200));
+  }
+  throw new Error('data.json kept changing underneath the write (4 tries); nothing was changed. Run it again in a minute.');
+}
+
+export function renderRepair(plan, out, want, listOnly){
+  const L = [];
+  const fixedN = out ? out.applied.length : 0;
+  const remaining = plan.fixable - fixedN;
+  L.push('# Audio link repair', '');
+  L.push('Stories whose link points at a file that is not in the repo: **' + plan.broken + '**');
+  L.push('- can be repaired automatically (a newer complete recording exists): **' + plan.fixable + '**');
+  L.push('- need a re-record (no newer complete recording): **' + plan.noFix.length + '**');
+  L.push('- skipped (the newest recording looked wrong): **' + plan.skipped.length + '**', '');
+  const row = (p, i) => (i + 1) + '. **' + p.name + '** (`' + p.id + '`) — v' + p.ver[0] + ' → v' + p.ver[1] + '\n   - ' + p.to.audio + (p.to.audioEngine ? '\n   - engine ' + p.to.audioEngine : '');
+  if(listOnly){
+    L.push('## Would fix (' + plan.plans.length + ') — nothing was changed', '');
+    plan.plans.slice(0, 25).forEach((p, i) => L.push(row(p, i)));
+    if(plan.plans.length > 25) L.push('…and ' + (plan.plans.length - 25) + ' more');
+    L.push('', 'Run again with a number (for example 3) to fix that many.');
+  }else if(out && out.committed){
+    L.push('## Fixed this run (' + out.applied.length + ')', '');
+    out.applied.forEach((p, i) => L.push(row(p, i)));
+    L.push('', out.verified ? '✔ Committed to data.json and read back from GitHub: the new links are there.' : '⚠ Committed, but the read-back could not confirm every link. Check data.json on GitHub.');
+    if(!out.sameFormat) L.push('Note: data.json was re-saved with this tool\'s formatting, so the commit diff may look larger than 3 stories.');
+    L.push('', '**To test:** the site rebuilds in about 1–2 minutes. Then force-close the app, reopen it, and play the stories above (play button, sentence highlight, new pronunciation).');
+    L.push('', 'Still broken and fixable after this run: **' + remaining + '**. Run it again with another number to continue.');
+  }else{
+    L.push('## Nothing was changed', '');
+    L.push(want === 0 ? '' : 'No story qualified for repair this run.');
+  }
+  if(out && out.conflicts.length){ L.push('', '## Not changed (' + out.conflicts.length + ')', ''); out.conflicts.forEach(c => L.push('- **' + c.p.name + '** — ' + c.why)); }
+  if(plan.skipped.length){ L.push('', '## Skipped (' + plan.skipped.length + ')', ''); plan.skipped.slice(0, 40).forEach(s => L.push('- **' + s.name + '** (`' + s.id + '`) — ' + s.why)); }
+  if(plan.noFix.length){ L.push('', '## Need a re-record (' + plan.noFix.length + ')', ''); plan.noFix.slice(0, 40).forEach(s => L.push('- **' + s.name + '** (`' + s.id + '`) — ' + s.why + '; link: ' + s.link)); }
+  return L.join('\n');
+}
+
+async function runRepair(o, src){
+  if(!src.gh){ console.error('--fix only works with --github'); process.exit(2); }
+  if(!(process.env.GITHUB_TOKEN || process.env.GH_TOKEN)){ console.error('--fix needs a token (GITHUB_TOKEN) so it can write to GitHub'); process.exit(2); }
+  const listOnly = o.fix === 0;
+  if(!listOnly){
+    const busy = await otherRunsInProgress(src.gh);
+    if(busy.length){
+      console.error('Not running: another workflow is in progress, and a repair now could collide with it:\n  - ' + busy.join('\n  - ') + '\nNothing was changed. Run this again when they have finished.');
+      process.exit(1);
+    }
+  }
+  const plan = await planFixes(src, listOnly ? Infinity : o.fix);
+  const out = (!listOnly && plan.plans.length) ? await commitPlans(src.gh, plan.plans) : null;
+  const text = renderRepair(plan, out, o.fix, listOnly);
+  console.log(text);
+  if(process.env.GITHUB_STEP_SUMMARY) await fs.appendFile(process.env.GITHUB_STEP_SUMMARY, text + '\n');
+  if(out && out.committed && !out.verified) process.exit(1);
+}
+
+// ---------------------------------------------------------------------------------------------
 async function main(){
   const o = parseArgs(process.argv.slice(2));
   const src = o.github ? await fromGitHub(o) : await fromLocal(o);
+  if(o.fix != null){ await runRepair(o, src); return; }
   const result = await scan(o, src);
   const text = render(result, Infinity);
   console.log(text);
