@@ -1,6 +1,11 @@
 // scripts/services/audio-generate.mjs
 //
-// MODULE DATE: 2026-10-23T14:30:00-05:00 (Friday). 14:30 change: PRONUNCIATION DECISIONS — the finished
+// MODULE DATE: 2026-10-27T19:45:00-05:00 (Tuesday) · version numbers never go backward. freeVersion() now
+// starts above the HIGHEST -vN file already in audio/ for this article, not just above the version in its
+// link. Before: a link stuck on v3 while v6 sat in the folder made the next recording v4, and the cleanup
+// then deleted v6 (the newest) and kept the oldest. Only freeVersion changed (plus the new helper
+// highestExistingVersion); nextVersion, removeOldVersions and everything else are as on 2026-10-23.
+// Earlier: 2026-10-23T14:30:00-05:00 (Friday). 14:30 change: PRONUNCIATION DECISIONS — the finished
 // task's result now carries a numbered list (result.pronunciationDecisions) of every change made to what
 // was said and why: dictionary word/phrase rule, pause rule, two-sound word, date, Bible book, "Name I"
 // (rule or AI), names the vote added, and where the spoken title came from.
@@ -762,8 +767,29 @@ export function nextVersion(entry){
 // recording whose link was lost, e.g. after the text was rewritten). Reusing that name made phones
 // and the site's cache keep playing the OLD file, so step past every name already in the folder:
 // a new recording always gets a name nobody has cached.
+// 2026-10-27: the link can be older than the files (the link write is sometimes lost, so the link says
+// v3 while v6 is in the folder). Going by the link alone picked v4 and then deleted v6. So also look at
+// every -vN file already on disk for this article, in any type folder, and go one above the highest.
+export async function highestExistingVersion(entryId){
+  const esc = String(entryId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('^' + esc + '-v(\\d+)\\.(?:' + OUTPUT_EXT + '|json)$');
+  let top = 0;
+  let folders = [];
+  try{ folders = (await fs.readdir(AUDIO_ROOT, { withFileTypes: true })).filter(d => d.isDirectory()).map(d => d.name); }
+  catch{ return top; }
+  for(const folder of folders){
+    let names = [];
+    try{ names = await fs.readdir(path.join(AUDIO_ROOT, folder)); }catch{ continue; }
+    for(const name of names){
+      const m = name.match(re);
+      if(m) top = Math.max(top, parseInt(m[1], 10));
+    }
+  }
+  return top;
+}
+
 export async function freeVersion(entry, dir){
-  let v = nextVersion(entry);
+  let v = Math.max(nextVersion(entry), (await highestExistingVersion(entry.id)) + 1);
   for(;;){
     try{ await fs.access(path.join(dir, entry.id + '-v' + v + '.' + OUTPUT_EXT)); v++; }
     catch(e){ return v; }
