@@ -1,6 +1,6 @@
 <!--
-VERSION: 597
-DATE: 2026-10-28T16:45:00-05:00
+VERSION: 598
+DATE: 2026-10-28T17:10:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,15 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v598 — 2026-10-28
+
+**Ask:**
+- Feast-day pill: smaller, in the iPhone system sans, bold (option 2 of the samples), with the soft-3D gold finish (option 5): gradient, top highlight, soft drop shadow. Still Review Mode only.
+
+**Implementation:**
+- CSS only, plus the pill text is now sent as "Aug 13" and the caps come from text-transform. Pill: 12px / 700 / letter-spacing .08em, font stack -apple-system, system-ui, Helvetica Neue, Arial; padding 3px 10px 2px + 1px #9E7A2C border; gradient #E9D083 > #D4AE57 > #B98F3A; shadow 0 1px 4px rgba(0,0,0,.35) + inset top highlight.
+- Unchanged from v597: Review Mode only (.review-on), hidden while the find box is open. To open it to everyone: delete `.ahFeast{display:none;}` and change `.review-on .ahFeast{` to `.ahFeast{`.
+
 ## v597 — 2026-10-28
 
 **Ask:**
@@ -2736,17 +2745,17 @@ CHANGELOG:END
   .ahKind{margin-left:12px; color:var(--gold-bright);   /* v562: same colour as the year */ font-family:'EB Garamond', Georgia, serif; font-style:italic; font-weight:600; font-size:24px; line-height:1; letter-spacing:.01em; white-space:nowrap;}   /* v561: bigger, semi-bold */
   .ahYearRow:not(:has(.ahYear)) .ahKind{margin-left:0; font-size:27px;}
   .ahYearRow:has(.ahKind){align-items:baseline;}
-  /* v597: feast-day pill beside the year (saints). Gold like the landscape Quick Facts band (.artLandBackHead).
-     REVIEW MODE ONLY for now: hidden unless body.review-on. To open it to everyone, delete the next line and
-     change ".review-on .ahFeast{" to ".ahFeast{". */
+  /* v597/v598: feast-day pill beside the year (saints). Gold like the landscape Quick Facts band (.artLandBackHead).
+     v598: iPhone system sans, bold, 12px; soft-3D finish. REVIEW MODE ONLY for now: hidden unless body.review-on.
+     To open it to everyone, delete the next line and change ".review-on .ahFeast{" to ".ahFeast{". */
   .ahFeast{display:none;}
-  .review-on .ahFeast{display:inline-flex; align-items:center; align-self:center; flex:none; margin-left:14px;
-    padding:6px 16px 5px; border-radius:999px; white-space:nowrap;
-    background:linear-gradient(180deg,#EBD28A 0%, #D6B058 45%, #B88F38 100%);
+  .review-on .ahFeast{display:inline-flex; align-items:center; align-self:center; flex:none; margin-left:12px;
+    padding:3px 10px 2px; border-radius:999px; white-space:nowrap;
+    background:linear-gradient(180deg,#E9D083 0%, #D4AE57 55%, #B98F3A 100%);
     border:1px solid #9E7A2C;
-    box-shadow:0 2px 8px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.5), inset 0 -1px 0 rgba(120,85,20,.35);
-    color:#1A1F33; font-family:'EB Garamond', Georgia, serif; font-weight:700; font-size:19px; line-height:1;
-    letter-spacing:.07em; text-transform:uppercase;}
+    box-shadow:0 1px 4px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.4);
+    color:#1A1F33; font-family:-apple-system, system-ui, 'Helvetica Neue', Arial, sans-serif; font-weight:700; font-size:12px; line-height:1;
+    letter-spacing:.08em; text-transform:uppercase;}
   /* the Review Mode find box (hold the year) needs that room: the pill steps aside while it is open */
   .ahYearRow:has(.artFind) .ahFeast{display:none;}
   .review-on .ahYear{cursor:pointer;}
@@ -5772,7 +5781,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v597';
+const APP_VERSION = 'v598';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -7683,7 +7692,7 @@ function feastPillHtml(d){
   if(!d || d.t !== 's') return '';
   const f = entryFeastDates(d)[0];
   if(!f || !MONTH_NAMES[f.month]) return '';
-  const label = MONTH_NAMES[f.month].slice(0, 3).toUpperCase() + ' ' + f.day;
+  const label = MONTH_NAMES[f.month].slice(0, 3) + ' ' + f.day;   // v598: "Aug 13"; the CSS capitalises it
   return '<span class="ahFeast" aria-label="Feast day ' + esc(MONTH_NAMES[f.month] + ' ' + f.day) + '">' + esc(label) + '</span>';
 }
 function entryFeastDates(e){
