@@ -1,6 +1,6 @@
 <!--
-VERSION: 598
-DATE: 2026-10-28T17:10:00-05:00
+VERSION: 599
+DATE: 2026-10-28T17:20:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,14 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v599 — 2026-10-28
+
+**Ask:**
+- Feast-day pill: mixed case ("Aug 13") with natural letter spacing instead of capitals. Easily readable, not too much.
+
+**Implementation:**
+- CSS only: removed text-transform:uppercase, letter-spacing .08em -> 0, padding 3px 10px 2px -> 3px 9px 2px (the text is narrower without capitals). Font (system sans, bold, 12px) and the soft-3D gold finish are unchanged from v598. Still Review Mode only, still hidden while the find box is open.
+
 ## v598 — 2026-10-28
 
 **Ask:**
@@ -2746,16 +2754,16 @@ CHANGELOG:END
   .ahYearRow:not(:has(.ahYear)) .ahKind{margin-left:0; font-size:27px;}
   .ahYearRow:has(.ahKind){align-items:baseline;}
   /* v597/v598: feast-day pill beside the year (saints). Gold like the landscape Quick Facts band (.artLandBackHead).
-     v598: iPhone system sans, bold, 12px; soft-3D finish. REVIEW MODE ONLY for now: hidden unless body.review-on.
+     v598/v599: iPhone system sans, bold, 12px, mixed case; soft-3D finish. REVIEW MODE ONLY for now: hidden unless body.review-on.
      To open it to everyone, delete the next line and change ".review-on .ahFeast{" to ".ahFeast{". */
   .ahFeast{display:none;}
   .review-on .ahFeast{display:inline-flex; align-items:center; align-self:center; flex:none; margin-left:12px;
-    padding:3px 10px 2px; border-radius:999px; white-space:nowrap;
+    padding:3px 9px 2px; border-radius:999px; white-space:nowrap;
     background:linear-gradient(180deg,#E9D083 0%, #D4AE57 55%, #B98F3A 100%);
     border:1px solid #9E7A2C;
     box-shadow:0 1px 4px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.4);
     color:#1A1F33; font-family:-apple-system, system-ui, 'Helvetica Neue', Arial, sans-serif; font-weight:700; font-size:12px; line-height:1;
-    letter-spacing:.08em; text-transform:uppercase;}
+    letter-spacing:0;}   /* v599: mixed case, natural spacing */
   /* the Review Mode find box (hold the year) needs that room: the pill steps aside while it is open */
   .ahYearRow:has(.artFind) .ahFeast{display:none;}
   .review-on .ahYear{cursor:pointer;}
@@ -5781,7 +5789,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v598';
+const APP_VERSION = 'v599';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -7692,7 +7700,7 @@ function feastPillHtml(d){
   if(!d || d.t !== 's') return '';
   const f = entryFeastDates(d)[0];
   if(!f || !MONTH_NAMES[f.month]) return '';
-  const label = MONTH_NAMES[f.month].slice(0, 3) + ' ' + f.day;   // v598: "Aug 13"; the CSS capitalises it
+  const label = MONTH_NAMES[f.month].slice(0, 3) + ' ' + f.day;   // v599: "Aug 13", shown as is (mixed case)
   return '<span class="ahFeast" aria-label="Feast day ' + esc(MONTH_NAMES[f.month] + ' ' + f.day) + '">' + esc(label) + '</span>';
 }
 function entryFeastDates(e){
