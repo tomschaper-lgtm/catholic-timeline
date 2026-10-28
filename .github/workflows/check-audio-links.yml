@@ -1,20 +1,32 @@
 # .github/workflows/check-audio-links.yml
-# MODULE DATE: 2026-10-27T21:55:00-05:00 (Tuesday) · v1 — ONE-TIME broken-audio-link scan. Read-only:
-# it changes nothing in the repo. Run it by hand: Actions → "Check audio links (one-time)" → Run workflow.
-# The report shows on the run's Summary page (and in full in the job log). Delete this file and
-# scripts/check-audio-links.mjs when you no longer need them.
-name: Check audio links (one-time)
+# MODULE DATE: 2026-10-27T22:25:00-05:00 (Tuesday) · v2 — audio link scan + step-by-step repair.
+# Run it by hand: Actions → "Check audio links (repair N)" → Run workflow → type how many to repair.
+#   how_many = 0 (default)  only LISTS the stories it would repair; changes nothing.
+#   how_many = 3            repairs the first 3 (one commit to data.json), then lists exactly which.
+#   full_scan = on          instead runs the full read-only scan, including every file on the live site.
+# The report shows on the run's Summary page. Delete this file and scripts/check-audio-links.mjs when done.
+name: Check audio links (repair N)
 
 on:
   workflow_dispatch:
     inputs:
-      check_site:
-        description: "Also check every audio and timing file on the live site (slower, catches deploy problems)"
+      how_many:
+        description: "How many broken stories to repair (0 = just list them, change nothing)"
+        type: string
+        default: "0"
+      full_scan:
+        description: "Instead: run the full read-only scan, including the live site (ignores the number)"
         type: boolean
-        default: true
+        default: false
 
 permissions:
-  contents: read
+  contents: write   # to commit the repaired links to data.json
+  actions: read     # to refuse to run while a recording (or any other workflow) is in progress
+
+# never two of these at once
+concurrency:
+  group: audio-link-repair
+  cancel-in-progress: false
 
 jobs:
   scan:
@@ -25,10 +37,15 @@ jobs:
         with:
           sparse-checkout: scripts/check-audio-links.mjs
           sparse-checkout-cone-mode: false
-      - name: Scan
+      - name: Scan or repair
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOW_MANY: ${{ inputs.how_many }}
+          FULL_SCAN: ${{ inputs.full_scan }}
+          REPO_REF: ${{ github.repository }}@${{ github.ref_name }}
         run: |
-          SITE_FLAG=""
-          if [ "${{ inputs.check_site }}" != "true" ]; then SITE_FLAG="--no-site"; fi
-          node scripts/check-audio-links.mjs --github "${{ github.repository }}@${{ github.ref_name }}" $SITE_FLAG
+          if [ "$FULL_SCAN" = "true" ]; then
+            node scripts/check-audio-links.mjs --github "$REPO_REF"
+          else
+            node scripts/check-audio-links.mjs --github "$REPO_REF" --fix "$HOW_MANY"
+          fi
