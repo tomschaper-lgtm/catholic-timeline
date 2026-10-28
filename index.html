@@ -1,6 +1,6 @@
 <!--
-VERSION: 599
-DATE: 2026-10-28T17:20:00-05:00
+VERSION: 600
+DATE: 2026-10-28T17:45:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,14 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v600 — 2026-10-28
+
+**Ask:**
+- Roll the feast-day pill out to all visitors (it was Review Mode only in v597-v599).
+
+**Implementation:**
+- CSS only: deleted the `.ahFeast{display:none;}` gate and changed `.review-on .ahFeast{` to `.ahFeast{`. Nothing else changed: same pill (system sans, bold, 12px, mixed case, soft-3D gold), saints only, first date of the Feast day fact, hidden while the Review Mode find box is open (that rule stays; visitors never have a find box).
+
 ## v599 — 2026-10-28
 
 **Ask:**
@@ -2754,10 +2762,9 @@ CHANGELOG:END
   .ahYearRow:not(:has(.ahYear)) .ahKind{margin-left:0; font-size:27px;}
   .ahYearRow:has(.ahKind){align-items:baseline;}
   /* v597/v598: feast-day pill beside the year (saints). Gold like the landscape Quick Facts band (.artLandBackHead).
-     v598/v599: iPhone system sans, bold, 12px, mixed case; soft-3D finish. REVIEW MODE ONLY for now: hidden unless body.review-on.
-     To open it to everyone, delete the next line and change ".review-on .ahFeast{" to ".ahFeast{". */
-  .ahFeast{display:none;}
-  .review-on .ahFeast{display:inline-flex; align-items:center; align-self:center; flex:none; margin-left:12px;
+     v598/v599: iPhone system sans, bold, 12px, mixed case; soft-3D finish. v600: shown to everyone (it was Review Mode
+     only in v597-v599, gated by .review-on). */
+  .ahFeast{display:inline-flex; align-items:center; align-self:center; flex:none; margin-left:12px;
     padding:3px 9px 2px; border-radius:999px; white-space:nowrap;
     background:linear-gradient(180deg,#E9D083 0%, #D4AE57 55%, #B98F3A 100%);
     border:1px solid #9E7A2C;
@@ -5789,7 +5796,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v599';
+const APP_VERSION = 'v600';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
