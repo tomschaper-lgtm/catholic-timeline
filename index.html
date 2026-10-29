@@ -1,6 +1,6 @@
 <!--
-VERSION: 600
-DATE: 2026-10-28T17:45:00-05:00
+VERSION: 601
+DATE: 2026-10-28T18:55:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,18 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v601 — 2026-10-28
+
+**Ask:**
+- A manually set focal point per photo (a tap, not AI) so the Ken Burns zoom follows the face instead of cropping it or zooming into empty space. Set in the article, on the full-size photo, with a switch in its bottom-right corner (label "Focal mode" above it); invisible when off, but touching that corner turns it on. The switch hides as soon as the photo starts to shrink and returns when it is full size. Points live in one file, Images/focal-points.json.
+
+**Implementation:**
+- NEW FILE (created by the first save, nothing to upload): Images/focal-points.json = {"v":1,"points":{"<entry img string>":{"x":%across,"y":%down}}}. Keyed by the exact `img` value in data.json, so a replaced picture has no point. Written only by focalFlush() through lpUpdateJsonFile() (the pronunciation-rules helper: read, change, write, retry on conflict); batched 4s after the last tap = one commit/build. Read by focalLoad() (live file, cache-bypassed); this device's own recent edits (localStorage focal-recent, 3h) win over the live file until the deploy catches up.
+- Zoom: hero (#flyPortrait img) gets CSS vars --fox/--foy (zoom anchor) and --fdx/--fdy (the old 2%/1.5% drift, cut down by focalDrift() to what the overhang allows, so no blank edge); full-screen view gets --fpx/--fpy (object-position + transform-origin, and the same in every kenBurnsPhoto keyframe). No point = the CSS fallbacks, i.e. exactly the old 50% 38% behaviour.
+- FOCAL_ZOOM_FOR_VISITORS = false: only Review Mode sees the point-following zoom. To open it to everyone change that one const to true.
+- Tool: #focalUi (44px touch box over the photo's bottom-right corner), #focalLbl, #focalNext ("Next unset ›" opens the next entry with a photo and no point), #focalCross. Review Mode + manageUnlocked() + portrait + photo at full size only (focalEligible(): article open, not peek/rising/morphing, flyT === 0). flyT is the shrink progress that updateFly() already computes. Focal mode on: body.focal-on stops the drift and a tap on the (invisible inline) photo calls focalTapEvent() instead of opening the full-screen view. Switch state is remembered (localStorage focal-mode). #focalUi/#focalNext added to the outside-click and gesture exclusion lists.
+- Landscape is not covered (different layout); setting a point there is not offered.
+
 ## v600 — 2026-10-28
 
 **Ask:**
@@ -3049,10 +3061,17 @@ CHANGELOG:END
   @media (prefers-reduced-motion: no-preference){
     .flyPortrait img{animation:kenBurnsHero 8s ease-in-out infinite alternate;}
   }
+  /* v601 focal point: --fox/--foy (zoom anchor) and --fdx/--fdy (drift, already clamped in JS so no
+     blank edge can show) are set per photo by focalApplyHero(); with none set, the fallbacks below
+     are exactly the old centre-anchored drift. */
+  .flyPortrait img{transform-origin:var(--fox,50%) var(--foy,50%);}
   @keyframes kenBurnsHero{
     from{transform:scale(1) translate(0,0);}
-    to{transform:scale(1.09) translate(-2%,-1.5%);}
+    to{transform:scale(1.09) translate(var(--fdx,-2%),var(--fdy,-1.5%));}
   }
+  /* Focal mode (Review Mode, full-size photo): the drift is stopped so a tap lands exactly where it
+     is touched. body.focal-on is only set while the switch is on AND the photo is full size. */
+  body.focal-on .flyPortrait img{animation:none !important; transform:none !important;}
   /* v449 portrait full-screen photo view (single tap on the article picture). Topmost layer
      (above the audio bar), edge-to-edge: object-fit:cover fills the whole screen with no border
      or letterbox, cropped around a point a little above center (38%) — where eyes usually sit
@@ -3070,8 +3089,8 @@ CHANGELOG:END
   }
   .photoView.open{opacity:1; visibility:visible; pointer-events:auto; transition:opacity 1.5s ease, visibility 0s;}
   .photoView img{
-    width:100%; height:100%; display:block; object-fit:cover; object-position:50% 38%;
-    transform-origin:50% 38%;
+    width:100%; height:100%; display:block; object-fit:cover; object-position:var(--fpx,50%) var(--fpy,38%);
+    transform-origin:var(--fpx,50%) var(--fpy,38%);
   }
   /* v454 Ken Burns — very slow, with a 4s stop after EVERY zoom, in or out. Three rounds per
      loop (132s total, 44s each):
@@ -3090,23 +3109,48 @@ CHANGELOG:END
     .photoView.open img{animation:kenBurnsPhoto 132s linear infinite;}
   }
   @keyframes kenBurnsPhoto{
-    0%     {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:cubic-bezier(.37,0,.63,1);}
-    13.64% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:linear;}
-    16.67% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:cubic-bezier(.37,0,.63,1);}
+    0%     {transform:scale(1);   transform-origin:var(--fpx,50%) var(--fpy,38%); animation-timing-function:cubic-bezier(.37,0,.63,1);}
+    13.64% {transform:scale(1.5); transform-origin:var(--fpx,50%) var(--fpy,38%); animation-timing-function:linear;}
+    16.67% {transform:scale(1.5); transform-origin:var(--fpx,50%) var(--fpy,38%); animation-timing-function:cubic-bezier(.37,0,.63,1);}
     30.30% {transform:scale(1);   transform-origin:95% 50%;}   /* out toward 3:00 */
-    30.31% {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:linear;}
-    33.33% {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:cubic-bezier(.37,0,.63,1);}
-    46.97% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:linear;}
-    50%    {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:cubic-bezier(.37,0,.63,1);}
+    30.31% {transform:scale(1);   transform-origin:var(--fpx,50%) var(--fpy,38%); animation-timing-function:linear;}
+    33.33% {transform:scale(1);   transform-origin:var(--fpx,50%) var(--fpy,38%); animation-timing-function:cubic-bezier(.37,0,.63,1);}
+    46.97% {transform:scale(1.5); transform-origin:var(--fpx,50%) var(--fpy,38%); animation-timing-function:linear;}
+    50%    {transform:scale(1.5); transform-origin:var(--fpx,50%) var(--fpy,38%); animation-timing-function:cubic-bezier(.37,0,.63,1);}
     63.64% {transform:scale(1);   transform-origin:28% 89%;}   /* out toward 7:00 */
-    63.65% {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:linear;}
-    66.67% {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:cubic-bezier(.37,0,.63,1);}
-    80.30% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:linear;}
-    83.33% {transform:scale(1.5); transform-origin:50% 38%; animation-timing-function:cubic-bezier(.37,0,.63,1);}
+    63.65% {transform:scale(1);   transform-origin:var(--fpx,50%) var(--fpy,38%); animation-timing-function:linear;}
+    66.67% {transform:scale(1);   transform-origin:var(--fpx,50%) var(--fpy,38%); animation-timing-function:cubic-bezier(.37,0,.63,1);}
+    80.30% {transform:scale(1.5); transform-origin:var(--fpx,50%) var(--fpy,38%); animation-timing-function:linear;}
+    83.33% {transform:scale(1.5); transform-origin:var(--fpx,50%) var(--fpy,38%); animation-timing-function:cubic-bezier(.37,0,.63,1);}
     96.97% {transform:scale(1);   transform-origin:28% 11%;}   /* out toward 11:00 */
-    96.98% {transform:scale(1);   transform-origin:50% 38%; animation-timing-function:linear;}
-    100%   {transform:scale(1);   transform-origin:50% 38%;}
+    96.98% {transform:scale(1);   transform-origin:var(--fpx,50%) var(--fpy,38%); animation-timing-function:linear;}
+    100%   {transform:scale(1);   transform-origin:var(--fpx,50%) var(--fpy,38%);}
   }
+  /* v601 focal mode (Review Mode only; the elements are created by JS and never exist for visitors).
+     #focalUi is a 44px touch box in the photo's bottom-right corner: invisible when focal mode is off
+     (tapping it turns the mode on), a gold switch when on. The label, Next button and crosshair only
+     show while it is on. All of them sit above the flying photo (z 120) and below the full-screen view. */
+  #focalUi{position:fixed; z-index:125; width:44px; height:44px; display:none; cursor:pointer;
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none;}
+  #focalUi.show{display:block;}
+  #focalUi .fkTrack{position:absolute; right:4px; bottom:6px; width:38px; height:22px; border-radius:11px;
+    box-sizing:border-box; background:rgba(20,20,24,.72); border:1.5px solid rgba(233,208,131,.95);
+    box-shadow:0 1px 4px rgba(0,0,0,.45); opacity:0; transition:opacity .2s ease, background .2s ease;}
+  #focalUi .fkTrack::after{content:""; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%;
+    background:#E9D083; transition:transform .2s ease, background .2s ease;}
+  #focalUi.on .fkTrack{opacity:1; background:linear-gradient(#E9D083,#B98F3A);}
+  #focalUi.on .fkTrack::after{transform:translateX(16px); background:#fff;}
+  #focalUi.pulse .fkTrack{animation:fkPulse .7s ease-out 1;}
+  @keyframes fkPulse{0%{box-shadow:0 0 0 0 rgba(233,208,131,.9);} 100%{box-shadow:0 0 0 14px rgba(233,208,131,0);}}
+  #focalLbl,#focalNext{position:fixed; z-index:125; display:none; white-space:nowrap;
+    font:600 11px/1.2 -apple-system,system-ui,"Helvetica Neue",Arial,sans-serif; border-radius:10px;
+    text-shadow:0 1px 2px rgba(0,0,0,.6);}
+  #focalLbl{pointer-events:none; color:#fff; background:rgba(0,0,0,.58); padding:3px 8px;}
+  #focalNext{color:#E9D083; background:rgba(0,0,0,.62); border:1px solid rgba(233,208,131,.8); padding:4px 9px; cursor:pointer;
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent;}
+  #focalCross{position:fixed; z-index:126; width:30px; height:30px; margin:-15px 0 0 -15px; border-radius:50%; display:none;
+    pointer-events:none; box-sizing:border-box; border:2px solid #E9D083; box-shadow:0 0 0 1.5px rgba(0,0,0,.65), inset 0 0 0 1.5px rgba(0,0,0,.45);}
+  #focalCross::after{content:""; position:absolute; left:50%; top:50%; width:4px; height:4px; margin:-2px 0 0 -2px; border-radius:50%; background:#E9D083; box-shadow:0 0 0 1px rgba(0,0,0,.7);}
   .imgLightbox{
     position:fixed; inset:0; z-index:200; background:rgba(4,9,26,.97);
     display:none; align-items:center; justify-content:center; padding:24px;
@@ -5796,7 +5840,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v600';
+const APP_VERSION = 'v601';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -6251,7 +6295,7 @@ let suppressArticleClick = false;
 let articleClickWasInside = false;
 document.addEventListener('click', (e) => {
   const t = e.target;
-  articleClickWasInside = !!(t && t.closest && t.closest('#article, #flyPortrait, #imgLightbox, #photoView, #linkPicker'));
+  articleClickWasInside = !!(t && t.closest && t.closest('#article, #flyPortrait, #imgLightbox, #photoView, #linkPicker, #focalUi, #focalNext'));
 }, true); // true briefly after a swipe-navigation gesture, so the tap-to-pause handler ignores it
 
 
@@ -6392,6 +6436,20 @@ let lastGesture = null;
 let reviewMode = false;
 try{ reviewMode = localStorage.getItem('review-mode') === '1'; }catch(e){}
 document.body.classList.toggle('review-on', reviewMode);
+// ---- v601 focal points: state. Declared up here, long before the functions that use it (further down,
+// in the "FOCAL POINTS" block), because updateFly() can run early and a let declared after it would
+// still be uninitialised. See that block for what the feature does.
+const FOCAL_PATH = 'Images/focal-points.json';
+// false: the zoom follows a photo's focal point in Review Mode only (so you can check a few first).
+// To open it to every visitor change this to true - nothing else needs to change.
+const FOCAL_ZOOM_FOR_VISITORS = false;
+const FOCAL_RECENT_MS = 3 * 3600 * 1000;   // a point saved on this device is trusted over the live file this long (deploy lag)
+let focalLive = {}, focalLoaded = false, focalLoading = false;
+let focalRecent = {};
+try{ focalRecent = JSON.parse(localStorage.getItem('focal-recent') || '{}') || {}; }catch(e){ focalRecent = {}; }
+let focalOn = false;
+try{ focalOn = localStorage.getItem('focal-mode') === '1'; }catch(e){}
+let focalPending = {}, focalSaveTimer = null, focalSaving = false, focalStatus = '', focalRetries = 0, focalEls = null, focalShown = false, focalLblText = '';
 // Narrows the timeline to held-for-review entries only, ignoring the category/region chips —
 // a quick way to lay eyes on everything pending at once. Only meaningful while reviewMode is
 // on; deliberately not persisted to localStorage, since it's a transient "just show me the
@@ -7038,7 +7096,7 @@ document.addEventListener('click', (e) => {
                      !!(e.target.isConnected && e.target.closest && e.target.closest(sel));
   // The floating audio bar is a no-close zone: a tap on it (or near it) is always a transport
   // control, never a "you clicked outside the card" dismissal.
-  if(hit('#imgLightbox, #photoView, #flyPortrait, #manage, #jsonView, #aboutPanel, .sresults, #hamMenu, .ev, .audioBottomBar, #linkPicker, #saintsPanel, #spScrim, #browsePanel, #brScrim')) return;
+  if(hit('#imgLightbox, #photoView, #flyPortrait, #focalUi, #focalNext, #manage, #jsonView, #aboutPanel, .sresults, #hamMenu, .ev, .audioBottomBar, #linkPicker, #saintsPanel, #spScrim, #browsePanel, #brScrim')) return;
   if(article.classList.contains('open')){
     if(!hit('#article')) closeArticle();
     return;
@@ -13374,6 +13432,7 @@ function fillArticleBody(d, peek){
       };
       flyImg.src = src;
     }
+    focalApplyHero(d);   // v601
     const heroImgEl = document.getElementById('artHeroImg');
     // In peek mode the corner portrait is parked by placePeekFly(); calling measureFly()
     // here would bail out (it refuses to run while peeking) and strip the portrait off again.
@@ -15866,6 +15925,7 @@ function setArtXShift(amt){
   if(share) share.style.right = (right + 54) + 'px';
 }
 let flyGeo = null;
+let flyT = 1;   // v601: 0 = photo full size at the top, 1 = parked in the corner; set by updateFly()
 let flyRAF = null;
 let flySuspended = false;   // true while a left/right slide is in flight
 
@@ -15981,13 +16041,14 @@ function updateFly(){
   // Same reasoning as in measureFly: while the morph is flying the photo, flyGeo is null,
   // and the !flyGeo branch below would pull it off the screen on the very next scroll tick
   // (setting article.scrollTop = 0 during an expand/collapse fires exactly such a tick).
-  if(morphing) return;
+  if(morphing){ focalSync(); return; }
   // While peeking the corner portrait is owned by placePeekFly() and flyGeo is deliberately
   // null — without this guard the very next scroll/rAF tick would hit the !flyGeo branch
   // below and pull the portrait straight back off the screen.
   const peekingNow = document.getElementById('article').classList.contains('peek');
-  if(peekingNow){ setHeroLogoFade(0); return; }
+  if(peekingNow){ setHeroLogoFade(0); focalSync(); return; }
   if(!flyGeo){
+    flyT = 1; focalSync();
     fly.classList.remove('on');
     // No photo on this entry, so there is no flight to gate the taper rule on.
     if(taper) taper.style.opacity = document.getElementById('artHeroImg') ? '0' : '1';
@@ -15999,6 +16060,7 @@ function updateFly(){
   const s = Math.max(0, artEl.scrollTop);
   const raw = Math.min(1, Math.max(0, (s - FLY_DELAY) / flyGeo.dist));
   const t = raw * raw * (3 - 2 * raw); // smoothstep, so it eases in and out of the corner
+  flyT = t;
   setHeroLogoFade(t); // fully at rest in the corner (t=1) is fully hidden; away from it, visible
   setArtXShift(t); // close button slides left in step with the same progress, arriving together
   // Where the photo would be if it had simply scrolled with the page. Once the flight is
@@ -16032,6 +16094,7 @@ function updateFly(){
     : 'none';
   fly.style.pointerEvents = t > 0.6 ? 'auto' : 'none';
   if(taper) taper.style.opacity = String(t);
+  focalSync();   // v601: the focal switch follows the photo and hides the moment it starts to shrink
 }
 function queueFly(){
   if(flyRAF) return;
@@ -17635,6 +17698,7 @@ function openPhotoView(src, alt){
   clearTimeout(photoViewClearTimer); // reopened mid-fade-out — don't blank the new picture
   photoViewImg.src = src;
   photoViewImg.alt = alt || '';
+  focalApplyView();   // v601: crop and zoom follow the photo's focal point (fallback: the old 50% 38%)
   photoView.classList.add('open');
   photoView.setAttribute('aria-hidden', 'false');
 }
@@ -17759,6 +17823,7 @@ document.getElementById('artBody').addEventListener('click', (e) => {
   const img = e.target.closest('.artimg');
   if(!img || !img.src) return;
   e.preventDefault(); e.stopPropagation();
+  if(focalOn && focalEligible()){ focalTapEvent(e); return; }   // v601: focal mode on - the tap sets the point instead
   openPhotoView(img.src, img.alt);
 });
 document.getElementById('flyPortrait').addEventListener('click', (e) => {
@@ -17769,6 +17834,240 @@ document.getElementById('flyPortrait').addEventListener('click', (e) => {
   openPhotoView(img.src, img.alt);
 });
 photoView.addEventListener('click', (e) => { e.stopPropagation(); closePhotoView(); });
+
+// ================= v601 FOCAL POINTS =================
+// A manually set point (x, y as % across / down the photo) per picture, so the Ken Burns zoom follows the
+// subject instead of cropping a face or zooming into empty space.
+//   * Stored in ONE small file, Images/focal-points.json: {"v":1,"points":{"<the entry's img value>":{"x":62.5,"y":31}}}.
+//     Keyed by the exact `img` string in data.json, so a replaced picture (new file name) simply has no point.
+//     The file is read-only for visitors; only this tool (Review Mode, GitHub set up on the device) writes it,
+//     through lpUpdateJsonFile() - the same read-change-write-retry helper the pronunciation rules use.
+//   * A photo with no point behaves exactly as before. FOCAL_ZOOM_FOR_VISITORS (top of the file) decides whether
+//     visitors get the point-following zoom or only Review Mode does.
+//   * The tool: a switch in the bottom-right corner of the FULL-SIZE article photo (portrait only), Review Mode
+//     only. On: the photo's drift stops and a tap places the point. Off: invisible, but the same corner still turns
+//     it on. It hides the moment the photo starts to shrink toward the corner (flyT > 0) and returns at full size.
+//   * Saves are batched: a few seconds after the last tap, one commit (= one Cloudflare build) for all of them.
+function focalEnabledForView(){ return FOCAL_ZOOM_FOR_VISITORS || reviewMode; }
+function focalClamp(v){ v = Number(v); if(!isFinite(v)) return null; return Math.max(0, Math.min(100, Math.round(v * 10) / 10)); }
+// Tap position -> % of the photo. rect is the picture's on-screen box (the drift is stopped while this runs).
+function focalPctFromTap(rect, cx, cy){
+  if(!rect || !rect.width || !rect.height) return null;
+  const x = focalClamp((cx - rect.left) / rect.width * 100), y = focalClamp((cy - rect.top) / rect.height * 100);
+  return (x === null || y === null) ? null : { x: x, y: y };
+}
+// The old drift moves the picture left/up by (wantX, wantY)%. Scaling about the point leaves
+// (1-p)*(scale-1) of overhang on the right/bottom, so the drift is cut down to what that allows - no blank edge, ever.
+function focalDrift(p, scale, wantX, wantY){
+  const maxX = (1 - p.x / 100) * (scale - 1) / scale * 100, maxY = (1 - p.y / 100) * (scale - 1) / scale * 100;
+  return { dx: -Math.min(Math.abs(wantX), maxX), dy: -Math.min(Math.abs(wantY), maxY) };
+}
+// The next entry (after currentId, wrapping) that has a picture and no point.
+function focalNextUnset(entries, currentId, hasPoint){
+  const n = entries.length; if(!n) return null;
+  const start = entries.findIndex(e => e.id === currentId);
+  for(let i = 1; i <= n; i++){
+    const e = entries[(start + i + n) % n];
+    if(e.id !== currentId && e.img && !hasPoint(e)) return e;
+  }
+  return null;
+}
+function focalGet(d){
+  if(!d || !d.img) return null;
+  const r = focalRecent[d.img];
+  if(r && Date.now() - r.t < FOCAL_RECENT_MS && isFinite(r.x) && isFinite(r.y)) return { x: +r.x, y: +r.y };
+  const l = focalLive[d.img];
+  if(l && isFinite(l.x) && isFinite(l.y)) return { x: +l.x, y: +l.y };
+  return null;
+}
+function focalPersistRecent(){ try{ localStorage.setItem('focal-recent', JSON.stringify(focalRecent)); }catch(e){} }
+async function focalLoad(force){
+  if(focalLoading || (focalLoaded && !force)) return;
+  focalLoading = true;
+  try{
+    const base = (db && db.settings && db.settings.imageBase) || '';
+    const url = (base ? resolveAsset('focal-points.json', base) : 'Images/focal-points.json') + '?t=' + Date.now();
+    const r = await fetch(url, { cache: 'no-store' });
+    if(r.ok){
+      const j = await r.json();
+      if(j && j.points && typeof j.points === 'object') focalLive = j.points;
+    }
+    focalLoaded = true;   // also when the file doesn't exist yet (404) - no retry storm
+    // Drop local edits the live file has caught up with (or that are old): the file is the truth again.
+    let changed = false;
+    Object.keys(focalRecent).forEach(k => {
+      const rr = focalRecent[k], l = focalLive[k];
+      if(!rr || Date.now() - rr.t >= FOCAL_RECENT_MS || (l && Math.abs(l.x - rr.x) < 0.05 && Math.abs(l.y - rr.y) < 0.05)){ delete focalRecent[k]; changed = true; }
+    });
+    if(changed) focalPersistRecent();
+  }catch(e){ focalLoaded = true; }
+  finally{ focalLoading = false; }
+  focalRefresh();
+}
+// Article hero (the body-level flying copy): zoom anchor + clamped drift, as CSS variables on the <img>.
+function focalApplyHero(d){
+  const img = document.getElementById('flyPortraitImg');
+  if(!img) return;
+  if(focalEnabledForView() && !focalLoaded) focalLoad();
+  const p = (d && focalEnabledForView()) ? focalGet(d) : null;
+  if(!p){ ['--fox', '--foy', '--fdx', '--fdy'].forEach(k => img.style.removeProperty(k)); return; }
+  const dr = focalDrift(p, 1.09, 2, 1.5);
+  img.style.setProperty('--fox', p.x + '%');
+  img.style.setProperty('--foy', p.y + '%');
+  img.style.setProperty('--fdx', dr.dx.toFixed(2) + '%');
+  img.style.setProperty('--fdy', dr.dy.toFixed(2) + '%');
+}
+// Full-screen view: object-position puts the point at the same relative spot of the screen as in the photo, and the
+// zoom anchors there. With no point the CSS fallbacks (50% 38%) are exactly the old behaviour.
+function focalApplyView(){
+  const p = (focalEnabledForView() && currentEntry) ? focalGet(currentEntry) : null;
+  if(p){ photoViewImg.style.setProperty('--fpx', p.x + '%'); photoViewImg.style.setProperty('--fpy', p.y + '%'); }
+  else{ photoViewImg.style.removeProperty('--fpx'); photoViewImg.style.removeProperty('--fpy'); }
+}
+function focalRefresh(){
+  if(currentEntry) focalApplyHero(currentEntry);
+  focalSync();
+}
+// ---- the switch ----
+function focalOverlayOpen(){
+  return ['manage', 'jsonView', 'imgLightbox', 'photoView'].some(id => { const el = document.getElementById(id); return el && el.classList.contains('open'); });
+}
+function focalEligible(){
+  if(!reviewMode || !isPortrait() || !manageUnlocked()) return false;
+  if(!currentEntry || !currentEntry.img) return false;
+  const art = document.getElementById('article'), fly = document.getElementById('flyPortrait');
+  if(!art || !fly || !art.classList.contains('open')) return false;
+  if(art.classList.contains('peek') || art.classList.contains('rising') || art.classList.contains('preopen')) return false;
+  if(morphing || !flyGeo || !fly.classList.contains('on') || fly.classList.contains('masked')) return false;
+  if(flyT > 0.0005) return false;   // the photo has started to shrink toward the corner
+  return !focalOverlayOpen();
+}
+function focalGetEls(){
+  if(focalEls) return focalEls;
+  const ui = document.createElement('div');
+  ui.id = 'focalUi'; ui.setAttribute('role', 'switch'); ui.setAttribute('aria-label', 'Focal mode');
+  ui.innerHTML = '<div class="fkTrack"></div>';
+  const lbl = document.createElement('div'); lbl.id = 'focalLbl';
+  const nx = document.createElement('button'); nx.id = 'focalNext'; nx.type = 'button';
+  const cr = document.createElement('div'); cr.id = 'focalCross';
+  document.body.appendChild(ui); document.body.appendChild(lbl); document.body.appendChild(nx); document.body.appendChild(cr);
+  ui.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); focalToggle(); });
+  nx.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); focalGoNext(); });
+  focalEls = { ui: ui, lbl: lbl, nx: nx, cr: cr };
+  return focalEls;
+}
+function focalHide(){
+  focalShown = false;
+  document.body.classList.remove('focal-on');
+  if(!focalEls) return;
+  focalEls.ui.classList.remove('show', 'on', 'pulse');
+  focalEls.lbl.style.display = 'none'; focalEls.nx.style.display = 'none'; focalEls.cr.style.display = 'none';
+}
+function focalUnsetCount(){
+  if(!db) return 0;
+  let n = 0;
+  db.entries.forEach(d => { if(d.img && (!isReview(d) || reviewMode) && !focalGet(d)) n++; });
+  return n;
+}
+function focalSync(){
+  if(!reviewMode){ if(focalShown) focalHide(); return; }
+  if(!focalEligible()){ if(focalShown) focalHide(); return; }
+  const E = focalGetEls();
+  const fly = document.getElementById('flyPortrait');
+  const r = fly.getBoundingClientRect();
+  if(!r.width || !r.height){ if(focalShown) focalHide(); return; }
+  focalShown = true;
+  const L = r.right - 46, T = r.bottom - 46;
+  E.ui.style.left = L + 'px'; E.ui.style.top = T + 'px';
+  E.ui.classList.add('show');
+  E.ui.classList.toggle('on', focalOn);
+  E.ui.setAttribute('aria-checked', focalOn ? 'true' : 'false');
+  document.body.classList.toggle('focal-on', focalOn);
+  if(!focalOn){ E.lbl.style.display = 'none'; E.nx.style.display = 'none'; E.cr.style.display = 'none'; return; }
+  const p = focalGet(currentEntry);
+  const txt = 'Focal mode' + (focalStatus ? ' \u00B7 ' + focalStatus : (p ? '' : ' \u00B7 not set'));
+  if(txt !== focalLblText){ E.lbl.textContent = txt; focalLblText = txt; }
+  E.lbl.style.display = 'block';
+  E.lbl.style.left = Math.max(4, L + 42 - E.lbl.offsetWidth) + 'px';
+  E.lbl.style.top = (T - E.lbl.offsetHeight + 2) + 'px';
+  const n = focalUnsetCount();
+  E.nx.textContent = n ? 'Next unset \u203A (' + n + ')' : 'All set \u2713';
+  E.nx.style.display = 'block';
+  E.nx.style.left = Math.max(4, L - 6 - E.nx.offsetWidth) + 'px';
+  E.nx.style.top = (T + 10) + 'px';
+  if(p){
+    const ir = document.getElementById('flyPortraitImg').getBoundingClientRect();
+    E.cr.style.left = (ir.left + p.x / 100 * ir.width) + 'px';
+    E.cr.style.top = (ir.top + p.y / 100 * ir.height) + 'px';
+    E.cr.style.display = 'block';
+  } else E.cr.style.display = 'none';
+}
+function focalToggle(){
+  focalOn = !focalOn;
+  try{ localStorage.setItem('focal-mode', focalOn ? '1' : '0'); }catch(e){}
+  const E = focalGetEls();
+  if(focalOn){ focalLoad(); E.ui.classList.remove('pulse'); void E.ui.offsetWidth; E.ui.classList.add('pulse'); }
+  else focalFlush();
+  focalSync();
+}
+// ---- placing and saving ----
+function focalTapEvent(e){
+  const img = document.getElementById('flyPortraitImg');
+  if(!img || !currentEntry) return;
+  const pt = focalPctFromTap(img.getBoundingClientRect(), e.clientX, e.clientY);
+  if(pt) focalSet(currentEntry, pt.x, pt.y);
+}
+function focalSet(d, x, y){
+  if(!d || !d.img) return;
+  focalRecent[d.img] = { x: x, y: y, t: Date.now() }; focalPersistRecent();
+  focalPending[d.img] = { x: x, y: y };
+  focalRetries = 0; focalStatus = 'unsaved\u2026';
+  focalApplyHero(d); focalSync(); focalSchedule();
+}
+function focalSchedule(delay){
+  clearTimeout(focalSaveTimer);
+  focalSaveTimer = setTimeout(focalFlush, delay || 4000);
+}
+async function focalFlush(){
+  clearTimeout(focalSaveTimer); focalSaveTimer = null;
+  const keys = Object.keys(focalPending);
+  if(!keys.length) return;
+  if(focalSaving){ focalSchedule(1500); return; }
+  const snap = focalPending; focalPending = {};
+  focalSaving = true; focalStatus = 'saving\u2026'; focalSync();
+  try{
+    await lpUpdateJsonFile(FOCAL_PATH, (doc) => {
+      doc.v = 1;
+      if(!doc.points || typeof doc.points !== 'object') doc.points = {};
+      keys.forEach(k => { doc.points[k] = { x: snap[k].x, y: snap[k].y }; });
+    }, 'Focal points: ' + keys.length + ' photo' + (keys.length === 1 ? '' : 's') + ' (from the app)', () => ({ v: 1, points: {} }));
+    keys.forEach(k => { focalLive[k] = { x: snap[k].x, y: snap[k].y }; });
+    focalRetries = 0; focalStatus = 'saved \u2713';
+    setTimeout(() => { if(focalStatus === 'saved \u2713'){ focalStatus = ''; focalSync(); } }, 3000);
+  }catch(err){
+    keys.forEach(k => { if(!focalPending[k]) focalPending[k] = snap[k]; });   // keep it, unless a newer tap replaced it
+    focalRetries++;
+    focalStatus = focalRetries < 3 ? 'not saved \u2013 retrying' : 'not saved \u2013 tap the photo to retry';
+    try{ showShareToast('Focal point not saved: ' + ((err && err.message) || String(err)).slice(0, 110)); }catch(e){}
+    if(focalRetries < 3) focalSchedule(20000);
+  }finally{
+    focalSaving = false; focalSync();
+    if(Object.keys(focalPending).length && !focalSaveTimer && focalRetries < 3) focalSchedule();
+  }
+}
+function focalGoNext(){
+  focalFlush();
+  const list = db ? db.entries.filter(d => !isReview(d) || reviewMode) : [];
+  const n = focalNextUnset(list, currentEntry && currentEntry.id, d => !!focalGet(d));
+  if(!n){ try{ showShareToast('Every photo has a focal point \u2713'); }catch(e){} return; }
+  openArticle(n, { preserveStack: true });
+  scrollRestoreToken++;            // cancel any scroll position the app wanted to restore for that entry
+  article.scrollTop = 0;           // the switch only exists with the photo at full size
+  queueFly();
+}
+document.addEventListener('visibilitychange', () => { if(document.hidden) focalFlush(); });
+window.addEventListener('pagehide', () => { focalFlush(); });
+// ================= END FOCAL POINTS =================
 
 // ================= CONTENT MANAGER =================
 let mSnapshot = null; // deep copy of db taken when Manage is opened, for "Exit Without Saving"
@@ -18355,6 +18654,8 @@ function setReviewMode(on){
   renderMList(false);
   render();
   ttsSyncReviewMode(); // v507
+  if(reviewMode) focalLoad();   // v601
+  focalRefresh();
 }
 function updateReviewUI(){
   const btn = document.getElementById('reviewToggle');
