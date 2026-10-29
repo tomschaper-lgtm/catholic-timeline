@@ -19,6 +19,54 @@ the time.
 
 ---
 
+## v601 — 2026-10-28
+
+**Ask:**
+- A manually set focal point per photo (a tap, not AI) so the Ken Burns zoom follows the face instead of cropping it or zooming into empty space. Set in the article, on the full-size photo, with a switch in its bottom-right corner (label "Focal mode" above it); invisible when off, but touching that corner turns it on. The switch hides as soon as the photo starts to shrink and returns when it is full size. Points live in one file, Images/focal-points.json.
+
+**Implementation:**
+- NEW FILE (created by the first save, nothing to upload): Images/focal-points.json = {"v":1,"points":{"<entry img string>":{"x":%across,"y":%down}}}. Keyed by the exact `img` value in data.json, so a replaced picture has no point. Written only by focalFlush() through lpUpdateJsonFile() (the pronunciation-rules helper: read, change, write, retry on conflict); batched 4s after the last tap = one commit/build. Read by focalLoad() (live file, cache-bypassed); this device's own recent edits (localStorage focal-recent, 3h) win over the live file until the deploy catches up.
+- Zoom: hero (#flyPortrait img) gets CSS vars --fox/--foy (zoom anchor) and --fdx/--fdy (the old 2%/1.5% drift, cut down by focalDrift() to what the overhang allows, so no blank edge); full-screen view gets --fpx/--fpy (object-position + transform-origin, and the same in every kenBurnsPhoto keyframe). No point = the CSS fallbacks, i.e. exactly the old 50% 38% behaviour.
+- FOCAL_ZOOM_FOR_VISITORS = false: only Review Mode sees the point-following zoom. To open it to everyone change that one const to true.
+- Tool: #focalUi (44px touch box over the photo's bottom-right corner), #focalLbl, #focalNext ("Next unset ›" opens the next entry with a photo and no point), #focalCross. Review Mode + manageUnlocked() + portrait + photo at full size only (focalEligible(): article open, not peek/rising/morphing, flyT === 0). flyT is the shrink progress that updateFly() already computes. Focal mode on: body.focal-on stops the drift and a tap on the (invisible inline) photo calls focalTapEvent() instead of opening the full-screen view. Switch state is remembered (localStorage focal-mode). #focalUi/#focalNext added to the outside-click and gesture exclusion lists.
+- Landscape is not covered (different layout); setting a point there is not offered.
+
+## v600 — 2026-10-28
+
+**Ask:**
+- Roll the feast-day pill out to all visitors (it was Review Mode only in v597-v599).
+
+**Implementation:**
+- CSS only: deleted the `.ahFeast{display:none;}` gate and changed `.review-on .ahFeast{` to `.ahFeast{`. Nothing else changed: same pill (system sans, bold, 12px, mixed case, soft-3D gold), saints only, first date of the Feast day fact, hidden while the Review Mode find box is open (that rule stays; visitors never have a find box).
+
+## v599 — 2026-10-28
+
+**Ask:**
+- Feast-day pill: mixed case ("Aug 13") with natural letter spacing instead of capitals. Easily readable, not too much.
+
+**Implementation:**
+- CSS only: removed text-transform:uppercase, letter-spacing .08em -> 0, padding 3px 10px 2px -> 3px 9px 2px (the text is narrower without capitals). Font (system sans, bold, 12px) and the soft-3D gold finish are unchanged from v598. Still Review Mode only, still hidden while the find box is open.
+
+## v598 — 2026-10-28
+
+**Ask:**
+- Feast-day pill: smaller, in the iPhone system sans, bold (option 2 of the samples), with the soft-3D gold finish (option 5): gradient, top highlight, soft drop shadow. Still Review Mode only.
+
+**Implementation:**
+- CSS only, plus the pill text is now sent as "Aug 13" and the caps come from text-transform. Pill: 12px / 700 / letter-spacing .08em, font stack -apple-system, system-ui, Helvetica Neue, Arial; padding 3px 10px 2px + 1px #9E7A2C border; gradient #E9D083 > #D4AE57 > #B98F3A; shadow 0 1px 4px rgba(0,0,0,.35) + inset top highlight.
+- Unchanged from v597: Review Mode only (.review-on), hidden while the find box is open. To open it to everyone: delete `.ahFeast{display:none;}` and change `.review-on .ahFeast{` to `.ahFeast{`.
+
+## v597 — 2026-10-28
+
+**Ask:**
+- Saints: a gold-gradient pill with the feast day (e.g. AUG 13) beside the year in the article header. Review Mode only for now.
+- If the Review Mode find box (hold the year) needs the room, the pill steps aside.
+
+**Implementation:**
+- fillArticleBody: feastPillHtml(d) adds <span class="ahFeast"> right after the year, for saints (t 's') with a parseable "Feast day" fact; the first date listed is shown as MON D.
+- CSS: the pill is gold like the landscape Quick Facts band (.artLandBackHead gradient). It is hidden by default and shown only under body.review-on, so turning it on for everyone later is ONE edit: delete the line `.ahFeast{display:none;}` and change `.review-on .ahFeast{` to `.ahFeast{`.
+- `.ahYearRow:has(.artFind) .ahFeast{display:none}` hides it while the find box is open.
+
 ## v596 — 2026-10-27
 
 **Ask:**
