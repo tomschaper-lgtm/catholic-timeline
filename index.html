@@ -1,6 +1,6 @@
 <!--
-VERSION: 603
-DATE: 2026-10-29T19:40:00-05:00
+VERSION: 604
+DATE: 2026-10-29T21:10:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,18 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v604 — 2026-10-29
+
+**Ask:**
+- During a Run the Task Automation list jumped around so jobs couldn't be tapped, and the status text was tiny and a wall of words. Wanted three simple lines ("1 of 8 loading…"), tap to see the whole thing with each step's time on the right, plus the overall total
+
+**Implementation:**
+- Cause of the jumping (seen in the screen recording): every ~3s poll wrote three different things into the one #tkCount line - "Loading…" (loadWorkLog), the task count (renderTaskList), then the full step-by-step paragraph (triggerWorkflow). That line was 1 to 5 lines tall, so everything below it moved. #tkUpNext and #tkCount were also unstyled (tiny serif type, no padding).
+- New fixed-height Run status box (#tkRunBox, always exactly three single lines, 15px): 1 = state + elapsed ("Running · 1m 04s", "Finished · 1m 41s"), 2 = progress ("6 of 14 · Install Kokoro", or "Task 2 of 5 · St. Leo the Great" once the orchestrator step is running), 3 = Up next. Tap it for #tkRunSheet: every workflow step with its duration at the right and the total at the bottom. The sheet floats over the list (position:absolute) so opening it moves nothing. Tap again to close.
+- triggerWorkflow(): when its log element is #tkCount (the Task Automation Run) it feeds tkRun state instead of writing text; Resize/Convert and every other caller are unchanged. tkFetchSteps() returns the step objects (name, status, started_at, completed_at); tkFetchStepsSummary() kept as a wrapper.
+- loadWorkLog() no longer flashes "Loading…" on refreshes after the first load.
+- renderTaskList(): the header, chips and rows are only rewritten when their markup actually changed, so a poll with no new information no longer rebuilds the rows under a finger (and a swiped-open row stays open).
+
 ## v603 — 2026-10-29
 
 **Ask:**
@@ -1760,6 +1772,32 @@ CHANGELOG:END
   .tkBtn.no{background:#FDEDEA; color:#96291A; border-color:#F0C9C0;}
   .tkBtn:disabled{opacity:.5; cursor:default;}
   .tkNote{font-size:12.5px; color:#6B7280; line-height:1.45; margin:2px 0 8px; word-break:break-word;}
+  /* v604: the Count line sits in a flex row; give it a readable face and a stable height */
+  #tkCount{font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:14px; color:#4B5563; line-height:1.4; min-height:1.4em; flex:1 1 auto; min-width:0;}
+  /* v604: Run status box - always exactly three single lines, so nothing below it ever moves */
+  .tkRunWrap{position:relative; flex:0 0 auto; margin:0 20px 8px;}
+  .tkRunBox{position:relative; box-sizing:border-box; background:#F4F4F1; border:1px solid #E3E1D8; border-radius:10px;
+    padding:8px 34px 8px 12px; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; color:#111827; cursor:pointer;
+    touch-action:manipulation; -webkit-tap-highlight-color:transparent;}
+  .tkRunBox > div{font-size:15px; line-height:1.5; height:1.5em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:0;}
+  .tkRunL1{font-weight:700;}
+  .tkRunL2{color:#2B2F3A;}
+  .tkRunBox > .tkRunL3{color:#6B7280; font-size:14px;}
+  .tkRunChev{position:absolute; right:13px; top:50%; width:8px; height:8px; margin-top:-7px; border-right:2px solid #6B7280; border-bottom:2px solid #6B7280; transform:rotate(45deg); transition:transform .2s;}
+  .tkRunBox.open .tkRunChev{transform:rotate(-135deg); margin-top:-2px;}
+  .tkRunSheet{display:none; position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:30; max-height:52vh; overflow-y:auto;
+    -webkit-overflow-scrolling:touch; background:#fff; border:1px solid #C7CAD3; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.28);
+    font-family:system-ui,-apple-system,'Segoe UI',sans-serif; color:#111827; cursor:pointer;}
+  .tkRunSheet.open{display:block;}
+  .tkRunRow{display:flex; gap:10px; align-items:baseline; padding:8px 14px; font-size:15px; line-height:1.35; border-bottom:1px solid #F0EFE9;}
+  .tkRunRow .ic{flex:0 0 18px; text-align:center; color:#6B7280;}
+  .tkRunRow .nm{flex:1 1 auto; min-width:0;}
+  .tkRunRow .tm{flex:0 0 auto; color:#6B7280; font-variant-numeric:tabular-nums;}
+  .tkRunRow.cur{background:#FBF3DC; font-weight:600;}
+  .tkRunRow.bad .ic, .tkRunRow.bad .nm{color:#96291A;}
+  .tkRunRow.wait{color:#9CA3AF;}
+  .tkRunTotal{display:flex; justify-content:space-between; padding:10px 14px; font-size:15px; font-weight:700; position:sticky; bottom:0; background:#fff; border-top:1px solid #E3E1D8;}
+  .tkRunEmpty{padding:12px 14px; color:#6B7280; font-size:15px;}
   .tkNote.err{color:#96291A;}
   .tkNote code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px;}
   .tkBar{display:flex; gap:7px; align-items:center; flex-wrap:wrap; padding:0 20px 10px; flex:0 0 auto;}
@@ -4665,7 +4703,15 @@ CHANGELOG:END
         </label>
       </div>
       <div class="tkNotice" id="tkNotice"></div>
-      <p class="tkNote" id="tkUpNext"></p>
+      <div class="tkRunWrap">
+        <div class="tkRunBox" id="tkRunBox" role="button" tabindex="0" aria-expanded="false" aria-label="Run status. Tap for every step.">
+          <div class="tkRunL1" id="tkRunL1"></div>
+          <div class="tkRunL2" id="tkRunL2"></div>
+          <div class="tkRunL3" id="tkUpNext"></div>
+          <span class="tkRunChev" aria-hidden="true"></span>
+        </div>
+        <div class="tkRunSheet" id="tkRunSheet"></div>
+      </div>
       <div class="tkBar" style="padding-bottom:8px;">
         <span class="tkNote" id="tkCount" style="margin:0;"></span>
         <button class="tkTypeFilterBtn" id="tkTypeFilterBtn" type="button" aria-haspopup="true">All types</button>
@@ -5861,7 +5907,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v603';
+const APP_VERSION = 'v604';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8377,7 +8423,7 @@ async function loadWorkLog(){
     wlSetLog('Enter your GitHub token under Manage \u2192 Import \u2192 Publish to GitHub first \u2014 this reads workLog.json using the same credentials.', true);
     return;
   }
-  wlSetLog('Loading\u2026');
+  if(!wlLoadedOnce) wlSetLog('Loading\u2026');   // v604: no "Loading…" flash on every refresh/poll after the first load
   const api = 'https://api.github.com/repos/' + g.owner + '/' + g.repo + '/contents/' + WL_PATH + '?ref=' + encodeURIComponent(g.branch);
   try{
     const res = await fetchTimeout(api, { headers: g.hdr, cache: 'no-store' });
@@ -9381,22 +9427,30 @@ function tkUpdateUpNext(){
 document.getElementById('tkRunType').addEventListener('change', tkUpdateUpNext);
 document.getElementById('tkRunCount').addEventListener('input', tkUpdateUpNext);
 
+// v604: assign innerHTML only when the markup really changed. The Run poll re-renders the list every
+// ~3s; rebuilding identical rows under a finger swallowed taps and reset swiped-open rows.
+function tkSetIfChanged(el, html){
+  if(!el) return false;
+  if(el.dataset.h === html) return false;
+  el.innerHTML = html; el.dataset.h = html; return true;
+}
 function renderTaskList(){
   tkUpdateUpNext();
+  tkRunRender();
   tkSyncUnstickBtn();
   tkSyncClearAllBtn();
   renderTkTypeFilterBtn();
   // Status has no header cell of its own — just a spacer the width of the icon column, so
   // "Task" starts over the task text rather than over the glyph.
-  document.getElementById('tkHead').innerHTML =
+  tkSetIfChanged(document.getElementById('tkHead'),
     '<span class="tkStatusSpacer" aria-hidden="true"></span>' +
     '<span class="tkColTask">Task</span>' +
     '<button class="spCol' + (tkSort === 'name' ? ' active' : '') + '" id="tkSortName" data-sort="name">Entry <span class="arrow">\u25b2</span></button>' +
-    '<button class="spCol' + (tkSort === 'date' ? ' active' : '') + '" id="tkSortDate" data-sort="date">Date <span class="arrow">\u25b2</span></button>';
-  document.getElementById('tkChips').innerHTML = TK_CHIPS.map(c =>
+    '<button class="spCol' + (tkSort === 'date' ? ' active' : '') + '" id="tkSortDate" data-sort="date">Date <span class="arrow">\u25b2</span></button>');
+  tkSetIfChanged(document.getElementById('tkChips'), TK_CHIPS.map(c =>
     '<button class="spChip' + (c.id === tkFilter ? ' active' : '') + '" data-filter="' + esc(c.id) + '"' +
     ' aria-pressed="' + (c.id === tkFilter ? 'true' : 'false') + '"><span class="tkChipIcon">' + c.icon + '</span><span>' + esc(c.label) + '</span></button>'
-  ).join('');
+  ).join(''));
 
   const rows = tkRows();
   const tasks = (wlData && wlData.tasks) ? wlData.tasks : [];
@@ -9410,7 +9464,7 @@ function renderTaskList(){
   const notice = document.getElementById('tkNotice');
   notice.textContent = (wlData && wlData.notice) ? String(wlData.notice) : '';
 
-  document.getElementById('tkList').innerHTML = rows.map(t => {
+  const tkListHtml = rows.map(t => {
     const finished = !!TK_FINISHED[t.status];
     const entryName = tkEntryName(t);
     return '<div class="tkRowWrap" data-task="' + esc(t.id) + '">' +
@@ -9422,9 +9476,10 @@ function renderTaskList(){
         '<span class="tkDate">' + esc(tkShortDate(t.updatedAt || t.createdAt)) + '</span>' +
       '</div></div>';
   }).join('') || '<div class="spEmpty">Nothing matches.</div>';
-  // A fresh render (new filter, a delete, Refresh) always starts every row closed — carrying a
-  // swiped-open row across a re-render would mean matching it back up by id for no real benefit.
-  tkSwipedRowId = null;
+  // A render that really changes the rows (new filter, a delete, new status) starts every row closed —
+  // carrying a swiped-open row across would mean matching it back up by id for no real benefit.
+  // v604: an identical render leaves the DOM (and any open row) alone.
+  if(tkSetIfChanged(document.getElementById('tkList'), tkListHtml)) tkSwipedRowId = null;
 }
 
 // Removes a task entirely — for a queued task this is a real cancel (it'll never run); for
@@ -11985,7 +12040,10 @@ document.getElementById('tkRun').addEventListener('click', async () => {
   // become workflow_dispatch inputs, and the orchestrator filters its queue accordingly.
   const n = Math.max(1, Math.min(50, parseInt(document.getElementById('tkRunCount').value, 10) || 5));
   const type = document.getElementById('tkRunType').value;
-  document.getElementById('tkCount').textContent = 'Starting the Orchestrator\u2026';
+  // v604: remember which tasks this Run will pick up (same selection as the Up next line) so the box can
+  // say "Task 2 of 5" once the orchestrator step is running.
+  const batchIds = ((wlData && wlData.tasks) || []).filter(t => t.status === 'queued' && (!type || t.type === type)).slice(0, n).map(t => t.id);
+  tkRunSet({ status: 'starting', startedAt: Date.now(), endedAt: 0, conclusion: '', steps: [], note: 'Starting the orchestrator\u2026', batchIds: batchIds });
   // triggerWorkflow's default watch window (~60s) is sized for quick, fixed-length workflows
   // like Resize/Convert — an orchestrator batch of real tasks (LLM/image/TTS calls apiece) can
   // easily run for several minutes, so it needs a much longer allowance or the watch loop gives
@@ -12578,27 +12636,112 @@ function tkStepIcon(step){
   if(step.conclusion === 'skipped') return '\u2013';
   return '\u2717'; // failure, cancelled, timed_out — all worth flagging as not-clean
 }
-async function tkFetchStepsSummary(owner, repo, runId, hdr){
+// v604: the steps as objects (name, status, conclusion, started_at, completed_at) so the Run box can
+// show progress and per-step timing. Best-effort: [] on any failure.
+async function tkFetchSteps(owner, repo, runId, hdr){
   try{
     const res = await fetchTimeout('https://api.github.com/repos/' + owner + '/' + repo + '/actions/runs/' + runId + '/jobs', { headers: hdr, cache: 'no-store' });
-    if(!res.ok) return '';
+    if(!res.ok) return [];
     const data = await res.json();
     const job = (data.jobs || [])[0]; // every workflow this app triggers has exactly one job
-    if(!job || !job.steps) return '';
-    return job.steps.map(s => tkStepIcon(s) + ' ' + s.name).join('  ');
+    return (job && job.steps) ? job.steps : [];
   }catch(e){
-    return ''; // best-effort — a failed step-status fetch shouldn't break the run-status polling it rides alongside
+    return []; // a failed step-status fetch shouldn't break the run-status polling it rides alongside
   }
 }
+async function tkFetchStepsSummary(owner, repo, runId, hdr){
+  const steps = await tkFetchSteps(owner, repo, runId, hdr);
+  return steps.map(s => tkStepIcon(s) + ' ' + s.name).join('  ');
+}
+
+// ---- v604: the Run status box (three fixed lines) and the tap-to-open step sheet ----------------
+let tkRun = { status: 'idle', startedAt: 0, endedAt: 0, conclusion: '', note: '', steps: [], batchIds: null, open: false };
+function tkFmtDur(ms){
+  if(!(ms >= 0)) return '\u2014';
+  const s = Math.round(ms / 1000);
+  if(s < 60) return s + 's';
+  return Math.floor(s / 60) + 'm ' + String(s % 60).padStart(2, '0') + 's';
+}
+function tkRunSet(patch){ Object.assign(tkRun, patch || {}); tkRunRender(); }
+function tkRunStepMs(st){
+  if(!st.started_at) return null;
+  const a = Date.parse(st.started_at), b = st.completed_at ? Date.parse(st.completed_at) : Date.now();
+  return Math.max(0, b - a);
+}
+function tkRunTotalMs(){
+  if(!tkRun.startedAt) return null;
+  const over = (tkRun.status === 'done' || tkRun.status === 'failed') && tkRun.endedAt;
+  return Math.max(0, (over ? tkRun.endedAt : Date.now()) - tkRun.startedAt);
+}
+// "Task 2 of 5 \u00b7 St. Leo the Great" - once the orchestrator step is running, steps stop changing,
+// so the real progress is how many of the tasks this Run picked up have finished.
+function tkRunTaskLine(){
+  const ids = tkRun.batchIds || [];
+  if(!ids.length) return '';
+  const tasks = ids.map(id => tkTask(id)).filter(Boolean);
+  const done = tasks.filter(t => t.status !== 'queued' && t.status !== 'in_progress').length;
+  const cur = tasks.find(t => t.status === 'in_progress');
+  if(cur) return 'Task ' + Math.min(done + 1, ids.length) + ' of ' + ids.length + ' \u00b7 ' + (tkEntryName(cur) || tkServiceLabel(cur));
+  return done + ' of ' + ids.length + ' tasks done';
+}
+function tkRunRender(){
+  const l1 = document.getElementById('tkRunL1'), l2 = document.getElementById('tkRunL2');
+  const box = document.getElementById('tkRunBox'), sheet = document.getElementById('tkRunSheet');
+  if(!l1 || !l2 || !box || !sheet) return;
+  const r = tkRun, steps = r.steps || [], n = steps.length;
+  const doneN = steps.filter(x => x.status === 'completed').length;
+  const cur = steps.find(x => x.status === 'in_progress');
+  const bad = steps.find(x => x.status === 'completed' && x.conclusion && x.conclusion !== 'success' && x.conclusion !== 'skipped');
+  let a = '', b = '';
+  if(r.status === 'idle'){ a = 'No run in progress'; }
+  else if(r.status === 'starting'){ a = 'Starting\u2026'; b = r.note || ''; }
+  else if(r.status === 'running' || r.status === 'stale'){
+    a = (r.status === 'stale' ? 'Still running \u00b7 ' : 'Running \u00b7 ') + tkFmtDur(tkRunTotalMs());
+    if(cur && /orchestrator/i.test(cur.name) && tkRunTaskLine()) b = tkRunTaskLine();
+    else if(n) b = (cur ? doneN + 1 : doneN) + ' of ' + n + ' \u00b7 ' + (cur ? cur.name : 'Waiting\u2026');
+    if(r.status === 'stale') b = 'Check GitHub Actions for the result';
+  }else if(r.status === 'done'){
+    a = (r.conclusion === 'success' ? 'Finished' : 'Ended (' + (r.conclusion || 'unknown') + ')') + ' \u00b7 ' + tkFmtDur(tkRunTotalMs());
+    b = bad ? '\u2717 ' + bad.name : (n ? doneN + ' of ' + n + ' steps' : '');
+  }else if(r.status === 'failed'){ a = 'Couldn\u2019t watch the run'; b = r.note || ''; }
+  l1.textContent = a; l2.textContent = b || '\u00a0';
+  box.classList.toggle('open', !!r.open);
+  box.setAttribute('aria-expanded', r.open ? 'true' : 'false');
+  sheet.classList.toggle('open', !!r.open);
+  if(!r.open) return;
+  const keep = sheet.scrollTop;
+  sheet.innerHTML = (n
+    ? steps.map(x => {
+        const ms = tkRunStepMs(x), isCur = x.status === 'in_progress';
+        const isBad = x.status === 'completed' && x.conclusion && x.conclusion !== 'success' && x.conclusion !== 'skipped';
+        return '<div class="tkRunRow' + (isCur ? ' cur' : '') + (isBad ? ' bad' : '') + (x.status === 'queued' ? ' wait' : '') + '">' +
+          '<span class="ic">' + tkStepIcon(x) + '</span><span class="nm">' + esc(x.name) + '</span>' +
+          '<span class="tm">' + (ms == null ? '' : tkFmtDur(ms)) + '</span></div>';
+      }).join('')
+    : '<div class="tkRunEmpty">' + (r.status === 'idle' ? 'Nothing has run yet.' : 'No step details yet.') + '</div>') +
+    '<div class="tkRunTotal"><span>Total</span><span>' + (tkRunTotalMs() == null ? '\u2014' : tkFmtDur(tkRunTotalMs())) + '</span></div>';
+  sheet.scrollTop = keep;
+}
+(function(){
+  const box = document.getElementById('tkRunBox'), sheet = document.getElementById('tkRunSheet');
+  const flip = () => tkRunSet({ open: !tkRun.open });
+  box.addEventListener('click', flip);
+  box.addEventListener('keydown', (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); flip(); } });
+  sheet.addEventListener('click', flip);   // tap the open list to put it away
+})();
 async function triggerWorkflow(filename, inputs, logElId, maxAttempts, onPoll){
   maxAttempts = maxAttempts || 20; // ~60s default — plenty for Resize/Convert, which finish in seconds
   const v = id => document.getElementById(id).value.trim();
   const owner = v('ghOwner'), repo = v('ghRepo'), branch = v('ghBranch') || 'main', token = v('ghToken');
   const log = document.getElementById(logElId || 'runWorkflowLog');
-  if(!owner || !repo || !token){ log.textContent = 'Enter GitHub username, repository, and token in the Publish section above first.'; return; }
+  // v604: the Task Automation Run (log target #tkCount) feeds the fixed three-line Run box instead of
+  // writing a long, changing paragraph into the page; every other caller keeps its own text log.
+  const toRun = (logElId === 'tkCount');
+  const say = (txt, patch) => { if(toRun) tkRunSet(patch || {}); else log.textContent = txt; };
+  if(!owner || !repo || !token){ say('Enter GitHub username, repository, and token in the Publish section above first.', { status: 'failed', note: 'Add your GitHub token under Manage \u2192 Import' }); return; }
   const hdr = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' };
   const dispatchedAt = Date.now();
-  log.textContent = 'Starting ' + filename + '\u2026';
+  say('Starting ' + filename + '\u2026', { status: 'starting', startedAt: dispatchedAt, endedAt: 0, conclusion: '', steps: [], note: 'Asking GitHub to start it' });
   // onPoll can end up running a fair amount of code (loadWorkLog's fetch, parse, full re-render,
   // the auto-approve chain, its own save) — fetchTimeout already bounds each individual network
   // call inside that chain, but this is a second, outer bound on the WHOLE thing, so this loop can
@@ -12629,7 +12772,7 @@ async function triggerWorkflow(filename, inputs, logElId, maxAttempts, onPoll){
       if(res.status === 404) throw new Error('workflow not found \u2014 check ' + filename + ' exists in .github/workflows/ on branch ' + branch);
       throw new Error(m || ('failed (' + res.status + ')'));
     }
-    log.textContent = filename + ' started \u2014 watching for it to finish\u2026';
+    say(filename + ' started \u2014 watching for it to finish\u2026', { status: 'starting', note: 'Waiting for the run to appear' });
     const runsUrl = 'https://api.github.com/repos/' + owner + '/' + repo + '/actions/workflows/' + encodeURIComponent(filename) + '/runs?branch=' + encodeURIComponent(branch) + '&per_page=5';
     for(let i = 0; i < maxAttempts; i++){
       await new Promise(r => setTimeout(r, 3000));
@@ -12640,7 +12783,11 @@ async function triggerWorkflow(filename, inputs, logElId, maxAttempts, onPoll){
       if(!run) continue;
       if(run.status === 'completed'){
         const secs = Math.round((new Date(run.updated_at) - new Date(run.created_at)) / 1000);
-        log.textContent = filename + ': ' + run.conclusion + ' (finished in ' + secs + 's). Details: ' + run.html_url;
+        if(toRun){
+          const finalSteps = await tkFetchSteps(owner, repo, run.id, hdr);
+          tkRunSet({ status: 'done', steps: finalSteps.length ? finalSteps : tkRun.steps, startedAt: Date.parse(run.run_started_at || run.created_at) || tkRun.startedAt,
+            endedAt: Date.parse(run.updated_at) || Date.now(), conclusion: run.conclusion || '' });
+        }else log.textContent = filename + ': ' + run.conclusion + ' (finished in ' + secs + 's). Details: ' + run.html_url;
         // One last refresh so the caller's own data (e.g. the task list) reflects the finished
         // run immediately, rather than however stale the LAST mid-run poll below left it — a run
         // can finish its final task between one poll and the next.
@@ -12658,13 +12805,17 @@ async function triggerWorkflow(filename, inputs, logElId, maxAttempts, onPoll){
       // up watching. safePoll (defined above) is both best-effort AND time-bounded — see its own
       // comment for why the bound matters here specifically.
       await safePoll(run);
-      const stepsText = await tkFetchStepsSummary(owner, repo, run.id, hdr);
-      log.textContent = filename + ' is running\u2026 (' + run.status + ', ' + Math.round((i + 1) * 3) + 's so far)' +
-        (stepsText ? ' \u2014 ' + stepsText : '');
+      const runSteps = await tkFetchSteps(owner, repo, run.id, hdr);
+      if(toRun) tkRunSet({ status: 'running', steps: runSteps, startedAt: Date.parse(run.run_started_at || run.created_at) || tkRun.startedAt });
+      else{
+        const stepsText = runSteps.map(s => tkStepIcon(s) + ' ' + s.name).join('  ');
+        log.textContent = filename + ' is running\u2026 (' + run.status + ', ' + Math.round((i + 1) * 3) + 's so far)' +
+          (stepsText ? ' \u2014 ' + stepsText : '');
+      }
     }
-    log.textContent = filename + ' is still running \u2014 check the Actions tab on GitHub for the result.';
+    say(filename + ' is still running \u2014 check the Actions tab on GitHub for the result.', { status: 'stale' });
   }catch(err){
-    log.textContent = 'Failed: ' + err.message;
+    say('Failed: ' + err.message, { status: 'failed', note: err.message });
   }
 }
 // Refreshes just the audio/audioTiming fields on the in-memory entries from the LIVE data.json —
