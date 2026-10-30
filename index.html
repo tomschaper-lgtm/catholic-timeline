@@ -1,6 +1,6 @@
 <!--
-VERSION: 606
-DATE: 2026-10-30T10:05:00-05:00
+VERSION: 607
+DATE: 2026-10-30T13:50:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,14 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v607 — 2026-10-30
+
+**Ask:**
+- The feast-day pill beside the year (e.g. "Jan 1") is too small. Six sizes were mocked up at true size; option B (16px) chosen
+
+**Implementation:**
+- .ahFeast: font-size 12px -> 16px, padding 3px 9px 2px -> 5px 12px 4px. Everything else unchanged (gold soft-3D finish, system sans bold, saints only, hidden while the find box is open).
+
 ## v606 — 2026-10-30
 
 **Ask:**
@@ -2859,11 +2867,11 @@ CHANGELOG:END
      v598/v599: iPhone system sans, bold, 12px, mixed case; soft-3D finish. v600: shown to everyone (it was Review Mode
      only in v597-v599, gated by .review-on). */
   .ahFeast{display:inline-flex; align-items:center; align-self:center; flex:none; margin-left:12px;
-    padding:3px 9px 2px; border-radius:999px; white-space:nowrap;
+    padding:5px 12px 4px; border-radius:999px; white-space:nowrap;   /* v607: was 3px 9px 2px at 12px; now option B, 16px */
     background:linear-gradient(180deg,#E9D083 0%, #D4AE57 55%, #B98F3A 100%);
     border:1px solid #9E7A2C;
     box-shadow:0 1px 4px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.4);
-    color:#1A1F33; font-family:-apple-system, system-ui, 'Helvetica Neue', Arial, sans-serif; font-weight:700; font-size:12px; line-height:1;
+    color:#1A1F33; font-family:-apple-system, system-ui, 'Helvetica Neue', Arial, sans-serif; font-weight:700; font-size:16px; line-height:1;
     letter-spacing:0;}   /* v599: mixed case, natural spacing */
   /* the Review Mode find box (hold the year) needs that room: the pill steps aside while it is open */
   .ahYearRow:has(.artFind) .ahFeast{display:none;}
@@ -5930,7 +5938,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v606';
+const APP_VERSION = 'v607';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
