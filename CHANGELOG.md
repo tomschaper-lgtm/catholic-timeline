@@ -19,6 +19,38 @@ the time.
 
 ---
 
+## v604 — 2026-10-29
+
+**Ask:**
+- During a Run the Task Automation list jumped around so jobs couldn't be tapped, and the status text was tiny and a wall of words. Wanted three simple lines ("1 of 8 loading…"), tap to see the whole thing with each step's time on the right, plus the overall total
+
+**Implementation:**
+- Cause of the jumping (seen in the screen recording): every ~3s poll wrote three different things into the one #tkCount line - "Loading…" (loadWorkLog), the task count (renderTaskList), then the full step-by-step paragraph (triggerWorkflow). That line was 1 to 5 lines tall, so everything below it moved. #tkUpNext and #tkCount were also unstyled (tiny serif type, no padding).
+- New fixed-height Run status box (#tkRunBox, always exactly three single lines, 15px): 1 = state + elapsed ("Running · 1m 04s", "Finished · 1m 41s"), 2 = progress ("6 of 14 · Install Kokoro", or "Task 2 of 5 · St. Leo the Great" once the orchestrator step is running), 3 = Up next. Tap it for #tkRunSheet: every workflow step with its duration at the right and the total at the bottom. The sheet floats over the list (position:absolute) so opening it moves nothing. Tap again to close.
+- triggerWorkflow(): when its log element is #tkCount (the Task Automation Run) it feeds tkRun state instead of writing text; Resize/Convert and every other caller are unchanged. tkFetchSteps() returns the step objects (name, status, started_at, completed_at); tkFetchStepsSummary() kept as a wrapper.
+- loadWorkLog() no longer flashes "Loading…" on refreshes after the first load.
+- renderTaskList(): the header, chips and rows are only rewritten when their markup actually changed, so a poll with no new information no longer rebuilds the rows under a finger (and a swiped-open row stays open).
+
+## v603 — 2026-10-29
+
+**Ask:**
+- Picture Review (and the image-finalize Approve screen) jumped around while typing in the notes box. Tapping the photo should open it full screen
+
+**Implementation:**
+- .tkImgNotes was font-size 13.5px. iOS Safari zooms the whole page when an input under 16px takes focus, which matches the screen recording (page enlarged, "Neither" clipped at the right edge, header scrolled away, then zooming back out on blur). Now 16px, same rule the Add Task form already follows.
+- renderTaskReview(): a re-render of the SAME review (same task id, status, candidate side, original/final toggle) while the notes box has focus is now skipped, so a work-log refresh can no longer rebuild the textarea and drop the keyboard mid-sentence. A re-render of the same review while NOT typing keeps the scroll position and the typed notes instead of resetting to the top. Signature stored on #tkReviewScroll as data-rv-sig.
+- While a Run is active a ~3s poll (triggerWorkflow onPoll -> loadWorkLog -> renderWorkLog) re-rendered the whole review screen even with nothing changed. That rebuilt the photo (the flash while idle) and reset scroll to the top. Picture Review / image-finalize now skip the re-render when the markup is byte-identical. Notes also survive tapping Other image.
+- Tap the photo in any review (candidate A/B, final, original) to open it in the existing full-screen #imgLightbox; tap again to close. One delegated listener on #tkReviewScroll. The panel is z-index 155, the lightbox 200.
+- Not reproducible here: the iOS focus-zoom itself (headless Chromium does not zoom on focus). The 16px rule is the documented trigger; the re-render guard and the tap-to-open are tested.
+
+## v602 — 2026-10-29
+
+**Ask:**
+- Tapping a rule in Manage → Import → Browse all pronunciation rules did nothing, so no rule could be deleted
+
+**Implementation:**
+- prbKey() joined the rule type and text with a NUL character (\u0000). The key goes into a data-k HTML attribute, and the HTML parser turns NUL into U+FFFD, so the value read back from the row never equalled the key and the row never opened. Separator is now '|' (still 2 characters, so the delete handler's key.slice(2) is unchanged). Verified in headless Chromium: NUL round trip fails, new key round trips.
+
 ## v601 — 2026-10-28
 
 **Ask:**
