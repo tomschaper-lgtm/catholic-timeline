@@ -1,6 +1,6 @@
 <!--
-VERSION: 602
-DATE: 2026-10-29T16:20:00-05:00
+VERSION: 603
+DATE: 2026-10-29T19:40:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,18 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v603 — 2026-10-29
+
+**Ask:**
+- Picture Review (and the image-finalize Approve screen) jumped around while typing in the notes box. Tapping the photo should open it full screen
+
+**Implementation:**
+- .tkImgNotes was font-size 13.5px. iOS Safari zooms the whole page when an input under 16px takes focus, which matches the screen recording (page enlarged, "Neither" clipped at the right edge, header scrolled away, then zooming back out on blur). Now 16px, same rule the Add Task form already follows.
+- renderTaskReview(): a re-render of the SAME review (same task id, status, candidate side, original/final toggle) while the notes box has focus is now skipped, so a work-log refresh can no longer rebuild the textarea and drop the keyboard mid-sentence. A re-render of the same review while NOT typing keeps the scroll position and the typed notes instead of resetting to the top. Signature stored on #tkReviewScroll as data-rv-sig.
+- While a Run is active a ~3s poll (triggerWorkflow onPoll -> loadWorkLog -> renderWorkLog) re-rendered the whole review screen even with nothing changed. That rebuilt the photo (the flash while idle) and reset scroll to the top. Picture Review / image-finalize now skip the re-render when the markup is byte-identical. Notes also survive tapping Other image.
+- Tap the photo in any review (candidate A/B, final, original) to open it in the existing full-screen #imgLightbox; tap again to close. One delegated listener on #tkReviewScroll. The panel is z-index 155, the lightbox 200.
+- Not reproducible here: the iOS focus-zoom itself (headless Chromium does not zoom on focus). The 16px rule is the documented trigger; the re-render guard and the tap-to-open are tested.
+
 ## v602 — 2026-10-29
 
 **Ask:**
@@ -1591,7 +1603,7 @@ CHANGELOG:END
   /* Picture Review — one candidate image at a time, plus a notes box that rides along with
      whichever decision button gets tapped. */
   .tkImgWrap{text-align:center; margin:4px 0 12px;}
-  .tkImgWrap img{max-width:100%; max-height:56vh; border-radius:10px; border:1px solid #E3E1D8; box-shadow:0 2px 10px rgba(0,0,0,.12);}
+  .tkImgWrap img{cursor:zoom-in; touch-action:manipulation; max-width:100%; max-height:56vh; border-radius:10px; border:1px solid #E3E1D8; box-shadow:0 2px 10px rgba(0,0,0,.12);}
   .tkImgSide{font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#8A90A0; margin-top:8px;}
   /* Fact Research review: one pill per candidate (Claude/Luna/Gemini) — the checkmarked one is
      selected (what the preview above shows, what Approve/Edit act on); tapping toggles its own
@@ -1620,7 +1632,8 @@ CHANGELOG:END
   .tkImgNotesLabel{font-size:12px; color:#6B7280; margin:14px 0 5px;}
   .tkImgNotes{
     width:100%; box-sizing:border-box; border:1px solid #C7CAD3; border-radius:10px;
-    padding:9px 11px; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13.5px;
+    padding:9px 11px; font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+    font-size:16px; /* v603: under 16px, iOS zooms the whole page on focus and the screen jumps while typing */
     color:#111827; resize:vertical; min-height:52px;
   }
   .tkImgNotes:focus{outline:none; border-color:#8A6D1C;}
@@ -5848,7 +5861,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v602';
+const APP_VERSION = 'v603';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -10352,6 +10365,15 @@ function renderTaskReview(){
   document.getElementById('tkResizeGrip').classList.remove('active');
   const t = tkTask(tkReviewIds[tkReviewIdx]);
   if(!t){ tkGoList(); return; }
+  // v603: a refresh that re-renders the SAME review must not rebuild the notes box while it has
+  // focus (that drops the keyboard and resets the scroll mid-sentence), and when it does
+  // re-render, it keeps the scroll position and whatever was typed.
+  const rvSig = t.id + '|' + t.status + '|' + tkImgSide + '|' + (typeof tkFinalShowOriginal !== 'undefined' && tkFinalShowOriginal ? 'o' : 'f');
+  const rvSame = scroll.dataset.rvSig === rvSig;
+  const rvNotesEl = document.getElementById('tkImgNotes');
+  if(rvSame && rvNotesEl && document.activeElement === rvNotesEl) return;
+  const rvKeepNotes = (rvNotesEl && scroll.dataset.rvTask === t.id + '|' + t.status) ? rvNotesEl.value : '';
+  const rvKeepTop = rvSame ? scroll.scrollTop : 0;
 
   document.getElementById('tkTitleSecond').textContent =
     (t.status === 'awaiting_review' && t.type === 'audio-generate') ? ' : Audio Review' :
@@ -10505,8 +10527,18 @@ function renderTaskReview(){
     body += '<div class="tkHint">' + pos + ' \u00b7 swipe left or right to move through the list' +
       '<br>swipe down to go back</div>';
   }
+  // v603: the ~3s Run poll (loadWorkLog -> renderWorkLog) re-renders this screen even when nothing
+  // changed, which rebuilt the photo (a visible flash) and reset the scroll. Identical picture
+  // review markup = leave the DOM alone.
+  // rawAssetUrl() stamps every picture URL with ?t=<now>, so the markup is never byte-identical
+  // (and each render re-fetched the photo, which is the flash itself); compare with that stripped.
+  const rvBodyKey = body.replace(/([?&])t=\d+/g, '$1t=0');
+  if((isImageReview || isFinalPending) && rvSame && scroll.dataset.rvBody === rvBodyKey && rvNotesEl) return;
   scroll.innerHTML = body;
-  scroll.scrollTop = 0;
+  scroll.scrollTop = rvKeepTop;
+  scroll.dataset.rvSig = rvSig;
+  scroll.dataset.rvTask = t.id + '|' + t.status;
+  scroll.dataset.rvBody = rvBodyKey;
 
   if(isFactResearchReview){
     document.querySelectorAll('.tkFactPill').forEach(el => {
@@ -10566,6 +10598,7 @@ function renderTaskReview(){
         '<button class="tkBtn go" id="tkWinner">Winner</button>' +
         '<button class="tkBtn no" id="tkNeither">Neither</button>' +
       '</div>';
+    if(rvKeepNotes){ const n = document.getElementById('tkImgNotes'); if(n) n.value = rvKeepNotes; }
     document.getElementById('tkOtherImage').addEventListener('click', () => {
       tkImgSide = tkImgSide === 'a' ? 'b' : 'a';
       renderTaskPanel();
@@ -10586,6 +10619,7 @@ function renderTaskReview(){
         '<button class="tkBtn no" id="tkRedoFinal">Redo</button>' +
         (hasOriginals ? '<button class="tkBtn" id="tkRestartOriginals">Back to candidates</button>' : '') +
       '</div>';
+    if(rvKeepNotes){ const n = document.getElementById('tkImgNotes'); if(n) n.value = rvKeepNotes; }
     document.getElementById('tkApproveFinal').addEventListener('click', () => tkResolveFinal('approve'));
     document.getElementById('tkRedoFinal').addEventListener('click', () => tkResolveFinal('redo'));
     if(hasOriginals){
@@ -11623,6 +11657,14 @@ document.getElementById('tkChips').addEventListener('click', (e) => {
 // renderTaskReview, since delegating from the stable #tkReviewScroll container means it keeps
 // working across every future re-render (switching tasks) without needing to be re-attached.
 document.getElementById('tkReviewScroll').addEventListener('click', (e) => {
+  // v603: tap a review photo to see it full screen (tap again to close).
+  const rvImg = e.target.closest('.tkImgWrap img');
+  if(rvImg && rvImg.src){
+    const lb = document.getElementById('imgLightbox'), lbImg = document.getElementById('imgLightboxImg');
+    lbImg.src = rvImg.src; lbImg.alt = rvImg.alt || '';
+    lb.classList.add('open');
+    return;
+  }
   const btn = e.target.closest('.tkSentToggle');
   if(btn){
     const container = document.getElementById('tkSentSections');
