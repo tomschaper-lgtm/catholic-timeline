@@ -19,6 +19,34 @@ the time.
 
 ---
 
+## v607 — 2026-10-30
+
+**Ask:**
+- The feast-day pill beside the year (e.g. "Jan 1") is too small. Six sizes were mocked up at true size; option B (16px) chosen
+
+**Implementation:**
+- .ahFeast: font-size 12px -> 16px, padding 3px 9px 2px -> 5px 12px 4px. Everything else unchanged (gold soft-3D finish, system sans bold, saints only, hidden while the find box is open).
+
+## v606 — 2026-10-30
+
+**Ask:**
+- The pronunciation rules summary (Manage → Import → Browse all pronunciation rules) showed the Kokoro sound as phonetic symbols (/jukəɹɪstɪk pɹ'Aəɹ w'ʌn/). Wanted it in real letters
+
+**Implementation:**
+- prbGuide(r) turns a rule's kokoro_ipa into the app's readable respelling with the existing lpGuideOf() (the same one the pronunciation tool already uses for "Already fixed — said ..."), e.g. /jukəɹˈɪstɪk pɹˈAəɹ wˈʌn/ -> yoo-kuh-RIHS-tihk PRAY-uhr WUHN (stressed syllable in capitals). The row now reads "says yoo-kuh-RIHS-tihk PRAY-uhr WUHN" and the opened rule says "Said as: ..." instead of "Kokoro sounds: /.../". The raw symbols stay in the opened rule as a small grey "Symbols" line so they can still be checked, and search matches the readable spelling too. If a rule's symbols can't be converted it falls back to showing the symbols exactly as before.
+- No change to what is recorded or saved; display only.
+
+## v605 — 2026-10-30
+
+**Ask:**
+- A Run of several recordings showed only "Running · 39s" and "No step details yet" - no progress. Wanted the summary to show, per article, the time from the start of the job until its audio link was updated (the first article carries all the load/setup time, the rest just their own record time)
+- (Also asked: the phonetic spelling on the summary instead of "kokoro" - not built yet, waiting on which of two readings is meant)
+
+**Implementation:**
+- Line 2 of the Run box only looked at the GitHub workflow steps. If that fetch returned nothing (job not started yet, or the call failed) it stayed blank even though the batch was already being recorded. It now prefers the task line ("Task 2 of 5 · St. Leo the Great") whenever any task of this Run is in progress or finished, falls back to the step line, and otherwise says why there are no steps ("Waiting for the job to start…" / "Steps unavailable (HTTP 403)").
+- The summary sheet now has an Articles section above the steps: one row per task of the Run with its time on the right. The orchestrator commits the audio file and data.json (the link) BEFORE it stamps the task's updatedAt, so updatedAt is the moment the link was updated. First finished article = that moment minus the job's start (includes setup/load, labelled), every later one = its moment minus the previous article's (its own record time). In-progress rows say "recording…", errors say "failed". No script changes.
+- The last finished Run (steps, articles, times) is kept in localStorage (tk-last-run) so the summary is still there after reopening the app.
+
 ## v604 — 2026-10-29
 
 **Ask:**
