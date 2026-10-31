@@ -1,6 +1,6 @@
 <!--
-VERSION: 607
-DATE: 2026-10-30T13:50:00-05:00
+VERSION: 608
+DATE: 2026-10-31T11:40:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,18 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v608 — 2026-10-31
+
+**Ask:**
+- In the full-screen photo, let the viewer look at the parts of the picture the screen crops off: touch and drag it, or hold a side of the screen so it glides that way smoothly, and let go to stop
+
+**Implementation:**
+- The full-screen view is object-fit:cover, so on a phone it hides about 31-69% of a picture's width (42% for a 4:5 photo) and nothing top to bottom. Left/right is therefore the main use; up/down only exists for a picture taller than the screen.
+- Hold the left or right edge zone (outer 28% of the width; top/bottom 20% for tall pictures) for 0.22s and the picture glides toward that side, easing up to about 170 px/s, until the finger lifts or the picture's edge is reached. Dragging a finger (or mouse) anywhere moves it 1:1 and stops when released. Both only move object-position through new --pvx/--pvy variables; the Ken Burns zoom anchor (--fpx/--fpy) is untouched.
+- A quick tap still closes the view exactly as before (a drag or hold sets a short click-suppress flag so letting go never closes it). The Ken Burns zoom pauses while the viewer is panning and resumes 4s after the last touch.
+- Faint arrows at the sides (only for directions that exist, only while there is more to see) fade in on open and on touch and fade out after 4s.
+- .photoView is now touch-action:none (was manipulation) so the browser does not claim the drag; pointer events handle mouse and touch the same way. Reset on every open/close, so the next picture starts at its own focal point.
+
 ## v607 — 2026-10-30
 
 **Ask:**
@@ -50,6 +62,572 @@ CHANGELOG:BEGIN
 - Line 2 of the Run box only looked at the GitHub workflow steps. If that fetch returned nothing (job not started yet, or the call failed) it stayed blank even though the batch was already being recorded. It now prefers the task line ("Task 2 of 5 · St. Leo the Great") whenever any task of this Run is in progress or finished, falls back to the step line, and otherwise says why there are no steps ("Waiting for the job to start…" / "Steps unavailable (HTTP 403)").
 - The summary sheet now has an Articles section above the steps: one row per task of the Run with its time on the right. The orchestrator commits the audio file and data.json (the link) BEFORE it stamps the task's updatedAt, so updatedAt is the moment the link was updated. First finished article = that moment minus the job's start (includes setup/load, labelled), every later one = its moment minus the previous article's (its own record time). In-progress rows say "recording…", errors say "failed". No script changes.
 - The last finished Run (steps, articles, times) is kept in localStorage (tk-last-run) so the summary is still there after reopening the app.
+
+## v604 — 2026-10-29
+
+**Ask:**
+- During a Run the Task Automation list jumped around so jobs couldn't be tapped, and the status text was tiny and a wall of words. Wanted three simple lines ("1 of 8 loading…"), tap to see the whole thing with each step's time on the right, plus the overall total
+
+**Implementation:**
+- Cause of the jumping (seen in the screen recording): every ~3s poll wrote three different things into the one #tkCount line - "Loading…" (loadWorkLog), the task count (renderTaskList), then the full step-by-step paragraph (triggerWorkflow). That line was 1 to 5 lines tall, so everything below it moved. #tkUpNext and #tkCount were also unstyled (tiny serif type, no padding).
+- New fixed-height Run status box (#tkRunBox, always exactly three single lines, 15px): 1 = state + elapsed ("Running · 1m 04s", "Finished · 1m 41s"), 2 = progress ("6 of 14 · Install Kokoro", or "Task 2 of 5 · St. Leo the Great" once the orchestrator step is running), 3 = Up next. Tap it for #tkRunSheet: every workflow step with its duration at the right and the total at the bottom. The sheet floats over the list (position:absolute) so opening it moves nothing. Tap again to close.
+- triggerWorkflow(): when its log element is #tkCount (the Task Automation Run) it feeds tkRun state instead of writing text; Resize/Convert and every other caller are unchanged. tkFetchSteps() returns the step objects (name, status, started_at, completed_at); tkFetchStepsSummary() kept as a wrapper.
+- loadWorkLog() no longer flashes "Loading…" on refreshes after the first load.
+- renderTaskList(): the header, chips and rows are only rewritten when their markup actually changed, so a poll with no new information no longer rebuilds the rows under a finger (and a swiped-open row stays open).
+
+## v603 — 2026-10-29
+
+**Ask:**
+- Picture Review (and the image-finalize Approve screen) jumped around while typing in the notes box. Tapping the photo should open it full screen
+
+**Implementation:**
+- .tkImgNotes was font-size 13.5px. iOS Safari zooms the whole page when an input under 16px takes focus, which matches the screen recording (page enlarged, "Neither" clipped at the right edge, header scrolled away, then zooming back out on blur). Now 16px, same rule the Add Task form already follows.
+- renderTaskReview(): a re-render of the SAME review (same task id, status, candidate side, original/final toggle) while the notes box has focus is now skipped, so a work-log refresh can no longer rebuild the textarea and drop the keyboard mid-sentence. A re-render of the same review while NOT typing keeps the scroll position and the typed notes instead of resetting to the top. Signature stored on #tkReviewScroll as data-rv-sig.
+- While a Run is active a ~3s poll (triggerWorkflow onPoll -> loadWorkLog -> renderWorkLog) re-rendered the whole review screen even with nothing changed. That rebuilt the photo (the flash while idle) and reset scroll to the top. Picture Review / image-finalize now skip the re-render when the markup is byte-identical. Notes also survive tapping Other image.
+- Tap the photo in any review (candidate A/B, final, original) to open it in the existing full-screen #imgLightbox; tap again to close. One delegated listener on #tkReviewScroll. The panel is z-index 155, the lightbox 200.
+- Not reproducible here: the iOS focus-zoom itself (headless Chromium does not zoom on focus). The 16px rule is the documented trigger; the re-render guard and the tap-to-open are tested.
+
+## v602 — 2026-10-29
+
+**Ask:**
+- Tapping a rule in Manage → Import → Browse all pronunciation rules did nothing, so no rule could be deleted
+
+**Implementation:**
+- prbKey() joined the rule type and text with a NUL character (\u0000). The key goes into a data-k HTML attribute, and the HTML parser turns NUL into U+FFFD, so the value read back from the row never equalled the key and the row never opened. Separator is now '|' (still 2 characters, so the delete handler's key.slice(2) is unchanged). Verified in headless Chromium: NUL round trip fails, new key round trips.
+
+## v601 — 2026-10-28
+
+**Ask:**
+- A manually set focal point per photo (a tap, not AI) so the Ken Burns zoom follows the face instead of cropping it or zooming into empty space. Set in the article, on the full-size photo, with a switch in its bottom-right corner (label "Focal mode" above it); invisible when off, but touching that corner turns it on. The switch hides as soon as the photo starts to shrink and returns when it is full size. Points live in one file, Images/focal-points.json.
+
+**Implementation:**
+- NEW FILE (created by the first save, nothing to upload): Images/focal-points.json = {"v":1,"points":{"<entry img string>":{"x":%across,"y":%down}}}. Keyed by the exact `img` value in data.json, so a replaced picture has no point. Written only by focalFlush() through lpUpdateJsonFile() (the pronunciation-rules helper: read, change, write, retry on conflict); batched 4s after the last tap = one commit/build. Read by focalLoad() (live file, cache-bypassed); this device's own recent edits (localStorage focal-recent, 3h) win over the live file until the deploy catches up.
+- Zoom: hero (#flyPortrait img) gets CSS vars --fox/--foy (zoom anchor) and --fdx/--fdy (the old 2%/1.5% drift, cut down by focalDrift() to what the overhang allows, so no blank edge); full-screen view gets --fpx/--fpy (object-position + transform-origin, and the same in every kenBurnsPhoto keyframe). No point = the CSS fallbacks, i.e. exactly the old 50% 38% behaviour.
+- FOCAL_ZOOM_FOR_VISITORS = false: only Review Mode sees the point-following zoom. To open it to everyone change that one const to true.
+- Tool: #focalUi (44px touch box over the photo's bottom-right corner), #focalLbl, #focalNext ("Next unset ›" opens the next entry with a photo and no point), #focalCross. Review Mode + manageUnlocked() + portrait + photo at full size only (focalEligible(): article open, not peek/rising/morphing, flyT === 0). flyT is the shrink progress that updateFly() already computes. Focal mode on: body.focal-on stops the drift and a tap on the (invisible inline) photo calls focalTapEvent() instead of opening the full-screen view. Switch state is remembered (localStorage focal-mode). #focalUi/#focalNext added to the outside-click and gesture exclusion lists.
+- Landscape is not covered (different layout); setting a point there is not offered.
+
+## v600 — 2026-10-28
+
+**Ask:**
+- Roll the feast-day pill out to all visitors (it was Review Mode only in v597-v599).
+
+**Implementation:**
+- CSS only: deleted the `.ahFeast{display:none;}` gate and changed `.review-on .ahFeast{` to `.ahFeast{`. Nothing else changed: same pill (system sans, bold, 12px, mixed case, soft-3D gold), saints only, first date of the Feast day fact, hidden while the Review Mode find box is open (that rule stays; visitors never have a find box).
+
+## v599 — 2026-10-28
+
+**Ask:**
+- Feast-day pill: mixed case ("Aug 13") with natural letter spacing instead of capitals. Easily readable, not too much.
+
+**Implementation:**
+- CSS only: removed text-transform:uppercase, letter-spacing .08em -> 0, padding 3px 10px 2px -> 3px 9px 2px (the text is narrower without capitals). Font (system sans, bold, 12px) and the soft-3D gold finish are unchanged from v598. Still Review Mode only, still hidden while the find box is open.
+
+## v598 — 2026-10-28
+
+**Ask:**
+- Feast-day pill: smaller, in the iPhone system sans, bold (option 2 of the samples), with the soft-3D gold finish (option 5): gradient, top highlight, soft drop shadow. Still Review Mode only.
+
+**Implementation:**
+- CSS only, plus the pill text is now sent as "Aug 13" and the caps come from text-transform. Pill: 12px / 700 / letter-spacing .08em, font stack -apple-system, system-ui, Helvetica Neue, Arial; padding 3px 10px 2px + 1px #9E7A2C border; gradient #E9D083 > #D4AE57 > #B98F3A; shadow 0 1px 4px rgba(0,0,0,.35) + inset top highlight.
+- Unchanged from v597: Review Mode only (.review-on), hidden while the find box is open. To open it to everyone: delete `.ahFeast{display:none;}` and change `.review-on .ahFeast{` to `.ahFeast{`.
+
+## v597 — 2026-10-28
+
+**Ask:**
+- Saints: a gold-gradient pill with the feast day (e.g. AUG 13) beside the year in the article header. Review Mode only for now.
+- If the Review Mode find box (hold the year) needs the room, the pill steps aside.
+
+**Implementation:**
+- fillArticleBody: feastPillHtml(d) adds <span class="ahFeast"> right after the year, for saints (t 's') with a parseable "Feast day" fact; the first date listed is shown as MON D.
+- CSS: the pill is gold like the landscape Quick Facts band (.artLandBackHead gradient). It is hidden by default and shown only under body.review-on, so turning it on for everyone later is ONE edit: delete the line `.ahFeast{display:none;}` and change `.review-on .ahFeast{` to `.ahFeast{`.
+- `.ahYearRow:has(.artFind) .ahFeast{display:none}` hides it while the find box is open.
+
+## v596 — 2026-10-27
+
+**Ask:**
+- Stop a save from the phone from silently writing the phone's whole (older) copy of data.json over GitHub's, which put old audio links and old flags back.
+
+**Implementation:**
+- publishToGitHubAttempt: GitHub's default file read sends no body for files over 1 MB (data.json is about 2.2 MB), so the read-merge step threw, was caught, and the save went out as the phone's own copy. Now: the sha is read first, then the body is read with the raw media type (as fetchDataJsonFromGitHubAPI already does), then the merge runs.
+- Fail closed: if the body can't be read or has no entries list, the save is refused with "Publish failed: ... nothing was saved"; dirtyEntryIds / deletedEntryIds are kept so the next try still has them. Before, it fell through and published this session's copy as-is.
+- Order matters: sha first, body second. A commit landing between the two reads makes the PUT fail 409 and retry, so the merge is never built from a body older than the sha it overwrites.
+- Not changed (known gaps): a publish with nothing marked dirty still writes this session's entry list; the workLog.json reads (loadWorkLog / saveWorkLogAttempt) use the same content-field read and will break the same way once that file passes 1 MB.
+
+## v595 — 2026-10-23
+
+**Ask:**
+- Show the recorder's pronunciation decisions on a finished recording as an easy-to-read numbered list, so I don't have to dig in logs.
+- A button to browse every pronunciation rule, see how many there are, and tap one to delete it.
+
+**Implementation:**
+- New tkRenderPronDecisions(t) reads t.result.pronunciationDecisions (written by audio-generate.mjs 2026-10-23T14:30) and renders a "Pronunciation decisions" section: number, bold word, arrow, what was said, reason tag (red-tinted for dictionary rules). Shown in both the Audio Review and the already-published audio-generate views. CSS .tkPd*.
+- Manage → Import: "Browse all pronunciation rules" (#mPronBrowseBtn) opens #prbPanel: count by kind, search, filter chips (Words/Phrases/Pauses/Spoken titles/Check these), tap a rule for details and Delete (confirm). Reads/writes via lpUpdateRules (read = mutate returning false); delete matches exact text + pause/alias type. "Check these" flags one-letter rules and "the" saved as θʌ/θɛ.
+
+## v594 — 2026-10-21
+
+**Ask:**
+- In Two sounds, call an AI model to fill in the two sounds and their meanings.
+
+**Implementation:**
+- "Fill in with AI" button: one aiAsk() call (first key saved on the device: Claude, then OpenAI, then Gemini) with
+  AI_TWO_PROMPT (the app's respelling sounds and the long-i / bare-y traps) and the word's sentence; fills the two
+  sound and meaning boxes and the Will say lines. Nothing is saved until OK. aiAsk() takes an optional system prompt.
+
+## v593 — 2026-10-21
+
+**Ask:**
+- From the press-and-hold pronunciation picker, a link to add a word with two sounds (a heteronym) to the list,
+  then re-queue the articles with that word that are not marked Listened.
+
+**Implementation:**
+- "Two sounds" link in the picker: two sound boxes (typed like Type it, with a Will say line) and two "when it means"
+  boxes. OK writes pronunciation/heteronyms.json ({v, words: {word: {name: {say, ipa}}}}; names from the meanings'
+  first words, else sound1/sound2) via lpUpdateJsonFile, then pronQueueRerecords(word, {anyCase:true}) queues every
+  recorded, non-Listened article containing the word in any capitalization; the toast gives the count.
+- Needs heteronyms.mjs 2026-10-21, which reads that file alongside its built-in list.
+
+## v592 — 2026-10-19
+
+**Ask:**
+- Dial the gold line's finale back a bit, and have it happen while the name glows.
+
+**Implementation:**
+- finaleRuleGlow: 1.35x wide (was 1.6), 2x thick (was 2.6), softer glow; reaches full size at 10% (0.34s) instead
+  of 30%, holds to 40%, then eases back with the name's fade (ease-out), all within the same 3.4s.
+
+## v591 — 2026-10-19
+
+**Ask:**
+- In the end-of-article animation, the line below the saint's name should get thicker, grow wider to the right,
+  glow bright, then shrink back to its original size and shape.
+
+**Implementation:**
+- At "pray for us" (with the name's blue glow) .ahTaper gets .finaleRule: keyframes finaleRuleGlow over 3.4s,
+  scaled from its left end to 1.6x wide and 2.6x thick with a bright gold drop-shadow glow, held, then back to
+  normal. Removed after 3.6s and on finale reset.
+
+## v590 — 2026-10-19
+
+**Asks:**
+- Keep the screen from timing out while an article is being listened to (articles run about five minutes).
+- The white marker disappears after each sentence and reappears at the next. It should never disappear: stretch
+  down and slide into place; when it has to go up (a tap), slide up and rubber-band into place.
+
+**Implementation:**
+- Screen Wake Lock: syncScreenWake() holds navigator.wakeLock('screen') while the audio plays (play/playing/pause/
+  ended/emptied listeners on the audio element, visibilitychange to retake it, stopAudio to release). No-op where
+  unsupported.
+- updateActiveCue: in the gap between two cues the previous cue stays active (cueIndexForTime gave -1 there,
+  which hid the bar). Before the first cue it is still -1; 'ended' and stop still hide it.
+- updateAudioActiveBar: on a new sentence below, the bottom stretches first (200ms), then the top slides (260ms);
+  above, one 520ms move with an overshooting curve. Same-sentence updates (scroll) unchanged; the finale's own
+  frame-by-frame drive is left alone (barMoveBusy).
+
+## v589 — 2026-10-19
+
+**Ask:**
+- The selected (Next) match should be the same yellow, just a bit thicker with a brighter glow, not orange.
+
+**Implementation:**
+- .artFindBox.cur: 5px, #fff07a, four-layer yellow glow (up to 44px); the title's current-match highlight is
+  the same lighter yellow.
+
+## v588 — 2026-10-19
+
+**Ask:**
+- Instead of a box, a bright yellow underline under each found word that glows, like the white reading bar.
+
+**Implementation:**
+- .artFindBox is now a 3px glowing yellow bar at the bottom of the word's rect (orange, 4px, for the Next/current
+  match); the redrawn dark word from v585 is gone, so the story text shows as-is. The title keeps its yellow
+  ::highlight.
+
+## v587 — 2026-10-19
+
+**Ask:**
+- The Next button should change colour while pressed, in the site's colours.
+
+**Implementation:**
+- .artFindGo.pressing (added on pointerdown, removed on up/cancel/leave): gold background (--gold-bright),
+  dark navy text, short fade.
+
+## v586 — 2026-10-19
+
+**Ask:**
+- Make the arrow and Clear one button that says "Next": a press goes to the next match; holding it about a second clears.
+
+**Implementation:**
+- .artFindGo labelled "Next"; the Clear button is gone. pointerdown starts an 800ms timer that runs artFindClose()
+  while the finger is still down (so the clearing is visible), and the following click is then ignored; a shorter
+  press is a normal click (artFindNext).
+
+## v585 — 2026-10-19
+
+**Ask:**
+- On the iPhone the find boxes covered the word (solid orange/yellow, word invisible).
+
+**Implementation:**
+- iPhone Safari didn't blend #artFindLayer with the text under it. Blending removed: each box is solid yellow
+  (orange for the current one) and draws its word in dark letters with the story's own font, size, spacing and
+  capitals (copied from the word's element), so it reads the same everywhere.
+
+## v584 — 2026-10-19
+
+**Asks:**
+- Find highlighted the headings but not the matching words in the story (iPhone).
+- A tiny arrow button next to Clear: each press goes to the next highlighted word, round and round.
+
+**Implementation:**
+- Story matches are now yellow boxes in #artFindLayer (absolute, over the text, pointer-events:none,
+  mix-blend-mode:difference), placed from Range.getClientRects(); repainted on ResizeObserver. iPhone Safari
+  does not paint ::highlight on the Review-mode story (user-select:none), which is why only headings lit up.
+  The title still uses ::highlight. A finger passes through the boxes, so press-and-hold still opens the picker.
+- "›" button: artFindNext() cycles 1, 2, 3, then 1 again; scrolls the word to a third of the way down below the
+  sticky header and marks it orange; the count shows "2/3".
+
+## v583 — 2026-10-19
+
+**Ask:**
+- Review mode: press and hold the year for a small search box beside it. Highlight in yellow every place a word
+  with those letters appears (title or anywhere in the story), the WHOLE word, so it can then be held for
+  pronunciation fixing. A "Clear" button next to the box clears it.
+
+**Implementation:**
+- Hold the year 450ms and lift: box + Clear (+ a match count) open after the year, keyboard up. A short tap still
+  jumps to Article Status. Words matching (case-insensitive, 2+ letters) in .ahName and #artStoryText are lit with
+  CSS.highlights ('artFind', ::highlight yellow), which changes no DOM, so cue spans and press-and-hold keep working.
+  Re-run after applyCueMarkup. Clear removes highlights and box. Needs iOS 17.2+ (says so if unsupported).
+
+## v582 — 2026-10-19
+
+**Ask:**
+- Entries whose recording has the prayer but lost the flag should drop off the "Add closing prayer" list.
+
+**Implementation:**
+- When an article's timing shows a prayer (finaleInfo.prayerByTail) but the entry has no audioInvocation, the
+  app sets it and saves it (dirtyEntryIds + publishReviewAction, quietly), on the owner's phone only (Manage
+  unlocked and a GitHub token set). Opening the article is enough; it doesn't have to be played to the end.
+
+## v581 — 2026-10-19
+
+**Ask:**
+- Blessed Virgin Mary and others have the closing prayer in their recording but no glow and no reset at the end.
+
+**Implementation:**
+- Root cause: syncAudioStatusFromGitHub() copied only audio/audioTitleEnd/audioTiming after a recording, so the
+  phone kept the entry without audioInvocation; any later save from the phone (Listened, an edit) wrote that copy
+  back to GitHub and the flag was gone. It now also copies audioInvocation, audioPron and audioEngine.
+- The finale also runs when the recording itself shows a prayer: 2s or more of audio after the last sentence
+  (finaleInfo.prayerByTail), so entries that already lost the flag work without any data repair.
+- "Add closing prayer to recorded saints" now honours the Category picker (Saints only, so another category lists none).
+
+## v580 — 2026-10-16
+
+**Ask:**
+- In Review mode, show the timeline icon in white once an entry is marked Listened (the green button), for every type
+  (saints, councils, persecutions, Marian, Eucharistic, events), so the coloured icons are the ones still to check.
+
+**Implementation:**
+- render() adds class "listened" to an icon when entryShowsListened(d) (recording exists, Listened checked, not a
+  fallback recording: the same test the green button uses). CSS "body.review-on .ev.listened" makes the icon, its ring
+  and its glow white, overriding the type colour and the gold council glow; outside Review mode nothing changes.
+- Pressing Listened (or Record, which clears it) updates that one icon at once via paintListenedIcon(); no redraw.
+
+## v579 — 2026-10-15
+
+**Asks:**
+- Closing prayers for more than saints. Marian apparitions: "Our Lady of Fatima, pray for us." Councils: "Holy Spirit,
+  protector of the Church, guide us into all truth." Persecutions: "Holy martyrs of the Church, pray for us."
+  Eucharistic Miracles: "O Sacrament most holy, O Sacrament divine, all praise and all thanksgiving be every moment
+  thine." Events: none. Miraculous Medal and Beauraing & Banneux have their own wording.
+- Pressing Play with the marker off screen still crept slowly on the iPhone.
+
+**Implementation:**
+- otherPrayerOf(d) (with PRAYER_BY_TYPE / MARIAN_PRAYER_BY_NAME) mirrors invocationFor() in audio-generate.mjs; used by
+  finalePrayerText and the browser-voice path. New recordings carry the prayer and set audioInvocation, which is what
+  turns the blue-glow finale on; recordings made before this change get it only when re-recorded.
+- quickScrollTo no longer compares scrollTop to its last value to guess that the reader took over (iPhone momentum
+  and rounding tripped it, the audio then started at once and the slow follow-glide ran under it). Touch and wheel
+  already cancel through audioFollowToken. begin() now catches a refused play() so the Pause icon never sticks.
+- The "Add closing prayer to recorded saints" backfill is unchanged (saints only) until audio-invocation.mjs is seen.
+
+## v578 — 2026-10-15
+
+**Ask:**
+- When a new word is added to the pronunciation guide, automatically queue every article that has the word for
+  re-recording, and say how many were queued. Leave out any article already marked Listened.
+
+**Implementation:**
+- After the pronunciation picker saves a spelling (or a pause) to the rules file, pronQueueRerecords(phrase)
+  queues an audio-generate task, with the saved Voice & pacing settings, for each entry that reads the phrase
+  (entryReadsPhrase: same text and matching as the recorder: the saint's name, headings and bodies, case-sensitive,
+  whole words) AND already has a recording. Left out and counted separately: entries marked Listened
+  (entryIsListened), entries with a recording task already waiting, and entries held for rewording (a long
+  sentence). Entries with no recording yet are not queued; they will use the new sound when first recorded.
+  The toast reads, e.g. "Saved ✓ “Cyriacus” — 7 articles queued for re-recording (2 left out: Listened)". If the
+  queue cannot be saved (no GitHub token or voice chosen) the pronunciation is still saved and the toast says why.
+  Pronunciations added elsewhere (pronounce.html) do not queue anything.
+
+## v577 — 2026-10-14
+
+**Ask:**
+- Be able to select the items that are not marked as listened to, to re-record everything except what has
+  been marked Listened.
+
+**Implementation:**
+- Manage → Task Automation → Add Task → Record audio: when "Regenerate even entries that already have audio"
+  (or the recorded-before-the-fix list) is on, a new checkbox "Leave out entries marked Listened (N)" appears,
+  ON by default, N = how many entries in the chosen category it protects. entryIsListened(e) = has audio and
+  qc.pronChecked (the green Listened button). audioGeneratePool drops those entries, so the list, the count and
+  the queued task all leave them out. The choice is remembered with the other Add Task settings (tkBatchSkipListened).
+  Untick it to re-record everything, listened or not.
+
+## v576 — 2026-10-14
+
+**Ask:**
+- If the white marker is off screen when Play is pressed (e.g. it sits at the top and the reader scrolled to the
+  bottom), the audio started and the page crawled back to the marker, jittery, slowing and speeding with the
+  audio. Instead: quickly move to the marker's spot first, then start playing.
+
+**Implementation:**
+- startAudioPlayback finds the cursor's line (cursorCueIdx: the active cue, else the cue at the current time,
+  else the first line when before it) and the spot the Play-triggered follow would glide to (its section heading
+  at the top). If the page is more than 60px from that spot (or, for a cue with no heading, the cursor is off
+  screen), quickScrollTo glides there in 240-480ms (ease-out) and only then plays; the follow that Play triggers
+  next finds nothing left to move. The button shows "pause" at once; pressing it again during the glide cancels
+  the start; a drag or scroll by the reader skips the glide and starts. Measured in a real browser, cursor at the
+  top and the reader at the bottom: before, the page had crawled 110px in 3s while the audio ran; now it arrives in
+  0.35s, the audio starts at 0.4s, and nothing moves afterwards.
+
+## v575 — 2026-10-14
+
+**Ask:**
+- The blue glow and its background are too much: go back to the soft blue shadow, more subtle, a little
+  bigger as it fades out.
+- The rise at the end of a story goes too slow. Move the white marker to the top line the way it moves
+  elsewhere, then leave it lit there as the cursor. Remember that spot so pressing Play starts from the
+  very beginning.
+
+**Implementation:**
+- finaleRise now uses animateFollowScroll's own timing (700-1800ms by distance) and its morphEase curve instead
+  of the slower constant-speed-then-slow-down curve (about 4-5s on a long story). The old finaleRiseEase and
+  its speed constants are gone.
+- Blue glow: v574's solid halo behind the name is gone. The glow is the soft four-layer text-shadow again, and
+  finaleBlueGlow now grows a little (outer layer 84px to 128px) while it fades over 3.4s.
+- On arrival the marker no longer fades out. The playback position is set to 0, the very beginning (the recording
+  opens with the saint's name; an earlier draft of this entry started at the first line), setActiveCue(0) keeps the
+  marker and line lit, and saveCurrentCardPosition() stores it (a position of 0 saves nothing, so reopening also
+  starts from the top). finaleParkedAtTop makes setActiveCue ignore "no sentence" updates until playback reaches the
+  first line, so the marker stays lit while the name is spoken. The finale's own state resets as usual.
+
+## v574 — 2026-10-14
+
+**Ask:**
+- The end of a story fades out, jumps to the top and fades back in; the flash is not wanted. Just
+  reset it: the prayer and the saint's name glow as they do now, 1.5 seconds pass, then the white
+  marker line on the left moves at medium speed up to the top of the article and slows gradually
+  to a gentle stop at the first section header.
+
+**Implementation:**
+- finaleTick step 1 no longer fades #artBody, jumps scrollTop to 0 or clears the marker (the
+  setActiveCue(-1) call is gone). The sentence's own highlight is cleared but #audioActiveBar stays
+  on the last sentence while the name glows and the prayer is spoken. finale.hold makes setActiveCue
+  ignore cue changes in that time (the audio 'ended' event also calls setActiveCue(-1)). Found by a real-browser
+  test: the marker was already hidden the instant the last sentence ended, before the finale started, so
+  finaleOwnsEnd() also keeps it lit from the end of the last sentence on.
+- New finaleRise(), started FINALE_RISE_DELAY (1.5s) after the prayer ends: one animation drives the
+  scroll position and the marker's top and height together, from the last sentence to the first
+  section heading (the same resting spot followAudioSection uses). Medium constant speed (about
+  1100 px/s) for the first 45% of the way, then a smooth slow-down to a stop (finaleRiseEase). A
+  manual drag or scroll, scrubbing back, a swipe or closing the article cancels it. After landing
+  the marker rests briefly and fades out gently.
+- Rising marker and scroll share one progress value, so the marker never goes under the sticky
+  header. The marker's own top/height CSS transition is switched off while it is driven.
+
+## v573 — 2026-10-14
+
+**Ask:**
+- At the end of a story, drop the words "pray for us" (they distract). Instead, when it says "pray
+  for us", the whole saint's name glows bright blue all at once, big, then slowly fades out.
+
+**Implementation:**
+- finaleTick step 3: the one-by-one "pray for us" words, their placement (beside the year, after
+  the name, below the header) and their fade-out are gone. At the moment "pray for us" is spoken
+  the name element gets the class finaleBlue: a four-layer blue text-shadow (up to 84px) that
+  starts at full strength and eases to nothing over 3.4s (keyframes finaleBlueGlow). The name's
+  own colour is not touched, so it simply returns to its usual white. The word-by-word gold glow
+  as the name is spoken is unchanged. finaleReset (scrub back, swipe, close) removes the class.
+- A custom [prayer] without "pray for us" behaves as before (no blue glow). The old .finalePray
+  CSS rules are left in place, unused.
+
+## v572 — 2026-10-11
+
+**Ask:**
+- After pressing Play, the move from the picture down to the first sentence is far too fast;
+  make it smooth like the rest of the site.
+
+**Implementation:**
+- animateFollowScroll used a decelerating curve (full speed at the start) over 1.1s: on the long
+  first move (~1000px) it covered about a third in the first 150ms, so the picture snapped into
+  the corner. It now uses the site's ease-in-out curve (morphEase — gentle start, glide, soft
+  landing), and the time grows with the distance: 650ms + 0.9ms per pixel, between 0.7s and 1.8s.
+  Short line-to-line hops stay brisk; the long first move takes about 1.6–1.8s.
+
+## v571 — 2026-10-10
+
+**Ask:**
+- Portrait: "pray for us" a bit larger, and to the right of the year when there's room.
+
+**Implementation:**
+- Portrait finale: "pray for us" goes on the year's line, right of the year, at 27px (was 22),
+  sitting on the year's baseline, no leading comma. Room is measured to the corner picture (or the
+  X); if it doesn't fit (a "Miracle" label, a long year), the v569 placements apply: after the
+  name, else below the header. Landscape unchanged.
+
+## v570 — 2026-10-10
+
+**Ask:**
+- Landscape: the close X is hard to hit. Make its target bigger than the X, and line the top of the
+  X up with the top of the picture; a tap in the padding around it should close the article too.
+
+**Implementation:**
+- Landscape X: top -8px → -7.5px, so its lines start exactly level with the picture's top edge.
+- Larger tap target: an invisible ::before on the button extends it 26px left and 22px down (about
+  86 × 82 instead of 60 × 60). Not to the right — that's the picture, which must still flip.
+  A tap anywhere in it is a tap on the button, so it closes the article.
+
+## v569 — 2026-10-10
+
+**Ask (also):**
+- Play button a little bigger, and higher — it's close to the bottom gesture area.
+
+**Implementation (play button):**
+- 48 → 54px (icon 26 → 29px); bottom offset max(18px, safe area + 10px) → max(30px, safe area +
+  26px): about 60px above the bottom edge on an iPhone, clear of the home bar. The space under the
+  article grows 110 → 130px so the last lines still clear it.
+
+**Ask:**
+- When a saint's narration reaches the end, don't scroll up fast: fade out, reset to the start,
+  fade back in — before the closing prayer's name is spoken. Then glow across the name word by
+  word (Saint, then Andrew), and make "pray for us" appear and fade away.
+
+**Implementation:**
+- Finale (Saints with the closing prayer, while playing): when the last sentence ends, the article
+  body fades out (.3s), jumps to the top, fades in (.35s) — inside the 1.2s pause before the
+  prayer; follow-scroll is held off and the sentence highlight cleared.
+- As the name is spoken, a soft gold glow passes over it one word at a time (each word brightens
+  and settles back), then the header is restored exactly.
+- As "pray for us" is spoken, the words fade in one by one in gold italics — on the name's own
+  line after it (", pray for us") when there's room, otherwise underneath, clear of the header's
+  gold rule — hold, then drift up and fade away. Positioned over the header, so nothing moves.
+- Timing: the timing file's "prayer" {start, end, text} when present (recorder 2026-10-10 writes
+  it); otherwise estimated — start = last sentence's end + 1.2s, end = recording end, and where
+  "pray for us" begins from the share of characters. Scrubbing back into the story resets it; a
+  swipe or close cancels it. A custom [prayer] without "pray for us" gets the fade and the glow.
+- "pray for us" completes the name's line when it fits ("St. Joseph, pray for us"); otherwise it
+  sits just below the header on a soft navy panel, lined up with the name, clear of the gold rule.
+
+## v568 — 2026-10-10   (built on v566; v567 was skipped)
+
+**Ask:**
+- After listening to an article, the Listened button is dead; close and reopen the article and it
+  works. Consistent.
+
+**Implementation:**
+- Reproduced: it happens after SWIPING to the article. During the slide the outgoing article's copy
+  is still on the page with the same element ids, and the Review tools were wired with
+  document.getElementById — so Listened (and Proof, Audio, Image, Flag, Fix, Approve/Delete) got
+  their tap handlers on the copy, which is then removed. Same cause as v528/v537.
+- The wiring block, listenedPaint() and rtRefreshStates() now use liveArtEl() (looks in the live
+  #artBody first), so the live buttons and status lines are the ones wired and updated.
+- Press feedback on the Review buttons: darker gold and a slight shrink while the finger is down
+  (.rtDown), and a haptic tick on each tap — navigator.vibrate where supported (Android); on iPhone
+  Safari (iOS 18+), by toggling a hidden <input type="checkbox" switch>, which plays the system
+  haptic (no web vibration API there). Older iPhones simply get no tick.
+
+## v566 — 2026-10-10
+
+**Ask:**
+- v565 was running but the timing-gap fix wasn't: two chats had each built v562–v564 from v561.
+  Bring this chat's three changes onto the running v565 without losing anything from it.
+
+**Implementation:**
+- Built on v565 (other chat: v562 Paste-JSON pronunciation + ledger task, v563 X spacing, v564
+  date on the Listened button, v565 image-path fix — all kept). Added this chat's:
+  - Share row: icon bottom on the text baseline; the section headings' rule under "Share this
+    article" (the "Report an issue" divider is dropped after it); "Miracle" in the year's gold.
+  - Press-and-hold works on section headings too (no "Link to an entry" there).
+  - Timing gaps: timings that don't match their sentence exactly are filled from the text between
+    matched neighbours — paired by ≥ 75% shared words, then by position. Sync line shows
+    "N/N sentences linked (x by word match, y by position)".
+
+## v565 — 2026-10-10
+
+**Ask:**
+- In the select-images workflow I pick a final image but it never shows in the card: the saved
+  path is Images/Saints/st-thomas-the-apostle-72.jpg and it overlaps the Images folder in Media
+  Base Paths.
+
+**Implementation:**
+- `resolveAsset()` (the one place every image and audio URL is joined from the base + the saved
+  path) now drops a leading folder from the saved path when the base already ends in that same
+  folder (base ".../Images" + "Images/Saints/x.jpg" -> ".../Images/Saints/x.jpg"; case-insensitive,
+  and only when the path has more after it), and collapses stray double slashes after the host
+  (the saved base was "https://catholictimeline.org//Images"). Older entries that store a bare
+  name ("Peter.jpg", "Saints/st-peter-claver-1654.jpg") resolve exactly as before, and the two
+  "Images/..." entries that were doubled now load too. Saving the base paths also collapses
+  accidental double slashes. No data was changed.
+
+## v564 — 2026-10-06
+
+**Ask:**
+- The "Checked ✓ Oct 5" line under the green Listened button was too much and wrapped onto two
+  lines. Put just the date on the green button itself.
+
+**Implementation:**
+- `listenedInner(on, when)` now adds a small `.rtWhen` date line under "Listened" inside the button;
+  `listenedPaint()` and the initial render both pass the date; the line under the button is left
+  empty (kept so the row's height doesn't change). `.rtListened.on` stacks its content in a column.
+
+## v563 — 2026-10-06
+
+**Ask:**
+- With a picture docked in the article's corner, the close X was too close to the picture and
+  often missed when tapped. Move it over some and down just a tad.
+
+**Implementation:**
+- FLY_ARTX_SHIFTED 104 → 114: the X's lines now end about 22px from the picture's left edge (v553 was
+  30px, v554 was 12px — this is roughly halfway). FLY_ARTX_RISE 12 → 6: it sits about 18px below the
+  sheet's top edge (v553 was 24px, v554 12px) — also halfway. Both constants only apply while the
+  picture is docked; undocked/landscape positions are untouched. The tap box (60x60) is unchanged;
+  the top-right share button rides along with the X as before.
+
+## v562 — 2026-10-06
+
+**Ask:**
+- Send pronunciation fixes through the same Paste JSON box as everything else; it should see
+  which table and which entries to change.
+- Queue "Build source ledger" from Add Task, like the other per-entry services.
+
+**Implementation:**
+- Paste JSON now detects a top-level "pronunciation" array (like "patches"/"carloLinks").
+  Ops: add / update / delete on a rule's exact string_to_replace, and "title" — which takes an
+  entry id and the full announcement and writes the rule SpokenTitle:<id> (id must exist; add
+  "delete": true to remove one). Defaults match the in-app editor: alias rule, case-sensitive,
+  whole words; phrases go to the top, single words to the end; pause rules checked the same way
+  the recorder checks them; single-character keys and the SpokenTitle: prefix on add/update are
+  refused. Everything in one paste is one read-change-write of the rules file on GitHub (one
+  commit, retried if the file changed). Each op gets its own result line. Needs the GitHub
+  token; entries in the same paste stay staged as before, but the pronunciation commit is
+  immediate (same as the in-app editor).
+- lpUpdateRules(): a mutate function may return false to mean "nothing changed, don't write".
+  Existing callers return nothing, so they behave as before.
+- New service in Add Task: "Build source ledger" (ledger-build, scripts/services/ledger-build.mjs).
+  One task per entry like the other batch services; payload {force} only — it does NOT write
+  qc.ledger into data.json (writeQc stays off), so "already built" is read from finished
+  ledger-build tasks, and the service itself skips an unchanged article cheaply.
+  The checkbox is "Rebuild ledgers already built".
 CHANGELOG:END
 -->
 <!DOCTYPE html>
@@ -2609,11 +3187,27 @@ CHANGELOG:END
     position:fixed; inset:0; z-index:10000; background:#000; overflow:hidden;
     display:block; opacity:0; visibility:hidden; pointer-events:none;
     transition:opacity 1.5s ease, visibility 0s linear 1.5s;
-    cursor:zoom-out; touch-action:manipulation;
+    cursor:zoom-out; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;   /* v608: none, so a drag pans instead of the browser taking it */
   }
   .photoView.open{opacity:1; visibility:visible; pointer-events:auto; transition:opacity 1.5s ease, visibility 0s;}
+  /* v608: the viewer is panning - hold the Ken Burns zoom still; side arrows show which ways there is more to see */
+  .photoView.pv-paused img{animation-play-state:paused !important;}
+  .pvHint{position:absolute; width:46px; height:46px; margin:-23px 0 0 -23px; border-radius:50%; background:rgba(0,0,0,.42);
+    border:1px solid rgba(255,255,255,.35); opacity:0; transition:opacity .35s ease; pointer-events:none; display:flex; align-items:center; justify-content:center;}
+  .pvHint::before{content:''; width:11px; height:11px; border-left:3px solid rgba(255,255,255,.92); border-bottom:3px solid rgba(255,255,255,.92);}
+  .pvHint[data-d=left]{left:14px; top:50%; margin:-23px 0 0 0;}
+  .pvHint[data-d=right]{right:14px; top:50%; margin:-23px 0 0 0;}
+  .pvHint[data-d=up]{left:50%; top:70px; margin:0 0 0 -23px;}
+  .pvHint[data-d=down]{left:50%; bottom:110px; margin:0 0 0 -23px;}
+  .pvHint[data-d=left]::before{transform:rotate(45deg); margin-left:4px;}
+  .pvHint[data-d=right]::before{transform:rotate(-135deg); margin-right:4px;}
+  .pvHint[data-d=up]::before{transform:rotate(135deg); margin-top:4px;}
+  .pvHint[data-d=down]::before{transform:rotate(-45deg); margin-bottom:4px;}
+  .photoView.pv-hints .pvHint.on{opacity:1;}
+  .pvHint.held{background:rgba(212,174,87,.55);}
   .photoView img{
-    width:100%; height:100%; display:block; object-fit:cover; object-position:var(--fpx,50%) var(--fpy,38%);
+    width:100%; height:100%; display:block; object-fit:cover; object-position:var(--pvx,var(--fpx,50%)) var(--pvy,var(--fpy,38%));   /* v608: --pvx/--pvy = where the viewer has panned to */
+    -webkit-user-drag:none;
     transform-origin:var(--fpx,50%) var(--fpy,38%);
   }
   /* v454 Ken Burns — very slow, with a 4s stop after EVERY zoom, in or out. Three rounds per
@@ -4288,7 +4882,7 @@ CHANGELOG:END
 <div class="flyPortrait" id="flyPortrait" aria-hidden="true"><img id="flyPortraitImg" src="" alt=""></div>
 <div id="peekFade" aria-hidden="true"></div>
 
-<div class="photoView" id="photoView" aria-hidden="true"><img id="photoViewImg" src="" alt=""></div>
+<div class="photoView" id="photoView" aria-hidden="true"><img id="photoViewImg" src="" alt=""><span class="pvHint" data-d="left"></span><span class="pvHint" data-d="right"></span><span class="pvHint" data-d="up"></span><span class="pvHint" data-d="down"></span></div>
 <div class="imgLightbox" id="imgLightbox">
   <img id="imgLightboxImg" src="" alt="">
 </div>
@@ -5372,7 +5966,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v607';
+const APP_VERSION = 'v608';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -17419,10 +18013,12 @@ function openPhotoView(src, alt){
   photoViewImg.src = src;
   photoViewImg.alt = alt || '';
   focalApplyView();   // v601: crop and zoom follow the photo's focal point (fallback: the old 50% 38%)
+  pvReset();          // v608: panning starts at that same point
   photoView.classList.add('open');
   photoView.setAttribute('aria-hidden', 'false');
 }
 function closePhotoView(){
+  pvStop();
   photoView.classList.remove('open');
   photoView.setAttribute('aria-hidden', 'true');
   // Keep the picture until the 1.5s fade-out finishes, then release it.
@@ -17553,7 +18149,125 @@ document.getElementById('flyPortrait').addEventListener('click', (e) => {
   e.preventDefault(); e.stopPropagation();
   openPhotoView(img.src, img.alt);
 });
-photoView.addEventListener('click', (e) => { e.stopPropagation(); closePhotoView(); });
+photoView.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if(pvSuppressClick) return;   // v608: this touch was a drag or a hold, not a tap - letting go must not close the view
+  closePhotoView();
+});
+
+// ================= v608 PHOTO PAN =================
+// The full-screen view is object-fit:cover, so a phone screen hides most of a picture's WIDTH (about 42% of a 4:5 photo)
+// and nothing top to bottom. The viewer can look at the rest two ways:
+//   * drag a finger (or mouse) anywhere - the picture follows 1:1 and stops where it is let go;
+//   * hold the left/right side of the screen (top/bottom for a picture taller than the screen) - it glides that way,
+//     easing up to PV_SPEED px/s, until the finger lifts or the picture's edge is reached.
+// A quick tap still closes the view. Only object-position moves (--pvx/--pvy); the Ken Burns anchor is untouched, and
+// the zoom is held still while the viewer is panning.
+const PV_HOLD_MS = 220, PV_SLOP = 10, PV_EDGE = 0.28, PV_EDGE_Y = 0.20, PV_SPEED = 170, PV_RAMP_MS = 350;
+let pvX = 50, pvY = 38, pvDown = null, pvHoldTimer = 0, pvRaf = 0, pvDir = { x: 0, y: 0 }, pvHoldStart = 0, pvLastT = 0;
+let pvSuppressClick = false, pvSuppressTimer = 0, pvResumeTimer = 0, pvHintTimer = 0;
+const pvHints = {}; photoView.querySelectorAll('.pvHint').forEach(h => { pvHints[h.dataset.d] = h; });
+function pvClamp(v){ return Math.max(0, Math.min(100, v)); }
+// How many screen pixels of the picture lie off-screen, each way (cover scale of the natural size into the screen box).
+function pvOverflow(){
+  const nw = photoViewImg.naturalWidth, nh = photoViewImg.naturalHeight;
+  if(!nw || !nh) return { x: 0, y: 0 };
+  const bw = photoView.clientWidth, bh = photoView.clientHeight, sc = Math.max(bw / nw, bh / nh);
+  return { x: Math.max(0, nw * sc - bw), y: Math.max(0, nh * sc - bh) };
+}
+function pvApply(){
+  photoViewImg.style.setProperty('--pvx', pvX.toFixed(2) + '%');
+  photoViewImg.style.setProperty('--pvy', pvY.toFixed(2) + '%');
+}
+function pvReset(){
+  pvStop();
+  const fx = parseFloat(photoViewImg.style.getPropertyValue('--fpx')), fy = parseFloat(photoViewImg.style.getPropertyValue('--fpy'));
+  pvX = isFinite(fx) ? fx : 50; pvY = isFinite(fy) ? fy : 38;
+  photoViewImg.style.removeProperty('--pvx'); photoViewImg.style.removeProperty('--pvy');
+  photoView.classList.remove('pv-paused');
+  pvShowHints();
+}
+function pvPanBy(dxPx, dyPx){
+  const ov = pvOverflow();
+  if(ov.x > 1) pvX = pvClamp(pvX + dxPx / ov.x * 100);
+  if(ov.y > 1) pvY = pvClamp(pvY + dyPx / ov.y * 100);
+  pvApply(); pvUpdateHints();
+}
+function pvUpdateHints(heldDir){
+  const ov = pvOverflow();
+  const can = { left: ov.x > 8 && pvX > 0.5, right: ov.x > 8 && pvX < 99.5, up: ov.y > 8 && pvY > 0.5, down: ov.y > 8 && pvY < 99.5 };
+  Object.keys(pvHints).forEach(d => { pvHints[d].classList.toggle('on', !!can[d]); pvHints[d].classList.toggle('held', heldDir === d && !!can[d]); });
+}
+function pvShowHints(){
+  clearTimeout(pvHintTimer);
+  photoView.classList.add('pv-hints');
+  pvUpdateHints();
+  pvHintTimer = setTimeout(() => photoView.classList.remove('pv-hints'), 4000);
+}
+photoViewImg.addEventListener('load', () => { if(photoView.classList.contains('open')) pvShowHints(); });
+function pvPause(){ clearTimeout(pvResumeTimer); photoView.classList.add('pv-paused'); }
+function pvResumeLater(){ clearTimeout(pvResumeTimer); pvResumeTimer = setTimeout(() => photoView.classList.remove('pv-paused'), 4000); }
+function pvStopLoop(){ cancelAnimationFrame(pvRaf); pvRaf = 0; pvDir = { x: 0, y: 0 }; }
+function pvStop(){
+  clearTimeout(pvHoldTimer); pvStopLoop(); pvDown = null; clearTimeout(pvResumeTimer);
+  pvUpdateHints();
+}
+function pvLoop(t){
+  if(!pvDown || !pvDown.holding){ pvRaf = 0; return; }
+  const dt = Math.min(0.05, (t - pvLastT) / 1000); pvLastT = t;
+  const k = Math.min(1, (t - pvHoldStart) / PV_RAMP_MS), ease = k * k * (3 - 2 * k);
+  const v = PV_SPEED * ease;
+  pvPanBy(pvDir.x * v * dt, pvDir.y * v * dt);
+  pvRaf = requestAnimationFrame(pvLoop);
+}
+function pvZoneAt(x, y){
+  const w = photoView.clientWidth, h = photoView.clientHeight, ov = pvOverflow();
+  if(ov.x > 8){ if(x < w * PV_EDGE) return { x: -1, y: 0, d: 'left' }; if(x > w * (1 - PV_EDGE)) return { x: 1, y: 0, d: 'right' }; }
+  if(ov.y > 8){ if(y < h * PV_EDGE_Y) return { x: 0, y: -1, d: 'up' }; if(y > h * (1 - PV_EDGE_Y)) return { x: 0, y: 1, d: 'down' }; }
+  return null;
+}
+photoView.addEventListener('pointerdown', (e) => {
+  if(e.pointerType === 'mouse' && e.button !== 0) return;
+  if(!photoView.classList.contains('open')) return;
+  pvDown = { id: e.pointerId, sx: e.clientX, sy: e.clientY, lx: e.clientX, ly: e.clientY, dragging: false, holding: false, zone: pvZoneAt(e.clientX, e.clientY) };
+  try{ photoView.setPointerCapture(e.pointerId); }catch(err){}
+  pvShowHints();
+  const me = pvDown;
+  clearTimeout(pvHoldTimer);
+  if(me.zone){
+    pvHoldTimer = setTimeout(() => {
+      if(pvDown !== me || me.dragging) return;
+      me.holding = true; pvDir = { x: me.zone.x, y: me.zone.y };
+      pvPause(); pvUpdateHints(me.zone.d);
+      pvHoldStart = pvLastT = performance.now();
+      pvRaf = requestAnimationFrame(pvLoop);
+    }, PV_HOLD_MS);
+  }
+});
+photoView.addEventListener('pointermove', (e) => {
+  if(!pvDown || e.pointerId !== pvDown.id || pvDown.holding) return;
+  const dx = e.clientX - pvDown.lx, dy = e.clientY - pvDown.ly;
+  pvDown.lx = e.clientX; pvDown.ly = e.clientY;
+  if(!pvDown.dragging){
+    if(Math.hypot(e.clientX - pvDown.sx, e.clientY - pvDown.sy) < PV_SLOP) return;
+    pvDown.dragging = true; clearTimeout(pvHoldTimer); pvPause();
+    return;   // the first slop-sized movement only claims the gesture; the picture follows from the next move on
+  }
+  pvPanBy(-dx, -dy);   // the picture moves with the finger: dragging right shows more of the picture's left
+});
+function pvEnd(e){
+  if(!pvDown || (e && e.pointerId !== pvDown.id)) return;
+  const acted = pvDown.dragging || pvDown.holding;
+  clearTimeout(pvHoldTimer); pvStopLoop(); pvDown = null;
+  if(acted){
+    pvSuppressClick = true; clearTimeout(pvSuppressTimer);
+    pvSuppressTimer = setTimeout(() => { pvSuppressClick = false; }, 450);   // iOS can still fire a click after a still hold
+    pvResumeLater(); pvUpdateHints();
+  }
+}
+photoView.addEventListener('pointerup', pvEnd);
+photoView.addEventListener('pointercancel', pvEnd);
+photoView.addEventListener('lostpointercapture', pvEnd);
 
 // ================= v601 FOCAL POINTS =================
 // A manually set point (x, y as % across / down the photo) per picture, so the Ken Burns zoom follows the
