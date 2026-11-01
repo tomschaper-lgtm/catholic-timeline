@@ -19,6 +19,18 @@ the time.
 
 ---
 
+## v608 — 2026-10-31
+
+**Ask:**
+- In the full-screen photo, let the viewer look at the parts of the picture the screen crops off: touch and drag it, or hold a side of the screen so it glides that way smoothly, and let go to stop
+
+**Implementation:**
+- The full-screen view is object-fit:cover, so on a phone it hides about 31-69% of a picture's width (42% for a 4:5 photo) and nothing top to bottom. Left/right is therefore the main use; up/down only exists for a picture taller than the screen.
+- Hold the left or right edge zone (outer 28% of the width; top/bottom 20% for tall pictures) for 0.22s and the picture glides toward that side, easing up to about 170 px/s, until the finger lifts or the picture's edge is reached. Dragging a finger (or mouse) anywhere moves it 1:1 and stops when released. Both only move object-position through new --pvx/--pvy variables; the Ken Burns zoom anchor (--fpx/--fpy) is untouched.
+- A quick tap still closes the view exactly as before (a drag or hold sets a short click-suppress flag so letting go never closes it). The Ken Burns zoom pauses while the viewer is panning and resumes 4s after the last touch.
+- Faint arrows at the sides (only for directions that exist, only while there is more to see) fade in on open and on touch and fade out after 4s.
+- .photoView is now touch-action:none (was manipulation) so the browser does not claim the drag; pointer events handle mouse and touch the same way. Reset on every open/close, so the next picture starts at its own focal point.
+
 ## v607 — 2026-10-30
 
 **Ask:**
