@@ -1,6 +1,6 @@
 <!--
-VERSION: 609
-DATE: 2026-10-31T14:20:00-05:00
+VERSION: 610
+DATE: 2026-10-31T16:05:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,16 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v610 — 2026-10-31
+
+**Ask:**
+- After the auto zoom-out the picture did not go back to the focal point, so the Ken Burns drift ran around some other point. Make the zoom-out slower
+
+**Implementation:**
+- v609 eased the zoom out around whatever was on screen and left the picture panned wherever the viewer had dragged it. The Ken Burns anchor (--fpx/--fpy) is a point in the screen-sized frame, which is right only while the frame sits at the picture's own focal framing, so after a pan the drift zoomed around the wrong spot (nothing was lost; the framing had moved away from it).
+- Now, 3s after the last finger lifts, the picture eases all the way home - zoom back to 1x AND the view back to the focal framing (pvHome(), the same crop it opened with) - and only when it arrives does Ken Burns restart, so the drift always begins on the focal point. A pan-only change eases home too. If the viewer is already home, Ken Burns restarts at 3s as before.
+- The ease-back is 2.0s (was 0.6s), a smoothstep curve; the zoom is interpolated in log-scale and the view centre in a straight line, so it reads as one smooth pull-back. PV_EASE_MS is the one number to tune. A touch during the ease cancels it and keeps Ken Burns held.
+
 ## v609 — 2026-10-31
 
 **Ask:**
@@ -5966,7 +5976,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v609';
+const APP_VERSION = 'v610';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -18163,9 +18173,9 @@ photoView.addEventListener('click', (e) => {
 // Drawn in two parts so nothing fights the Ken Burns animation (which stays on the image itself):
 //   * sideways/vertical slide of the screen-sized frame  -> object-position (--pvx/--pvy)
 //   * the zoom, and the slide inside the frame           -> a transform on the wrapper #photoViewStage
-// Any touch holds Ken Burns still; PV_IDLE_MS after the last finger lifts it restarts (a zoomed-in picture eases back out
-// to full size at the same moment, so the slow zoom never runs on top of a zoomed-in view). A quick tap still closes.
-const PV_MAX = 5, PV_SLOP = 8, PV_IDLE_MS = 3000, PV_EASE_MS = 600;
+// Any touch holds Ken Burns still; PV_IDLE_MS after the last finger lifts the picture eases back to its focal framing and
+// Ken Burns restarts there. A quick tap still closes.
+const PV_MAX = 5, PV_SLOP = 8, PV_IDLE_MS = 3000, PV_EASE_MS = 2000;
 const pvStage = document.getElementById('photoViewStage');
 let pvS = 1, pvUx = 0, pvUy = 0;
 const pvPtrs = new Map();
@@ -18193,13 +18203,15 @@ function pvRender(){
   photoViewImg.style.setProperty('--pvy', (oy > 0.5 ? fy / oy * 100 : 50).toFixed(3) + '%');
   pvStage.style.transform = 'translate(' + (-wx * s).toFixed(2) + 'px,' + (-wy * s).toFixed(2) + 'px) scale(' + s.toFixed(4) + ')';
 }
-// Start at 1x, on the picture's own focal point (the old crop).
+// The picture's own focal framing: the crop it opens with, and where Ken Burns' zoom anchor (--fpx/--fpy) is valid.
+function pvHome(g){
+  const fx = parseFloat(photoViewImg.style.getPropertyValue('--fpx')), fy = parseFloat(photoViewImg.style.getPropertyValue('--fpy'));
+  return { ux: (isFinite(fx) ? fx : 50) / 100 * Math.max(0, g.Rw - g.W), uy: (isFinite(fy) ? fy : 38) / 100 * Math.max(0, g.Rh - g.H) };
+}
 function pvInitView(){
   const g = pvGeo(); if(!g) return;
-  const fx = parseFloat(photoViewImg.style.getPropertyValue('--fpx')), fy = parseFloat(photoViewImg.style.getPropertyValue('--fpy'));
-  pvS = 1;
-  pvUx = (isFinite(fx) ? fx : 50) / 100 * Math.max(0, g.Rw - g.W);
-  pvUy = (isFinite(fy) ? fy : 38) / 100 * Math.max(0, g.Rh - g.H);
+  const h = pvHome(g);
+  pvS = 1; pvUx = h.ux; pvUy = h.uy;
   pvRender();
 }
 photoViewImg.addEventListener('load', () => { if(photoView.classList.contains('open')) pvInitView(); });
@@ -18216,18 +18228,27 @@ function pvStop(){
   pvPtrs.clear(); pvBase0 = null; pvMoved = false;
 }
 function pvPause(){ clearTimeout(pvIdleTimer); photoView.classList.add('pv-paused'); }
-// 3s after the last finger lifts: Ken Burns restarts, and a zoomed-in picture eases back out around what is on screen.
+// 3s after the last finger lifts: the picture eases all the way home (zoom back to 1x AND the view back to its focal
+// framing), and only when it arrives does Ken Burns restart - so the drift always begins on the focal point. Already home:
+// Ken Burns restarts at once.
 function pvIdleDone(){
-  photoView.classList.remove('pv-paused');
-  const g0 = pvGeo(); if(!g0 || pvS <= 1.01) return;
-  const s0 = pvS, cx = pvUx + g0.W / (2 * s0), cy = pvUy + g0.H / (2 * s0), t0 = performance.now();
+  const resume = () => photoView.classList.remove('pv-paused');
+  const g0 = pvGeo(); if(!g0){ resume(); return; }
+  const home = pvHome(g0);
+  if(Math.abs(pvS - 1) < 0.01 && Math.abs(pvUx - home.ux) < 1.5 && Math.abs(pvUy - home.uy) < 1.5){ resume(); return; }
+  const s0 = pvS, c0x = pvUx + g0.W / (2 * s0), c0y = pvUy + g0.H / (2 * s0);   // centre of what is on screen now
+  const c1x = home.ux + g0.W / 2, c1y = home.uy + g0.H / 2;                      // centre of the focal framing
+  const t0 = performance.now();
   const step = (t) => {
-    const g = pvGeo(); if(!g){ pvEaseRaf = 0; return; }
+    const g = pvGeo(); if(!g){ pvEaseRaf = 0; resume(); return; }
     const k = Math.min(1, (t - t0) / PV_EASE_MS), e = k * k * (3 - 2 * k);
-    pvS = s0 + (1 - s0) * e;
+    pvS = s0 * Math.pow(1 / s0, e);                                               // zoom evenly (log scale)
+    const cx = c0x + (c1x - c0x) * e, cy = c0y + (c1y - c0y) * e;
     pvUx = cx - g.W / (2 * pvS); pvUy = cy - g.H / (2 * pvS);
+    if(k >= 1){ const h = pvHome(g); pvS = 1; pvUx = h.ux; pvUy = h.uy; }
     pvRender();
-    pvEaseRaf = k < 1 ? requestAnimationFrame(step) : 0;
+    if(k < 1) pvEaseRaf = requestAnimationFrame(step);
+    else{ pvEaseRaf = 0; resume(); }
   };
   pvEaseRaf = requestAnimationFrame(step);
 }
