@@ -1,6 +1,6 @@
 <!--
-VERSION: 611
-DATE: 2026-10-31T18:30:00-05:00
+VERSION: 612
+DATE: 2026-11-01T09:15:00-06:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,16 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v612 — 2026-11-01
+
+**Ask:**
+- The return from the viewer's zoom to the Ken Burns drift was too fast. Slow it to the drift's own speed so nobody can tell the difference
+
+**Implementation:**
+- The drift (kenBurnsPhoto) pushes in from 1x to 1.5x over 18s (13.64% of 132s), with a sine ease-in-out, then rests before its next phase. The return now moves at that pace: 18s per 1.5x of zoom (ln(zoom) / ln(1.5) x 18s, measured on a log scale so it looks even), and for the sideways move back to the focal framing about 6 px/s, whichever of the two takes longer, kept between 3s and 30s. The curve is the drift's own cubic-bezier(.37,0,.63,1) (easeInOutSine). It comes to rest on the focal framing exactly like one of the drift's own phases, and the drift's push-in then starts from rest, so there is no visible seam. Typical returns: 1.2x about 8s, 1.5x 18s, 2x and over 30s (capped), pinched out to the whole picture about 24s, a sideways pan of 130px about 22s.
+- Also fixed: a pan or pinch that began before the picture had finished loading could leave the view half-switched (zoom stored but not drawn, and no return). The gesture now starts manual mode itself if it is not on yet.
+- A touch at any moment cancels the return and hands control back to the viewer, as before. Constants: PV_KB_PHASE_MS, PV_KB_PAN_PXS, PV_RETURN_MIN_MS, PV_RETURN_MAX_MS (PV_EASE_MS is gone).
+
 ## v611 — 2026-10-31
 
 **Ask:**
@@ -5987,7 +5997,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v611';
+const APP_VERSION = 'v612';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -18185,9 +18195,11 @@ photoView.addEventListener('click', (e) => {
 //   * the view is a window onto it: zoom pvS and the window's top-left (pvUx, pvUy) in those pixels, drawn by one transform
 //     on #photoViewStage: screen = pvS * (picture point - top-left).
 // The viewer can pinch out until the WHOLE picture fits (pvGeo().sMin) and in to PV_MAX. A picture smaller than the window
-// is centered. PV_IDLE_MS after the last finger lifts, it eases (PV_EASE_MS) back to 1x on its focal framing, leaves manual
+// is centered. PV_IDLE_MS after the last finger lifts, it drifts (at Ken Burns' own pace, pvReturnMs) back to 1x on its focal framing, leaves manual
 // mode, and the drift restarts from the start of its cycle on the focal point. A quick tap still closes.
-const PV_MAX = 5, PV_SLOP = 8, PV_IDLE_MS = 3000, PV_EASE_MS = 2000;
+const PV_MAX = 5, PV_SLOP = 8, PV_IDLE_MS = 3000;
+// The way back is paced like the Ken Burns drift (kenBurnsPhoto: 1x -> 1.5x in 18s, sine ease-in-out, then a rest).
+const PV_KB_PHASE_MS = 18000, PV_KB_PAN_PXS = 6, PV_RETURN_MIN_MS = 3000, PV_RETURN_MAX_MS = 30000;
 const pvStage = document.getElementById('photoViewStage');
 let pvS = 1, pvUx = 0, pvUy = 0, pvManual = false;
 const pvPtrs = new Map();
@@ -18266,7 +18278,14 @@ function pvStop(){
   pvPtrs.clear(); pvBase0 = null; pvMoved = false;
 }
 function pvPause(){ clearTimeout(pvIdleTimer); pvEnterManual(); }   // a pan or pinch begins: the drift stops, the viewer takes over
-// 3s after the last finger lifts: ease all the way home (1x, focal framing), then the drift restarts there.
+// How long the way home takes: at the drift's own pace, 18s per 1.5x of zoom (log scale, so it looks even) or about 6 px/s
+// across the screen, whichever is slower, kept between 3s and 30s.
+function pvReturnMs(s0, panPx){
+  const zoomMs = PV_KB_PHASE_MS * Math.abs(Math.log(s0)) / Math.log(1.5);
+  const panMs = panPx / PV_KB_PAN_PXS * 1000;
+  return pvClamp(Math.max(zoomMs, panMs), PV_RETURN_MIN_MS, PV_RETURN_MAX_MS);
+}
+// 3s after the last finger lifts: drift all the way home (1x, focal framing) at the drift's pace, then it restarts there.
 function pvIdleDone(){
   const g0 = pvGeo(); if(!g0 || !pvManual) return;
   const home = pvHome(g0);
@@ -18274,9 +18293,10 @@ function pvIdleDone(){
   const s0 = pvS, c0x = pvUx + g0.W / (2 * s0), c0y = pvUy + g0.H / (2 * s0);   // centre of what is on screen now
   const c1x = home.ux + g0.W / 2, c1y = home.uy + g0.H / 2;                      // centre of the focal framing
   const t0 = performance.now();
+  const dur = pvReturnMs(s0, Math.hypot(c1x - c0x, c1y - c0y) * Math.max(1, s0));   // sideways distance, in screen pixels
   const step = (t) => {
     const g = pvGeo(); if(!g){ pvEaseRaf = 0; pvLeaveManual(); return; }
-    const k = Math.min(1, (t - t0) / PV_EASE_MS), e = k * k * (3 - 2 * k);
+    const k = Math.min(1, (t - t0) / dur), e = 0.5 - 0.5 * Math.cos(Math.PI * k);   // the drift's own curve: easeInOutSine
     pvS = s0 * Math.pow(1 / s0, e);                                               // zoom evenly (log scale)
     const cx = c0x + (c1x - c0x) * e, cy = c0y + (c1y - c0y) * e;
     pvUx = cx - g.W / (2 * pvS); pvUy = cy - g.H / (2 * pvS);
@@ -18298,6 +18318,9 @@ function pvDist(){
 function pvRebase(){ const c = pvCentroid(); pvBase0 = { s: pvS, ux: pvUx, uy: pvUy, cx: c.x, cy: c.y, d: pvDist() }; }
 function pvApplyGesture(){
   const g = pvGeo(); if(!g || !pvBase0) return;
+  // A touch can begin before the picture has loaded (no geometry yet, so manual mode could not start). Start it now, so the
+  // zoom is never applied to a view that is still in drift mode.
+  if(!pvManual){ pvEnterManual(); if(!pvManual) return; pvRebase(); }
   const c = pvCentroid(), d = pvDist();
   const s = (pvBase0.d > 0 && d > 0) ? pvClamp(pvBase0.s * d / pvBase0.d, g.sMin, PV_MAX) : pvBase0.s;
   const px = pvBase0.ux + pvBase0.cx / pvBase0.s, py = pvBase0.uy + pvBase0.cy / pvBase0.s;   // the picture point first under the fingers
