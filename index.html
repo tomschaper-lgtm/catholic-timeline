@@ -1,6 +1,6 @@
 <!--
-VERSION: 610
-DATE: 2026-10-31T16:05:00-05:00
+VERSION: 611
+DATE: 2026-10-31T18:30:00-05:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,16 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v611 — 2026-10-31
+
+**Ask:**
+- If the Ken Burns drift had zoomed the picture in, the viewer could not pinch out to see the whole picture - only zoom in further
+
+**Implementation:**
+- Two causes. (1) The drift's zoom (scale up to 1.5x) sat on the image underneath the viewer's own zoom, so "1x" for the viewer was really whatever the drift had reached. (2) Even at its smallest the full-screen view is the cover-cropped picture, so the whole picture could never be shown.
+- A touch now takes over completely. The first touch that turns into a pan or pinch reads the drift's current scale and anchor (computed style), adopts exactly that view as the viewer's own (no jump), and switches the picture into a "manual" mode (.pv-manual): the drift is switched off, the image is laid out at its full cover size and moved/zoomed purely by one transform on #photoViewStage. In that mode the viewer can pinch out down to the zoom at which the WHOLE picture fits on the screen (min(W/Rw, H/Rh), about 0.58x for a 4:5 photo on a phone; centered, black bars at the sides it does not fill) and in up to 5x. The pan limits and the pinch-keeps-the-point-under-the-fingers rule are unchanged.
+- 3s after the last finger lifts, the picture eases (2s, as before) back to 1x on its focal framing, then leaves manual mode: the drift's animation is switched back on, so it restarts from the beginning of its cycle exactly on the focal point. (pv-paused is replaced by pv-manual.)
+
 ## v610 — 2026-10-31
 
 **Ask:**
@@ -3211,8 +3221,9 @@ CHANGELOG:END
     cursor:zoom-out; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;   /* v608: none, so a drag pans instead of the browser taking it */
   }
   .photoView.open{opacity:1; visibility:visible; pointer-events:auto; transition:opacity 1.5s ease, visibility 0s;}
-  /* v608/v609: the viewer is touching the picture - hold the Ken Burns zoom still */
-  .photoView.pv-paused img{animation-play-state:paused !important;}
+  /* v611: manual mode - the viewer is zooming/panning. The Ken Burns animation is off, and the image is laid out at its full
+     cover size (width/height set inline by pvRender) and moved only by the wrapper's transform. */
+  .photoView.pv-manual img{animation:none !important; transform:none !important; object-fit:fill; position:absolute; left:0; top:0; max-width:none; max-height:none;}
   /* v609: the zoom/pan wrapper. Only it carries the viewer's pinch and pan; the Ken Burns animation stays on the image inside. */
   #photoViewStage{position:absolute; inset:0; transform-origin:0 0; will-change:transform;}
   .photoView img{
@@ -5976,7 +5987,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v610';
+const APP_VERSION = 'v611';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -18165,19 +18176,20 @@ photoView.addEventListener('click', (e) => {
   closePhotoView();
 });
 
-// ================= v609 PHOTO PINCH-ZOOM + PAN =================
+// ================= v611 PHOTO PINCH-ZOOM + PAN =================
 // Like iPhone Photos: two fingers pinch to zoom (the point between them stays under them), one finger pans in any
-// direction. The picture here is shown "cover" - cropped to fill the screen - so the view is a WINDOW onto the picture
-// at its cover size Rw x Rh: zoom s (1..PV_MAX) and the window's top-left (pvUx, pvUy) in those picture pixels. The
-// window is W/s wide, so panning at 1x still reveals the sides the screen crops off, and zoomed in it reaches all of it.
-// Drawn in two parts so nothing fights the Ken Burns animation (which stays on the image itself):
-//   * sideways/vertical slide of the screen-sized frame  -> object-position (--pvx/--pvy)
-//   * the zoom, and the slide inside the frame           -> a transform on the wrapper #photoViewStage
-// Any touch holds Ken Burns still; PV_IDLE_MS after the last finger lifts the picture eases back to its focal framing and
-// Ken Burns restarts there. A quick tap still closes.
+// direction. The full-screen picture is normally shown "cover" - cropped to fill the screen - with the Ken Burns drift
+// running on the image. The first touch that becomes a pan or pinch switches to MANUAL mode:
+//   * the drift's current scale and anchor are read and adopted as the viewer's own view, so nothing jumps;
+//   * the drift is switched off (.pv-manual) and the image is laid out at its full cover size Rw x Rh;
+//   * the view is a window onto it: zoom pvS and the window's top-left (pvUx, pvUy) in those pixels, drawn by one transform
+//     on #photoViewStage: screen = pvS * (picture point - top-left).
+// The viewer can pinch out until the WHOLE picture fits (pvGeo().sMin) and in to PV_MAX. A picture smaller than the window
+// is centered. PV_IDLE_MS after the last finger lifts, it eases (PV_EASE_MS) back to 1x on its focal framing, leaves manual
+// mode, and the drift restarts from the start of its cycle on the focal point. A quick tap still closes.
 const PV_MAX = 5, PV_SLOP = 8, PV_IDLE_MS = 3000, PV_EASE_MS = 2000;
 const pvStage = document.getElementById('photoViewStage');
-let pvS = 1, pvUx = 0, pvUy = 0;
+let pvS = 1, pvUx = 0, pvUy = 0, pvManual = false;
 const pvPtrs = new Map();
 let pvBase0 = null, pvMoved = false, pvStart = null;
 let pvSuppressClick = false, pvSuppressTimer = 0, pvIdleTimer = 0, pvEaseRaf = 0;
@@ -18186,24 +18198,29 @@ function pvGeo(){
   const nw = photoViewImg.naturalWidth, nh = photoViewImg.naturalHeight;
   if(!nw || !nh) return null;
   const W = photoView.clientWidth, H = photoView.clientHeight, sc = Math.max(W / nw, H / nh);
-  return { W: W, H: H, Rw: nw * sc, Rh: nh * sc };
+  const Rw = nw * sc, Rh = nh * sc;
+  return { W: W, H: H, Rw: Rw, Rh: Rh, sMin: Math.min(1, W / Rw, H / Rh) };   // sMin: the zoom at which the whole picture fits
 }
+// Keep the window on the picture; a picture smaller than the window (zoomed far out) is centered.
 function pvLimit(g){
-  pvUx = pvClamp(pvUx, 0, Math.max(0, g.Rw - g.W / pvS));
-  pvUy = pvClamp(pvUy, 0, Math.max(0, g.Rh - g.H / pvS));
+  const vw = g.W / pvS, vh = g.H / pvS;
+  pvUx = g.Rw >= vw ? pvClamp(pvUx, 0, g.Rw - vw) : (g.Rw - vw) / 2;
+  pvUy = g.Rh >= vh ? pvClamp(pvUy, 0, g.Rh - vh) : (g.Rh - vh) / 2;
 }
 function pvRender(){
   const g = pvGeo(); if(!g) return;
   pvLimit(g);
-  const s = pvS, mx = (g.W - g.W / s) / 2, my = (g.H - g.H / s) / 2;
-  const ox = Math.max(0, g.Rw - g.W), oy = Math.max(0, g.Rh - g.H);
-  const fx = pvClamp(pvUx - mx, 0, ox), fy = pvClamp(pvUy - my, 0, oy);   // the frame's slide in the picture
-  const wx = pvUx - fx, wy = pvUy - fy;                                   // the window's slide inside the frame
-  photoViewImg.style.setProperty('--pvx', (ox > 0.5 ? fx / ox * 100 : 50).toFixed(3) + '%');
-  photoViewImg.style.setProperty('--pvy', (oy > 0.5 ? fy / oy * 100 : 50).toFixed(3) + '%');
-  pvStage.style.transform = 'translate(' + (-wx * s).toFixed(2) + 'px,' + (-wy * s).toFixed(2) + 'px) scale(' + s.toFixed(4) + ')';
+  if(!pvManual){   // drift mode: the screen-sized cover frame, slid by object-position (at 1x, on the focal framing)
+    const ox = Math.max(0, g.Rw - g.W), oy = Math.max(0, g.Rh - g.H);
+    photoViewImg.style.setProperty('--pvx', (ox > 0.5 ? pvUx / ox * 100 : 50).toFixed(3) + '%');
+    photoViewImg.style.setProperty('--pvy', (oy > 0.5 ? pvUy / oy * 100 : 50).toFixed(3) + '%');
+    pvStage.style.transform = '';
+    return;
+  }
+  photoViewImg.style.width = g.Rw.toFixed(2) + 'px'; photoViewImg.style.height = g.Rh.toFixed(2) + 'px';
+  pvStage.style.transform = 'translate(' + (-pvUx * pvS).toFixed(2) + 'px,' + (-pvUy * pvS).toFixed(2) + 'px) scale(' + pvS.toFixed(4) + ')';
 }
-// The picture's own focal framing: the crop it opens with, and where Ken Burns' zoom anchor (--fpx/--fpy) is valid.
+// The picture's own focal framing: the crop it opens with, and where the drift's zoom anchor (--fpx/--fpy) is valid.
 function pvHome(g){
   const fx = parseFloat(photoViewImg.style.getPropertyValue('--fpx')), fy = parseFloat(photoViewImg.style.getPropertyValue('--fpy'));
   return { ux: (isFinite(fx) ? fx : 50) / 100 * Math.max(0, g.Rw - g.W), uy: (isFinite(fy) ? fy : 38) / 100 * Math.max(0, g.Rh - g.H) };
@@ -18214,41 +18231,58 @@ function pvInitView(){
   pvS = 1; pvUx = h.ux; pvUy = h.uy;
   pvRender();
 }
+// Switch to manual mode, adopting whatever the drift is showing right now. The drift is a scale k about an anchor point o
+// (in the screen-sized frame); the same view as a window is zoom k with top-left = frame slide + o * (1 - 1/k).
+function pvEnterManual(){
+  if(pvManual) return;
+  const g = pvGeo(); if(!g) return;
+  const cs = getComputedStyle(photoViewImg);
+  let k = 1, ox = g.W / 2, oy = g.H / 2;
+  try{ if(cs.transform && cs.transform !== 'none') k = new DOMMatrix(cs.transform).a || 1; }catch(e){}
+  const o = String(cs.transformOrigin || '').split(' ').map(parseFloat);
+  if(isFinite(o[0])) ox = o[0]; if(isFinite(o[1])) oy = o[1];
+  pvS = k; pvUx += ox * (1 - 1 / k); pvUy += oy * (1 - 1 / k);
+  pvManual = true; photoView.classList.add('pv-manual');
+  pvRender();
+}
+// Back to drift mode on the focal framing: the drift's animation switches back on and starts its cycle from the beginning.
+function pvLeaveManual(){
+  pvManual = false; photoView.classList.remove('pv-manual');
+  photoViewImg.style.width = ''; photoViewImg.style.height = '';
+  const g = pvGeo();
+  if(g){ const h = pvHome(g); pvS = 1; pvUx = h.ux; pvUy = h.uy; pvRender(); }
+  else{ pvS = 1; pvStage.style.transform = ''; }
+}
 photoViewImg.addEventListener('load', () => { if(photoView.classList.contains('open')) pvInitView(); });
 function pvReset(){
   pvStop();
-  pvS = 1; pvUx = pvUy = 0;
+  pvLeaveManual();
   photoViewImg.style.removeProperty('--pvx'); photoViewImg.style.removeProperty('--pvy');
-  pvStage.style.transform = '';
-  photoView.classList.remove('pv-paused');
+  pvS = 1; pvUx = pvUy = 0;
   if(photoViewImg.complete && photoViewImg.naturalWidth) pvInitView();   // cached picture: no load event will come
 }
 function pvStop(){
   clearTimeout(pvIdleTimer); cancelAnimationFrame(pvEaseRaf); pvEaseRaf = 0;
   pvPtrs.clear(); pvBase0 = null; pvMoved = false;
 }
-function pvPause(){ clearTimeout(pvIdleTimer); photoView.classList.add('pv-paused'); }
-// 3s after the last finger lifts: the picture eases all the way home (zoom back to 1x AND the view back to its focal
-// framing), and only when it arrives does Ken Burns restart - so the drift always begins on the focal point. Already home:
-// Ken Burns restarts at once.
+function pvPause(){ clearTimeout(pvIdleTimer); pvEnterManual(); }   // a pan or pinch begins: the drift stops, the viewer takes over
+// 3s after the last finger lifts: ease all the way home (1x, focal framing), then the drift restarts there.
 function pvIdleDone(){
-  const resume = () => photoView.classList.remove('pv-paused');
-  const g0 = pvGeo(); if(!g0){ resume(); return; }
+  const g0 = pvGeo(); if(!g0 || !pvManual) return;
   const home = pvHome(g0);
-  if(Math.abs(pvS - 1) < 0.01 && Math.abs(pvUx - home.ux) < 1.5 && Math.abs(pvUy - home.uy) < 1.5){ resume(); return; }
+  if(Math.abs(pvS - 1) < 0.01 && Math.abs(pvUx - home.ux) < 1.5 && Math.abs(pvUy - home.uy) < 1.5){ pvLeaveManual(); return; }
   const s0 = pvS, c0x = pvUx + g0.W / (2 * s0), c0y = pvUy + g0.H / (2 * s0);   // centre of what is on screen now
   const c1x = home.ux + g0.W / 2, c1y = home.uy + g0.H / 2;                      // centre of the focal framing
   const t0 = performance.now();
   const step = (t) => {
-    const g = pvGeo(); if(!g){ pvEaseRaf = 0; resume(); return; }
+    const g = pvGeo(); if(!g){ pvEaseRaf = 0; pvLeaveManual(); return; }
     const k = Math.min(1, (t - t0) / PV_EASE_MS), e = k * k * (3 - 2 * k);
     pvS = s0 * Math.pow(1 / s0, e);                                               // zoom evenly (log scale)
     const cx = c0x + (c1x - c0x) * e, cy = c0y + (c1y - c0y) * e;
     pvUx = cx - g.W / (2 * pvS); pvUy = cy - g.H / (2 * pvS);
-    if(k >= 1){ const h = pvHome(g); pvS = 1; pvUx = h.ux; pvUy = h.uy; }
+    if(k >= 1){ pvEaseRaf = 0; pvLeaveManual(); return; }
     pvRender();
-    if(k < 1) pvEaseRaf = requestAnimationFrame(step);
-    else{ pvEaseRaf = 0; resume(); }
+    pvEaseRaf = requestAnimationFrame(step);
   };
   pvEaseRaf = requestAnimationFrame(step);
 }
@@ -18265,7 +18299,7 @@ function pvRebase(){ const c = pvCentroid(); pvBase0 = { s: pvS, ux: pvUx, uy: p
 function pvApplyGesture(){
   const g = pvGeo(); if(!g || !pvBase0) return;
   const c = pvCentroid(), d = pvDist();
-  const s = (pvBase0.d > 0 && d > 0) ? pvClamp(pvBase0.s * d / pvBase0.d, 1, PV_MAX) : pvBase0.s;
+  const s = (pvBase0.d > 0 && d > 0) ? pvClamp(pvBase0.s * d / pvBase0.d, g.sMin, PV_MAX) : pvBase0.s;
   const px = pvBase0.ux + pvBase0.cx / pvBase0.s, py = pvBase0.uy + pvBase0.cy / pvBase0.s;   // the picture point first under the fingers
   pvS = s; pvUx = px - c.x / s; pvUy = py - c.y / s;                                         // keep it under them
   pvRender();
@@ -18273,11 +18307,11 @@ function pvApplyGesture(){
 photoView.addEventListener('pointerdown', (e) => {
   if(e.pointerType === 'mouse' && e.button !== 0) return;
   if(!photoView.classList.contains('open')) return;
-  clearTimeout(pvIdleTimer); cancelAnimationFrame(pvEaseRaf); pvEaseRaf = 0;   // a new touch cancels a pending restart / ease-out
+  clearTimeout(pvIdleTimer); cancelAnimationFrame(pvEaseRaf); pvEaseRaf = 0;   // a new touch cancels a pending restart / ease-back
   pvPtrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
   try{ photoView.setPointerCapture(e.pointerId); }catch(err){}
   if(pvPtrs.size === 1){ pvMoved = false; pvStart = { x: e.clientX, y: e.clientY }; }
-  else{ pvMoved = true; pvPause(); }   // a second finger is a pinch: hold Ken Burns at once
+  else{ pvMoved = true; pvPause(); }   // a second finger is a pinch: take over from the drift at once
   pvRebase();
 });
 photoView.addEventListener('pointermove', (e) => {
