@@ -19,6 +19,47 @@ the time.
 
 ---
 
+## v612 — 2026-11-01
+
+**Ask:**
+- The return from the viewer's zoom to the Ken Burns drift was too fast. Slow it to the drift's own speed so nobody can tell the difference
+
+**Implementation:**
+- The drift (kenBurnsPhoto) pushes in from 1x to 1.5x over 18s (13.64% of 132s), with a sine ease-in-out, then rests before its next phase. The return now moves at that pace: 18s per 1.5x of zoom (ln(zoom) / ln(1.5) x 18s, measured on a log scale so it looks even), and for the sideways move back to the focal framing about 6 px/s, whichever of the two takes longer, kept between 3s and 30s. The curve is the drift's own cubic-bezier(.37,0,.63,1) (easeInOutSine). It comes to rest on the focal framing exactly like one of the drift's own phases, and the drift's push-in then starts from rest, so there is no visible seam. Typical returns: 1.2x about 8s, 1.5x 18s, 2x and over 30s (capped), pinched out to the whole picture about 24s, a sideways pan of 130px about 22s.
+- Also fixed: a pan or pinch that began before the picture had finished loading could leave the view half-switched (zoom stored but not drawn, and no return). The gesture now starts manual mode itself if it is not on yet.
+- A touch at any moment cancels the return and hands control back to the viewer, as before. Constants: PV_KB_PHASE_MS, PV_KB_PAN_PXS, PV_RETURN_MIN_MS, PV_RETURN_MAX_MS (PV_EASE_MS is gone).
+
+## v611 — 2026-10-31
+
+**Ask:**
+- If the Ken Burns drift had zoomed the picture in, the viewer could not pinch out to see the whole picture - only zoom in further
+
+**Implementation:**
+- Two causes. (1) The drift's zoom (scale up to 1.5x) sat on the image underneath the viewer's own zoom, so "1x" for the viewer was really whatever the drift had reached. (2) Even at its smallest the full-screen view is the cover-cropped picture, so the whole picture could never be shown.
+- A touch now takes over completely. The first touch that turns into a pan or pinch reads the drift's current scale and anchor (computed style), adopts exactly that view as the viewer's own (no jump), and switches the picture into a "manual" mode (.pv-manual): the drift is switched off, the image is laid out at its full cover size and moved/zoomed purely by one transform on #photoViewStage. In that mode the viewer can pinch out down to the zoom at which the WHOLE picture fits on the screen (min(W/Rw, H/Rh), about 0.58x for a 4:5 photo on a phone; centered, black bars at the sides it does not fill) and in up to 5x. The pan limits and the pinch-keeps-the-point-under-the-fingers rule are unchanged.
+- 3s after the last finger lifts, the picture eases (2s, as before) back to 1x on its focal framing, then leaves manual mode: the drift's animation is switched back on, so it restarts from the beginning of its cycle exactly on the focal point. (pv-paused is replaced by pv-manual.)
+
+## v610 — 2026-10-31
+
+**Ask:**
+- After the auto zoom-out the picture did not go back to the focal point, so the Ken Burns drift ran around some other point. Make the zoom-out slower
+
+**Implementation:**
+- v609 eased the zoom out around whatever was on screen and left the picture panned wherever the viewer had dragged it. The Ken Burns anchor (--fpx/--fpy) is a point in the screen-sized frame, which is right only while the frame sits at the picture's own focal framing, so after a pan the drift zoomed around the wrong spot (nothing was lost; the framing had moved away from it).
+- Now, 3s after the last finger lifts, the picture eases all the way home - zoom back to 1x AND the view back to the focal framing (pvHome(), the same crop it opened with) - and only when it arrives does Ken Burns restart, so the drift always begins on the focal point. A pan-only change eases home too. If the viewer is already home, Ken Burns restarts at 3s as before.
+- The ease-back is 2.0s (was 0.6s), a smoothstep curve; the zoom is interpolated in log-scale and the view centre in a straight line, so it reads as one smooth pull-back. PV_EASE_MS is the one number to tune. A touch during the ease cancels it and keeps Ken Burns held.
+
+## v609 — 2026-10-31
+
+**Ask:**
+- Full-screen photo should behave like iPhone Photos: pinch to zoom and pan with one finger in any direction. No double-tap zoom, and the side arrows are not needed. Any zoom or pan stops the Ken Burns drift; it restarts three seconds after the finger lifts
+
+**Implementation:**
+- Replaces v608's drag / hold-an-edge pan and its arrows. One model: the view is a window onto the picture at its cover size, with a zoom s (1 to 5) and a top-left (ux, uy). A two-finger pinch keeps the point between the fingers fixed under them while the zoom changes; one finger pans 1:1 in any direction. At 1x the pan still reveals the sides the screen crops off; zoomed in it reaches every part of the picture. Clamped so no black edge is ever shown.
+- Drawn as two parts so they never fight: the zoom/pan moves a new wrapper (#photoViewStage, a CSS transform), the sideways slide uses object-position (--pvx/--pvy), and the Ken Burns animation stays on the image inside it, untouched.
+- Ken Burns is held still the moment a finger lands. Three seconds after the last finger lifts it restarts; if the picture is zoomed in, it eases back out to full size over 0.6s at the same time (keeping the part being looked at centered), so the slow zoom never runs on top of a zoomed-in view. A picture only panned sideways stays where it was left.
+- A quick tap still closes the view; a pan or pinch never does (short click-suppress flag). Safari's own page pinch is blocked inside the view (touch-action:none plus gesture events). No double-tap zoom.
+
 ## v608 — 2026-10-31
 
 **Ask:**
