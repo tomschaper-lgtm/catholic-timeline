@@ -19,6 +19,16 @@ the time.
 
 ---
 
+## v613 — 2026-11-01
+
+**Ask:**
+- While narration plays, the white marker inches down the page and the page only scrolled when the sentence ran off the very bottom of the screen - but the play/pause circle floats over the bottom of the page, so the words being read were hidden behind it. Scroll as soon as the bottom of the marker reaches the button, not at the end of the page
+
+**Implementation:**
+- ensureActiveCueVisible() treated the whole article height as visible. It now uses audioPlayerLimit(): the top edge of the floating play/pause circle (#audPlayBtn, or the bar if it is higher), in the article's own coordinates, minus PLAYER_GAP (6px). When the narration bar is not showing it falls back to the full height, exactly as before.
+- The test for "does this sentence need to move" now includes the marker's own 3px of padding, so the marker's bottom edge clears the button, not just the text. When it does move, nothing else changes: it glides to the same spot as before (the sentence's top just below the sticky header; a sentence too tall for the space gets its bottom just above the button, with the usual 16px margin).
+- Section changes (the heading rising to the top) are untouched.
+
 ## v612 — 2026-11-01
 
 **Ask:**
