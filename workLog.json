@@ -6,7 +6,7 @@
       "type": "image-generate",
       "entityId": "st-francis-of-assisi-1226",
       "batchId": null,
-      "status": "done",
+      "status": "awaiting_review",
       "description": "Generate images — St. Francis of Assisi",
       "payload": {},
       "result": {
@@ -15,12 +15,10 @@
         "candidateA": "Images/Saints/st-francis-of-assisi-1226-candidate-a.jpg",
         "candidateB": "Images/Saints/st-francis-of-assisi-1226-candidate-b.jpg",
         "sceneRequest": "Catholic saint - St. Francis of Assisi, 1226 AD, feast day October 4. Follow the included Md file.",
-        "note": "",
-        "decision": "neither",
-        "decisionNotes": "He should have the strange haircut that Franciscans are known for. They all should. There should be some joy or peace on there face. Also the chapel should be a little longer. Maybe some sunshine streaming down on him as he works and a beggar sitting nearby pointing out where to place the brick as he smiles back at his helper. "
+        "note": ""
       },
       "createdAt": "2026-11-11T04:57:44.490Z",
-      "updatedAt": "2026-11-11T12:22:40.181Z",
+      "updatedAt": "2026-11-11T04:59:18.184Z",
       "error": null
     },
     {
@@ -28,7 +26,7 @@
       "type": "image-generate",
       "entityId": "st-olga-of-kiev-969",
       "batchId": null,
-      "status": "done",
+      "status": "awaiting_review",
       "description": "Generate images — St. Olga of Kiev",
       "payload": {},
       "result": {
@@ -37,12 +35,10 @@
         "candidateA": "Images/Saints/st-olga-of-kiev-969-candidate-a.jpg",
         "candidateB": "Images/Saints/st-olga-of-kiev-969-candidate-b.jpg",
         "sceneRequest": "Catholic saint - St. Olga of Kiev, 969 AD, feast day July 11. Follow the included Md file.",
-        "note": "",
-        "decision": "winner",
-        "decisionNotes": ""
+        "note": ""
       },
       "createdAt": "2026-11-11T12:05:11.931Z",
-      "updatedAt": "2026-11-11T12:22:56.527Z",
+      "updatedAt": "2026-11-11T12:06:45.910Z",
       "error": null
     },
     {
@@ -50,7 +46,7 @@
       "type": "image-generate",
       "entityId": "st-dunstan-of-canterbury-988",
       "batchId": null,
-      "status": "done",
+      "status": "awaiting_review",
       "description": "Generate images — St. Dunstan of Canterbury",
       "payload": {},
       "result": {
@@ -59,12 +55,10 @@
         "candidateA": "Images/Saints/st-dunstan-of-canterbury-988-candidate-a.jpg",
         "candidateB": "Images/Saints/st-dunstan-of-canterbury-988-candidate-b.jpg",
         "sceneRequest": "Catholic saint - St. Dunstan of Canterbury, 988 AD, feast day May 19. Follow the included Md file.",
-        "note": "",
-        "decision": "winner",
-        "decisionNotes": ""
+        "note": ""
       },
       "createdAt": "2026-11-11T12:09:19.521Z",
-      "updatedAt": "2026-11-11T12:23:10.383Z",
+      "updatedAt": "2026-11-11T12:10:56.404Z",
       "error": null
     },
     {
@@ -72,7 +66,7 @@
       "type": "audio-generate",
       "entityId": "all-saints-993",
       "batchId": null,
-      "status": "in_progress",
+      "status": "error",
       "description": "Record audio narration — All Saints",
       "payload": {
         "voiceId": "kokoro:af_heart",
@@ -91,8 +85,8 @@
       },
       "result": null,
       "createdAt": "2026-11-11T12:11:03.657Z",
-      "updatedAt": "2026-11-11T12:21:21.329Z",
-      "error": null
+      "updatedAt": "2026-11-11T12:24:30.219Z",
+      "error": "Generated successfully but could not publish — the repo changed underneath this run. Rerun the orchestrator to retry (this will redo the generation)."
     },
     {
       "id": "task-audio-generate-st-anthony-of-padua-1231-1794399211422-388",
@@ -220,58 +214,6 @@
       "error": null,
       "createdAt": "2026-11-11T12:17:04.004Z",
       "updatedAt": "2026-11-11T12:17:04.004Z"
-    },
-    {
-      "id": "task-image-generate-st-francis-of-assisi-1226-1794399760181",
-      "type": "image-generate",
-      "entityId": "st-francis-of-assisi-1226",
-      "status": "queued",
-      "description": "Regenerate images for St. Francis of Assisi (previous pair rejected)",
-      "payload": {
-        "notes": "He should have the strange haircut that Franciscans are known for. They all should. There should be some joy or peace on there face. Also the chapel should be a little longer. Maybe some sunshine streaming down on him as he works and a beggar sitting nearby pointing out where to place the brick as he smiles back at his helper. "
-      },
-      "result": null,
-      "error": null,
-      "createdAt": "2026-11-11T12:22:40.181Z",
-      "updatedAt": "2026-11-11T12:22:40.181Z"
-    },
-    {
-      "id": "task-image-finalize-st-olga-of-kiev-969-1794399776527",
-      "type": "image-finalize",
-      "entityId": "st-olga-of-kiev-969",
-      "status": "queued",
-      "description": "Finalize image for St. Olga of Kiev",
-      "payload": {
-        "winningCandidate": "b",
-        "candidatePath": "Images/Saints/st-olga-of-kiev-969-candidate-b.jpg",
-        "otherCandidatePath": "Images/Saints/st-olga-of-kiev-969-candidate-a.jpg",
-        "originalA": "Images/Saints/st-olga-of-kiev-969-candidate-a.jpg",
-        "originalB": "Images/Saints/st-olga-of-kiev-969-candidate-b.jpg",
-        "notes": ""
-      },
-      "result": null,
-      "error": null,
-      "createdAt": "2026-11-11T12:22:56.527Z",
-      "updatedAt": "2026-11-11T12:22:56.527Z"
-    },
-    {
-      "id": "task-image-finalize-st-dunstan-of-canterbury-988-1794399790383",
-      "type": "image-finalize",
-      "entityId": "st-dunstan-of-canterbury-988",
-      "status": "queued",
-      "description": "Finalize image for St. Dunstan of Canterbury",
-      "payload": {
-        "winningCandidate": "a",
-        "candidatePath": "Images/Saints/st-dunstan-of-canterbury-988-candidate-a.jpg",
-        "otherCandidatePath": "Images/Saints/st-dunstan-of-canterbury-988-candidate-b.jpg",
-        "originalA": "Images/Saints/st-dunstan-of-canterbury-988-candidate-a.jpg",
-        "originalB": "Images/Saints/st-dunstan-of-canterbury-988-candidate-b.jpg",
-        "notes": ""
-      },
-      "result": null,
-      "error": null,
-      "createdAt": "2026-11-11T12:23:10.383Z",
-      "updatedAt": "2026-11-11T12:23:10.383Z"
     }
   ]
 }
