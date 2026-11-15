@@ -1,6 +1,6 @@
 <!--
-VERSION: 614
-DATE: 2026-11-15T14:05:00-06:00
+VERSION: 617
+DATE: 2026-11-15T15:05:00-06:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,26 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v617 — 2026-11-15
+
+**Ask:**
+- Tapping any Review Mode button (Proof, Audio, Image, Flag, JSON, Listened, Fix) makes the card slide down and close on my iPhone. Fix it.
+
+**Implementation:**
+- Cause: haptic() (v568). iPhone Safari has no navigator.vibrate, so it falls back to appending a hidden switch label to document.body and calling lbl.click(). That synthetic click bubbles to the document-level click handler, which saw a click whose target was outside #article and closed the card, on every .rtBtn tap. Chrome has navigator.vibrate, so haptic() returned early there and it never showed up in desktop or headless tests.
+- Reproduced in headless Chromium with navigator.vibrate removed: all four buttons tested closed the card, with the reason "click-outside on LABEL". After the fix none do.
+- Fix: the hidden label is now appended inside #article (not document.body) and its click calls stopPropagation(), so it can never read as a click outside the card. The haptic itself is unchanged.
+- v616 (a diagnostic build that named what closed the card) is superseded by this version and its code is not included.
+
+## v615 — 2026-11-15
+
+**Ask:**
+- Two lines show before the Review Mode buttons. Make it one.
+
+**Implementation:**
+- The share row ends with a rule (.artShareRow border-bottom) and the Review Mode tools block began with its own rule (.reviewTools border-top), so the two stacked. Same fix v562 used for the Report button: `.artShareRow ~ .reviewTools` drops its top rule and its top margin shrinks from 30px to 14px, so the share row's rule is the one divider.
+- Not fixed in this version: a report that tapping a Review Mode button closes the card. Could not be reproduced (a headless browser tap on JSON, Proof and Image left the card open, and JSON copied), so no change was made for it.
+
 ## v614 — 2026-11-15
 
 **Ask:**
@@ -3007,6 +3027,7 @@ CHANGELOG:END
   /* v489: Review Mode tools row — four equal gold buttons (icon + label), a status line centered
      under Proof. Sits after Sources, with a hairline above it like the mockup. */
   .reviewTools{margin:30px 0 8px; padding-top:22px; border-top:1px solid rgba(201,165,66,.28);}
+  .artShareRow ~ .reviewTools{border-top:none; margin-top:14px;}   /* v615: the share row's rule is the divider (one line, not two) */
   .rtRow{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;}
   .rtBtn{
     display:flex; align-items:center; justify-content:center; gap:6px; min-width:0;
@@ -5390,7 +5411,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v614';
+const APP_VERSION = 'v617';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -12669,7 +12690,11 @@ function haptic(){
     const lbl = document.createElement('label'), box = document.createElement('input');
     box.type = 'checkbox'; box.setAttribute('switch', '');
     lbl.appendChild(box); lbl.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;pointer-events:none;';
-    document.body.appendChild(lbl); lbl.click(); setTimeout(() => lbl.remove(), 300);
+    // v617: this synthetic click used to bubble to the document, where the "tap outside the card closes it"
+    // handler read the label (parked on <body>) as a click outside and closed the card on every Review button.
+    // Keep the label inside #article and stop the click there.
+    lbl.addEventListener('click', (ev) => ev.stopPropagation());
+    (document.getElementById('article') || document.body).appendChild(lbl); lbl.click(); setTimeout(() => lbl.remove(), 300);
   }catch(e){}
 }
 (() => {
