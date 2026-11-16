@@ -19,6 +19,36 @@ the time.
 
 ---
 
+## v617 — 2026-11-15
+
+**Ask:**
+- Tapping any Review Mode button (Proof, Audio, Image, Flag, JSON, Listened, Fix) makes the card slide down and close on my iPhone. Fix it.
+
+**Implementation:**
+- Cause: haptic() (v568). iPhone Safari has no navigator.vibrate, so it falls back to appending a hidden switch label to document.body and calling lbl.click(). That synthetic click bubbles to the document-level click handler, which saw a click whose target was outside #article and closed the card, on every .rtBtn tap. Chrome has navigator.vibrate, so haptic() returned early there and it never showed up in desktop or headless tests.
+- Reproduced in headless Chromium with navigator.vibrate removed: all four buttons tested closed the card, with the reason "click-outside on LABEL". After the fix none do.
+- Fix: the hidden label is now appended inside #article (not document.body) and its click calls stopPropagation(), so it can never read as a click outside the card. The haptic itself is unchanged.
+- v616 (a diagnostic build that named what closed the card) is superseded by this version and its code is not included.
+
+## v615 — 2026-11-15
+
+**Ask:**
+- Two lines show before the Review Mode buttons. Make it one.
+
+**Implementation:**
+- The share row ends with a rule (.artShareRow border-bottom) and the Review Mode tools block began with its own rule (.reviewTools border-top), so the two stacked. Same fix v562 used for the Report button: `.artShareRow ~ .reviewTools` drops its top rule and its top margin shrinks from 30px to 14px, so the share row's rule is the one divider.
+- Not fixed in this version: a report that tapping a Review Mode button closes the card. Could not be reproduced (a headless browser tap on JSON, Proof and Image left the card open, and JSON copied), so no change was made for it.
+
+## v614 — 2026-11-15
+
+**Ask:**
+- When I hear something wrong in a story, getting that story onto the clipboard as JSON to paste into ChatGPT or Claude takes too much effort. Add a "Copy JSON" button at the bottom of the article in Review Mode.
+
+**Implementation:**
+- New "JSON" tool (id tkCopyJsonBtn) in the Review Mode tools block (second row, first column, under Proof). Same gate as the other tools: Review Mode on, owner unlocked, entry has article text.
+- entryJsonText(d) builds the text with the same buildExportPayload() Manage → JSON — Filtered uses, with every field on (including article and audio), wrapped as {v, entries:[entry]}. It pastes straight back into Manage → Paste JSON (Add / Update) by id, so the corrected story goes back in unchanged.
+- copyEntryJson() writes to the clipboard from inside the tap (navigator.clipboard.writeText, then the execCommand fallback the JSON viewer uses). If both are blocked it opens the existing JSON viewer so Copy All / Select All still works. The status line under the button says Copied or why not.
+
 ## v613 — 2026-11-01
 
 **Ask:**
