@@ -1,6 +1,12 @@
 // scripts/services/audio-generate.mjs
 //
-// MODULE DATE: 2026-10-27T19:45:00-05:00 (Tuesday) · version numbers never go backward. freeVersion() now
+// MODULE DATE: 2026-11-21T16:40:00-06:00 (Saturday). 16:40 change: NUMERAL JOIN switch. A dictionary entry
+// { "string_to_replace": "NumeralJoin:", "type": "alias", "alias": "-" } makes the recorder join a Roman
+// numeral to the capitalized name before it with that one character in the SPOKEN text only ("Gregory IX"
+// is sent as "Gregory-the ninth" instead of "Gregory the ninth"), to try to remove the gap the voice leaves
+// before the numeral. It replaces the space with one character, so the position map and the sentence timing
+// are unchanged and the page text is untouched. No entry, or an empty alias, = off = exactly as before.
+// Earlier: 2026-10-27T19:45:00-05:00 (Tuesday) · version numbers never go backward. freeVersion() now
 // starts above the HIGHEST -vN file already in audio/ for this article, not just above the version in its
 // link. Before: a link stuck on v3 while v6 sat in the folder made the next recording v4, and the cleanup
 // then deleted v6 (the newest) and kept the oldest. Only freeVersion changed (plus the new helper
@@ -114,11 +120,16 @@ let pronunciationRules = null;
 // when two entries share a name, e.g. the two "St. Peter Damian" entries). The alias is the FULL
 // announcement, e.g. "The Eucharistic Miracle at Meerssen, Netherlands."
 export const SPOKEN_TITLE_PREFIX = 'SpokenTitle:';
+// 2026-11-21: switch entry; alias = the one character that replaces the space between a name and its numeral.
+export const NUMERAL_JOIN_KEY = 'NumeralJoin:';
+let numeralJoin = '';
 let titleOverrides = new Map();
 export async function loadPronunciationRules(){
   if(pronunciationRules) return pronunciationRules;
   try{
     const raw = JSON.parse(await fs.readFile(PRONUNCIATION_FILE, 'utf8'));
+    const nj = (raw.rules || []).find(r => r && r.string_to_replace === NUMERAL_JOIN_KEY && typeof r.alias === 'string');
+    numeralJoin = nj && nj.alias.length ? nj.alias[0] : '';
     // Pause rules (2026-10-04): { type: "pause", string_to_replace: "the faith Mary",
     // pause_after: "the faith" } — a comma is spoken after "the faith" wherever the whole phrase
     // appears. They go first and never consume the phrase, so sound fixes inside it still apply.
@@ -127,7 +138,7 @@ export async function loadPronunciationRules(){
         && r.pause_after.trim() && r.string_to_replace.startsWith(r.pause_after) && r.pause_after.length < r.string_to_replace.length)
       .map(r => ({ from: r.string_to_replace, pauseAt: r.pause_after.length, pause: true }));
     pronunciationRules = pauses.concat((raw.rules || [])
-      .filter(r => r && r.type === 'alias' && r.string_to_replace && typeof r.alias === 'string' && !String(r.string_to_replace).startsWith(SPOKEN_TITLE_PREFIX))
+      .filter(r => r && r.type === 'alias' && r.string_to_replace && typeof r.alias === 'string' && !String(r.string_to_replace).startsWith(SPOKEN_TITLE_PREFIX) && r.string_to_replace !== NUMERAL_JOIN_KEY)
       // kokoro_ipa (optional): exact sounds for the Kokoro voice, used instead of the alias
       // respelling when Kokoro is recording. ElevenLabs and the browser voice ignore it.
       .map(r => ({ from: r.string_to_replace, to: r.alias, ipa: typeof r.kokoro_ipa === 'string' && r.kokoro_ipa.trim() ? r.kokoro_ipa.trim() : '' })));
@@ -137,6 +148,7 @@ export async function loadPronunciationRules(){
       .map(r => [r.string_to_replace.slice(SPOKEN_TITLE_PREFIX.length).trim(), r.alias.trim()]));
   }catch(e){
     pronunciationRules = []; // no file (or unreadable): narrate the text as written
+    numeralJoin = '';
     titleOverrides = new Map();
   }
   return pronunciationRules;
@@ -255,6 +267,16 @@ function possessiveSpoken(rf){
   const ipa = m && REGNAL_POSSESSIVE_IPA[m[2]];
   return ipa ? m[1] + '[' + m[2] + 's](/' + ipa + '/)' : rf + 's';
 }
+// 2026-11-21: with the NumeralJoin switch on, the space before a numeral that follows a capitalized name
+// ("Gregory IX", "Leo I") becomes the one joining character in the spoken text. Same length, so the map holds.
+function joinNumeralToName(text, i, out){
+  if(!numeralJoin || text[i - 1] !== ' ' || !out.endsWith(' ')) return out;
+  const m = text.slice(0, i - 1).match(/(\p{Lu}[\p{L}\p{M}]*)$/u);
+  if(!m) return out;
+  const prev = m[1];
+  if(COMMON.has(prev.toLowerCase()) || COUNTED.has(prev) || NEVER_NUMBERED.has(prev)) return out;
+  return out.slice(0, -1) + numeralJoin;
+}
 export function applyPronunciation(text, rules, useIpa, extras){   // extras (2026-10-19): [{at, len, ipa}] one use of a two-sound word, Kokoro only
   const map = new Array(text.length + 1);
   let out = '', count = 0, i = 0;
@@ -313,6 +335,7 @@ export function applyPronunciation(text, rules, useIpa, extras){   // extras (20
       const take = pz === 2 ? 3 : 1;
       for(let k = 0; k < take; k++) map[i + k] = out.length;
       noteDecision(((text.slice(0, i).match(/(\S+)\s+$/) || [])[1] || '') + ' ' + text.slice(i, i + take), (pz === 2 ? rf + 's' : rf), '\u201cI\u201d after a name, decided by ' + regnalSource);
+      out = joinNumeralToName(text, i, out);   // 2026-11-21
       out += pz === 2 ? possessiveSpoken(rf) : rf;
       i += take;
       count++;
@@ -323,6 +346,7 @@ export function applyPronunciation(text, rules, useIpa, extras){   // extras (20
       // markup, with its own sound on the last word. Left outside, Kokoro got "[...](/.../)'s" and mangled it.
       const poss = (useIpa && hit.ipa) ? possessiveAt(text, i + hit.from.length) : 0;
       for(let k = 0; k < hit.from.length + poss; k++) map[i + k] = out.length;
+      if(/^[IVXLCDM]+$/.test(hit.from)) out = joinNumeralToName(text, i, out);   // 2026-11-21: bare numeral rules only (not phrase rules)
       // Kokoro: [word](/sounds/) markup when the rule has kokoro_ipa; otherwise the alias text.
       out += (useIpa && hit.ipa)
         ? (poss ? kokoroMarkup(hit.from + text.slice(i + hit.from.length, i + hit.from.length + poss), possessiveIpa(hit.ipa, poss))
