@@ -1,6 +1,6 @@
 <!--
-VERSION: 619
-DATE: 2026-11-21T13:50:00-06:00
+VERSION: 620
+DATE: 2026-11-21T16:20:00-06:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,18 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v620 — 2026-11-21
+
+**Ask:**
+- Search is hard to use on my iPhone. I tap the search box and start typing, then look up and see nothing typed; I have to tap twice to get it ready to type.
+
+**Implementation:**
+- From the screen recording (iPhone): the first tap opens the keyboard and the recent list but no caret (a second tap gives the Paste/AutoFill bubble, then typing works). A moment after the first letter the whole page is scrolled up so the header and search box are off the top of the screen while the keyboard stays up, so the typing cannot be seen. The box comes back when the results list appears.
+- Cause of the page scroll is not confirmed: I could not reproduce iOS keyboard behaviour here. The page itself (body, overflow hidden) is being scrolled by Safari; the fix below holds it at the top while the search box has focus.
+- Fix 1: while #tlSearch is focused, any page scroll or visual-viewport shift is put back to 0,0 (on scroll, visualViewport scroll/resize, and a few timed checks after focus).
+- Fix 2: focusing the empty box now only draws the recent list; it no longer redraws the whole timeline (render()) in the same moment the keyboard opens. The same applies to the first one or two letters, where nothing changes on the timeline anyway. The timeline is redrawn only when highlights actually change.
+- Not tested on a phone. If the first tap still needs a second, tell me what the box shows.
+
 ## v619 — 2026-11-21
 
 **Ask:**
@@ -5404,7 +5416,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v619';
+const APP_VERSION = 'v620';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -7162,13 +7174,14 @@ function runSearch(){
 
   // Empty box → offer the recent terms instead of results.
   if(!trimmed){
+    const hadHits = searchHits.size > 0 || !!searchFocusId;   // v620: redraw the timeline only when something was lit
     searchHits = new Set(); searchFocusId = null;
     renderRecent(box);
-    render();
+    if(hadHits) render();
     return;
   }
   // A query of only exclusions ("-dignity") has nothing to actually look for.
-  if(qLen < 3 || !parsed.terms.length){ searchHits = new Set(); searchFocusId = null; box.style.display = 'none'; box.innerHTML = ''; render(); return; }
+  if(qLen < 3 || !parsed.terms.length){ const hadHits = searchHits.size > 0 || !!searchFocusId; searchHits = new Set(); searchFocusId = null; box.style.display = 'none'; box.innerHTML = ''; if(hadHits) render(); return; }   // v620
 
   const pool = filtered();
   let results, nameHitIds;
@@ -7505,7 +7518,24 @@ document.getElementById('tlSearch').addEventListener('input', runSearch);
 // synchronously while the browser is still settling focus is what made the first tap land the
 // focus (recents appeared) without landing a usable caret, so it took a second tap to type.
 // A zero timeout lets focus and the keyboard finish first, then the list renders.
-document.getElementById('tlSearch').addEventListener('focus', () => { setTimeout(runSearch, 0); });
+document.getElementById('tlSearch').addEventListener('focus', () => { setTimeout(runSearch, 60); });   // v620: a little longer, so the keyboard and caret are settled first
+// v620: iPhone Safari scrolls the page itself (body is overflow:hidden but still scrollable) while the keyboard
+// opens, which put the header and the search box off the top of the screen so typing could not be seen. While
+// the search box has focus, put the page back at the top whenever that happens.
+(function(){
+  const input = document.getElementById('tlSearch');
+  const vv = window.visualViewport;
+  let locked = false;
+  const reset = () => {
+    if(!locked) return;
+    const off = (window.pageYOffset || 0) + (document.documentElement.scrollTop || 0) + (document.body.scrollTop || 0) + (vv ? vv.offsetTop : 0);
+    if(off > 0){ try{ window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; }catch(e){} }
+  };
+  input.addEventListener('focus', () => { locked = true; reset(); [30, 120, 300, 600, 1000].forEach(ms => setTimeout(reset, ms)); });
+  input.addEventListener('blur', () => { locked = false; });
+  window.addEventListener('scroll', reset, {passive:true});
+  if(vv){ vv.addEventListener('scroll', reset); vv.addEventListener('resize', reset); }
+})();
 document.getElementById('tlSearch').addEventListener('keydown', (e) => {
   if(e.key === 'Escape'){ e.target.value = ''; runSearch(); e.target.blur(); }
 });
