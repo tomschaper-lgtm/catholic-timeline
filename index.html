@@ -1,6 +1,6 @@
 <!--
-VERSION: 617
-DATE: 2026-11-15T15:05:00-06:00
+VERSION: 618
+DATE: 2026-11-21T11:40:00-06:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,17 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v618 — 2026-11-21
+
+**Ask:**
+- In Review Mode, the Listened button, once it marks a story as listened, goes to the next story in the same group (a saint goes to the next saint) that is not yet marked Listened, opens it, and starts playing it. (First built as a separate Next button; removed at my request.)
+- In Review Mode, after the closing prayer is read, don't scroll back to the top: stay at the bottom where the buttons are.
+
+**Implementation:**
+- Pressing Listened (to mark, not to uncheck) now calls reviewGoNext() right after the save is started, before it is awaited. reviewGoNext() walks forward through filtered() entries of the same type t, skips any that are already Listened, have no recording of their own, or have no story text, opens the first one left with openArticle(), and calls startAudioPlayback() inside the same tap so iPhone Safari allows the sound. It does not wrap around; at the end of the list it says so in the status line. The target is opened from the top: its remembered scroll and audio position are cleared first.
+- The top-of-story reset after the closing prayer (finaleRise, v575) is skipped in Review Mode. finaleStayPut() just switches the white marker off and leaves the page and the playback position where they are. Normal readers still get the rise.
+- Not tested on a phone. Checked with node --check and the tag/brace checkers only.
+
 ## v617 — 2026-11-15
 
 **Ask:**
@@ -5381,7 +5392,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v617';
+const APP_VERSION = 'v618';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -12749,6 +12760,33 @@ function finaleRise(){
   };
   requestAnimationFrame(step);
 }
+// v618: Review Mode: after the closing prayer the page stays where it is (the Review buttons are at the bottom),
+// so the marker is only switched off. No scroll, and the playback position is left alone.
+function reviewGoNext(d, noteEl){
+  const say = (m) => { if(noteEl) noteEl.textContent = m; };
+  const list = filtered().filter(x => x.t === d.t);
+  const idx = list.findIndex(x => x.id === d.id);
+  if(idx === -1){ say('This story is not in the current list, so there is no next one.'); return; }
+  let next = null;
+  for(let i = idx + 1; i < list.length; i++){
+    const x = list[i];
+    if(x.audio && !x.audioFallback && !entryShowsListened(x) && articleStats(x).wordCount > 0){ next = x; break; }
+  }
+  if(!next){ say('No more stories in this group left to listen to after this one.'); return; }
+  try{   // open it from the top, not from where it was last left
+    const keep = getRecentCards().filter(c => c.id !== next.id);
+    localStorage.setItem(RECENT_CARDS_KEY, JSON.stringify(keep));
+  }catch(e){}
+  openArticle(next, { preserveStack: true });
+  article.scrollTop = 0;
+  if(audioEl) startAudioPlayback();   // same tap, so iPhone Safari allows the sound
+}
+function finaleStayPut(){
+  const F = finale;
+  F.rising = false; F.hold = false;
+  const bar = audioActiveBarEl();
+  if(bar){ bar.classList.remove('on'); bar.style.transition = ''; }
+}
 function finaleReset(){
   finale.timers.forEach(clearTimeout);
   if(finale.nameEl && finale.nameEl.isConnected) finale.nameEl.innerHTML = finale.nameHtml;
@@ -12789,7 +12827,7 @@ function finaleTick(t){
   finale.hold = true;
   (cueEls[activeCueIdx] || []).forEach(el => el.classList.remove('cuePlaying'));
   audioFollowSuppressUntil = Date.now() + Math.max(4000, (end - t + FINALE_RISE_DELAY) * 1000 + 9000);
-  at(end + FINALE_RISE_DELAY, () => finaleRise());
+  at(end + FINALE_RISE_DELAY, () => { if(reviewMode && manageUnlocked()) finaleStayPut(); else finaleRise(); });   // v618: Review Mode stays at the bottom, where the buttons are
   // 2. glow across the name, a word at a time, as it is spoken
   at(start, () => {
     const sticky = liveArtEl('artSticky');
@@ -13165,7 +13203,11 @@ function fillArticleBody(d, peek){
       listenedPaint(!on, ex.qc.pronCheckedAt);
       paintListenedIcon(ex.id);   // v580
       dirtyEntryIds.add(ex.id);
-      await publishReviewAction(quickNoteEl, on ? 'Unchecked \u2014 saved.' : 'Pronunciation checked \u2713 \u2014 saved.');
+      // v618: marking it Listened moves straight on to the next story in the group and plays it. The move happens
+      // before the save is awaited, so it is still inside the tap (iPhone Safari only allows sound then).
+      const saving = publishReviewAction(quickNoteEl, on ? 'Unchecked \u2014 saved.' : 'Pronunciation checked \u2713 \u2014 saved.');
+      if(!on) reviewGoNext(ex, quickNoteEl);
+      await saving;
     });
     rtRefreshStates();
     if(!wlLoadedOnce) loadWorkLog().then(rtRefreshStates, () => {});   // statuses without a trip to Automation
