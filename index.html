@@ -1,6 +1,6 @@
 <!--
-VERSION: 618
-DATE: 2026-11-21T11:40:00-06:00
+VERSION: 619
+DATE: 2026-11-21T13:50:00-06:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,16 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v619 — 2026-11-21
+
+**Ask:**
+- Fixed how IX sounds, but many already-recorded articles contain it. Give me back a way to queue every article that has a given word in it, so they can all be re-recorded.
+
+**Implementation:**
+- Add Task, Record audio: new box "Re-record every recorded article containing this word" (#tkWordFix). Type a word (e.g. IX) and the list becomes every article that already has a recording and whose spoken text (the saint's name, section headings and bodies) contains that exact word, matched whole-word and case-sensitive the same way the pronunciation rules are. It ignores the audioPron stamp, so articles re-recorded after earlier fixes are included. Entries marked Listened are still left out when that box is ticked; set Quantity high to queue them all at once.
+- The existing "recorded before the pronunciation fix" checkbox is unchanged. The new box takes priority when it has a word in it.
+- Not tested on a phone. node --check and the tag-balance check pass.
+
 ## v618 — 2026-11-21
 
 **Ask:**
@@ -4148,6 +4158,8 @@ CHANGELOG:END
           <label class="tkCheck hidden" id="tkBatchSkipListenedRow"><input type="checkbox" id="tkBatchSkipListened" checked><span id="tkBatchSkipListenedLabel">Leave out entries marked Listened</span></label>
           <!-- v495: Record audio only — limits the list to recordings made before the pronunciation
                fix whose text contains something the fix changes (Roman numerals etc.). -->
+          <!-- v619: re-record every recorded article that contains one word, whatever its pronunciation stamp -->
+          <div class="hidden" id="tkWordFixRow" style="margin:8px 0;"><label for="tkWordFix" style="display:block;font-size:14px;margin-bottom:4px;">Re-record every recorded article containing this word</label><input type="text" id="tkWordFix" placeholder="e.g. IX" autocapitalize="off" autocomplete="off" style="width:100%;box-sizing:border-box;"></div>
           <label class="tkCheck hidden" id="tkPronFixRow"><input type="checkbox" id="tkPronFix"><span>Only re-record entries recorded before the pronunciation fix that contain Roman numerals</span></label>
           <div id="tkRewordProviderRow" class="hidden">
             <label class="tkLabel" for="tkRewordProvider">Model</label>
@@ -5392,7 +5404,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v618';
+const APP_VERSION = 'v619';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -8524,18 +8536,37 @@ function tkUpdateSkipListenedRow(){
   const row = document.getElementById('tkBatchSkipListenedRow');
   if(!row) return;
   const type = document.getElementById('tkNewType').value;
-  const regen = document.getElementById('tkBatchOverwrite').checked || !!(document.getElementById('tkPronFix') && document.getElementById('tkPronFix').checked);
+  const regen = document.getElementById('tkBatchOverwrite').checked || !!(document.getElementById('tkPronFix') && document.getElementById('tkPronFix').checked) || !!tkWordFixValue();   // v619
   row.classList.toggle('hidden', !(type === 'audio-generate' && regen));
   const category = document.getElementById('tkBatchCategory').value;
   const n = db.entries.filter(e => entryIsListened(e) && (!category || e.t === category)).length;
   document.getElementById('tkBatchSkipListenedLabel').textContent = 'Leave out entries marked Listened (' + n + ')';
 }
+// v619: does what the narration reads (saint's name, section headings, bodies) contain this exact word?
+// Whole word, case-sensitive, like the pronunciation rules.
+function entryHasWord(e, word){
+  word = String(word || '').trim();
+  if(!word) return false;
+  const plain = (h) => String(h || '').replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ');
+  const parts = [e.t === 's' ? e.n : ''];
+  ((e.art && e.art.sections) || []).forEach(sec => { parts.push(plain(sec.h)); parts.push(plain(sec.b)); });
+  const text = parts.join(' \n ');
+  const isW = (ch) => !!ch && /[A-Za-z0-9\u00C0-\u024F]/.test(ch);
+  let i = text.indexOf(word);
+  while(i !== -1){
+    if(!isW(text[i - 1]) && !isW(text[i + word.length])) return true;
+    i = text.indexOf(word, i + 1);
+  }
+  return false;
+}
+function tkWordFixValue(){ const el = document.getElementById('tkWordFix'); return el ? el.value.trim() : ''; }
 function audioGeneratePool(){
   const category = document.getElementById('tkBatchCategory').value;
   const includeRecorded = document.getElementById('tkBatchOverwrite').checked;
   const pronFix = !!(document.getElementById('tkPronFix') && document.getElementById('tkPronFix').checked);
   const skipEl = document.getElementById('tkBatchSkipListened');
-  const skipListened = !!(skipEl && skipEl.checked && (includeRecorded || pronFix));   // v577
+  const wordFix = tkWordFixValue();   // v619
+  const skipListened = !!(skipEl && skipEl.checked && (includeRecorded || pronFix || wordFix));   // v577
   const pool = db.entries
     .filter(e => articleStats(e).wordCount > 0)
     .filter(e => !category || e.t === category)
@@ -8544,7 +8575,7 @@ function audioGeneratePool(){
     .filter(e => !(skipListened && entryIsListened(e)))   // v577: keep what has been listened to
     // v495: "recorded before the fix, with numerals" — recorded, not stamped audioPron by the
     // audio service, and containing something the rules change.
-    .filter(e => pronFix ? (e.audio && !e.audioPron && entryPronHits(e).length > 0) : (includeRecorded || !e.audio))
+    .filter(e => wordFix ? (e.audio && entryHasWord(e, wordFix)) : pronFix ? (e.audio && !e.audioPron && entryPronHits(e).length > 0) : (includeRecorded || !e.audio))
     .slice();
   if(tkIsFeastMode()){
     return pool.sort((a, b) => {
@@ -8680,7 +8711,8 @@ function tkRenderBatchList(){
       : '';
     const posLabel = feastMode ? fmtMonthDay(feastSortKeyOf(e)) : fmtYear(e.y);
     // v495: in the pronunciation-fix view, show which numerals were found
-    const pron = (type === 'audio-generate' && document.getElementById('tkPronFix').checked)
+    const pron = (type === 'audio-generate' && tkWordFixValue()) ? ' <span class="tkBatchNote">\u2014 ' + esc(tkWordFixValue()) + '</span>'
+      : (type === 'audio-generate' && document.getElementById('tkPronFix').checked)
       ? ' <span class="tkBatchNote">\u2014 ' + esc(entryPronHits(e).join(', ')) + '</span>' : '';
     // v502: for rewording, show what qualified it — same counter the service and Progress use
     const longNote = (type === 'sentence-reword')
@@ -8713,6 +8745,8 @@ function tkUpdateAddFormMode(){
     document.getElementById('tkRewordProviderRow').classList.toggle('hidden', type !== 'sentence-reword');
     document.getElementById('tkPronFixRow').classList.toggle('hidden', type !== 'audio-generate'); // v495
     document.getElementById('tkPronFix').checked = false;
+    document.getElementById('tkWordFixRow').classList.toggle('hidden', type !== 'audio-generate');   // v619
+    document.getElementById('tkWordFix').value = '';
     tkUpdateSkipListenedRow();   // v577
     tkUpdateOrderVisibility();
     tkUpdateBatchStartMode();
@@ -8720,6 +8754,11 @@ function tkUpdateAddFormMode(){
   }
 }
 document.getElementById('tkNewType').addEventListener('change', tkUpdateAddFormMode);
+document.getElementById('tkWordFix').addEventListener('input', () => {   // v619
+  tkUpdateSkipListenedRow();
+  tkBatchStartIdx = -1;
+  tkRefreshBatchPreview();
+});
 document.getElementById('tkPronFix').addEventListener('change', async () => {
   tkUpdateSkipListenedRow();   // v577
   await tkLoadPronRules();
