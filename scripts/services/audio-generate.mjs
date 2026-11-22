@@ -1,6 +1,10 @@
 // scripts/services/audio-generate.mjs
 //
-// MODULE DATE: 2026-11-21T16:40:00-06:00 (Saturday). 16:40 change: NUMERAL JOIN switch. A dictionary entry
+// MODULE DATE: 2026-11-21T23:10:00-06:00 (Saturday). 23:10 change: the dictionary's one-letter numerals "V" and
+// "X" were deleted by a paste (the app refuses to ADD a one-letter rule, so the add half failed). NUMERAL_ENTRIES
+// now also holds V -> "the Fifth" and X -> "the Tenth"; ensureNumeralEntries() puts them back on the next
+// recording if they are missing, and never overwrites an entry that is there.
+// Earlier, 2026-11-21T16:40:00-06:00 (Saturday). 16:40 change: NUMERAL JOIN switch. A dictionary entry
 // { "string_to_replace": "NumeralJoin:", "type": "alias", "alias": "-" } makes the recorder join a Roman
 // numeral to the capitalized name before it with that one character in the SPOKEN text only ("Gregory IX"
 // is sent as "Gregory-the ninth" instead of "Gregory the ninth"), to try to remove the gap the voice leaves
@@ -872,7 +876,8 @@ export function voiceFromPayload(p){
 // its "Constantinople Two"; "World War I" is "World War One". Added once if missing — never
 // overwriting an entry Tom has saved for the same words — and committed with the recording.
 const NUMERAL_ENTRIES = [['Nicaea I', 'Nicaea One'], ['Constantinople I', 'Constantinople One'], ['Lateran I', 'Lateran One'],
-  ['Lyon I', 'Lyon One'], ['Lyons I', 'Lyons One'], ['Vatican I', 'Vatican One'], ['World War I', 'World War One']];
+  ['Lyon I', 'Lyon One'], ['Lyons I', 'Lyons One'], ['Vatican I', 'Vatican One'], ['World War I', 'World War One'],
+  ['V', 'the Fifth'], ['X', 'the Tenth']];   // 2026-11-21: V and X, see the module header
 async function ensureNumeralEntries(){
   let raw;
   try{ raw = JSON.parse(await fs.readFile(PRONUNCIATION_FILE, 'utf8')); }catch(e){ return []; }
