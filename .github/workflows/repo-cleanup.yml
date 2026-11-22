@@ -1,0 +1,60 @@
+# Deletes old one-time files listed in cleanup-list.txt (and, if asked, unused audio files).
+# Run by hand from the Actions tab. mode "preview" (default) only writes a report on the run page and
+# changes nothing; run again with mode "apply" to delete and make one commit. The commit can be reverted
+# from GitHub's history. Files that code or data still mention are skipped and named in the report.
+name: Repo cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'preview = report only; apply = delete and commit'
+        required: true
+        default: 'preview'
+        type: choice
+        options: [preview, apply]
+      orphan_audio:
+        description: 'Also delete audio files that data.json never links'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+permissions:
+  contents: write
+
+# Same group as the recording workflow, so this never runs at the same time as a recording.
+concurrency:
+  group: orchestrator
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Clean up
+        env:
+          MODE: ${{ github.event.inputs.mode }}
+          ORPHAN_AUDIO: ${{ github.event.inputs.orphan_audio }}
+        run: node scripts/repo-cleanup.mjs
+
+      - name: Commit the deletions
+        if: ${{ github.event.inputs.mode == 'apply' }}
+        run: |
+          git config user.name "orchestrator-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if git diff --cached --quiet; then
+            echo "Nothing to delete"
+          else
+            git commit -m "Repo cleanup: delete old one-time files"
+            git pull --rebase
+            git push
+          fi
