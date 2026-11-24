@@ -19,6 +19,15 @@ the time.
 
 ---
 
+## v621 — 2026-11-23
+
+**Ask:**
+- I'm done with the "Sentence sync" line at the top of an article. That was solved a while ago. Remove it.
+
+**Implementation:**
+- Removed the #apCueStatus line from the article player and its .apCueStatus CSS. wireSentenceCues() still runs unchanged; its status messages now go to console.debug only.
+- Not tested on a phone. node --check and the tag/brace checkers only.
+
 ## v620 — 2026-11-21
 
 **Ask:**
