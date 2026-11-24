@@ -1,6 +1,6 @@
 <!--
-VERSION: 620
-DATE: 2026-11-21T16:20:00-06:00
+VERSION: 621
+DATE: 2026-11-23T22:40:00-06:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,15 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v621 — 2026-11-23
+
+**Ask:**
+- I'm done with the "Sentence sync" line at the top of an article. That was solved a while ago. Remove it.
+
+**Implementation:**
+- Removed the #apCueStatus line from the article player and its .apCueStatus CSS. wireSentenceCues() still runs unchanged; its status messages now go to console.debug only.
+- Not tested on a phone. node --check and the tag/brace checkers only.
+
 ## v620 — 2026-11-21
 
 **Ask:**
@@ -2449,7 +2458,6 @@ CHANGELOG:END
   /* Diagnostic sentence-sync line — Review Mode + Owner Tools only. See wireSentenceCues().
      (v176 originally, restored behind the owner gate in v204; this replaces both of that
      history's separate rules with one.) */
-  .apCueStatus{font-size:11px; color:var(--muted); text-align:center; padding:3px 0 0; letter-spacing:.02em; opacity:.85;}
   .apBatchList{max-height:180px; overflow-y:auto; border:1px solid rgba(201,165,66,.25); border-radius:8px; padding:8px 10px; font-size:13px; line-height:1.55; background:rgba(0,0,0,.12);}
   .apBatchRow{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .apBatchNote{color:var(--m-accent); font-style:italic;}
@@ -5386,7 +5394,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v620';
+const APP_VERSION = 'v621';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -13070,7 +13078,6 @@ function fillArticleBody(d, peek){
   // strip (v205 removed the inline scrubber) — it's just its own quiet line now, in normal
   // document flow, not sticky.
   if(d.audio && reviewMode && manageUnlocked()){
-    html += '<div class="apCueStatus" id="apCueStatus">Sentence sync: \u2026</div>';
   }
   // The floating playback bar itself is NOT rendered here — see the persistent #audioBottomBar
   // element at body level (near #flyPortrait), and the comment on updateAudioBarPresence() for
@@ -15445,8 +15452,9 @@ async function wireSentenceCues(d, host){
   cueSectionHeading = []; audioFollowLastHeading = null; audioFollowSuppressUntil = 0; audioFollowToken++;
   // v537: always the LIVE article's status line (a swipe's slide-out copy has one too), looked up
   // each time it's written, so a redraw while loading can't leave the "…" placeholder behind.
-  const statusRef = () => audioHost === 'about' ? document.getElementById('apCueStatus') : liveArtEl('apCueStatus');
-  const statusEl = { set textContent(v){ const el = statusRef(); if(el) el.textContent = v; } };
+  // v621: the on-screen "Sentence sync: N/N sentences linked" line is gone (sync is solved). The writes
+  // below are kept as a no-op sink so the matching code is untouched; messages go to the console only.
+  const statusEl = { set textContent(v){ try{ console.debug('[sentence sync]', v); }catch(_){} } };
   const explicitPath = d.audioTiming || null;
   const derivedPath = explicitPath ? null : deriveTimingPath(d.audio);
   const timingPath = explicitPath || derivedPath;
