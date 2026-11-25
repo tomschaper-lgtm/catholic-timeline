@@ -1,6 +1,6 @@
 <!--
-VERSION: 621
-DATE: 2026-11-23T22:40:00-06:00
+VERSION: 622
+DATE: 2026-11-24T17:42:00-06:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,20 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v622 — 2026-11-24
+
+**Ask:**
+- Press and hold must open the pronunciation dialog on ANY word, including a linked word (the hold used to follow the link). A quick tap still follows the link.
+- The dialog gets a word strip (previous / current / next word) that moves word by word by swipe or arrow buttons, expand and shrink controls on each side, and the surrounding sentence with the picked words highlighted. It never changes articles or follows a link.
+- Dragging the text-selection handles must stop triggering the next/previous-article swipe.
+
+**Implementation:**
+- Picker text is now the whole paragraph (text nodes joined; <br> and block edges act as hard breaks), so words can be stepped and phrases grown across links and bold text. lpState is { block, text, segs, tokens, lo, hi }; lpAnchor() maps the start back to a text node for the Link-to-an-entry path and the occurrence counts.
+- Hold: the "a, .entrylink" exclusion is gone from the hold handler; the click that ends a hold is swallowed until the finger lifts (it was a fixed 900 ms window, too short for a long hold on a link). Link-to-an-entry is hidden for words inside a link, and refused for a phrase that crosses a link or bold edge.
+- Strip: #lpGlass (swipe, 38 px per word, vertical drags ignored), #lpPrev/#lpNext, tap a neighbour word to step; #lpLShrink/#lpLGrow/#lpRShrink/#lpRGrow; #lpContext. Growing never crosses a paragraph or line break. Saving is untouched: the rule text is still lpCleanPhrase(lpCurrentPhrase()).
+- Swipe guard (article touchstart/touchmove/touchend): ignored while any text is selected (checked at start, during the move and at the end, since a long-press selection and the handle drag are one touch), while the picker is open, and unless the move is at least twice as wide as tall (was 1.5).
+- Not tested on a phone. node --check and the tag/brace checkers only.
+
 ## v621 — 2026-11-23
 
 **Ask:**
@@ -53,6 +67,17 @@ CHANGELOG:BEGIN
 - Add Task, Record audio: new box "Re-record every recorded article containing this word" (#tkWordFix). Type a word (e.g. IX) and the list becomes every article that already has a recording and whose spoken text (the saint's name, section headings and bodies) contains that exact word, matched whole-word and case-sensitive the same way the pronunciation rules are. It ignores the audioPron stamp, so articles re-recorded after earlier fixes are included. Entries marked Listened are still left out when that box is ticked; set Quantity high to queue them all at once.
 - The existing "recorded before the pronunciation fix" checkbox is unchanged. The new box takes priority when it has a word in it.
 - Not tested on a phone. node --check and the tag-balance check pass.
+
+## v618 — 2026-11-21
+
+**Ask:**
+- In Review Mode, the Listened button, once it marks a story as listened, goes to the next story in the same group (a saint goes to the next saint) that is not yet marked Listened, opens it, and starts playing it. (First built as a separate Next button; removed at my request.)
+- In Review Mode, after the closing prayer is read, don't scroll back to the top: stay at the bottom where the buttons are.
+
+**Implementation:**
+- Pressing Listened (to mark, not to uncheck) now calls reviewGoNext() right after the save is started, before it is awaited. reviewGoNext() walks forward through filtered() entries of the same type t, skips any that are already Listened, have no recording of their own, or have no story text, opens the first one left with openArticle(), and calls startAudioPlayback() inside the same tap so iPhone Safari allows the sound. It does not wrap around; at the end of the list it says so in the status line. The target is opened from the top: its remembered scroll and audio position are cleared first.
+- The top-of-story reset after the closing prayer (finaleRise, v575) is skipped in Review Mode. finaleStayPut() just switches the white marker off and leaves the page and the playback position where they are. Normal readers still get the rise.
+- Not tested on a phone. Checked with node --check and the tag/brace checkers only.
 CHANGELOG:END
 -->
 <!DOCTYPE html>
@@ -2910,6 +2935,20 @@ CHANGELOG:END
   .lpChip::after{content:'\25BE'; position:absolute; right:5px; top:50%; transform:translateY(-50%); font-size:11px; opacity:.6;}
   .lpChip select{position:absolute; inset:0; width:100%; height:100%; opacity:0; font-size:16px; cursor:pointer; -webkit-appearance:none; appearance:none;}
   .lpChip.on{background:var(--gold); border-color:var(--gold); color:var(--navy-deep); font-weight:700;}
+  /* v622: word strip, resize buttons, sentence context */
+  .lpPhraseRow.lpStripWrap{flex-direction:column; align-items:stretch; gap:8px; margin-bottom:12px;}
+  .lpStrip{display:flex; align-items:center; gap:8px;}
+  .lpGlass{flex:1; min-width:0; display:flex; align-items:center; justify-content:center; gap:8px; touch-action:pan-y;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;}
+  .lpGlass .lpPhrase{flex:0 1 auto; max-width:62%; min-width:0;}
+  .lpSide{flex:1 1 0; min-width:0; font-size:14px; color:#999; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center; padding:10px 0; cursor:pointer;}
+  .lpResize{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .lpResizeSide{display:flex; align-items:center; gap:6px; font-size:13px; color:#666;}
+  .lpArrow.lpSmall{width:48px; height:40px; font-size:22px;}
+  .lpContext{font-size:13px; line-height:1.4; color:#555; max-height:4.3em; overflow:hidden; text-align:left;}
+  .lpContext:empty{display:none;}
+  .lpContext mark{background:#ffe7a0; color:#111; border-radius:3px; padding:0 2px;}
+  body.review-on #artBody .artProse a{-webkit-touch-callout:none;}
   .linkPicker.top{align-items:flex-start;}
   .linkPicker.top .lpBox{border-radius:0 0 16px 16px; padding-top:calc(14px + env(safe-area-inset-top, 0px)); overflow-y:auto; -webkit-overflow-scrolling:touch;}
   @media (min-width:560px){ .linkPicker.top .lpBox{ border-radius:16px; margin:4vh 0 0; } }
@@ -4308,10 +4347,25 @@ CHANGELOG:END
 <div class="linkPicker" id="linkPicker">
   <div class="lpBox">
     <div class="lpLabel">Link this text to…</div>
-    <div class="lpPhraseRow">
-      <button type="button" class="lpArrow" id="lpLeft" aria-label="Extend left">&larr;</button>
-      <div class="lpPhrase" id="lpPhrase"></div>
-      <button type="button" class="lpArrow" id="lpRight" aria-label="Extend right">&rarr;</button>
+    <div class="lpPhraseRow lpStripWrap">
+      <div class="lpStrip">
+        <button type="button" class="lpArrow" id="lpPrev" aria-label="Previous word">&lsaquo;</button>
+        <div class="lpGlass" id="lpGlass">
+          <span class="lpSide" id="lpPrevWord"></span>
+          <div class="lpPhrase" id="lpPhrase"></div>
+          <span class="lpSide" id="lpNextWord"></span>
+        </div>
+        <button type="button" class="lpArrow" id="lpNext" aria-label="Next word">&rsaquo;</button>
+      </div>
+      <div class="lpResize">
+        <div class="lpResizeSide"><span>Left</span>
+          <button type="button" class="lpArrow lpSmall" id="lpLShrink" aria-label="Shrink from the left">&minus;</button>
+          <button type="button" class="lpArrow lpSmall" id="lpLGrow" aria-label="Add the word on the left">+</button></div>
+        <div class="lpResizeSide"><span>Right</span>
+          <button type="button" class="lpArrow lpSmall" id="lpRShrink" aria-label="Shrink from the right">&minus;</button>
+          <button type="button" class="lpArrow lpSmall" id="lpRGrow" aria-label="Add the word on the right">+</button></div>
+      </div>
+      <div class="lpContext" id="lpContext"></div>
     </div>
     <div class="lpSearchWrap">
       <input type="text" class="lpSearchInput" id="lpSearch" autocomplete="off" placeholder="Search entries…">
@@ -5383,7 +5437,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v621';
+const APP_VERSION = 'v622';
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
 let db = null;
 let dirty = false;
@@ -6525,6 +6579,9 @@ function navigateStory(direction){
   // drag. Speed can, so the card reads velocity as well as distance. Every threshold lives
   // in GEST (see "Card gesture tuning" above) so it can be adjusted on a real device.
   let startY = null, startX = null, fromHeader = false, samples = [], startScrollTop = 0;
+  // v622: text selected (long-press word, handle drag) or the pronunciation dialog open: never a swipe.
+  const selActive = () => { try{ const sl = window.getSelection(); return !!sl && !sl.isCollapsed && String(sl).trim().length > 0; }catch(err){ return false; } };
+  const pickerOpen = () => { const lp = document.getElementById('linkPicker'); return !!lp && lp.classList.contains('open'); };
 
   artEl.addEventListener('touchstart', (e) => {
     if(e.touches.length !== 1) return;
@@ -6534,6 +6591,7 @@ function navigateStory(direction){
     // completely undisturbed. `.audioBottomBar` covers the padding around its buttons too, not
     // just the buttons themselves (a touch landing in that gap should still not start a swipe).
     if(e.target.closest('.audioBottomBar, input, button, a')){ startY = null; return; }
+    if(selActive() || pickerOpen()){ startY = null; return; }   // v622
     startY = e.touches[0].clientY;
     startX = e.touches[0].clientX;
     samples = [{y: startY, t: performance.now()}];
@@ -6558,6 +6616,7 @@ function navigateStory(direction){
   // Passive sampling only — never preventDefault, so native scrolling is untouched.
   artEl.addEventListener('touchmove', (e) => {
     if(startY == null || e.touches.length !== 1) return;
+    if(selActive()){ startY = null; fromHeader = false; samples = []; return; }   // v622: a long-press selection grew under this finger: handle drag
     samples.push({y: e.touches[0].clientY, t: performance.now()});
     if(samples.length > 12) samples.shift();
   }, {passive:true});
@@ -6579,6 +6638,7 @@ function navigateStory(direction){
 
   artEl.addEventListener('touchend', (e) => {
     if(startY == null) return;
+    if(selActive() || pickerOpen()){ startY = null; fromHeader = false; samples = []; return; }   // v622
     const t = (e.changedTouches && e.changedTouches[0]) || null;
     const endY = t ? t.clientY : startY;
     const endX = t ? t.clientX : startX;
@@ -6637,7 +6697,7 @@ function navigateStory(direction){
       closeArticle();
       return;
     }
-    if(Math.abs(dx) > GEST.dxNav && Math.abs(dx) > Math.abs(dy)*1.5){
+    if(Math.abs(dx) > GEST.dxNav && Math.abs(dx) > Math.abs(dy)*2){   // v622: 2:1, was 1.5:1
       recordGesture('navigate story');
       suppressArticleClick = true;
       setTimeout(() => { suppressArticleClick = false; }, 400);
@@ -16136,7 +16196,7 @@ function lpTokensOf(text){
   return toks;
 }
 
-let lpState = null; // { node, tokens, lo, hi } while the picker is open; null otherwise
+let lpState = null; // { block, text, segs, tokens, lo, hi } while the picker is open; null otherwise
 let lpSelectedTarget = null; // the currently-chosen result, or null
 
 function lpEligible(){
@@ -16178,17 +16238,39 @@ function lpCaretFromPoint(x, y){
   return null;
 }
 
+function lpBlockOf(node){
+  const el = node && node.parentElement;
+  return el ? el.closest('p, li, blockquote, .arth, .artProse') : null;
+}
+// v622: the picker works on the whole paragraph, not one text node, so words can be stepped and
+// phrases grown across links and bold text. <br> and block edges are hard breaks ("\n").
+function lpBuildText(block){
+  const segs = []; let text = '';
+  const tw = document.createTreeWalker(block, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  let n;
+  while((n = tw.nextNode())){
+    if(n.nodeType === 3){ segs.push({ node: n, start: text.length, end: text.length + n.textContent.length }); text += n.textContent; }
+    else if(n.tagName === 'BR') text += '\n';
+    else if(/^(P|LI|BLOCKQUOTE|DIV|H[1-6])$/.test(n.tagName) && text && !text.endsWith('\n')) text += '\n';
+  }
+  return { text, segs };
+}
 function openLinkPicker(x, y){
   const range = lpCaretFromPoint(x, y);
   const node = range && range.startContainer;
   if(!node || node.nodeType !== 3) return; // didn't land on actual text — quietly do nothing
   const proseEl = node.parentElement && node.parentElement.closest('.artProse, #artStoryText .arth');   // v563
-  if(!proseEl || node.parentElement.closest('a')) return;
+  const block = lpBlockOf(node);
+  if(!proseEl || !block) return;
   const inHeading = proseEl.classList.contains('arth');
+  const inLink = !!node.parentElement.closest('a');   // v622: a hold on a linked word opens the picker too
   const toLink = document.getElementById('lpToLink');
-  if(toLink) toLink.style.display = inHeading ? 'none' : '';   // v563: headings can't hold links
-  const text = node.textContent;
-  const offset = Math.max(0, Math.min(range.startOffset, text.length));
+  if(toLink) toLink.style.display = (inHeading || inLink) ? 'none' : '';   // headings and linked words can't take a new link
+  const built = lpBuildText(block);
+  const seg = built.segs.find(g => g.node === node);
+  if(!seg) return;
+  const text = built.text;
+  const offset = seg.start + Math.max(0, Math.min(range.startOffset, node.textContent.length));
   const tokens = lpTokensOf(text);
   if(!tokens.length) return;
   let idx = tokens.findIndex(t => offset >= t.start && offset <= t.end);
@@ -16200,8 +16282,9 @@ function openLinkPicker(x, y){
       if(d < best){ best = d; idx = i; }
     });
   }
-  lpState = { node, tokens, lo: idx, hi: idx };
+  lpState = { block, text, segs: built.segs, tokens, lo: idx, hi: idx };
   lpSelectedTarget = null;
+  try{ const sel = window.getSelection && window.getSelection(); if(sel) sel.removeAllRanges(); }catch(err){}
   const initialWord = text.slice(tokens[idx].start, tokens[idx].end);
   document.getElementById('lpSearch').value = initialWord;
   lpRenderPhrase();
@@ -16213,10 +16296,16 @@ function openLinkPicker(x, y){
   document.getElementById('linkPicker').classList.add('open');
   document.getElementById('lpOk').disabled = true;
 }
+// Where the picked words start, as a text node + offset, and whether they all sit in that one node.
+function lpAnchor(){
+  const st = lpState, s0 = st.tokens[st.lo].start, e0 = st.tokens[st.hi].end;
+  const seg = st.segs.find(g => s0 >= g.start && s0 < g.end) || st.segs[st.segs.length - 1];
+  return { node: seg.node, off: s0 - seg.start, endOff: e0 - seg.start, single: e0 <= seg.end };
+}
 function lpCurrentPhrase(){
   if(!lpState) return '';
-  const { node, tokens, lo, hi } = lpState;
-  return node.textContent.slice(tokens[lo].start, tokens[hi].end);
+  const { text, tokens, lo, hi } = lpState;
+  return text.slice(tokens[lo].start, tokens[hi].end);
 }
 // v524: show whether the picked word/phrase already has a pronunciation fix, and how it's said.
 // Read fresh from GitHub each time the picker opens (the site copy lags a minute after a save).
@@ -16305,12 +16394,58 @@ function lpUpdatePronStatus(){
   btn.textContent = txt ? 'Change the spelling' : 'Spell it yourself';
   if(lpTool === 'spell'){ lpSpellTitle(); if(lpSpellKey() !== lpSpellShownFor) lpOpenSpell(false); }
 }
+function lpBreakAfter(i){
+  const st = lpState;
+  return !!st && i >= 0 && i + 1 < st.tokens.length && st.text.slice(st.tokens[i].end, st.tokens[i + 1].start).indexOf('\n') !== -1;
+}
+function lpSentenceBounds(){
+  const st = lpState, full = st.text;
+  const a = st.tokens[st.lo].start, b = st.tokens[st.hi].end;
+  const before = full.slice(0, a), after = full.slice(b);
+  const sm = before.match(/[\s\S]*[.?!][”’"')]?\s+/); let s0 = sm ? sm[0].length : 0;
+  const endsHere = /[.?!][”’"')]?$/.test(full.slice(a, b));
+  const em = after.match(/[.?!][”’"')]?(\s|$)/);
+  let e0 = endsHere ? b : (em ? b + em.index + em[0].trimEnd().length : full.length);
+  const nl0 = a > 0 ? full.lastIndexOf('\n', a - 1) : -1; if(nl0 + 1 > s0) s0 = nl0 + 1;
+  const nl1 = full.indexOf('\n', b); if(nl1 !== -1 && nl1 < e0) e0 = nl1;
+  return { s0, e0, a, b };
+}
+function lpRenderContext(){
+  const el = document.getElementById('lpContext');
+  if(!el || !lpState) return;
+  const { s0, e0, a, b } = lpSentenceBounds(), t = lpState.text;
+  let pre = t.slice(s0, a), post = t.slice(b, e0);
+  if(pre.length > 110) pre = '…' + pre.slice(-110);
+  if(post.length > 110) post = post.slice(0, 110) + '…';
+  el.innerHTML = esc(pre) + '<mark>' + esc(t.slice(a, b)) + '</mark>' + esc(post);
+}
 function lpRenderPhrase(){
   if(!lpState) return;
+  const st = lpState, t = st.tokens, n = t.length;
   document.getElementById('lpPhrase').textContent = lpCurrentPhrase();
+  document.getElementById('lpPrevWord').textContent = st.lo > 0 ? st.text.slice(t[st.lo - 1].start, t[st.lo - 1].end) : '';
+  document.getElementById('lpNextWord').textContent = st.hi < n - 1 ? st.text.slice(t[st.hi + 1].start, t[st.hi + 1].end) : '';
+  lpRenderContext();
   lpUpdatePronStatus();
-  document.getElementById('lpLeft').disabled = lpState.lo <= 0;
-  document.getElementById('lpRight').disabled = lpState.hi >= lpState.tokens.length - 1;
+  document.getElementById('lpPrev').disabled = st.lo <= 0;
+  document.getElementById('lpNext').disabled = st.hi >= n - 1;
+  document.getElementById('lpLGrow').disabled = st.lo <= 0 || lpBreakAfter(st.lo - 1);
+  document.getElementById('lpLShrink').disabled = st.lo >= st.hi;
+  document.getElementById('lpRGrow').disabled = st.hi >= n - 1 || lpBreakAfter(st.hi);
+  document.getElementById('lpRShrink').disabled = st.hi <= st.lo;
+}
+// Move the picked words one word along (the whole selection keeps its width unless that would
+// cross a line break, then it collapses to the neighbouring word). Never touches the article.
+function lpStep(dir){
+  if(!lpState) return;
+  const st = lpState, n = st.tokens.length;
+  if(dir < 0 ? st.lo <= 0 : st.hi >= n - 1) return;
+  let lo = st.lo + dir, hi = st.hi + dir;
+  let crosses = false;
+  for(let i = lo; i < hi; i++) if(lpBreakAfter(i)) crosses = true;
+  if(crosses){ lo = hi = dir > 0 ? st.hi + 1 : st.lo - 1; }
+  st.lo = lo; st.hi = hi;
+  lpRenderPhrase();
 }
 // v522: "Mispronounced" — open the pronunciation page with this word (or the widened phrase)
 // already selected. n = how many times the same words occur earlier in the story text, so the page
@@ -16323,12 +16458,13 @@ function lpOccurrence(){
   const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
     acceptNode: n => n.parentElement && n.parentElement.closest('.artProse') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
   const block = (n) => n.parentElement.closest('p, li, blockquote, .artProse');
+  const lpA = lpAnchor(), lpAnchorNode = lpA.node, lpAnchorOff = lpA.off;
   let before = '', lastBlock = null, n;
   while((n = walker.nextNode())){
     const b = block(n);
     if(lastBlock && b !== lastBlock) before += ' ';
     lastBlock = b;
-    if(n === lpState.node){ before += n.textContent.slice(0, lpState.tokens[lpState.lo].start); break; }
+    if(n === lpAnchorNode){ before += n.textContent.slice(0, lpAnchorOff); break; }
     before += n.textContent;
   }
   const words = before.split(/\s+/).map(lpNorm).filter(Boolean);
@@ -16338,14 +16474,45 @@ function lpOccurrence(){
   }
   return count;
 }
-document.getElementById('lpLeft').addEventListener('click', () => {
-  if(!lpState || lpState.lo <= 0) return;
+document.getElementById('lpPrev').addEventListener('click', () => lpStep(-1));
+document.getElementById('lpNext').addEventListener('click', () => lpStep(1));
+document.getElementById('lpLGrow').addEventListener('click', () => {
+  if(!lpState || lpState.lo <= 0 || lpBreakAfter(lpState.lo - 1)) return;
   lpState.lo--; lpRenderPhrase();
 });
-document.getElementById('lpRight').addEventListener('click', () => {
-  if(!lpState || lpState.hi >= lpState.tokens.length - 1) return;
+document.getElementById('lpLShrink').addEventListener('click', () => {
+  if(!lpState || lpState.lo >= lpState.hi) return;
+  lpState.lo++; lpRenderPhrase();
+});
+document.getElementById('lpRGrow').addEventListener('click', () => {
+  if(!lpState || lpState.hi >= lpState.tokens.length - 1 || lpBreakAfter(lpState.hi)) return;
   lpState.hi++; lpRenderPhrase();
 });
+document.getElementById('lpRShrink').addEventListener('click', () => {
+  if(!lpState || lpState.hi <= lpState.lo) return;
+  lpState.hi--; lpRenderPhrase();
+});
+// Swipe left/right on the strip steps word by word (38 px per word). Mostly-vertical drags are ignored.
+(function(){
+  const g = document.getElementById('lpGlass'), STEP = 38;
+  let sx = null, sy = 0, lastX = 0, moved = false;
+  g.addEventListener('pointerdown', (e) => { sx = lastX = e.clientX; sy = e.clientY; moved = false; });
+  g.addEventListener('pointermove', (e) => {
+    if(sx == null) return;
+    const dy = Math.abs(e.clientY - sy), dx = Math.abs(e.clientX - sx);
+    if(!moved && dy > 12 && dy > dx * 1.5){ sx = null; return; }
+    while(e.clientX - lastX <= -STEP){ lastX -= STEP; moved = true; lpStep(1); }
+    while(e.clientX - lastX >= STEP){ lastX += STEP; moved = true; lpStep(-1); }
+  });
+  g.addEventListener('pointerup', (e) => {
+    if(sx != null && !moved){
+      const side = e.target.closest && e.target.closest('.lpSide');
+      if(side) lpStep(side.id === 'lpPrevWord' ? -1 : 1);
+    }
+    sx = null;
+  });
+  g.addEventListener('pointercancel', () => { sx = null; });
+})();
 
 // Reuses the same folded-substring matching as the timeline's own search box (fold/fieldsA),
 // but searches the whole catalog rather than the currently-filtered pool, and excludes the
@@ -16950,17 +17117,8 @@ const AI_PRON_PROMPT = 'You advise on pronunciation for an English-language Cath
 function lpSentenceAround(){
   // The whole sentence the phrase is in — from its paragraph, not just the text between two bold names.
   if(!lpState) return '';
-  const node = lpState.node, block = (node.parentElement && node.parentElement.closest('p, li, .artProse')) || node.parentElement;
-  const full = block ? block.textContent : node.textContent;
-  // where this text node starts inside the paragraph
-  let off = 0;
-  if(block){ const tw = document.createTreeWalker(block, NodeFilter.SHOW_TEXT); let n; while((n = tw.nextNode()) && n !== node) off += n.textContent.length; }
-  const a = off + lpState.tokens[lpState.lo].start, b = off + lpState.tokens[lpState.hi].end;
-  const before = full.slice(0, a), after = full.slice(b);
-  const sm = before.match(/[\s\S]*[.?!][\u201d\u2019"')]?\s+/), s0 = sm ? sm[0].length : 0;
-  const endsHere = /[.?!][\u201d\u2019"')]?$/.test(full.slice(a, b));
-  const em = after.match(/[.?!][\u201d\u2019"')]?(\s|$)/), e0 = endsHere ? b : (em ? b + em.index + em[0].trimEnd().length : full.length);
-  return full.slice(s0, e0).trim().slice(0, 400);
+  const { s0, e0 } = lpSentenceBounds();
+  return lpState.text.slice(s0, e0).trim().slice(0, 400);
 }
 async function aiAsk(svc, key, model, userText, system){
   const SYS = system || AI_PRON_PROMPT;   // v594: other prompts (Two sounds) can reuse this caller
@@ -17112,7 +17270,7 @@ async function lpOpenSpell(keep){
 document.getElementById('lpSpell').addEventListener('click', () => lpOpenSpell(false));
 document.getElementById('lpTypeIt').addEventListener('click', () => lpTyping(true));
 document.getElementById('lpToPause').addEventListener('click', () => { lpCameFromSpell = true; document.getElementById('lpPause').click(); });
-document.getElementById('lpToLink').addEventListener('click', () => { lpToolClose(); lpUpdatePronStatus(); });
+document.getElementById('lpToLink').addEventListener('click', () => { lpToolClose(); lpUpdatePronStatus(); if(lpState){ const ph = lpCurrentPhrase(); document.getElementById('lpSearch').value = ph; lpRunSearch(ph); } });
 // ---- v593: Two sounds (a heteronym) ----
 const LP_HETERO_PATH = 'pronunciation/heteronyms.json';
 function lpTwoWord(){ return lpCleanPhrase(lpCurrentPhrase()).toLowerCase(); }
@@ -17219,7 +17377,7 @@ function lpCountIn(text, phrase){
 }
 function lpPausePlan(){
   const st = lpState; if(!st) return { err: 'Pick a word first.' };
-  const { node, tokens } = st, text = node.textContent, k = st.hi;
+  const tokens = st.tokens, text = st.text, k = st.hi;
   const word = text.slice(tokens[k].start, tokens[k].end);
   const endsSentence = (i) => { const w = text.slice(tokens[i].start, tokens[i].end); return /\.$/.test(w) && !LP_ABBR.test(w); };
   if(k + 1 >= tokens.length) return { err: 'There\u2019s no next word right after \u201c' + word + '\u201d here, so there\u2019s nothing to pause before.' };
@@ -17363,18 +17521,19 @@ document.getElementById('lpToolOk').addEventListener('click', async () => {
   }
 });
 // ---- Press and hold a word (Review Mode, owner) opens the same picker as triple-tap ----
-let lpHold = null, lpSuppressClickUntil = 0;
+let lpHold = null, lpSuppressClickUntil = 0, lpHoldFired = false;
 const LP_TEXT_SEL = '.artProse, #artStoryText .arth';   // v563: story paragraphs and section headings
 const LP_HOLD_MS = 500;
 function lpHoldCancel(){ if(lpHold){ clearTimeout(lpHold.timer); lpHold = null; } }
 document.getElementById('artBody').addEventListener('pointerdown', (e) => {
   lpHoldCancel();
   if(!lpEligible() || (e.pointerType === 'mouse' && e.button !== 0)) return;
-  if(e.target.closest('a, button, input, .entrylink') || !e.target.closest(LP_TEXT_SEL)) return;   // v563: headings too
+  if(e.target.closest('button, input') || !e.target.closest(LP_TEXT_SEL)) return;   // v563: headings too; v622: links are fine, the hold never follows them
   const x = e.clientX, y = e.clientY;
   lpHold = { x, y, id: e.pointerId, top: document.getElementById('article').scrollTop, timer: setTimeout(() => {
     lpHold = null;
-    lpSuppressClickUntil = performance.now() + 900;
+    lpSuppressClickUntil = performance.now() + 60000;   // v622: until the finger lifts (cleared just below), however long the hold
+    lpHoldFired = true;
     lpTapLog = [];
     try{ if(navigator.vibrate) navigator.vibrate(12); }catch(err){}
     openLinkPicker(x, y);
@@ -17396,6 +17555,9 @@ document.getElementById('article').addEventListener('scroll', () => {
 }, { passive: true });
 // The release that ends a hold must not also pause the audio, seek to a sentence, count as a tap,
 // or land on the picker's backdrop (which would close it again) — wherever that click lands.
+['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, () => {
+  if(lpHoldFired){ lpHoldFired = false; lpSuppressClickUntil = performance.now() + 600; }
+}, true));
 document.addEventListener('click', (e) => {
   if(performance.now() < lpSuppressClickUntil){ e.stopPropagation(); e.preventDefault(); lpSuppressClickUntil = 0; }
 }, true);
@@ -17423,7 +17585,7 @@ document.getElementById('linkPicker').addEventListener('click', (e) => {
 // inside a real entry: link — the same rule manualLinkApplyToEntry itself uses at real-apply
 // time (see its `insideAnchor` check), so a triple-tap link and a hand-typed one with the same
 // text land on the same occurrence number.
-function lpComputeOccurrence(anchorNode, phrase){
+function lpComputeOccurrence(anchorNode, phrase, anchorOff){
   let seen = 0;
   const blocks = document.querySelectorAll('#artBody .artProse');
   for(const block of blocks){
@@ -17440,7 +17602,7 @@ function lpComputeOccurrence(anchorNode, phrase){
       let idx = 0, at;
       while((at = text.indexOf(phrase, idx)) !== -1){
         seen++;
-        if(node === anchorNode && at === (lpState.tokens[lpState.lo].start)) return seen;
+        if(node === anchorNode && at === anchorOff) return seen;
         idx = at + phrase.length;
       }
     }
@@ -17451,9 +17613,12 @@ function lpComputeOccurrence(anchorNode, phrase){
 document.getElementById('lpOk').addEventListener('click', () => {
   if(!lpState || !lpSelectedTarget || !currentEntry) return;
   const phrase = lpCurrentPhrase();
-  const { node, tokens, lo, hi } = lpState;
-  const startOff = tokens[lo].start, endOff = tokens[hi].end;
-  const occurrence = lpComputeOccurrence(node, phrase);
+  const an = lpAnchor(), node = an.node, startOff = an.off, endOff = an.endOff;
+  if(!an.single || node.parentElement.closest('a') || !node.parentElement.closest('.artProse')){
+    setStatus('Can\u2019t link that: the words run across a link or bold text. Shrink the selection to plain text.');
+    return;
+  }
+  const occurrence = lpComputeOccurrence(node, phrase, startOff);
   pendingSessionLinks.push({
     sourceId: currentEntry.id, text: phrase, targetId: lpSelectedTarget.id, occurrence
   });
