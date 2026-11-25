@@ -19,6 +19,20 @@ the time.
 
 ---
 
+## v622 — 2026-11-24
+
+**Ask:**
+- Press and hold must open the pronunciation dialog on ANY word, including a linked word (the hold used to follow the link). A quick tap still follows the link.
+- The dialog gets a word strip (previous / current / next word) that moves word by word by swipe or arrow buttons, expand and shrink controls on each side, and the surrounding sentence with the picked words highlighted. It never changes articles or follows a link.
+- Dragging the text-selection handles must stop triggering the next/previous-article swipe.
+
+**Implementation:**
+- Picker text is now the whole paragraph (text nodes joined; <br> and block edges act as hard breaks), so words can be stepped and phrases grown across links and bold text. lpState is { block, text, segs, tokens, lo, hi }; lpAnchor() maps the start back to a text node for the Link-to-an-entry path and the occurrence counts.
+- Hold: the "a, .entrylink" exclusion is gone from the hold handler; the click that ends a hold is swallowed until the finger lifts (it was a fixed 900 ms window, too short for a long hold on a link). Link-to-an-entry is hidden for words inside a link, and refused for a phrase that crosses a link or bold edge.
+- Strip: #lpGlass (swipe, 38 px per word, vertical drags ignored), #lpPrev/#lpNext, tap a neighbour word to step; #lpLShrink/#lpLGrow/#lpRShrink/#lpRGrow; #lpContext. Growing never crosses a paragraph or line break. Saving is untouched: the rule text is still lpCleanPhrase(lpCurrentPhrase()).
+- Swipe guard (article touchstart/touchmove/touchend): ignored while any text is selected (checked at start, during the move and at the end, since a long-press selection and the handle drag are one touch), while the picker is open, and unless the move is at least twice as wide as tall (was 1.5).
+- Not tested on a phone. node --check and the tag/brace checkers only.
+
 ## v621 — 2026-11-23
 
 **Ask:**

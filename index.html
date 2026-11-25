@@ -57,27 +57,6 @@ CHANGELOG:BEGIN
 - Fix 1: while #tlSearch is focused, any page scroll or visual-viewport shift is put back to 0,0 (on scroll, visualViewport scroll/resize, and a few timed checks after focus).
 - Fix 2: focusing the empty box now only draws the recent list; it no longer redraws the whole timeline (render()) in the same moment the keyboard opens. The same applies to the first one or two letters, where nothing changes on the timeline anyway. The timeline is redrawn only when highlights actually change.
 - Not tested on a phone. If the first tap still needs a second, tell me what the box shows.
-
-## v619 — 2026-11-21
-
-**Ask:**
-- Fixed how IX sounds, but many already-recorded articles contain it. Give me back a way to queue every article that has a given word in it, so they can all be re-recorded.
-
-**Implementation:**
-- Add Task, Record audio: new box "Re-record every recorded article containing this word" (#tkWordFix). Type a word (e.g. IX) and the list becomes every article that already has a recording and whose spoken text (the saint's name, section headings and bodies) contains that exact word, matched whole-word and case-sensitive the same way the pronunciation rules are. It ignores the audioPron stamp, so articles re-recorded after earlier fixes are included. Entries marked Listened are still left out when that box is ticked; set Quantity high to queue them all at once.
-- The existing "recorded before the pronunciation fix" checkbox is unchanged. The new box takes priority when it has a word in it.
-- Not tested on a phone. node --check and the tag-balance check pass.
-
-## v618 — 2026-11-21
-
-**Ask:**
-- In Review Mode, the Listened button, once it marks a story as listened, goes to the next story in the same group (a saint goes to the next saint) that is not yet marked Listened, opens it, and starts playing it. (First built as a separate Next button; removed at my request.)
-- In Review Mode, after the closing prayer is read, don't scroll back to the top: stay at the bottom where the buttons are.
-
-**Implementation:**
-- Pressing Listened (to mark, not to uncheck) now calls reviewGoNext() right after the save is started, before it is awaited. reviewGoNext() walks forward through filtered() entries of the same type t, skips any that are already Listened, have no recording of their own, or have no story text, opens the first one left with openArticle(), and calls startAudioPlayback() inside the same tap so iPhone Safari allows the sound. It does not wrap around; at the end of the list it says so in the status line. The target is opened from the top: its remembered scroll and audio position are cleared first.
-- The top-of-story reset after the closing prayer (finaleRise, v575) is skipped in Review Mode. finaleStayPut() just switches the white marker off and leaves the page and the playback position where they are. Normal readers still get the rise.
-- Not tested on a phone. Checked with node --check and the tag/brace checkers only.
 CHANGELOG:END
 -->
 <!DOCTYPE html>
