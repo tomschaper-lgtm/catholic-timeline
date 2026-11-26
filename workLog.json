@@ -62,20 +62,20 @@
       "type": "image-generate",
       "entityId": "st-margaret-of-scotland-1093",
       "batchId": null,
-      "status": "queued",
+      "status": "error",
       "description": "Generate images — St. Margaret of Scotland",
       "payload": {},
       "result": null,
       "createdAt": "2026-11-26T02:34:24.477Z",
-      "updatedAt": "2026-11-26T02:46:00.966Z",
-      "error": null
+      "updatedAt": "2026-11-26T02:36:23.874Z",
+      "error": "Error: OpenAI images/generations 400: {\n  \"error\": {\n    \"message\": \"Your request was rejected by the safety system. If you believe this is an error, contact us at help.openai.com and include the request ID req_6bbcda2893b24744aa9932e319c2e79c. safety_violations=[sexual].\",\n    \"type\": \"image_generation_user_error\",\n    \"param\": null,\n \n    at generateOneImage (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/image-generate.mjs:113:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async Promise.all (index 1)\n    at async runImageGenerate (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/image-generate.mjs:153:24)\n    at async runOne (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/orchestrator.mjs:538:20)\n    at async main (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/orchestrator.mjs:606:49)"
     },
     {
       "id": "task-image-generate-st-clement-i-99-1795660509023-201",
       "type": "image-generate",
       "entityId": "st-clement-i-99",
       "batchId": null,
-      "status": "done",
+      "status": "awaiting_review",
       "description": "Generate images — St. Clement I",
       "payload": {},
       "result": {
@@ -84,12 +84,10 @@
         "candidateA": "Images/Saints/st-clement-i-99-candidate-a.jpg",
         "candidateB": "Images/Saints/st-clement-i-99-candidate-b.jpg",
         "sceneRequest": "Catholic saint - St. Clement I, 99 AD, feast day November 23. Follow the included Md file.",
-        "note": "",
-        "decision": "winner",
-        "decisionNotes": ""
+        "note": ""
       },
       "createdAt": "2026-11-26T02:35:09.023Z",
-      "updatedAt": "2026-11-26T02:45:55.664Z",
+      "updatedAt": "2026-11-26T02:37:10.733Z",
       "error": null
     },
     {
@@ -230,13 +228,13 @@
       "type": "image-generate",
       "entityId": "st-vincent-of-saragossa-304",
       "batchId": null,
-      "status": "in_progress",
+      "status": "error",
       "description": "Generate images — St. Vincent of Saragossa",
       "payload": {},
       "result": null,
       "createdAt": "2026-11-26T02:40:24.504Z",
-      "updatedAt": "2026-11-26T02:42:59.728Z",
-      "error": null
+      "updatedAt": "2026-11-26T02:46:13.315Z",
+      "error": "Error: OpenAI images/generations 400: {\n  \"error\": {\n    \"message\": \"Your request was rejected by the safety system. If you believe this is an error, contact us at help.openai.com and include the request ID req_761745ee51d54f9086f12dc9ffda9d90. safety_violations=[sexual, violence].\",\n    \"type\": \"image_generation_user_error\",\n    \"param\n    at generateOneImage (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/image-generate.mjs:113:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async Promise.all (index 1)\n    at async runImageGenerate (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/services/image-generate.mjs:153:24)\n    at async runOne (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/orchestrator.mjs:538:20)\n    at async main (file:///home/runner/work/catholic-timeline/catholic-timeline/scripts/orchestrator.mjs:622:30)"
     },
     {
       "id": "task-image-generate-st-pancras-304-1795660838587-107",
