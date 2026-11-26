@@ -1,6 +1,6 @@
 <!--
-VERSION: 625
-DATE: 2026-11-25T18:10:00-06:00
+VERSION: 627
+DATE: 2026-11-25T18:45:00-06:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,26 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v627 — 2026-11-25
+
+**Ask:**
+- Make Life & Legacy sticky when it gets to the top.
+
+**Implementation:**
+- Feather, title and taper line are now one #llHead block inside a new .llWrap that also holds #artStoryText, so it pins under the article's sticky header while the story scrolls and lets go where the story ends (Sources and the rest scroll normally). Its top offset is the sticky header's height (llSync, run from syncStickyBackdrops and on scroll).
+- While pinned (.stuck) it paints the sheet's own gradient behind itself (--cardGrad / --cardH, offset by its top), like the header does, so text slides under it without showing through.
+- Line-snap (snapSafeTop) and the audio follow-scroll now count the pinned block's height, so a sentence is not left hidden under it.
+- Not tested on a phone.
+
+## v626 — 2026-11-25
+
+**Ask:**
+- Forget the chevron and the collapse/button feature. Keep Life & Legacy as a plain section heading, with smaller text and a slightly smaller icon, ending in the tapered line like the one under the saint's name.
+
+**Implementation:**
+- Removed the chevron, the collapse handler, the .storyCollapsed styling and the audio-follow guard added in v623–v625. #llHead is now a plain div (feather, small-caps title) followed by a .llTaper line (gold fading to transparent, as under the name). Title 24px (was 32), icon 34px (was 44). Icon still loads Images/icons/life-legacy.png with the embedded copy as fallback.
+- Not tested on a phone.
+
 ## v625 — 2026-11-25
 
 **Ask:**
@@ -2471,18 +2491,15 @@ CHANGELOG:END
   /* v478: Share is live (was hidden as not-yet-implemented). */
   .artbadges{display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap;}
   .artrule{width:min(360px,60%); height:1px; margin:18px auto; background:linear-gradient(90deg,transparent,var(--gold),transparent);}
-  /* v623/v625: Life & Legacy header (feather + title + chevron) and the collapsing story */
-  .llHead{display:flex; align-items:center; gap:14px; width:100%; box-sizing:border-box; margin:22px 0 0; padding:6px 2px; background:transparent;
-    border:1px solid transparent; border-radius:16px; color:var(--gold-bright); text-align:left; cursor:pointer; touch-action:manipulation;
-    -webkit-tap-highlight-color:transparent; font:inherit; transition:background .35s ease, padding .35s ease, border-color .35s ease, margin .35s ease;}
-  .llHead[aria-expanded="false"]{background:#2a3a73; border-color:rgba(201,165,66,.35); padding:12px 14px; margin-bottom:10px;}
-  .llIcon{width:44px; height:44px; object-fit:contain; flex:0 0 auto;}
-  .llTitle{flex:1; font-family:var(--serif, Georgia, serif); font-weight:700; font-variant:small-caps; font-size:calc(32px * var(--txt)); letter-spacing:.05em; line-height:1.1; color:var(--gold-bright);}
-  .llChev{width:30px; height:30px; flex:0 0 auto; transition:transform .38s ease;}
-  .llHead[aria-expanded="false"] .llChev{transform:rotate(180deg);}
-  #artStoryText{transition:height .38s ease, opacity .3s ease;}
-  #artStoryText.storyCollapsed{height:0; overflow:hidden; opacity:0; visibility:hidden; transition:height .38s ease, opacity .3s ease, visibility 0s linear .38s;}
-  #artStoryText > .arth:first-child{margin-top:8px;}
+  /* v626: Life & Legacy — a plain section heading: feather + small-caps title, then the tapered line */
+  .llStick{position:sticky; top:0; z-index:14; margin:18px -20px 0; padding:6px 20px 5px;}
+  .llStick.stuck{background-image:var(--cardGrad, none); background-size:100% var(--cardH, 100%); background-repeat:no-repeat;
+    background-position:0 calc(-1 * var(--llTop, 0px));}
+  .llHead{display:flex; align-items:center; gap:10px; color:var(--gold-bright);}
+  .llIcon{width:34px; height:34px; object-fit:contain; flex:0 0 auto;}
+  .llTitle{font-family:var(--serif, Georgia, serif); font-weight:700; font-variant:small-caps; font-size:calc(24px * var(--txt)); letter-spacing:.05em; line-height:1.1; color:var(--gold-bright);}
+  .llTaper{width:min(260px, 62%); height:2px; margin:7px 0 0; background:linear-gradient(90deg, var(--gold-bright), transparent);}
+  #artStoryText > .arth:first-child{margin-top:12px;}
   .arth{font-family:'Cinzel',serif; font-size:calc(15px * var(--txt)); letter-spacing:.14em; text-transform:uppercase; color:var(--gold-bright); margin:26px 0 8px; border-bottom:1px solid rgba(201,165,66,.35); padding-bottom:5px;}
   .artp{font-size:calc(19.5px * var(--txt)); line-height:1.68; margin:0 0 14px;}
   /* v470: the blocks after the story (Memorable Quote, then Sources & Further Reading) get a
@@ -5478,7 +5495,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v625';
+const APP_VERSION = 'v627';
 const LL_ICON = 'data:image/png;base64,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';
 
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
@@ -13184,11 +13201,10 @@ function fillArticleBody(d, peek){
   // iOS's Speak Selection ("Speak") is one tap away. See the dblclick listener near the
   // image-lightbox one, below.
   if((art.sections || []).length){
-    html += '<button type="button" class="llHead" id="llHead" aria-expanded="true" aria-label="Life and Legacy: collapse or expand the story">' +
+    html += '<div class="llWrap"><div class="llStick" id="llHead"><div class="llHead">' +
       '<img class="llIcon" src="Images/icons/life-legacy.png" alt="" onerror="this.onerror=null;this.src=LL_ICON">' +
-      '<span class="llTitle">Life &amp; Legacy</span>' +
-      '<svg class="llChev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9l7 7 7-7"/></svg>' +
-      '</button>';
+      '<span class="llTitle">Life &amp; Legacy</span></div>' +
+      '<div class="llTaper"></div></div>';
   }
   html += '<div id="artStoryText">';
   (art.sections || []).forEach(sec => {
@@ -13200,6 +13216,7 @@ function fillArticleBody(d, peek){
     html += '<div class="artProse">' + renderBody(sec.b) + '</div>';
   });
   html += '</div>'; // #artStoryText
+  if((art.sections || []).length) html += '</div>'; // .llWrap
   if(art.quotes && art.quotes.length){
     html += '<div class="arth arthAfter">Memorable Quote</div>';
     art.quotes.forEach(q => {
@@ -15032,8 +15049,6 @@ function audioPlayerLimit(artEl){
 // playback is starting, even if the reader had just been scrolling a moment before.
 function driveAudioFollow(idx, force){
   if(!(idx >= 0) || !cueSectionHeading.length) return;
-  const llStory = document.getElementById('artStoryText');
-  if(llStory && llStory.classList.contains('storyCollapsed')) return;   // v623: headings are hidden while collapsed
   const heading = cueSectionHeading[idx];
   if(!heading) return;                                         // before the first heading, or no headings matched at all
   const artEl = audioScrollEl();
@@ -15049,10 +15064,10 @@ function driveAudioFollow(idx, force){
 // "teleprompter" behavior: every new section always rises to the top).
 function followAudioSection(artEl, heading){
   const sticky = audioStickyEl();
-  // v205: occludedH is just the sticky header's height now — the old inline scrubber that
+  // v205 (v627: plus the pinned Life & Legacy block): occludedH is the sticky header's height now — the old inline scrubber that
   // used to stack a second sticky bar under it is gone (fixed bottom bar now, doesn't occlude
   // the top). See jumpAndRevealSection's comment for the fuller explanation.
-  const occludedH = sticky ? sticky.offsetHeight : 0;
+  const occludedH = (sticky ? sticky.offsetHeight : 0) + (liveArtEl('llHead') ? liveArtEl('llHead').offsetHeight : 0);
   const artRect = artEl.getBoundingClientRect();
   const hRect = heading.getBoundingClientRect();
   const headingAbs = hRect.top - artRect.top + artEl.scrollTop; // heading's position in absolute content-space
@@ -15075,7 +15090,7 @@ function ensureActiveCueVisible(artEl, idx){
   const els = cueEls[idx];
   if(!els || !els.length) return; // this cue's sentence never matched into the DOM — nothing to track
   const sticky = audioStickyEl();
-  const occludedH = sticky ? sticky.offsetHeight : 0;
+  const occludedH = (sticky ? sticky.offsetHeight : 0) + llStuckH();
   const artRect = artEl.getBoundingClientRect();
   let top = Infinity, bottom = -Infinity;
   els.forEach(el => {
@@ -15170,7 +15185,7 @@ function snapSafeTop(artEl){
   const artRect = artEl.getBoundingClientRect();
   const headerH = stickyHeader ? Math.max(0, stickyHeader.getBoundingClientRect().bottom - artRect.top) : 0;
   const sectionH = (stickySection && getComputedStyle(stickySection).position === 'sticky') ? stickySection.offsetHeight : 0;
-  return headerH + sectionH;
+  return headerH + sectionH + llStuckH();
 }
 // v527: where snapToLineBoundary would settle if the view were scrolled to `target` — worked out
 // from content positions, so follow-along can glide straight there and the snap finds nothing
@@ -15805,6 +15820,16 @@ document.getElementById('artBody').addEventListener('contextmenu', (e) => {
 // band paints the sheet's OWN background gradient, scaled to the sheet's height and offset
 // to its own position — so the two are pixel-identical to the backdrop behind them and the
 // header reads as part of the card rather than a box inside it.
+function llStuckH(){ const ll = liveArtEl('llHead'); return ll && ll.classList.contains('stuck') ? ll.offsetHeight : 0; }
+function llSync(){
+  const art = document.getElementById('article'), st = liveArtEl('llHead'), hd = liveArtEl('artSticky');
+  if(!art || !st || !hd) return;
+  const h = hd.offsetHeight;
+  st.style.top = h + 'px';
+  st.style.setProperty('--llTop', h + 'px');
+  st.classList.toggle('stuck', art.scrollTop > 0 && st.getBoundingClientRect().top - art.getBoundingClientRect().top <= h + 1);
+}
+document.getElementById('article').addEventListener('scroll', llSync, {passive:true});
 function syncStickyBackdrops(){
   const artEl = document.getElementById('article');
   const sticky = liveArtEl('artSticky');
@@ -15816,6 +15841,7 @@ function syncStickyBackdrops(){
   sticky.style.backgroundSize = '100% ' + sheetH + 'px';
   sticky.style.backgroundPosition = '0 0';
   const headerH = sticky.offsetHeight;
+  llSync();
   // v467: was an unscoped querySelector('.artwrap') — three elements share that class, and the
   // first in the DOM isn't #article's, so --ahH could land on the wrong element entirely.
   const wrap = artEl.querySelector('.artwrap');
@@ -16203,27 +16229,6 @@ function followEntryLink(id){
   if(currentEntry) articleBackStack.push({ id: currentEntry.id, scroll: article.scrollTop || 0 });
   openArticle(target, {preserveStack:true});
 }
-// v623/v625: Life & Legacy chevron — folds the whole story up into the header (animated height; nothing is
-// re-rendered, so narration and its highlighting carry on untouched).
-document.getElementById('artBody').addEventListener('click', (e) => {
-  const head = e.target.closest && e.target.closest('#llHead');
-  if(!head) return;
-  const story = head.nextElementSibling;
-  if(!story || story.id !== 'artStoryText') return;
-  const collapse = !story.classList.contains('storyCollapsed');
-  clearTimeout(story._llTimer);
-  if(collapse){
-    story.style.overflow = 'hidden';
-    story.style.height = story.scrollHeight + 'px';
-    void story.offsetHeight;                      // commit the starting height before animating to 0
-    story.classList.add('storyCollapsed');
-  }else{
-    story.classList.remove('storyCollapsed');
-    story.style.height = story.scrollHeight + 'px';
-    story._llTimer = setTimeout(() => { story.style.height = ''; story.style.overflow = ''; }, 420);
-  }
-  head.setAttribute('aria-expanded', collapse ? 'false' : 'true');
-});
 document.getElementById('artBody').addEventListener('click', (e) => {
   if(e.target.closest('#artBackBtn')){ e.preventDefault(); goBackArticle(); return; }
   const link = e.target.closest('.entrylink');
