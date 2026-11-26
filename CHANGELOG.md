@@ -19,6 +19,97 @@ the time.
 
 ---
 
+## v631 — 2026-11-25
+
+**Ask:**
+- Pressing Winner sends the image around again (finalize, then a second review) and I ended up choosing the same image three times. Winner with no comments should be final. Only when I add comments for a rewrite should it come back for another look.
+
+**Implementation:**
+- Winner with an empty notes box now queues the image-finalize task with payload.autoApprove = true. When that task reaches awaiting_review, the new tkAutoApproveFinals() (run from loadWorkLog, so every poll of a Run and every open of the app) links its final image into the entry, publishes once, and marks the task done with decision "approve" and autoApproved. No second review screen.
+- Winner WITH notes (a rewrite request) is unchanged: finalize uses the notes and the result comes back for review as before. Redo and Neither are unchanged.
+- No change to scripts/services/image-finalize.mjs: it ignores the extra payload field. The picture still needs the app open once after the Actions run finishes (the same moment sentence-reword auto-approval happens).
+- Not tested on a phone or against a real finalize run.
+
+## v630 — 2026-11-25
+
+**Ask:**
+- The scroll back to the highlighted sentence is still jerky (screen recording attached).
+
+**Implementation:**
+- Measured the recording frame by frame (scroll displacement per frame, 120 Hz). The v629 glide accelerated smoothly for about 0.22 s, then stopped dead and the view crawled for ~5 s. Cause: the audio position updates every ~0.25 s and each update calls driveAudioFollow(); the next one found the sentence still off screen, started ensureActiveCueVisible()'s own slower animation, and that cancelled the glide (audioFollowToken++).
+- New audioFollowBusyUntil: glideScrollTo() and animateFollowScroll() set it for their whole duration, and driveAudioFollow() returns early (unless forced by Play) until it passes. A touch clears it. Section-change scrolling gets the same protection.
+- Not tested on a phone; judged from the recording only.
+
+## v629 — 2026-11-25
+
+**Ask:**
+- After I scroll the story away by hand and let go, it scrolls back to the highlighted sentence slowly and choppily. Make it glide smoothly and place the highlighted white bar at the top of the screen.
+
+**Implementation:**
+- A manual scroll now sets audioFollowResume. When the 4 s hands-off window ends, the next follow tick calls resumeToActiveCue(): it glides so the active sentence's first line sits just under the sticky header (target worked out with predictSnapTarget, so the line snap has nothing left to correct), instead of only nudging when the sentence was off screen. Pressing Play or a new section still behave as before.
+- glideScrollTo(): 0.45–0.95 s (was 0.7–1.8 s), eased in and out, time-based; it does nothing per frame except set scrollTop. The old animation also ran syncStickyBackdrops() and updateFly() every frame, on top of the scroll listeners that already update the white bar and the portrait on every scroll event, which is the likely cause of the choppiness. animateFollowScroll (section changes) no longer does either per frame; both run once at the end.
+- A touch on the page now also cancels a glide in flight, so the finger always wins.
+- Not tested on a phone: I could not measure the frame rate here.
+
+## v628 — 2026-11-25
+
+**Ask:**
+- Undo the sticky Life & Legacy. Put the tapered line at the end of the Life & Legacy heading, on the same row, as in the design image. Leave the underline below the first story heading as it is.
+
+**Implementation:**
+- Removed the v627 sticky block: .llWrap/.llStick, llSync/llStuckH, the scroll listener, and the pinned-height terms in snapSafeTop and the audio follow-scroll. Back to v626's plain heading.
+- The .llTaper line now sits in the same row after the title (flex: 1, 2px, gold fading to transparent) instead of on its own line under it. The first story heading's own underline is untouched.
+- Not tested on a phone.
+
+## v627 — 2026-11-25
+
+**Ask:**
+- Make Life & Legacy sticky when it gets to the top.
+
+**Implementation:**
+- Feather, title and taper line are now one #llHead block inside a new .llWrap that also holds #artStoryText, so it pins under the article's sticky header while the story scrolls and lets go where the story ends (Sources and the rest scroll normally). Its top offset is the sticky header's height (llSync, run from syncStickyBackdrops and on scroll).
+- While pinned (.stuck) it paints the sheet's own gradient behind itself (--cardGrad / --cardH, offset by its top), like the header does, so text slides under it without showing through.
+- Line-snap (snapSafeTop) and the audio follow-scroll now count the pinned block's height, so a sentence is not left hidden under it.
+- Not tested on a phone.
+
+## v626 — 2026-11-25
+
+**Ask:**
+- Forget the chevron and the collapse/button feature. Keep Life & Legacy as a plain section heading, with smaller text and a slightly smaller icon, ending in the tapered line like the one under the saint's name.
+
+**Implementation:**
+- Removed the chevron, the collapse handler, the .storyCollapsed styling and the audio-follow guard added in v623–v625. #llHead is now a plain div (feather, small-caps title) followed by a .llTaper line (gold fading to transparent, as under the name). Title 24px (was 32), icon 34px (was 44). Icon still loads Images/icons/life-legacy.png with the embedded copy as fallback.
+- Not tested on a phone.
+
+## v625 — 2026-11-25
+
+**Ask:**
+- Less space after "Life & Legacy". The last paragraph still showed when collapsed: it should collapse fully, animated, so the story is sucked into the section, the chevron flips, and the section turns a lighter blue with rounded corners, like a button. The title in small caps.
+
+**Implementation:**
+- Collapsing now hides the whole story (the keep-the-last-paragraph rule and .llLast are gone). #artStoryText animates its height to 0 and fades (.38 s); expanding animates back, then the inline height is cleared. The header gains a lighter-blue rounded panel while collapsed; the chevron already rotates.
+- Title uses font-variant: small-caps. Gap below the header cut: the first story heading's top margin is 8px (was 26px) and the header's bottom margin is 0.
+- Still a <button>; audio keeps playing; follow-scroll still pauses while collapsed. Not tested on a phone.
+
+## v624 — 2026-11-25
+
+**Ask:**
+- The feather icon is already in the repo; use it.
+
+**Implementation:**
+- The Life & Legacy header now loads Images/icons/life-legacy.png. If that file is missing or fails to load, it falls back to the copy embedded in the page (LL_ICON), so the header never shows a broken image. Nothing else changed from v623.
+- Not tested on a phone.
+
+## v623 — 2026-11-25
+
+**Ask:**
+- Add the golden feather and the words "Life & Legacy" above the story, like the design (no trailing line). A chevron collapses the story down to its last paragraph; Sources & Further Reading stays as it is. If audio is playing, it keeps playing.
+
+**Implementation:**
+- New #llHead button (feather icon embedded as a data URI, so no file needs uploading; title-case serif; chevron on the right) placed right before #artStoryText, only when the article has story sections. Collapsing toggles .storyCollapsed on #artStoryText and marks the last paragraph .llLast; CSS hides every other heading and paragraph. Nothing is re-rendered, so audio and its sentence highlighting are untouched. It is a <button>, so the tap-to-pause and article-swipe handlers already ignore it.
+- driveAudioFollow() returns early while collapsed (its scroll targets would be hidden headings).
+- Expanded by default each time an article opens. Not tested on a phone. node --check and the tag/brace checkers only.
+
 ## v622 — 2026-11-24
 
 **Ask:**
