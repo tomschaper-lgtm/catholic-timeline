@@ -1,6 +1,6 @@
 <!--
-VERSION: 631
-DATE: 2026-11-25T21:20:00-06:00
+VERSION: 638
+DATE: 2026-11-26T21:05:00-06:00
 NOTE: Full changelog moved to CHANGELOG.md (repo root) as of v418 — see it for history and the
 current entry format (a short "Ask" separated from technical "Implementation" notes). Kept in
 this VERSION/DATE/CHANGES shape rather than trimmed further, because the GitHub Action that
@@ -23,6 +23,73 @@ touches nothing else in this file. Each sentinel must stay alone on its own line
 job finds them, and why this paragraph can describe them without matching itself). Keep the
 `## vNNN — YYYY-MM-DD` heading shape; it is what both the job and CHANGELOG.md key off.
 CHANGELOG:BEGIN
+## v638 — 2026-11-26
+
+**Ask:**
+- Change the Marian Apparition heading text to "Marian Messages".
+
+**Implementation:**
+- One string in llTitleFor(): m was "Heavenly Guidance", now "Marian Messages". Nothing else changed.
+- Not tested on a phone.
+
+## v637 — 2026-11-26
+
+**Ask:**
+- Use this curled Marian "M" (image supplied) for Heavenly Guidance instead of the cross-and-M drawing.
+
+**Implementation:**
+- Replaced the v636 line-art LL_MARY_M with a transparent gold PNG (128px, about 12 KB) made from the supplied image and embedded as a data URI, so no file needs uploading. llIconHtml() returns it as an img.llIcon for Marian Apparition entries. The timeline lane icon (the star) is unchanged.
+- Not tested on a phone.
+
+## v636 — 2026-11-26
+
+**Ask:**
+- Heavenly Guidance should use the fancy Mary "M".
+
+**Implementation:**
+- New LL_MARY_M inline SVG (a Latin cross above a serif-footed M with a base line, gold line art, drawn for this app). llIconHtml() returns it for Marian Apparition entries instead of the star. The timeline lane icon (ICONS.m, the star) is unchanged.
+- Not tested on a phone.
+
+## v635 — 2026-11-26
+
+**Ask:**
+- Give each category its own heading over the story instead of "Life & Legacy" everywhere.
+
+**Implementation:**
+- New llTitleFor(type) beside llIconHtml(). Titles: Saint "Life & Legacy"; Council "Into All Truth"; Persecution "Enduring Perseverance"; Marian Apparition "Heavenly Guidance"; Eucharistic Miracle "Faith Made Visible"; Event "Church in History". Any other type falls back to "Life & Legacy". Text is HTML-escaped; the CSS is unchanged.
+- "Enduring Perseverance" is the longest and may wrap to two lines on a narrow phone; the heading row is a flex row, so it wraps rather than overflowing. Not tested on a phone.
+
+## v634 — 2026-11-26
+
+**Ask:**
+- The Life & Legacy feather works for saints but not the other categories; they need another icon.
+
+**Implementation:**
+- The #llHead icon is now chosen by entry type. Saints (and anything without a matching icon) keep the feather image. Council, Persecution, Event, Marian Apparition and Eucharistic Miracle use the same gold line icons as their timeline lanes (the ICONS table), drawn inline at 34px in the heading's gold colour: temple, flame, Latin cross, star, host and chalice. New .llIcon.llSvg rule and a small llIconHtml(type) helper.
+- The title text is still "Life & Legacy" for every type; changing it per category is a one-line edit.
+- Not tested on a phone.
+
+## v633 — 2026-11-25
+
+**Ask:**
+- All my finalize-image tasks failed (Perpetua & Felicity, Cosmas & Damian, Sebastian, Lucy, Januarius, Marcellinus & Peter, Catherine, Cyprian...). A waste of time; something is wrong with the image workflow.
+
+**Implementation:**
+- Every failed task is a martyr, the same pattern as the St. Pancras generate failure, so the likely cause is OpenAI's safety system refusing the high-quality pass (images/edits) on martyrdom imagery. The error text itself was not visible to me, so this is a diagnosis by pattern, not confirmed.
+- New tkAutoRecoverFinalSafety(), run from loadWorkLog: an image-finalize task that failed with a safety refusal is not retried (the picture itself is what is refused). Instead the Winner you already chose (payload.candidatePath) is linked into the entry as its image, published once, and the task is marked done with decision "approve" and usedCandidate = true. Other kinds of finalize errors are left alone for a human.
+- Cost of the fallback: the entry gets the candidate you picked, not the higher-quality refinement of it.
+- Not tested against a real run.
+
+## v632 — 2026-11-25
+
+**Ask:**
+- I get tons of the image-generation "rejected by the safety system (violence)" errors (martyrs).
+
+**Implementation:**
+- New tkAutoRetrySafety(), run from loadWorkLog: an image-generate task that failed with an OpenAI safety rejection (safety_violations / "rejected by the safety system") is requeued once, with a standing safety note added to its payload.notes (calm devotional portrait; no weapons, blood, wounds, torture or execution; a martyr is shown with the palm and a peaceful expression) and payload.safetyRetry = true. If the second try is also rejected it stays failed for a human. Tasks you retry by hand are untouched.
+- Limit: this relies on image-generate.mjs passing payload.notes into the scene prompt (the Neither/regenerate path already does). The generator itself still fails both candidates when one is refused (Promise.all); that needs a change to scripts/services/image-generate.mjs, which I have not seen.
+- Not tested against a real run.
+
 ## v631 — 2026-11-25
 
 **Ask:**
@@ -54,6 +121,121 @@ CHANGELOG:BEGIN
 - glideScrollTo(): 0.45–0.95 s (was 0.7–1.8 s), eased in and out, time-based; it does nothing per frame except set scrollTop. The old animation also ran syncStickyBackdrops() and updateFly() every frame, on top of the scroll listeners that already update the white bar and the portrait on every scroll event, which is the likely cause of the choppiness. animateFollowScroll (section changes) no longer does either per frame; both run once at the end.
 - A touch on the page now also cancels a glide in flight, so the finger always wins.
 - Not tested on a phone: I could not measure the frame rate here.
+
+## v628 — 2026-11-25
+
+**Ask:**
+- Undo the sticky Life & Legacy. Put the tapered line at the end of the Life & Legacy heading, on the same row, as in the design image. Leave the underline below the first story heading as it is.
+
+**Implementation:**
+- Removed the v627 sticky block: .llWrap/.llStick, llSync/llStuckH, the scroll listener, and the pinned-height terms in snapSafeTop and the audio follow-scroll. Back to v626's plain heading.
+- The .llTaper line now sits in the same row after the title (flex: 1, 2px, gold fading to transparent) instead of on its own line under it. The first story heading's own underline is untouched.
+- Not tested on a phone.
+
+## v627 — 2026-11-25
+
+**Ask:**
+- Make Life & Legacy sticky when it gets to the top.
+
+**Implementation:**
+- Feather, title and taper line are now one #llHead block inside a new .llWrap that also holds #artStoryText, so it pins under the article's sticky header while the story scrolls and lets go where the story ends (Sources and the rest scroll normally). Its top offset is the sticky header's height (llSync, run from syncStickyBackdrops and on scroll).
+- While pinned (.stuck) it paints the sheet's own gradient behind itself (--cardGrad / --cardH, offset by its top), like the header does, so text slides under it without showing through.
+- Line-snap (snapSafeTop) and the audio follow-scroll now count the pinned block's height, so a sentence is not left hidden under it.
+- Not tested on a phone.
+
+## v626 — 2026-11-25
+
+**Ask:**
+- Forget the chevron and the collapse/button feature. Keep Life & Legacy as a plain section heading, with smaller text and a slightly smaller icon, ending in the tapered line like the one under the saint's name.
+
+**Implementation:**
+- Removed the chevron, the collapse handler, the .storyCollapsed styling and the audio-follow guard added in v623–v625. #llHead is now a plain div (feather, small-caps title) followed by a .llTaper line (gold fading to transparent, as under the name). Title 24px (was 32), icon 34px (was 44). Icon still loads Images/icons/life-legacy.png with the embedded copy as fallback.
+- Not tested on a phone.
+
+## v625 — 2026-11-25
+
+**Ask:**
+- Less space after "Life & Legacy". The last paragraph still showed when collapsed: it should collapse fully, animated, so the story is sucked into the section, the chevron flips, and the section turns a lighter blue with rounded corners, like a button. The title in small caps.
+
+**Implementation:**
+- Collapsing now hides the whole story (the keep-the-last-paragraph rule and .llLast are gone). #artStoryText animates its height to 0 and fades (.38 s); expanding animates back, then the inline height is cleared. The header gains a lighter-blue rounded panel while collapsed; the chevron already rotates.
+- Title uses font-variant: small-caps. Gap below the header cut: the first story heading's top margin is 8px (was 26px) and the header's bottom margin is 0.
+- Still a <button>; audio keeps playing; follow-scroll still pauses while collapsed. Not tested on a phone.
+
+## v624 — 2026-11-25
+
+**Ask:**
+- The feather icon is already in the repo; use it.
+
+**Implementation:**
+- The Life & Legacy header now loads Images/icons/life-legacy.png. If that file is missing or fails to load, it falls back to the copy embedded in the page (LL_ICON), so the header never shows a broken image. Nothing else changed from v623.
+- Not tested on a phone.
+
+## v623 — 2026-11-25
+
+**Ask:**
+- Add the golden feather and the words "Life & Legacy" above the story, like the design (no trailing line). A chevron collapses the story down to its last paragraph; Sources & Further Reading stays as it is. If audio is playing, it keeps playing.
+
+**Implementation:**
+- New #llHead button (feather icon embedded as a data URI, so no file needs uploading; title-case serif; chevron on the right) placed right before #artStoryText, only when the article has story sections. Collapsing toggles .storyCollapsed on #artStoryText and marks the last paragraph .llLast; CSS hides every other heading and paragraph. Nothing is re-rendered, so audio and its sentence highlighting are untouched. It is a <button>, so the tap-to-pause and article-swipe handlers already ignore it.
+- driveAudioFollow() returns early while collapsed (its scroll targets would be hidden headings).
+- Expanded by default each time an article opens. Not tested on a phone. node --check and the tag/brace checkers only.
+
+## v622 — 2026-11-24
+
+**Ask:**
+- Press and hold must open the pronunciation dialog on ANY word, including a linked word (the hold used to follow the link). A quick tap still follows the link.
+- The dialog gets a word strip (previous / current / next word) that moves word by word by swipe or arrow buttons, expand and shrink controls on each side, and the surrounding sentence with the picked words highlighted. It never changes articles or follows a link.
+- Dragging the text-selection handles must stop triggering the next/previous-article swipe.
+
+**Implementation:**
+- Picker text is now the whole paragraph (text nodes joined; <br> and block edges act as hard breaks), so words can be stepped and phrases grown across links and bold text. lpState is { block, text, segs, tokens, lo, hi }; lpAnchor() maps the start back to a text node for the Link-to-an-entry path and the occurrence counts.
+- Hold: the "a, .entrylink" exclusion is gone from the hold handler; the click that ends a hold is swallowed until the finger lifts (it was a fixed 900 ms window, too short for a long hold on a link). Link-to-an-entry is hidden for words inside a link, and refused for a phrase that crosses a link or bold edge.
+- Strip: #lpGlass (swipe, 38 px per word, vertical drags ignored), #lpPrev/#lpNext, tap a neighbour word to step; #lpLShrink/#lpLGrow/#lpRShrink/#lpRGrow; #lpContext. Growing never crosses a paragraph or line break. Saving is untouched: the rule text is still lpCleanPhrase(lpCurrentPhrase()).
+- Swipe guard (article touchstart/touchmove/touchend): ignored while any text is selected (checked at start, during the move and at the end, since a long-press selection and the handle drag are one touch), while the picker is open, and unless the move is at least twice as wide as tall (was 1.5).
+- Not tested on a phone. node --check and the tag/brace checkers only.
+
+## v621 — 2026-11-23
+
+**Ask:**
+- I'm done with the "Sentence sync" line at the top of an article. That was solved a while ago. Remove it.
+
+**Implementation:**
+- Removed the #apCueStatus line from the article player and its .apCueStatus CSS. wireSentenceCues() still runs unchanged; its status messages now go to console.debug only.
+- Not tested on a phone. node --check and the tag/brace checkers only.
+
+## v620 — 2026-11-21
+
+**Ask:**
+- Search is hard to use on my iPhone. I tap the search box and start typing, then look up and see nothing typed; I have to tap twice to get it ready to type.
+
+**Implementation:**
+- From the screen recording (iPhone): the first tap opens the keyboard and the recent list but no caret (a second tap gives the Paste/AutoFill bubble, then typing works). A moment after the first letter the whole page is scrolled up so the header and search box are off the top of the screen while the keyboard stays up, so the typing cannot be seen. The box comes back when the results list appears.
+- Cause of the page scroll is not confirmed: I could not reproduce iOS keyboard behaviour here. The page itself (body, overflow hidden) is being scrolled by Safari; the fix below holds it at the top while the search box has focus.
+- Fix 1: while #tlSearch is focused, any page scroll or visual-viewport shift is put back to 0,0 (on scroll, visualViewport scroll/resize, and a few timed checks after focus).
+- Fix 2: focusing the empty box now only draws the recent list; it no longer redraws the whole timeline (render()) in the same moment the keyboard opens. The same applies to the first one or two letters, where nothing changes on the timeline anyway. The timeline is redrawn only when highlights actually change.
+- Not tested on a phone. If the first tap still needs a second, tell me what the box shows.
+
+## v619 — 2026-11-21
+
+**Ask:**
+- Fixed how IX sounds, but many already-recorded articles contain it. Give me back a way to queue every article that has a given word in it, so they can all be re-recorded.
+
+**Implementation:**
+- Add Task, Record audio: new box "Re-record every recorded article containing this word" (#tkWordFix). Type a word (e.g. IX) and the list becomes every article that already has a recording and whose spoken text (the saint's name, section headings and bodies) contains that exact word, matched whole-word and case-sensitive the same way the pronunciation rules are. It ignores the audioPron stamp, so articles re-recorded after earlier fixes are included. Entries marked Listened are still left out when that box is ticked; set Quantity high to queue them all at once.
+- The existing "recorded before the pronunciation fix" checkbox is unchanged. The new box takes priority when it has a word in it.
+- Not tested on a phone. node --check and the tag-balance check pass.
+
+## v618 — 2026-11-21
+
+**Ask:**
+- In Review Mode, the Listened button, once it marks a story as listened, goes to the next story in the same group (a saint goes to the next saint) that is not yet marked Listened, opens it, and starts playing it. (First built as a separate Next button; removed at my request.)
+- In Review Mode, after the closing prayer is read, don't scroll back to the top: stay at the bottom where the buttons are.
+
+**Implementation:**
+- Pressing Listened (to mark, not to uncheck) now calls reviewGoNext() right after the save is started, before it is awaited. reviewGoNext() walks forward through filtered() entries of the same type t, skips any that are already Listened, have no recording of their own, or have no story text, opens the first one left with openArticle(), and calls startAudioPlayback() inside the same tap so iPhone Safari allows the sound. It does not wrap around; at the end of the list it says so in the status line. The target is opened from the top: its remembered scroll and audio position are cleared first.
+- The top-of-story reset after the closing prayer (finaleRise, v575) is skipped in Review Mode. finaleStayPut() just switches the white marker off and leaves the page and the playback position where they are. Normal readers still get the rise.
+- Not tested on a phone. Checked with node --check and the tag/brace checkers only.
 CHANGELOG:END
 -->
 <!DOCTYPE html>
@@ -2421,6 +2603,8 @@ CHANGELOG:END
   /* v626: Life & Legacy — a plain section heading: feather + small-caps title, then the tapered line */
   .llHead{display:flex; align-items:center; gap:10px; margin:24px 0 0; color:var(--gold-bright);}
   .llIcon{width:34px; height:34px; object-fit:contain; flex:0 0 auto;}
+  .llIcon.llSvg{display:block; color:var(--gold-bright);}
+  .llIcon.llSvg svg{width:100%; height:100%; display:block;}
   .llTitle{font-family:var(--serif, Georgia, serif); font-weight:700; font-variant:small-caps; font-size:calc(24px * var(--txt)); letter-spacing:.05em; line-height:1.1; color:var(--gold-bright);}
   .llTaper{flex:1 1 auto; min-width:24px; height:2px; margin:4px 0 0 6px; background:linear-gradient(90deg, var(--gold-bright), transparent);}
   #artStoryText > .arth:first-child{margin-top:12px;}
@@ -5419,7 +5603,7 @@ const DB_KEY = 'catholic-timeline-db';
 // Bumped by hand each time a new build is produced — matches the HTML comment at the very
 // top of the file. Shown in the Manage top bar so it's easy to confirm which build a given
 // site is actually running, without having to view source.
-const APP_VERSION = 'v631';
+const APP_VERSION = 'v638';
 const LL_ICON = 'data:image/png;base64,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';
 
 document.getElementById('mgmtVersion').textContent = APP_VERSION;
@@ -8018,6 +8202,8 @@ async function loadWorkLog(){
     renderWorkLog();
     await tkAutoApproveSentenceRewords();
     await tkAutoApproveFinals();   // v631
+    await tkAutoRetrySafety();     // v632
+    await tkAutoRecoverFinalSafety();   // v633
   }catch(err){
     // AbortError means fetchTimeout's own timer fired, not a real network failure — worded
     // separately so a stall reads as "try again," not as a token/permissions problem.
@@ -12129,6 +12315,59 @@ async function tkAutoApproveSentenceRewords(){
 // stopping the SAME session's live-watch loop from hammering the same dead end forever.
 const tkAutoApproveFailedIds = new Set();
 
+// v633: a finalize task refused by OpenAI's safety system keeps its candidate: the Winner Tom already chose goes live as the
+// entry's image (publish once), so the failure stops costing him another round of picking.
+let tkFinalRecoverBusy = false;
+async function tkAutoRecoverFinalSafety(){
+  if(!wlData || tkFinalRecoverBusy) return;
+  const tasks = wlData.tasks.filter(t => t.type === 'image-finalize' && t.status === 'error' &&
+    /safety_violations|rejected by the safety system/i.test(String(t.error || '')) &&
+    t.payload && t.payload.candidatePath && !tkAutoApproveFailedIds.has(t.id));
+  if(!tasks.length) return;
+  tkFinalRecoverBusy = true;
+  try{
+    const ok = [];
+    for(const t of tasks){
+      const entry = getEntry(t.entityId);
+      if(!entry){ tkAutoApproveFailedIds.add(t.id); continue; }
+      entry.img = t.payload.candidatePath;
+      dirtyEntryIds.add(t.entityId);
+      ok.push(t);
+    }
+    if(!ok.length) return;
+    const published = await publishToGitHub();
+    if(!published){ ok.forEach(t => tkAutoApproveFailedIds.add(t.id)); wlSetLog('Could not publish the chosen candidate image(s) \u2014 check your GitHub token.', true); return; }
+    const now = new Date().toISOString();
+    ok.forEach(t => {
+      t.status = 'done'; t.error = null; t.updatedAt = now;
+      t.result = Object.assign({}, t.result || {}, { decision: 'approve', usedCandidate: true, finalPath: t.payload.candidatePath });
+    });
+    await saveWorkLog('Safety-refused finalize: used the chosen candidate for ' + ok.map(t => t.entityId).join(', '), ok.map(t => t.id));
+    renderWorkLog();
+    wlSetLog(ok.length + ' image(s) were refused by the safety system at the final pass; your chosen candidate is live instead.', false);
+  }finally{ tkFinalRecoverBusy = false; }
+}
+
+// v632: an image-generate task refused by OpenAI's safety system (almost always a martyr's scene) is requeued ONCE with a
+// standing safety note in its notes. payload.safetyRetry marks that it already had its one extra try.
+const TK_SAFETY_NOTE = 'Safety note: show the saint in a calm, devotional portrait. No weapons, blood, wounds, torture, executions or any depiction of violence; if the saint was a martyr, show the palm of martyrdom and a peaceful expression instead.';
+async function tkAutoRetrySafety(){
+  if(!wlData) return;
+  const tasks = wlData.tasks.filter(t => t.type === 'image-generate' && t.status === 'error' &&
+    /safety_violations|rejected by the safety system/i.test(String(t.error || '')) && !(t.payload && t.payload.safetyRetry));
+  if(!tasks.length) return;
+  const now = new Date().toISOString();
+  tasks.forEach(t => {
+    t.payload = Object.assign({}, t.payload || {});
+    const prev = String(t.payload.notes || '').trim();
+    t.payload.notes = prev ? prev + '\n\n' + TK_SAFETY_NOTE : TK_SAFETY_NOTE;
+    t.payload.safetyRetry = true;
+    t.status = 'queued'; t.error = null; t.updatedAt = now;
+  });
+  const saved = await saveWorkLog('Requeued ' + tasks.length + ' image task(s) refused by the safety system, with a safety note', tasks.map(t => t.id));
+  if(saved && saved.ok !== false) renderWorkLog();
+}
+
 // v631: a finalize task queued by Winner with no notes (payload.autoApprove) is approved here as soon as it reaches
 // awaiting_review, the same steps as tkResolveFinal('approve') without the screen: link the final image into the
 // entry, publish once, mark the task done. A task with notes, or one sent back with Redo, is never touched.
@@ -13021,6 +13260,19 @@ function checkPlaybackFallback(d){
   }).catch(() => {});
 }
 let landCardFacts = false;   // v551: the landscape card is showing Quick Facts (so the story leaves them out)
+// v636: Marian monogram for the Heavenly Guidance heading (cross over a serif M); the lane keeps its star.
+const LL_MARY_M = 'data:image/png;base64,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';
+// v634: heading icon by entry type — feather for saints (and any type without a glyph), the lane's own icon otherwise.
+function llIconHtml(t){
+  if(t === 'm') return '<img class="llIcon" src="' + LL_MARY_M + '" alt="">';
+  if(t && t !== 's' && ICONS[t]) return '<span class="llIcon llSvg" aria-hidden="true">' + ICONS[t] + '</span>';
+  return '<img class="llIcon" src="Images/icons/life-legacy.png" alt="" onerror="this.onerror=null;this.src=LL_ICON">';
+}
+// v635: heading text by entry type (already HTML-escaped; '&' written as &amp;).
+function llTitleFor(t){
+  const T = {s:'Life &amp; Legacy', c:'Into All Truth', p:'Enduring Perseverance', m:'Marian Messages', u:'Faith Made Visible', e:'Church in History'};
+  return T[t] || T.s;
+}
 function fillArticleBody(d, peek){
   finaleReset();   // v569
   // v540: no link, but an older recording was found -> draw from a copy that has it
@@ -13157,8 +13409,8 @@ function fillArticleBody(d, peek){
   // image-lightbox one, below.
   if((art.sections || []).length){
     html += '<div class="llHead" id="llHead">' +
-      '<img class="llIcon" src="Images/icons/life-legacy.png" alt="" onerror="this.onerror=null;this.src=LL_ICON">' +
-      '<span class="llTitle">Life &amp; Legacy</span>' +
+      llIconHtml(d.t) +
+      '<span class="llTitle">' + llTitleFor(d.t) + '</span>' +
       '<span class="llTaper"></span></div>';
   }
   html += '<div id="artStoryText">';
