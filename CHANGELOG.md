@@ -19,6 +19,103 @@ the time.
 
 ---
 
+## v641 — 2026-11-26
+
+**Ask:**
+- The "=" deep search is where the two-letter Roman-numeral search is needed.
+
+**Implementation:**
+- "=IX" (also "=XI", "=IV" and so on) now works in the main timeline search and in Manage's Export search. It searches every field including the article text, case-sensitively and as a whole word, so "=IX" finds "Pius IX" in an article but not "six" or "Felix". The result line shows a snippet around the first real match. A pair without "=" still searches names only (v640).
+- New romanSnippet(fields, pair) for that snippet (the old snippet finder is case-insensitive and could land on "six"). The Export list shows the plain snippet, without yellow highlighting, for such a search, because the highlighter ignores case.
+- Not tested on a phone.
+
+## v640 — 2026-11-26
+
+**Ask:**
+- In a search box, allow a two-character search only if it is an uppercase Roman numeral; make that search case sensitive.
+
+**Implementation:**
+- New isRomanPair(s): exactly two characters, all uppercase, forming a valid Roman numeral (II, IV, VI, IX, XI, XV, XX, XL, LX, XC and so on). The main timeline search (#tlSearch) still needs 3 characters, except for such a pair. A pair is matched case-sensitively and as a whole word against the entry name and its alternate names, so "IX" finds Pius IX but not "six", "Felix" or "ix". It does not apply to the "=" deep search.
+- Find in this article (hold the year): the minimum was 2 characters of anything; it is now 3, except an uppercase Roman-numeral pair, which is matched case-sensitively. Longer searches are unchanged and still ignore case.
+- Not changed: the other list filters (Saints panel, Browse, Manage entries, Export search, Pronunciation rules) have no minimum length and stay case-insensitive. Making every search case sensitive would stop "peter" finding "Peter", so I limited it to the Roman-numeral pair.
+- Not tested on a phone.
+
+## v639 — 2026-11-26
+
+**Ask:**
+- Pressing and holding the year no longer opens the find box; it selects the number.
+
+**Implementation:**
+- The hold handler (pointerdown/up on .ahYear, v583) was untouched, but .ahYear itself had no user-select rule, so iOS began a text selection at about the same moment as the 450 ms hold, which ends the press before pointerup. Added -webkit-user-select:none, user-select:none and -webkit-touch-callout:none to .review-on .ahYear (and the whole .ahYearRow in Review Mode), the same recipe the story text already uses for press-and-hold. Also clears any selection that does start on the year, and suppresses the tap highlight.
+- Not tested on a phone.
+
+## v638 — 2026-11-26
+
+**Ask:**
+- Change the Marian Apparition heading text to "Marian Messages".
+
+**Implementation:**
+- One string in llTitleFor(): m was "Heavenly Guidance", now "Marian Messages". Nothing else changed.
+- Not tested on a phone.
+
+## v637 — 2026-11-26
+
+**Ask:**
+- Use this curled Marian "M" (image supplied) for Heavenly Guidance instead of the cross-and-M drawing.
+
+**Implementation:**
+- Replaced the v636 line-art LL_MARY_M with a transparent gold PNG (128px, about 12 KB) made from the supplied image and embedded as a data URI, so no file needs uploading. llIconHtml() returns it as an img.llIcon for Marian Apparition entries. The timeline lane icon (the star) is unchanged.
+- Not tested on a phone.
+
+## v636 — 2026-11-26
+
+**Ask:**
+- Heavenly Guidance should use the fancy Mary "M".
+
+**Implementation:**
+- New LL_MARY_M inline SVG (a Latin cross above a serif-footed M with a base line, gold line art, drawn for this app). llIconHtml() returns it for Marian Apparition entries instead of the star. The timeline lane icon (ICONS.m, the star) is unchanged.
+- Not tested on a phone.
+
+## v635 — 2026-11-26
+
+**Ask:**
+- Give each category its own heading over the story instead of "Life & Legacy" everywhere.
+
+**Implementation:**
+- New llTitleFor(type) beside llIconHtml(). Titles: Saint "Life & Legacy"; Council "Into All Truth"; Persecution "Enduring Perseverance"; Marian Apparition "Heavenly Guidance"; Eucharistic Miracle "Faith Made Visible"; Event "Church in History". Any other type falls back to "Life & Legacy". Text is HTML-escaped; the CSS is unchanged.
+- "Enduring Perseverance" is the longest and may wrap to two lines on a narrow phone; the heading row is a flex row, so it wraps rather than overflowing. Not tested on a phone.
+
+## v634 — 2026-11-26
+
+**Ask:**
+- The Life & Legacy feather works for saints but not the other categories; they need another icon.
+
+**Implementation:**
+- The #llHead icon is now chosen by entry type. Saints (and anything without a matching icon) keep the feather image. Council, Persecution, Event, Marian Apparition and Eucharistic Miracle use the same gold line icons as their timeline lanes (the ICONS table), drawn inline at 34px in the heading's gold colour: temple, flame, Latin cross, star, host and chalice. New .llIcon.llSvg rule and a small llIconHtml(type) helper.
+- The title text is still "Life & Legacy" for every type; changing it per category is a one-line edit.
+- Not tested on a phone.
+
+## v633 — 2026-11-25
+
+**Ask:**
+- All my finalize-image tasks failed (Perpetua & Felicity, Cosmas & Damian, Sebastian, Lucy, Januarius, Marcellinus & Peter, Catherine, Cyprian...). A waste of time; something is wrong with the image workflow.
+
+**Implementation:**
+- Every failed task is a martyr, the same pattern as the St. Pancras generate failure, so the likely cause is OpenAI's safety system refusing the high-quality pass (images/edits) on martyrdom imagery. The error text itself was not visible to me, so this is a diagnosis by pattern, not confirmed.
+- New tkAutoRecoverFinalSafety(), run from loadWorkLog: an image-finalize task that failed with a safety refusal is not retried (the picture itself is what is refused). Instead the Winner you already chose (payload.candidatePath) is linked into the entry as its image, published once, and the task is marked done with decision "approve" and usedCandidate = true. Other kinds of finalize errors are left alone for a human.
+- Cost of the fallback: the entry gets the candidate you picked, not the higher-quality refinement of it.
+- Not tested against a real run.
+
+## v632 — 2026-11-25
+
+**Ask:**
+- I get tons of the image-generation "rejected by the safety system (violence)" errors (martyrs).
+
+**Implementation:**
+- New tkAutoRetrySafety(), run from loadWorkLog: an image-generate task that failed with an OpenAI safety rejection (safety_violations / "rejected by the safety system") is requeued once, with a standing safety note added to its payload.notes (calm devotional portrait; no weapons, blood, wounds, torture or execution; a martyr is shown with the palm and a peaceful expression) and payload.safetyRetry = true. If the second try is also rejected it stays failed for a human. Tasks you retry by hand are untouched.
+- Limit: this relies on image-generate.mjs passing payload.notes into the scene prompt (the Neither/regenerate path already does). The generator itself still fails both candidates when one is refused (Promise.all); that needs a change to scripts/services/image-generate.mjs, which I have not seen.
+- Not tested against a real run.
+
 ## v631 — 2026-11-25
 
 **Ask:**
